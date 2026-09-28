@@ -50,9 +50,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        # NOTE: frontend/package-lock.json is not committed yet (see Issue #14).
-        # Change this to `npm ci` once the lock file is committed.
-        run: npm install
+        run: npm ci
 
       - name: Run ESLint
         working-directory: frontend
@@ -82,7 +80,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm install
+        run: npm ci
 
       - name: Build
         working-directory: frontend
