@@ -367,7 +367,5 @@ Tick every box before you move on to real work.
 
 ---
 
-
-
 **Setup taking longer than expected? Send the error message or a screenshot to
 your team lead before changing anything manually.**

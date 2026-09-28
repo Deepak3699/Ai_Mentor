@@ -1,0 +1,198 @@
+name: CI
+
+# This workflow runs on every pull request, and on every push to main.
+# Each job checks one service, so it is obvious where a failure came from.
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main]
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # BACKEND (Node + Express, port 5000)
+  # ─────────────────────────────────────────────────────────────
+  lint-backend:
+    name: Lint backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: backend
+        run: npm run lint
+
+  # ─────────────────────────────────────────────────────────────
+  # FRONTEND — learner app (React, port 5173)
+  # ─────────────────────────────────────────────────────────────
+  lint-frontend:
+    name: Lint frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        # NOTE: frontend/package-lock.json is not committed yet (see Issue #14).
+        # Change this to `npm ci` once the lock file is committed.
+        run: npm install
+
+      - name: Run ESLint
+        working-directory: frontend
+        run: npm run lint
+
+  build-frontend:
+    name: Build frontend
+    runs-on: ubuntu-latest
+    env:
+      # Dummy values only. The Vite env-validator refuses to start the build
+      # when these are missing, so we supply placeholders for CI.
+      VITE_API_BASE_URL: http://localhost:5000
+      VITE_FIREBASE_API_KEY: ci-dummy-key
+      VITE_FIREBASE_AUTH_DOMAIN: ci-dummy.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: ci-dummy
+      VITE_FIREBASE_STORAGE_BUCKET: ci-dummy.appspot.com
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+      VITE_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000000000"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm install
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  # ─────────────────────────────────────────────────────────────
+  # FRONTEND ADMIN — admin panel (React, port 5174)
+  # ─────────────────────────────────────────────────────────────
+  lint-admin-frontend:
+    name: Lint admin frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontendAdmin/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontendAdmin
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: frontendAdmin
+        run: npm run lint
+
+  build-admin-frontend:
+    name: Build admin frontend
+    runs-on: ubuntu-latest
+    env:
+      VITE_API_BASE_URL: http://localhost:5001
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontendAdmin/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontendAdmin
+        run: npm ci
+
+      - name: Build
+        working-directory: frontendAdmin
+        run: npm run build
+
+  # ─────────────────────────────────────────────────────────────
+  # BACKEND ADMIN (Node + Express, port 5001)
+  # ─────────────────────────────────────────────────────────────
+  lint-backend-admin:
+    name: Lint backendAdmin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backendAdmin/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backendAdmin
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: backendAdmin
+        run: npm run lint
+
+  # ─────────────────────────────────────────────────────────────
+  # AI SERVICE (Python + FastAPI, port 8000)
+  # ─────────────────────────────────────────────────────────────
+  lint-ai-service:
+    name: Check ai_service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Syntax check
+        # Imports are not executed here, only compiled, so no API keys are needed.
+        run: python -m compileall -q ai_service/backend/api.py ai_service/backend/config.py
+
+      - name: Check requirements.txt is valid
+        working-directory: ai_service
+        run: |
+          python -m pip install --upgrade pip
+          pip install --dry-run -r backend/requirements.txt
+
+  # ─────────────────────────────────────────────────────────────
+  # SECRET SCAN — make sure no .env file slipped in
+  # ─────────────────────────────────────────────────────────────
+  check-no-secrets:
+    name: Check for committed secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if a .env file is committed
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$'; then
+            echo "A .env file is committed to git. Remove it with:"
+            echo "   git rm --cached <file>"
+            exit 1
+          fi
+          echo "No .env files committed"
