@@ -191,9 +191,8 @@ Leave `PORT=5000` and `AI_SERVICE_URL=http://127.0.0.1:8000` as they are.
 VITE_API_BASE_URL=http://localhost:5001
 ```
 
-> ⚠️ **The template file says `http://localhost:5000`. That is wrong.**
-> The admin API runs on **5001**. Change it to 5001 or the admin dashboard
-> will not load any data. (Tracked as issue #2.)
+> The admin API runs on **5001**. Keep this value unchanged or the admin
+> dashboard will not load its data.
 
 ### 5.5 `ai_service/backend/.env`
 
@@ -278,12 +277,15 @@ npm run seed:superadmin
 This creates the admin using the `SUPER_ADMIN_NAME`, `SUPER_ADMIN_EMAIL` and
 `SUPER_ADMIN_PASSWORD` from `backendAdmin/.env`.
 
-Optional — load sample courses:
-
+Load the included courses into a new, empty development database:
 ```bash
 cd backend
 npm run seed:courses
 ```
+The normal command seeds only an empty course database. If courses already exist,
+it exits successfully without deleting or duplicating data. Destructive reset mode
+is reserved for maintainers and must never be used on shared, staging, or production
+databases.
 
 ---
 
@@ -353,6 +355,7 @@ Tick every box before you move on to real work.
 - [ ] http://localhost:5001/health reports the server is running
 - [ ] http://localhost:8000/docs opens
 - [ ] Admin seeded with `npm run seed:superadmin`
+- [ ] Included courses seeded once with `npm run seed:courses` on the new empty database
 - [ ] Logged in to both the learner app and the admin panel
 - [ ] No `.env` file appears in `git status`
 
@@ -366,6 +369,8 @@ Tick every box before you move on to real work.
 - Ask before changing application code during setup.
 
 ---
+
+
 
 **Setup taking longer than expected? Send the error message or a screenshot to
 your team lead before changing anything manually.**
