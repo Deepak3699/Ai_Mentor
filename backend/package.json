@@ -9,7 +9,8 @@
     "dev": "nodemon server.js",
     "seed:courses": "node scripts/seedCourses.js",
     "clear:preferences": "node scripts/clearPreferences.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node --test"
   },
   "dependencies": {
     "@google/genai": "^2.7.0",

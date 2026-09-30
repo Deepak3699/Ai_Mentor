@@ -177,6 +177,7 @@ def get_status(job_id: str):
 def generate_syllabus(data: SyllabusRequest):
 
     prompt = f"""
+    
     Create a highly structured course syllabus for a course titled '{data.course_title}'.
     Category: {data.category or 'General Education'}
     
