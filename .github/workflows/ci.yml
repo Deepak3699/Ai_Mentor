@@ -33,6 +33,10 @@ jobs:
         working-directory: backend
         run: npm run lint
 
+      - name: Run tests
+        working-directory: backend
+        run: npm test
+
   # ─────────────────────────────────────────────────────────────
   # FRONTEND — learner app (React, port 5173)
   # ─────────────────────────────────────────────────────────────

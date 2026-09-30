@@ -84,6 +84,11 @@ const login = async (req, res) => {
 
     const isMatch = await user.matchPassword(password);
 
+if (user.isBlocked) {
+  return res.status(403).json({ message: "Account suspended" });
+}
+
+
     if (user && user.password && isMatch) {
       await ensureProfileCompleteness(user);
       res.json({
@@ -194,11 +199,11 @@ const googleLogin = async (req, res) => {
         role: "user",
       });
     } else {
-      let changed = false;
-      if (!user.googleId) {
-        user.googleId = uid;
-        changed = true;
-      }
+  if (user.isBlocked) {
+    return res.status(403).json({ message: "Account suspended" });
+  }
+
+  let changed = false;
 
       if (!user.firstName && firstName) {
         user.firstName = firstName;

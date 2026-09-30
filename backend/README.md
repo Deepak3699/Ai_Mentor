@@ -198,7 +198,7 @@ Notes:
 | `POST` | `/generate-video` | Generate an AI lesson video (with DB caching) | ✅ |
 | `GET` | `/status/:jobId` | Poll generation job status | ✅ |
 | `GET` | `/transcript/:filename` | Fetch transcript text (with DB caching) | — |
-| `GET` | `/video/:courseId/:filename` | Proxy video stream from AI service | — |
+| `GET` | `/video/:courseId/:filename` | Proxy video stream from AI service (must be enrolled in `courseId`; 404 if the file does not belong to that course) | ✅ |
 
 ### Community — `/api/community`
 
