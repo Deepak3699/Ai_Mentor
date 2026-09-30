@@ -6,15 +6,16 @@ import asyncio
 import edge_tts
 import cloudinary
 import cloudinary.uploader
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import json
 from google import genai
 from groq import Groq
 from config import (
     GEMINI_API_KEY,
+    GEMINI_MODEL,
     GROQ_API_KEY,
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
@@ -62,14 +63,14 @@ groq_client = Groq(
 # Request Model
 # --------------------------
 class LessonRequest(BaseModel):
-    course: str
-    topic: str
-    celebrity: str
+    course: str = Field(..., min_length=1, max_length=100)
+    topic: str = Field(..., min_length=1, max_length=200)
+    celebrity: str = Field("modi", min_length=1, max_length=50)
     preferences: dict | None = None
 
 class SyllabusRequest(BaseModel):
-    course_title: str
-    category: str | None = None
+    course_title: str = Field(..., min_length=1, max_length=100)
+    category: str | None = Field(None, min_length=1, max_length=50)
 
 # --------------------------
 # Helpers
@@ -120,11 +121,25 @@ def home():
 
 @app.get("/transcript/{filename}")
 def get_transcript(filename: str):
-    file_path = os.path.join(BASE_DIR, "outputs", "text", filename)
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
+    if not re.fullmatch(r"[A-Za-z0-9_-]+\.txt", filename):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    base = os.path.realpath(
+        os.path.join(BASE_DIR, "outputs", "text")
+    )
+    target = os.path.realpath(
+        os.path.join(base, filename)
+    )
+
+    if not target.startswith(base + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    if os.path.isfile(target):
+        with open(target, "r", encoding="utf-8") as f:
             content = f.read()
+
         return {"content": content}
+
     return {"error": "Transcript not found"}
 
 @app.get("/status/{job_id}")
@@ -141,7 +156,18 @@ def get_status(job_id: str):
 # --------------------------
 @app.post("/generate-syllabus")
 def generate_syllabus(data: SyllabusRequest):
+    """
+    Generate a structured course syllabus using AI.
+
+    Tries Gemini first and falls back to Groq if Gemini fails.
+    This endpoint is synchronous and may take several seconds to complete.
+
+    Returns:
+        A JSON object containing generated modules and lessons,
+        or an error message if both AI providers fail.
+    """
     prompt = f"""
+    
     Create a highly structured course syllabus for a course titled '{data.course_title}'.
     Category: {data.category or 'General Education'}
     
@@ -170,9 +196,9 @@ def generate_syllabus(data: SyllabusRequest):
     """
 
     try:
-        print("⚡ Trying Gemini Primary Model for Syllabus...")
+        print(f"⚡ Trying Gemini Primary Model ({GEMINI_MODEL}) for Syllabus...")
         response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             contents=prompt
         )
         text = response.text.strip()
@@ -209,6 +235,7 @@ def generate_lesson(data: LessonRequest, background_tasks: BackgroundTasks):
 
     topic_clean = re.sub(r'[^\w\s-]', '', data.topic).strip().replace(" ", "_")
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    topic_clean = topic_clean[:81]
     base_filename = f"{topic_clean}_{timestamp}"
 
     job_status[base_filename] = {"status": "processing"}
@@ -274,10 +301,10 @@ def process_lesson(data: LessonRequest, base_filename: str):
         script = ""
 
         try:
-            print("⚡ Trying Gemini Primary Model...")
+            print(f"⚡ Trying Gemini Primary Model ({GEMINI_MODEL})...")
 
             response = gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=GEMINI_MODEL,
                 contents=prompt
             )
 

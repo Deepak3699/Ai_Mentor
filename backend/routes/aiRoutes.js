@@ -222,12 +222,41 @@ router.get("/status/:jobId", protect, async (req, res) => {
 // ----------------------------------------------------
 // 3. Proxy Video Stream from Python (The "Middleman")
 // ----------------------------------------------------
-router.get("/video/:courseId/:filename", async (req, res) => {
+router.get("/video/:courseId/:filename", protect, async (req, res) => {
   try {
-    const { filename } = req.params;
+    const { courseId, filename } = req.params;
+    const numericCourseId = Number(courseId);
+
+    if (!Number.isInteger(numericCourseId)) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    // 🔐 The user must be enrolled in the course named in the URL
+    const isEnrolled = (req.user.purchasedCourses || []).some(
+      (c) => Number(c.courseId) === numericCourseId
+    );
+
+    if (!isEnrolled) {
+      return res.status(403).json({ error: "Course not purchased" });
+    }
+
+    // 🎯 The AI service names each video "<jobId>.mp4". Only serve a file that
+    // belongs to an AIVideo record of *this* course; anything else is a 404.
+    if (!filename.endsWith(".mp4")) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    const jobId = filename.slice(0, -".mp4".length);
+    const video = await AIVideo.findOne({
+      where: { courseId: numericCourseId, jobId },
+    });
+
+    if (!video) {
+      return res.status(404).json({ error: "Video not found" });
+    }
 
     const pythonVideoUrl =
-      `${process.env.AI_SERVICE_URL}/video-stream/${filename}`;
+      `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`;
 
     const response = await fetch(pythonVideoUrl);
 

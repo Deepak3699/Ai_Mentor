@@ -60,16 +60,38 @@ async function seedCourses() {
         // await sequelize.sync({ force: true });
         await sequelize.sync(); // ensures tables exist
         
-        // clear non-FK dependent tables (optional now but kept for safety)
-        await AIVideo.truncate({ restartIdentity: true });
-        await AIVideo.truncate({ restartIdentity: true });
-        await Course.truncate({
-            cascade: true,
-            restartIdentity: true,
-        });
+        // AI_MENTOR_SAFE_COURSE_SEED_V1
+        const resetRequested = process.argv.includes("--reset");
+        const existingCourseCount = await Course.count();
 
-        
-        console.log("🧹 DB reset done\n");
+        if (existingCourseCount > 0 && !resetRequested) {
+            console.log(
+                `Found ${existingCourseCount} existing course(s). ` +
+                "Safe seed skipped; no data was changed."
+            );
+            process.exit(0);
+        }
+
+        if (resetRequested) {
+            if (
+                process.env.COURSE_SEED_RESET_CONFIRM !==
+                "DELETE_EXISTING_COURSE_DATA"
+            ) {
+                throw new Error(
+                    "Reset blocked. Set COURSE_SEED_RESET_CONFIRM=" +
+                    "DELETE_EXISTING_COURSE_DATA to confirm destructive reset."
+                );
+            }
+
+            await AIVideo.truncate({ restartIdentity: true });
+            await Course.truncate({
+                cascade: true,
+                restartIdentity: true,
+            });
+            console.log("Confirmed course reset completed\n");
+        } else {
+            console.log("Empty course database confirmed; starting initial seed.\n");
+        }
 
         const coursesData = JSON.parse(fs.readFileSync(coursesPath, "utf8"));
         const learningData = JSON.parse(fs.readFileSync(learningPath, "utf8"));
