@@ -9,7 +9,7 @@ import cloudinary.uploader
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import json
 from google import genai
 from groq import Groq
@@ -62,14 +62,14 @@ groq_client = Groq(
 # Request Model
 # --------------------------
 class LessonRequest(BaseModel):
-    course: str
-    topic: str
-    celebrity: str
+    course: str = Field(..., min_length=1, max_length=100)
+    topic: str = Field(..., min_length=1, max_length=200)
+    celebrity: str = Field("modi", min_length=1, max_length=50)
     preferences: dict | None = None
 
 class SyllabusRequest(BaseModel):
-    course_title: str
-    category: str | None = None
+    course_title: str = Field(..., min_length=1, max_length=100)
+    category: str | None = Field(None, min_length=1, max_length=50)
 
 # --------------------------
 # Helpers
@@ -234,6 +234,7 @@ def generate_lesson(data: LessonRequest, background_tasks: BackgroundTasks):
 
     topic_clean = re.sub(r'[^\w\s-]', '', data.topic).strip().replace(" ", "_")
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    topic_clean = topic_clean[:81]
     base_filename = f"{topic_clean}_{timestamp}"
 
     job_status[base_filename] = {"status": "processing"}
