@@ -36,7 +36,6 @@ build/
 vite.config.ts.timestamp*
 
 # Dependency manager lock files
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 bun.lockb
