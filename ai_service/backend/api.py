@@ -6,7 +6,7 @@ import asyncio
 import edge_tts
 import cloudinary
 import cloudinary.uploader
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -120,11 +120,25 @@ def home():
 
 @app.get("/transcript/{filename}")
 def get_transcript(filename: str):
-    file_path = os.path.join(BASE_DIR, "outputs", "text", filename)
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
+    if not re.fullmatch(r"[A-Za-z0-9_-]+\.txt", filename):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    base = os.path.realpath(
+        os.path.join(BASE_DIR, "outputs", "text")
+    )
+    target = os.path.realpath(
+        os.path.join(base, filename)
+    )
+
+    if not target.startswith(base + os.sep):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    if os.path.isfile(target):
+        with open(target, "r", encoding="utf-8") as f:
             content = f.read()
+
         return {"content": content}
+
     return {"error": "Transcript not found"}
 
 @app.get("/status/{job_id}")
