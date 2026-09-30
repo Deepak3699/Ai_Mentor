@@ -6,6 +6,7 @@ import asyncio
 import edge_tts
 import cloudinary
 import cloudinary.uploader
+import requests
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +20,10 @@ from config import (
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
+    validate_config,
 )
+validate_config()
+from avatar_service import create_avatar_video
 
 # --------------------------
 # Cloudinary Config
@@ -371,35 +375,69 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             return
 
-        # 5️⃣ Select Video
+        # 5️⃣ Try AI Avatar Video
+        avatar_video_url = None
 
-        input_video = get_celebrity_video(data.celebrity)
+        try:
+            print("🤖 Trying D-ID AI Avatar...")
 
-        if not os.path.exists(input_video):
-            print(f"❌ Error: Video file not found at {input_video}")
-            return
+            avatar_video_url = create_avatar_video(audio_path)
 
-        # 6️⃣ Merge Video + Audio (FFmpeg)
+            print(f"✅ D-ID avatar video ready: {avatar_video_url}")
 
-        ffmpeg_command = (
-            f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
-            f'-i "{audio_path}" '
-            f'-map 0:v:0 -map 1:a:0 '
-            f'-c:v copy -c:a aac -shortest "{final_video}"'
-        )
+            video_response = requests.get(
+                avatar_video_url,
+                timeout=120,
+            )
+            video_response.raise_for_status()
 
-        print(f"🎥 Running ffmpeg command...")
+            with open(final_video, "wb") as video_file:
+                video_file.write(video_response.content)
 
-        os.system(ffmpeg_command)
+            print(f"✅ Avatar video downloaded: {final_video}")
 
-        if not os.path.exists(final_video):
-            print(f"❌ FFmpeg failed — video file not found at {final_video}")
+        except Exception as avatar_error:
+            print(
+                f"⚠️ D-ID avatar generation failed: {avatar_error}"
+            )
+            print("🔄 Falling back to local FFmpeg renderer...")
 
-            job_status[base_filename] = {
-                "status": "failed"
-            }
+            # 6️⃣ Fallback: Merge Stock Video + Audio (FFmpeg)
+            input_video = get_celebrity_video(data.celebrity)
 
-            return
+            if not os.path.exists(input_video):
+                print(
+                    f"❌ Fallback video not found at {input_video}"
+                )
+                job_status[base_filename] = {
+                    "status": "failed"
+                }
+                return
+
+            ffmpeg_command = (
+                f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
+                f'-i "{audio_path}" '
+                f'-map 0:v:0 -map 1:a:0 '
+                f'-c:v copy -c:a aac -shortest "{final_video}"'
+            )
+
+            print("🎥 Running fallback FFmpeg command...")
+
+            os.system(ffmpeg_command)
+
+            if not os.path.exists(final_video):
+                print(
+                    "❌ FFmpeg fallback failed — "
+                    f"video not found at {final_video}"
+                )
+                job_status[base_filename] = {
+                    "status": "failed"
+                }
+                return
+
+            print("✅ FFmpeg fallback video created.")
+
+
 
         # 7️⃣ Upload to Cloudinary
 
