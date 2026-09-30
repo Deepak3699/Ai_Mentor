@@ -15,6 +15,7 @@ from google import genai
 from groq import Groq
 from config import (
     GEMINI_API_KEY,
+    GEMINI_MODEL,
     GROQ_API_KEY,
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
@@ -195,9 +196,9 @@ def generate_syllabus(data: SyllabusRequest):
     """
 
     try:
-        print("⚡ Trying Gemini Primary Model for Syllabus...")
+        print(f"⚡ Trying Gemini Primary Model ({GEMINI_MODEL}) for Syllabus...")
         response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             contents=prompt
         )
         text = response.text.strip()
@@ -300,10 +301,10 @@ def process_lesson(data: LessonRequest, base_filename: str):
         script = ""
 
         try:
-            print("⚡ Trying Gemini Primary Model...")
+            print(f"⚡ Trying Gemini Primary Model ({GEMINI_MODEL})...")
 
             response = gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=GEMINI_MODEL,
                 contents=prompt
             )
 
