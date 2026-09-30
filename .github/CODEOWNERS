@@ -1,0 +1,28 @@
+# CODEOWNERS
+# When someone changes any of the files below, the person named on the right
+# is automatically requested as a reviewer on the pull request.
+
+# ─────────────────────────────────────────────────────────────
+# Default: Team Leads (Senior TL: @Mugdha-Naik, TLs: @Deepak3699, @NeerajSaini271)
+# ─────────────────────────────────────────────────────────────
+*                       @Deepak3699 @Mugdha-Naik @NeerajSaini271
+
+# ─────────────────────────────────────────────────────────────
+# Services
+# ─────────────────────────────────────────────────────────────
+/backend/               @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/backendAdmin/          @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/frontend/              @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/frontendAdmin/         @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/ai_service/            @Deepak3699 @Mugdha-Naik @NeerajSaini271
+
+# ─────────────────────────────────────────────────────────────
+# Shared files and infrastructure — Team Leads only
+# ─────────────────────────────────────────────────────────────
+/.github/               @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/package.json           @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/docker-compose.yml     @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/.gitignore             @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/README.md              @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/CONTRIBUTING.md        @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/initalSetup.md         @Deepak3699 @Mugdha-Naik @NeerajSaini271
