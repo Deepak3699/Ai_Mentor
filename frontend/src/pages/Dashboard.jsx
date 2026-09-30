@@ -400,7 +400,19 @@ console.log(allCourses);
           console.log("Preferences saved");
         }}
       />
-      <div className="max-w-7xl pt-16 mx-auto space-y-8">
+      <div className="max-w-7xl pt-6 mx-auto space-y-6">
+                {/* Global Search */}
+        <div className="w-full">
+          <div className="relative max-w-2xl">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
+            <input
+              type="text"
+              placeholder="Search courses, lessons, or anything..."
+              className="w-full h-12 pl-12 pr-4 rounded-full border border-border bg-card text-main placeholder:text-muted outline-none transition-all duration-200 focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 hover:border-teal-500/50"
+            />
+          </div>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1  sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {dynamicStatsCards.map((card, index) => {
