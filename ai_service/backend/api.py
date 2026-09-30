@@ -17,6 +17,7 @@ from cachetools import TTLCache
 
 from config import (
     GEMINI_API_KEY,
+    GEMINI_MODEL,
     GROQ_API_KEY,
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
@@ -209,7 +210,7 @@ def generate_syllabus(data: SyllabusRequest):
         print("⚡ Trying Gemini Primary Model for Syllabus...")
 
         response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             contents=prompt
         )
 
@@ -385,7 +386,7 @@ def process_lesson(
             print("⚡ Trying Gemini Primary Model...")
 
             response = gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=GEMINI_MODEL,
                 contents=prompt
             )
 
