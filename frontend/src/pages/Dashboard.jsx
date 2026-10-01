@@ -26,6 +26,7 @@ import API_BASE_URL, { apiFetch } from "../lib/api";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import CourseCardMeta from "../components/common/CourseCardMeta";
 import LearningActivityCard from "../components/dashboard/LearningActivityCard";
+import DashboardHero from "../components/DashboardHero";
 import { Helmet } from "react-helmet-async";
 
 // Add this here
@@ -47,11 +48,15 @@ const Dashboard = () => {
     statsCards: [],
     allCourses: [],
   });
-  const searchQuery = "";
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const { user, fetchUserProfile } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
+  const [learningStreak] = useState(() => {
+    const savedStreak = Number.parseInt(localStorage.getItem("streak") || "0", 10);
+    return Number.isNaN(savedStreak) ? 0 : Math.max(savedStreak, 0);
+  });
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -338,6 +343,15 @@ console.log(allCourses);
     navigate("/courses", { state: { activeTab: "explore" } });
   };
 
+  const handleContinueLearning = () => {
+    const courseId = continueLearning[0]?.id ?? myCourses[0]?.id;
+    if (courseId) {
+      navigate(`/learning/${courseId}`);
+      return;
+    }
+    handleBrowseCourses();
+  };
+
   const enrollAndPreview = async (course) => {
     if (!user) {
       navigate('/login');
@@ -401,18 +415,24 @@ console.log(allCourses);
           console.log("Preferences saved");
         }}
       />
-      <div className="max-w-7xl pt-6 mx-auto space-y-6">
-                {/* Global Search */}
-        <div className="w-full">
-          <div className="relative max-w-2xl">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
+      <div className="dashboard-main-content max-w-7xl mx-auto space-y-8">
+        <section className="dashboard-hero-block">
+          <label className="dashboard-search">
+            <Search aria-hidden="true" />
             <input
-              type="text"
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search courses, lessons, or anything..."
-              className="w-full h-12 pl-12 pr-4 rounded-full border border-border bg-card text-main placeholder:text-muted outline-none transition-all duration-200 focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 hover:border-teal-500/50"
+              aria-label="Search courses and lessons"
             />
-          </div>
-        </div>
+          </label>
+          <DashboardHero
+            name={user?.name || user?.email?.split("@")[0]}
+            streak={learningStreak}
+            onContinue={handleContinueLearning}
+          />
+        </section>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1  sm:grid-cols-2 lg:grid-cols-4 gap-6">
