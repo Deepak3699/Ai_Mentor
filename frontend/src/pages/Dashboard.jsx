@@ -25,6 +25,7 @@ import Preferences from "../components/Preferences";
 import API_BASE_URL, { apiFetch } from "../lib/api";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import CourseCardMeta from "../components/common/CourseCardMeta";
+import DashboardHero from "../components/DashboardHero";
 import { Helmet } from "react-helmet-async";
 
 // Add this here
@@ -46,11 +47,15 @@ const Dashboard = () => {
     statsCards: [],
     allCourses: [],
   });
-  const searchQuery = "";
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const { user, fetchUserProfile } = useAuth();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
+  const [learningStreak] = useState(() => {
+    const savedStreak = Number.parseInt(localStorage.getItem("streak") || "0", 10);
+    return Number.isNaN(savedStreak) ? 0 : Math.max(savedStreak, 0);
+  });
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -337,6 +342,15 @@ console.log(allCourses);
     navigate("/courses", { state: { activeTab: "explore" } });
   };
 
+  const handleContinueLearning = () => {
+    const courseId = continueLearning[0]?.id ?? myCourses[0]?.id;
+    if (courseId) {
+      navigate(`/learning/${courseId}`);
+      return;
+    }
+    handleBrowseCourses();
+  };
+
   const enrollAndPreview = async (course) => {
     if (!user) {
       navigate('/login');
@@ -400,7 +414,25 @@ console.log(allCourses);
           console.log("Preferences saved");
         }}
       />
-      <div className="max-w-7xl pt-16 mx-auto space-y-8">
+      <div className="dashboard-main-content max-w-7xl mx-auto space-y-8">
+        <section className="dashboard-hero-block">
+          <label className="dashboard-search">
+            <Search aria-hidden="true" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search courses, lessons, or anything..."
+              aria-label="Search courses and lessons"
+            />
+          </label>
+          <DashboardHero
+            name={user?.name || user?.email?.split("@")[0]}
+            streak={learningStreak}
+            onContinue={handleContinueLearning}
+          />
+        </section>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1  sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {dynamicStatsCards.map((card, index) => {

@@ -7,3 +7,4 @@ asyncio
 edge-tts #Added
 requests
 cloudinary
+pytest
