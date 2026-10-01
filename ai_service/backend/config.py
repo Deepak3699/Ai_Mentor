@@ -50,3 +50,4 @@ def validate_config():
         CLOUDINARY_API_SECRET
     ]):
         raise ValueError("❌ Cloudinary credentials missing.")
+OUTPUT_RETENTION_HOURS = float(os.getenv("OUTPUT_RETENTION_HOURS", "24"))
