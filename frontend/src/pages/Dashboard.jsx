@@ -40,6 +40,8 @@ const getImageUrl = (image) => {
   return `${API_BASE_URL}${image}`;
 };
 
+import ProfileSummaryCard from "../components/ProfileSummaryCard";
+
 const Dashboard = () => {
   const { t } = useTranslation();
   const [coursesData, setCoursesData] = useState({
@@ -446,7 +448,8 @@ console.log(allCourses);
           })}
         </div>
 
-        <div className="grid grid-cols-1 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          <div className="xl:col-span-2 flex flex-col gap-8">
           {/* Popular Courses */}
 
           <div>
@@ -557,7 +560,7 @@ console.log(allCourses);
           </div>
 
           {/* My Courses Table */}
-          <div className="xl:col-span-2 flex flex-col">
+          <div className="flex flex-col">
             <h2 className="text-xl font-bold text-main mb-6">
               {t("dashboard.my_courses")}
             </h2>
@@ -769,6 +772,10 @@ console.log(allCourses);
               </div>
             ) : null
             }
+          </div>
+          </div>
+          <div className="xl:col-span-1 flex flex-col gap-6">
+            <ProfileSummaryCard />
           </div>
         </div>
       </div>
