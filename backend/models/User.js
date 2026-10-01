@@ -155,6 +155,7 @@ User.init(
 );
 
 User.prototype.matchPassword = async function (enteredPassword) {
+  if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
