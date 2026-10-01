@@ -26,10 +26,11 @@ const getCaCertificate = () => {
     try {
       return fs.readFileSync(process.env.DB_SSL_CA_FILE, "utf8");
     } catch (error) {
-      throw new Error(
-        `Invalid database TLS configuration: unable to read DB_SSL_CA_FILE (${error.message})`
-      );
-    }
+  throw new Error(
+    `Invalid database TLS configuration: unable to read DB_SSL_CA_FILE (${error.message})`,
+    { cause: error }
+  );
+}
   }
 
   return undefined;
