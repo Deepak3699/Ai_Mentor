@@ -7,15 +7,17 @@ import edge_tts
 import cloudinary
 import cloudinary.uploader
 import requests
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import json
 from google import genai
 from groq import Groq
+from cachetools import TTLCache
 from config import (
     GEMINI_API_KEY,
+    GEMINI_MODEL,
     GROQ_API_KEY,
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
