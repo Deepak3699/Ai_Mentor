@@ -84,7 +84,7 @@ def upload_audio(audio_path: str) -> str:
     return audio_url
 
 
-def create_avatar_video(audio_path: str) -> str:
+async def create_avatar_video(audio_path: str) -> str:
     """
     Create a talking-avatar video from a local audio file.
 
@@ -131,7 +131,7 @@ def create_avatar_video(audio_path: str) -> str:
             "D-ID did not return a talk ID."
         )
 
-    return asyncio.run(_poll_for_video(talk_id))
+    return await _poll_for_video(talk_id)
 
 
 async def _poll_for_video(talk_id: str) -> str:
