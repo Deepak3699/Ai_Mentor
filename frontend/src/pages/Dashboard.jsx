@@ -15,6 +15,7 @@ import Preferences from "../components/Preferences";
 import API_BASE_URL from "../lib/api";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import CourseCardMeta from "../components/common/CourseCardMeta";
+import DashboardHero from "../components/DashboardHero";
 import { Helmet } from "react-helmet-async";
 
 /* =========================================================
@@ -228,6 +229,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   const [data, setData] = useState(null);
+  const [learningStreak] = useState(() => {
+    const savedStreak = Number.parseInt(localStorage.getItem("streak") || "0", 10);
+    return Number.isNaN(savedStreak) ? 0 : Math.max(savedStreak, 0);
+  });
 
   /* =======================================================
      FETCH DATA
@@ -661,6 +666,15 @@ const Dashboard = () => {
         activeTab: "explore",
       },
     });
+  };
+
+  const handleContinueLearning = () => {
+    const courseId = continueLearning[0]?.id ?? myCourses[0]?.id;
+    if (courseId) {
+      navigate(`/learning/${courseId}`);
+      return;
+    }
+    handleBrowseCourses();
   };
 
   const enrollAndPreview = async (course) => {
