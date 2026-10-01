@@ -4,10 +4,14 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-export const askGemini = async (
-  context,
-  message
-) => {
+export const askGemini = async (context, message) => {
+  // Check for missing or placeholder API key
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey || apiKey === "your_gemini_api_key") {
+    return "The AI Assistant is currently offline due to missing API configuration. Please try again later.";
+  }
+
   const prompt = `
     You are AI Mentor.
 
@@ -20,8 +24,10 @@ export const askGemini = async (
     - Community
     - Settings
     - Preferences
+
     User Context:
     ${context}
+
     Question:
     ${message}
 
@@ -33,21 +39,26 @@ export const askGemini = async (
     5. If asked about courses, use enrolled courses.
     6. If asked about learning strategy, use experience level.
     7. If the user is asking about:
-      preferences → /preferences
-      settings → /settings
-      profile → /profile
-      courses → /courses
-      community → /community
-      watch history → /watch-history
-      Return:
-      ROUTE:/page-name at the end of your answer.
-    `;
+       preferences → /preferences
+       settings → /settings
+       profile → /profile
+       courses → /courses
+       community → /community
+       watch history → /watch-history
+       Return:
+       ROUTE:/page-name at the end of your answer.
+  `;
 
-  const response =
-    await ai.models.generateContent({
+  try {
+    const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
     });
 
-  return response.text;
+    return response.text;
+  } catch (error) {
+    console.error("Gemini API error:", error);
+
+    return "The AI Assistant is currently unavailable. Please try again later.";
+  }
 };
