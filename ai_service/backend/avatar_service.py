@@ -174,14 +174,14 @@ async def _poll_for_video(talk_id: str) -> str:
             return video_url
 
         if status == "error":
-           error = result.get("error", {})
-           description = error.get(
-        "description",
-        "Unknown D-ID processing error."
-    )
-    raise RuntimeError(
-        f"D-ID avatar generation failed: {description}"
-    )
+            error = result.get("error", {})
+            description = error.get(
+                "description",
+                "Unknown D-ID processing error."
+            )
+            raise RuntimeError(
+                f"D-ID avatar generation failed: {description}"
+            )
 
     raise RuntimeError(
         "D-ID avatar generation timed out."
