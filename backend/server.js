@@ -1,5 +1,6 @@
 // backend/server.js
 import express from "express";
+import http from "node:http";
 import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
@@ -143,7 +144,13 @@ const startServer = async () => {
         : "✅ Database models synced"
     );
 
-    app.listen(PORT, () => {
+    const server = http.createServer(app);
+
+    server.requestTimeout = 120_000;
+    server.headersTimeout = 65_000;
+    server.keepAliveTimeout = 60_000;
+
+    server.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log("✅ Allowed Origins:", allowedOrigins);
     });
