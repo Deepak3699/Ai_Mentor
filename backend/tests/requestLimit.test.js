@@ -2,6 +2,9 @@ import { test, before, after, describe } from "node:test";
 import assert from "node:assert/strict";
 
 process.env.NODE_ENV = "test";
+process.env.STRIPE_SECRET_KEY = "sk_test_dummy";
+process.env.RAZORPAY_KEY_ID = "rzp_test_dummy";
+process.env.RAZORPAY_KEY_SECRET = "dummy";
 
 const { default: app } = await import("../server.js");
 

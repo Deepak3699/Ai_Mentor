@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 
 // Env must be set BEFORE the app is imported.
 process.env.NODE_ENV = "test";
+process.env.STRIPE_SECRET_KEY = "sk_test_dummy";
+process.env.RAZORPAY_KEY_ID = "rzp_test_dummy";
+process.env.RAZORPAY_KEY_SECRET = "dummy";
 
 const { default: app } = await import("../server.js");
 
