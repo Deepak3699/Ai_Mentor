@@ -6,6 +6,7 @@ import asyncio
 import edge_tts
 import cloudinary
 import cloudinary.uploader
+import requests
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +16,7 @@ import hashlib
 import uuid
 from google import genai
 from groq import Groq
+from cachetools import TTLCache
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
@@ -22,7 +24,10 @@ from config import (
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
+    validate_config,
 )
+validate_config()
+from avatar_service import create_avatar_video
 
 # --------------------------
 # Cloudinary Config
@@ -72,8 +77,8 @@ class LessonRequest(BaseModel):
     preferences: dict | None = None
 
 class SyllabusRequest(BaseModel):
-    course_title: str = Field(..., min_length=1, max_length=100)
-    category: str | None = Field(None, min_length=1, max_length=50)
+    course_title: str
+    category: str | None = None
 
 # --------------------------
 # Helpers
@@ -124,25 +129,11 @@ def home():
 
 @app.get("/transcript/{filename}")
 def get_transcript(filename: str):
-    if not re.fullmatch(r"[A-Za-z0-9_-]+\.txt", filename):
-        raise HTTPException(status_code=400, detail="Invalid filename")
-
-    base = os.path.realpath(
-        os.path.join(BASE_DIR, "outputs", "text")
-    )
-    target = os.path.realpath(
-        os.path.join(base, filename)
-    )
-
-    if not target.startswith(base + os.sep):
-        raise HTTPException(status_code=400, detail="Invalid filename")
-
-    if os.path.isfile(target):
-        with open(target, "r", encoding="utf-8") as f:
+    file_path = os.path.join(BASE_DIR, "outputs", "text", filename)
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-
         return {"content": content}
-
     return {"error": "Transcript not found"}
 
 @app.get("/status/{job_id}")
@@ -199,9 +190,9 @@ def generate_syllabus(data: SyllabusRequest):
     """
 
     try:
-        print(f"⚡ Trying Gemini Primary Model ({GEMINI_MODEL}) for Syllabus...")
+        print("⚡ Trying Gemini Primary Model for Syllabus...")
         response = gemini_client.models.generate_content(
-            model=GEMINI_MODEL,
+            model="gemini-2.5-flash",
             contents=prompt
         )
         text = response.text.strip()
@@ -354,10 +345,10 @@ def process_lesson(data: LessonRequest, base_filename: str):
         script = ""
 
         try:
-            print(f"⚡ Trying Gemini Primary Model ({GEMINI_MODEL})...")
+            print("⚡ Trying Gemini Primary Model...")
 
             response = gemini_client.models.generate_content(
-                model=GEMINI_MODEL,
+                model="gemini-2.5-flash",
                 contents=prompt
             )
 
@@ -440,35 +431,69 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             return
 
-        # 5️⃣ Select Video
+        # 5️⃣ Try AI Avatar Video
+        avatar_video_url = None
 
-        input_video = get_celebrity_video(data.celebrity)
+        try:
+            print("🤖 Trying D-ID AI Avatar...")
 
-        if not os.path.exists(input_video):
-            print(f"❌ Error: Video file not found at {input_video}")
-            return
+            avatar_video_url = create_avatar_video(audio_path)
 
-        # 6️⃣ Merge Video + Audio (FFmpeg)
+            print(f"✅ D-ID avatar video ready: {avatar_video_url}")
 
-        ffmpeg_command = (
-            f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
-            f'-i "{audio_path}" '
-            f'-map 0:v:0 -map 1:a:0 '
-            f'-c:v copy -c:a aac -shortest "{final_video}"'
-        )
+            video_response = requests.get(
+                avatar_video_url,
+                timeout=120,
+            )
+            video_response.raise_for_status()
 
-        print(f"🎥 Running ffmpeg command...")
+            with open(final_video, "wb") as video_file:
+                video_file.write(video_response.content)
 
-        os.system(ffmpeg_command)
+            print(f"✅ Avatar video downloaded: {final_video}")
 
-        if not os.path.exists(final_video):
-            print(f"❌ FFmpeg failed — video file not found at {final_video}")
+        except Exception as avatar_error:
+            print(
+                f"⚠️ D-ID avatar generation failed: {avatar_error}"
+            )
+            print("🔄 Falling back to local FFmpeg renderer...")
 
-            job_status[base_filename] = {
-                "status": "failed"
-            }
+            # 6️⃣ Fallback: Merge Stock Video + Audio (FFmpeg)
+            input_video = get_celebrity_video(data.celebrity)
 
-            return
+            if not os.path.exists(input_video):
+                print(
+                    f"❌ Fallback video not found at {input_video}"
+                )
+                job_status[base_filename] = {
+                    "status": "failed"
+                }
+                return
+
+            ffmpeg_command = (
+                f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
+                f'-i "{audio_path}" '
+                f'-map 0:v:0 -map 1:a:0 '
+                f'-c:v copy -c:a aac -shortest "{final_video}"'
+            )
+
+            print("🎥 Running fallback FFmpeg command...")
+
+            os.system(ffmpeg_command)
+
+            if not os.path.exists(final_video):
+                print(
+                    "❌ FFmpeg fallback failed — "
+                    f"video not found at {final_video}"
+                )
+                job_status[base_filename] = {
+                    "status": "failed"
+                }
+                return
+
+            print("✅ FFmpeg fallback video created.")
+
+
 
         # 7️⃣ Upload to Cloudinary
 
@@ -527,4 +552,3 @@ def process_lesson(data: LessonRequest, base_filename: str):
         print(f"❌ Error generating lesson: {e}")
 
         traceback.print_exc()
-
