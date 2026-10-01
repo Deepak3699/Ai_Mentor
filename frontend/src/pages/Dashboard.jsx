@@ -25,6 +25,7 @@ import Preferences from "../components/Preferences";
 import API_BASE_URL, { apiFetch } from "../lib/api";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import CourseCardMeta from "../components/common/CourseCardMeta";
+import LearningActivityCard from "../components/dashboard/LearningActivityCard";
 import { Helmet } from "react-helmet-async";
 
 // Add this here
@@ -769,6 +770,13 @@ console.log(allCourses);
               </div>
             ) : null
             }
+          </div>
+
+          {/* Learning Activity (bottom-left) */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3 min-w-0">
+              <LearningActivityCard />
+            </div>
           </div>
         </div>
       </div>
