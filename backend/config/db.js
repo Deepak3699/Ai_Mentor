@@ -1,16 +1,87 @@
+import fs from "fs";
 import { Sequelize } from "sequelize";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-// Support both Neon (production) and local PostgreSQL (development)
+const isProduction = process.env.NODE_ENV === "production";
 const connectionString = process.env.NEON_DATABASE_URL;
+
+const allowInsecureDbSsl =
+  !isProduction &&
+  process.env.ALLOW_INSECURE_DB_SSL === "true";
+
+if (isProduction && process.env.ALLOW_INSECURE_DB_SSL === "true") {
+  throw new Error(
+    "Invalid database TLS configuration: ALLOW_INSECURE_DB_SSL cannot be enabled in production."
+  );
+}
+
+const getCaCertificate = () => {
+  if (process.env.DB_SSL_CA) {
+    return process.env.DB_SSL_CA.replace(/\\n/g, "\n");
+  }
+
+  if (process.env.DB_SSL_CA_FILE) {
+    try {
+      return fs.readFileSync(process.env.DB_SSL_CA_FILE, "utf8");
+    } catch (error) {
+      throw new Error(
+        `Invalid database TLS configuration: unable to read DB_SSL_CA_FILE (${error.message})`
+      );
+    }
+  }
+
+  return undefined;
+};
+
+const prepareConnectionString = (urlString) => {
+  const url = new URL(urlString);
+
+  const sslMode = url.searchParams.get("sslmode");
+  const ca = getCaCertificate();
+
+  if (isProduction && sslMode !== "verify-full") {
+    throw new Error(
+      'Invalid production database TLS configuration: NEON_DATABASE_URL must use sslmode=verify-full.'
+    );
+  }
+
+  if (
+    !isProduction &&
+    !allowInsecureDbSsl &&
+    sslMode &&
+    sslMode !== "verify-full"
+  ) {
+    throw new Error(
+      'Invalid database TLS configuration: use sslmode=verify-full, or explicitly set ALLOW_INSECURE_DB_SSL=true for development only.'
+    );
+  }
+
+  // We configure TLS explicitly below.
+  // Remove connection-string SSL options so they cannot override
+  // dialectOptions.ssl.
+  url.searchParams.delete("sslmode");
+  url.searchParams.delete("sslrootcert");
+  url.searchParams.delete("sslcert");
+  url.searchParams.delete("sslkey");
+
+  return {
+    connectionString: url.toString(),
+    ssl: {
+      rejectUnauthorized: !allowInsecureDbSsl,
+      ...(ca ? { ca } : {}),
+    },
+  };
+};
 
 let sequelize;
 
 if (connectionString) {
-  // Production: Use Neon connection string
-  sequelize = new Sequelize(connectionString, {
+  const { connectionString: secureConnectionString, ssl } =
+    prepareConnectionString(connectionString);
+
+  sequelize = new Sequelize(secureConnectionString, {
     dialect: "postgres",
     logging: false,
     pool: {
@@ -20,14 +91,12 @@ if (connectionString) {
       idle: parseInt(process.env.DB_POOL_IDLE, 10) || 10000,
     },
     dialectOptions: {
-      ssl: {
-        require: true,
-        rejectUnauthorized: false,
-      },
+      ssl,
     },
   });
 } else {
-  // Development: Use local PostgreSQL credentials
+  // Local development PostgreSQL.
+  // This branch is used only when NEON_DATABASE_URL is not configured.
   sequelize = new Sequelize(
     process.env.DB_NAME,
     process.env.DB_USER,
@@ -44,21 +113,9 @@ if (connectionString) {
 async function connectDB() {
   try {
     await sequelize.authenticate();
-    console.log("✅ Connected to Neon PostgreSQL using Sequelize");
+    console.log("✅ Database connected successfully.");
   } catch (error) {
-    const messageParts = ["❌ Unable to connect:"];
-    if (error && typeof error === "object") {
-      if ("message" in error && error.message) {
-        messageParts.push(error.message);
-      }
-      if ("code" in error && error.code) {
-        messageParts.push(`(code: ${error.code})`);
-      }
-    }
-    console.error(messageParts.join(" "));
-    if (process.env.DB_LOG_VERBOSE_ERRORS === "true") {
-      console.error(error);
-    }
+    console.error("❌ Database connection failed:", error.message);
     throw error;
   }
 }
