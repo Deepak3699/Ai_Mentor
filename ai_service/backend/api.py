@@ -479,7 +479,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
         # 8️⃣ Storage Cleanup
         if cloudinary_url:
             print("🧹 Cleaning up temporary files from local storage...")
-            for local_file in [text_path, audio_path, final_video]:
+            for local_file in [audio_path, final_video]:
                 try:
                     if os.path.exists(local_file):
                         os.remove(local_file)
