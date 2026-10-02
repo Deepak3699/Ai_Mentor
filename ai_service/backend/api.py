@@ -77,6 +77,20 @@ class SyllabusRequest(BaseModel):
     course_title: str
     category: str | None = None
 
+class QuizRequest(BaseModel):
+    lesson: str
+
+
+class QuizQuestion(BaseModel):
+    question: str
+    options: list[str]
+    correct_index: int
+    explanation: str
+
+
+class QuizResponse(BaseModel):
+    questions: list[QuizQuestion]
+
 # --------------------------
 # Helpers
 # --------------------------
@@ -214,6 +228,109 @@ def generate_syllabus(data: SyllabusRequest):
         except Exception as e2:
             print(f"❌ Groq failed: {e2}")
             return {"error": "Failed to generate syllabus"}
+
+# --------------------------
+# Generate Quiz Endpoint
+# --------------------------
+
+@app.post("/generate-quiz", response_model=QuizResponse)
+def generate_quiz(data: QuizRequest):
+    prompt = f"""
+    Generate a multiple-choice quiz for the following lesson:
+
+    Lesson:
+    {data.lesson}
+
+    You MUST respond with ONLY a valid JSON object.
+    Do not include markdown formatting or ```json code fences.
+
+    The JSON structure must match this exactly:
+    {{
+      "questions": [
+        {{
+          "question": "Question text",
+          "options": [
+            "Option A",
+            "Option B",
+            "Option C",
+            "Option D"
+          ],
+          "correct_index": 0,
+          "explanation": "Explanation of why the answer is correct."
+        }}
+      ]
+    }}
+
+    Requirements:
+    - Generate exactly 4 questions.
+    - Each question must have exactly 4 options.
+    - correct_index must be an integer from 0 to 3.
+    - Each question must have a clear explanation.
+    """
+
+    for attempt in range(2):
+        try:
+            print(f"⚡ Generating quiz (attempt {attempt + 1}/2)...")
+
+            try:
+                print("⚡ Trying Gemini...")
+                response = gemini_client.models.generate_content(
+                    model="gemini-3.7-flash",
+                    contents=prompt
+                )
+                text = response.text.strip()
+
+            except Exception as gemini_error:
+                print(f"❌ Gemini failed: {gemini_error}")
+                print("⚡ Trying Groq fallback...")
+
+                groq_response = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=2000,
+                )
+
+                text = groq_response.choices[0].message.content.strip()
+
+            if text.startswith("```json"):
+                text = text[7:]
+            elif text.startswith("```"):
+                text = text[3:]
+
+            if text.endswith("```"):
+                text = text[:-3]
+
+            quiz_data = json.loads(text.strip())
+
+            validated_quiz = QuizResponse.model_validate(quiz_data)
+
+            if len(validated_quiz.questions) != 4:
+                raise ValueError("Quiz must contain exactly 4 questions.")
+
+            for question in validated_quiz.questions:
+                if len(question.options) != 4:
+                    raise ValueError(
+                        "Each question must contain exactly 4 options."
+                    )
+
+                if not 0 <= question.correct_index < 4:
+                    raise ValueError(
+                        "correct_index must be between 0 and 3."
+                    )
+
+            print("✅ Quiz generated and validated successfully.")
+            return validated_quiz
+
+        except Exception as e:
+            print(f"❌ Quiz generation attempt {attempt + 1} failed: {e}")
+
+            if attempt == 1:
+                return {"questions": []}
+
+    return {"questions": []}
 
 # --------------------------
 # Generate Lesson Endpoint
