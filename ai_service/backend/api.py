@@ -12,6 +12,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import json
+import hashlib
+import uuid
 from google import genai
 from groq import Groq
 from cachetools import TTLCache
@@ -68,9 +70,10 @@ groq_client = Groq(
 # Request Model
 # --------------------------
 class LessonRequest(BaseModel):
-    course: str
-    topic: str
-    celebrity: str
+    course: str = Field(..., min_length=1, max_length=100)
+    topic: str = Field(..., min_length=1, max_length=200)
+    celebrity: str = Field("modi", min_length=1, max_length=50)
+    language: str = "English"
     preferences: dict | None = None
 
 class SyllabusRequest(BaseModel):
@@ -337,14 +340,63 @@ def generate_quiz(data: QuizRequest):
 # --------------------------
 
 job_status = {}
+generation_cache = {}
 
 @app.post("/generate")
-def generate_lesson(data: LessonRequest, background_tasks: BackgroundTasks):
+def generate_lesson(
+    data: LessonRequest,
+    background_tasks: BackgroundTasks,
+    force: bool = False,
+):
 
-    topic_clean = re.sub(r'[^\w\s-]', '', data.topic).strip().replace(" ", "_")
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    base_filename = f"{topic_clean}_{timestamp}"
+    cache_data = "|".join([
+        data.course,
+        data.topic,
+        data.celebrity,
+        data.language,
+    ])
+    cache_key = hashlib.sha256(
+        cache_data.encode("utf-8")
+    ).hexdigest()
 
+    topic_clean = re.sub(
+        r'[^\w\s-]', '', data.topic
+    ).strip().replace(" ", "_")
+    topic_clean = topic_clean[:81]
+
+    if force:
+        base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
+    else:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        base_filename = f"{topic_clean}_{timestamp}"
+
+    if not force and cache_key in generation_cache:
+        base_filename = generation_cache[cache_key]
+        existing_status = job_status.get(
+            base_filename,
+            {"status": "processing"}
+        )
+
+        return {
+            "status": existing_status.get("status", "processing").capitalize(),
+            "filename": f"{base_filename}.mp4",
+            "text_file": f"{base_filename}.txt",
+            "audio_file": f"{base_filename}.mp3",
+            "jobId": base_filename,
+            "cached": True,
+        }
+
+    topic_clean = re.sub(
+        r'[^\w\s-]', '', data.topic
+    ).strip().replace(" ", "_")
+
+    if force:
+        base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
+    else:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        base_filename = f"{topic_clean}_{timestamp}"
+
+    generation_cache[cache_key] = base_filename
     job_status[base_filename] = {"status": "processing"}
 
     background_tasks.add_task(process_lesson, data, base_filename)
@@ -354,8 +406,10 @@ def generate_lesson(data: LessonRequest, background_tasks: BackgroundTasks):
         "filename": f"{base_filename}.mp4",
         "text_file": f"{base_filename}.txt",
         "audio_file": f"{base_filename}.mp3",
-        "jobId": base_filename
+        "jobId": base_filename,
+        "cached": False,
     }
+
 
 # --------------------------
 # Background Task Logic
