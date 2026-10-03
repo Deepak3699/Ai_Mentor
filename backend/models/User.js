@@ -39,7 +39,10 @@ User.init(
       type: DataTypes.STRING,
       allowNull: true,
     },
-
+    passwordChangedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     googleId: {
       type: DataTypes.STRING,
     },
