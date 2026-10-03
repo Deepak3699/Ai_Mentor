@@ -323,28 +323,28 @@ const getWatchedVideos = async (req, res) => {
 
         const watchHistory = lesson.watchHistory;
 
-       const safeProgress = Number(
-           Math.max(
-                    0,
-                     Math.min(100, watchHistory.progressPercent || 0)
-                  ).toFixed(1)
-          );
-watchedVideos.push({
-  lessonId,
-  courseId: course.courseId,
-  course: course.courseTitle || "Course",
-  title: watchHistory.title || "Untitled Lesson",
-  thumbnail: watchHistory.thumbnail,
-  progress: Number(safeProgress.toFixed(1)),
-  currentTime: watchHistory.currentTime || 0,
-  duration: watchHistory.duration || 0,
-  formattedDuration:
-    watchHistory.formattedDuration || "0:00",
-  lastWatched: watchHistory.lastWatched,
-  status: watchHistory.status || "in-progress",
-});
+        const safeProgress = Number(
+          Math.max(
+            0,
+            Math.min(100, watchHistory.progressPercent || 0)
+          ).toFixed(1)
+        );
+        watchedVideos.push({
+          lessonId,
+          courseId: course.courseId,
+          course: course.courseTitle || "Course",
+          title: watchHistory.title || "Untitled Lesson",
+          thumbnail: watchHistory.thumbnail,
+          progress: Number(safeProgress.toFixed(1)),
+          currentTime: watchHistory.currentTime || 0,
+          duration: watchHistory.duration || 0,
+          formattedDuration:
+            watchHistory.formattedDuration || "0:00",
+          lastWatched: watchHistory.lastWatched,
+          status: watchHistory.status || "in-progress",
+        });
 
-       if (!uniqueCourses.includes(course.courseId)) {
+        if (!uniqueCourses.includes(course.courseId)) {
           uniqueCourses.push(course.courseId);
         }
 
@@ -353,22 +353,68 @@ watchedVideos.push({
         }
 
         if (
-             watchHistory.status === "completed" ||
-            safeProgress >= 80
-          ) {
-         completedCount++;
+          watchHistory.status === "completed" ||
+          safeProgress >= 80
+        ) {
+          completedCount++;
         }
       });
     });
 
-    const uniqueDays = new Set();
+    // Calculate consecutive learning-day streak
+    const learningDates = new Set();
 
     watchedVideos.forEach((video) => {
       if (video.lastWatched) {
-        const day = new Date(video.lastWatched).toDateString();
-        uniqueDays.add(day);
+        const date = new Date(video.lastWatched);
+
+        if (!isNaN(date.getTime())) {
+          const dayKey = [
+            date.getFullYear(),
+            String(date.getMonth() + 1).padStart(2, "0"),
+            String(date.getDate()).padStart(2, "0"),
+          ].join("-");
+
+          learningDates.add(dayKey);
+        }
       }
     });
+
+    const sortedDates = [...learningDates].sort();
+
+    let learningStreak = 0;
+
+    if (sortedDates.length > 0) {
+      const today = new Date();
+
+      const formatDateKey = (date) =>
+        [
+          date.getFullYear(),
+          String(date.getMonth() + 1).padStart(2, "0"),
+          String(date.getDate()).padStart(2, "0"),
+        ].join("-");
+
+      const todayKey = formatDateKey(today);
+
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const yesterdayKey = formatDateKey(yesterday);
+
+      const latestDate = sortedDates[sortedDates.length - 1];
+
+      // Streak is active only if the user learned today or yesterday
+      if (latestDate === todayKey || latestDate === yesterdayKey) {
+        let checkDate =
+          latestDate === todayKey ? new Date(today) : new Date(yesterday);
+
+        while (learningDates.has(formatDateKey(checkDate))) {
+          learningStreak++;
+
+          checkDate.setDate(checkDate.getDate() - 1);
+        }
+      }
+    }
 
     const avgSeconds =
       watchedVideos.length > 0
@@ -382,7 +428,7 @@ watchedVideos.push({
       totalHours: (totalSeconds / 60).toFixed(1),
       videosCompleted: completedCount,
       avgSession: `${avgMinutes}m ${avgRemainingSeconds}s`,
-      learningStreak: `${uniqueDays.size} days`,
+      learningStreak,
     };
 
     res.json({
@@ -461,7 +507,7 @@ const updateUserProfile = async (req, res) => {
 
     // Avatar Upload Handling
     if (req.file) {
-  user.avatar_url = `/uploads/${req.file.filename}`;
+      user.avatar_url = `/uploads/${req.file.filename}`;
     }
 
     // Update text fields
@@ -469,23 +515,23 @@ const updateUserProfile = async (req, res) => {
     user.lastName = req.body.lastName ?? user.lastName;
     user.name = formatFullName(user.firstName, user.lastName);
     // Check email change
-if (
-  req.body.email &&
-  req.body.email.trim().toLowerCase() !==
-    user.email.trim().toLowerCase()
-) {
-  const emailExists = await User.findOne({
-    where: {
-      email: req.body.email.trim().toLowerCase(),
-    },
-  });
-  if (emailExists) {
-    return res.status(400).json({
-      message: "Email already in use",
-    });
-  }
-  user.email = req.body.email.trim().toLowerCase();
-}
+    if (
+      req.body.email &&
+      req.body.email.trim().toLowerCase() !==
+      user.email.trim().toLowerCase()
+    ) {
+      const emailExists = await User.findOne({
+        where: {
+          email: req.body.email.trim().toLowerCase(),
+        },
+      });
+      if (emailExists) {
+        return res.status(400).json({
+          message: "Email already in use",
+        });
+      }
+      user.email = req.body.email.trim().toLowerCase();
+    }
     user.bio = req.body.bio ?? user.bio;
 
     await user.save();
@@ -613,13 +659,13 @@ const completeProfile = async (req, res) => {
 
     // Avatar upload via Cloudinary (required if not already set)
     // Store image locally instead of Cloudinary
-if (req.file) {
-  user.avatar_url = `/uploads/${req.file.filename}`;
-} else if (!user.avatar_url) {
-  return res.status(400).json({
-    message: "Profile photo is required",
-  });
-}
+    if (req.file) {
+      user.avatar_url = `/uploads/${req.file.filename}`;
+    } else if (!user.avatar_url) {
+      return res.status(400).json({
+        message: "Profile photo is required",
+      });
+    }
 
     user.isProfileComplete = true; // Temporary flag to trigger save check
     await user.save();
@@ -657,12 +703,12 @@ if (req.file) {
   } catch (error) {
     console.error("COMPLETE PROFILE ERROR:", error);
 
-  res.status(500).json({
-    success: false,
-    message: error.message,
-    error: error,
-  });
-}
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      error: error,
+    });
+  }
 }
 
 // EXPORTS
