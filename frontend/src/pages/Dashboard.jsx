@@ -10,6 +10,7 @@ import {
   Clock,
   Award,
   Database,
+  X,
 } from "lucide-react";
 import Preferences from "../components/Preferences";
 import API_BASE_URL from "../lib/api";
@@ -55,7 +56,6 @@ const categoryStyles = {
 
 /* =========================================================
    LESSON THUMBNAIL
-   No external image is used here.
    ========================================================= */
 
 const LessonThumbnail = ({ type }) => {
@@ -144,7 +144,7 @@ const LessonThumbnail = ({ type }) => {
    REUSABLE LESSON ITEM
    ========================================================= */
 
-const LessonItem = ({ lesson }) => {
+const LessonItem = ({ lesson, onPlay }) => {
   return (
     <div className="flex items-center min-h-[48px] gap-3">
       {/* Thumbnail */}
@@ -180,6 +180,7 @@ const LessonItem = ({ lesson }) => {
       <button
         type="button"
         aria-label={`Play ${lesson.title}`}
+        onClick={onPlay}
         className="
           w-[25px]
           h-[25px]
@@ -195,6 +196,7 @@ const LessonItem = ({ lesson }) => {
           hover:bg-[#4388f7]
           hover:text-white
           hover:scale-105
+          cursor-pointer
         "
       >
         <Play
@@ -233,6 +235,13 @@ const Dashboard = () => {
     const savedStreak = Number.parseInt(localStorage.getItem("streak") || "0", 10);
     return Number.isNaN(savedStreak) ? 0 : Math.max(savedStreak, 0);
   });
+
+  /* =======================================================
+     LATEST AI LESSON STATES
+     ======================================================= */
+
+  const [selectedLesson, setSelectedLesson] = useState(null);
+  const [showAllLessons, setShowAllLessons] = useState(false);
 
   /* =======================================================
      FETCH DATA
@@ -731,6 +740,26 @@ const Dashboard = () => {
         `/course-preview/${course.id}`
       );
     }
+  };
+
+  /* =======================================================
+     LATEST AI LESSON HANDLERS
+     ======================================================= */
+
+  const handlePlayLesson = (lesson) => {
+    setSelectedLesson(lesson);
+  };
+
+  const handleCloseLesson = () => {
+    setSelectedLesson(null);
+  };
+
+  const handleViewAllLessons = () => {
+    setShowAllLessons(true);
+  };
+
+  const handleCloseAllLessons = () => {
+    setShowAllLessons(false);
   };
 
   /* =======================================================
@@ -1334,7 +1363,7 @@ const Dashboard = () => {
 
             {/* =================================================
                 LATEST AI LESSONS
-                EXACT DESIGN
+                EXACT DESIGN + WORKING BUTTONS
                 ================================================= */}
 
             <div className="mt-8 flex justify-end">
@@ -1365,12 +1394,14 @@ const Dashboard = () => {
 
                   <button
                     type="button"
+                    onClick={handleViewAllLessons}
                     className="
                       text-[9px]
                       font-medium
                       text-[#4388f7]
                       hover:text-[#2472e8]
                       transition-colors
+                      cursor-pointer
                     "
                   >
                     View All →
@@ -1384,6 +1415,11 @@ const Dashboard = () => {
                       <LessonItem
                         key={lesson.id}
                         lesson={lesson}
+                        onPlay={() =>
+                          handlePlayLesson(
+                            lesson
+                          )
+                        }
                       />
                     )
                   )}
@@ -1393,6 +1429,178 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* =====================================================
+          PLAY LESSON MODAL
+          ===================================================== */}
+
+      {selectedLesson && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4"
+          onClick={handleCloseLesson}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <LessonThumbnail
+                  type={selectedLesson.type}
+                />
+
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    {selectedLesson.title}
+                  </h2>
+
+                  <p className="text-sm text-gray-500 mt-1">
+                    {selectedLesson.category} •{" "}
+                    {selectedLesson.duration}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseLesson}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition cursor-pointer"
+                aria-label="Close lesson"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Lesson Content */}
+            <div className="mt-6 rounded-xl bg-gray-50 border border-gray-100 p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-[#edf5ff] text-[#4388f7] flex items-center justify-center">
+                  <Play
+                    size={16}
+                    fill="currentColor"
+                  />
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-gray-900">
+                    Ready to learn?
+                  </h3>
+
+                  <p className="text-sm text-gray-500">
+                    Your AI lesson is ready.
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-600 leading-6">
+                Start learning{" "}
+                <span className="font-semibold">
+                  {selectedLesson.title}
+                </span>{" "}
+                from the latest AI-generated lessons.
+              </p>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 mt-5">
+              <button
+                type="button"
+                onClick={handleCloseLesson}
+                className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition cursor-pointer"
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  console.log(
+                    "Starting lesson:",
+                    selectedLesson
+                  );
+                  handleCloseLesson();
+                }}
+                className="flex-1 py-3 rounded-xl bg-[#4388f7] text-white font-semibold hover:bg-[#2472e8] transition cursor-pointer"
+              >
+                Start Learning
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          VIEW ALL LESSONS MODAL
+          ===================================================== */}
+
+      {showAllLessons && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/50 flex items-center justify-center p-4"
+          onClick={handleCloseAllLessons}
+        >
+          <div
+            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 max-h-[85vh] overflow-y-auto"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  All AI Lessons
+                </h2>
+
+                <p className="text-sm text-gray-500 mt-1">
+                  Recently generated AI lessons
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseAllLessons}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition cursor-pointer"
+                aria-label="Close all lessons"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* All Lessons */}
+            <div className="space-y-3">
+              {latestLessons.map(
+                (lesson) => (
+                  <div
+                    key={lesson.id}
+                    className="rounded-xl border border-gray-100 p-3 hover:border-[#4388f7]/30 hover:bg-gray-50 transition"
+                  >
+                    <LessonItem
+                      lesson={lesson}
+                      onPlay={() =>
+                        handlePlayLesson(
+                          lesson
+                        )
+                      }
+                    />
+                  </div>
+                )
+              )}
+            </div>
+
+            {/* Close */}
+            <button
+              type="button"
+              onClick={handleCloseAllLessons}
+              className="w-full mt-5 py-3 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       <FloatingAssistant />
     </main>
