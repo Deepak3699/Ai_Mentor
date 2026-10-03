@@ -24,9 +24,9 @@ from config import (
     CLOUDINARY_API_SECRET,
     validate_config,
 )
+import voices
 validate_config()
 from avatar_service import create_avatar_video
-
 # --------------------------
 # Cloudinary Config
 # --------------------------
@@ -72,6 +72,11 @@ class LessonRequest(BaseModel):
     topic: str
     celebrity: str
     preferences: dict | None = None
+    voice_id: str | None = None
+    gender: str | None = None
+    language: str | None = None
+    speech_rate: str | None = "+0%"
+    speech_pitch: str | None = "+0Hz"
 
 class SyllabusRequest(BaseModel):
     course_title: str
@@ -96,12 +101,12 @@ class QuizResponse(BaseModel):
 # --------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-async def generate_tts(text: str, output_file: str):
+async def generate_tts(text: str, output_file: str, voice_id: str = "en-US-GuyNeural", rate: str = "+0%", pitch: str = "+0Hz"):
     communicate = edge_tts.Communicate(
         text=text,
-        voice="en-US-GuyNeural",
-        rate="+0%",
-        pitch="+0Hz"
+        voice=voice_id,
+        rate=rate,
+        pitch=pitch
     )
     await communicate.save(output_file)
 
@@ -228,6 +233,14 @@ def generate_syllabus(data: SyllabusRequest):
         except Exception as e2:
             print(f"❌ Groq failed: {e2}")
             return {"error": "Failed to generate syllabus"}
+
+# --------------------------
+# Voices Endpoint
+# --------------------------
+
+@app.get("/voices")
+def get_voices():
+    return {"voices": voices.get_all_voices()}
 
 # --------------------------
 # Generate Quiz Endpoint
@@ -484,7 +497,13 @@ def process_lesson(data: LessonRequest, base_filename: str):
             if os.path.exists(audio_path):
                 os.remove(audio_path)
 
-            asyncio.run(generate_tts(script, audio_path))
+            # Validate voice or fallback
+            selected_voice = voices.get_voice(data.voice_id)
+            
+            rate = data.speech_rate if data.speech_rate else "+0%"
+            pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
+
+            asyncio.run(generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch))
 
             print(f"✅ Audio saved: {audio_path}")
 
