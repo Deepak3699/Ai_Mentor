@@ -126,6 +126,9 @@ return res.status(200).json(cachedResponse);
 
 // ✅ VERIFY PAYMENT
 router.post("/verify", protect, async (req, res) => {
+  // ISSUE_54_RAZORPAY_ERROR_LOG_V1
+  const orderIdForLog = req.body?.razorpay_order_id || "unknown";
+
   try {
     const {
       razorpay_order_id,
@@ -243,7 +246,7 @@ return res.status(200).json({
 }
   } catch (error) {
     console.error("❌ Razorpay Verify Error:", error);
-    console.log(`[Payment] ❌ Invalid signature | OrderId: ${razorpay_order_id} | Status: failed`);
+    console.log(`[Payment] ❌ Verification error | OrderId: ${orderIdForLog} | Status: failed`);
     return res
       .status(500)
       .json({ success: false, error: "Payment verification failed" });

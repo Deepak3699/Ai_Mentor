@@ -131,13 +131,21 @@ npm run dev
 
 The API will be available at **http://localhost:5000**.
 
-### Available Scripts
+### Initial course data
+For a new, empty development database, run `npm run seed:courses` once from
+`backend/`. The normal command skips safely if courses already exist, so it does
+not delete or duplicate existing course data.
 
+Destructive reset mode is restricted to maintainers and must not be used on
+shared, staging, or production databases.
+
+### Available Scripts
 | Script | Description |
 |---|---|
 | `npm run dev` | Start with Nodemon (auto-restart on changes) |
 | `npm start` | Start the production server |
 | `npm run lint` | Run ESLint to check for code issues |
+| `npm run seed:courses` | Seed included courses only when the course database is empty |
 
 ---
 
@@ -190,7 +198,7 @@ Notes:
 | `POST` | `/generate-video` | Generate an AI lesson video (with DB caching) | ✅ |
 | `GET` | `/status/:jobId` | Poll generation job status | ✅ |
 | `GET` | `/transcript/:filename` | Fetch transcript text (with DB caching) | — |
-| `GET` | `/video/:courseId/:filename` | Proxy video stream from AI service | — |
+| `GET` | `/video/:courseId/:filename` | Proxy video stream from AI service (must be enrolled in `courseId`; 404 if the file does not belong to that course) | ✅ |
 
 ### Community — `/api/community`
 
