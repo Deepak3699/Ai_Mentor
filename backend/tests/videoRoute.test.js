@@ -13,10 +13,11 @@ const { default: User } = await import("../models/User.js");
 const { default: aiRoutes } = await import("../routes/aiRoutes.js");
 
 // In-memory stand-ins for the database.
-const VIDEOS = [{ courseId: 1, jobId: "Intro_20260101_120000" }];
+const VIDEOS = [{ courseId: 1, jobId: "Intro_20260101_120000", userId: 1 }];
 const USERS = {
-  1: { id: 1, purchasedCourses: [{ courseId: 1 }, { courseId: 2 }] },
-  2: { id: 2, purchasedCourses: [{ courseId: 2 }] },
+  1: { id: 1, role: "user", purchasedCourses: [{ courseId: 1 }, { courseId: 2 }] },
+  2: { id: 2, role: "user", purchasedCourses: [{ courseId: 2 }] },
+  3: { id: 3, role: "admin", purchasedCourses: [] },
 };
 const VIDEO_BYTES = Buffer.from("fake-mp4-bytes");
 
@@ -25,14 +26,23 @@ const upstreamCalls = [];
 const originals = {
   findOne: AIVideo.findOne,
   findByPk: User.findByPk,
+  update: AIVideo.update,
 };
 
 let server;
 let baseUrl;
 
 before(async () => {
-  AIVideo.findOne = async ({ where }) =>
-    VIDEOS.find((v) => v.courseId === where.courseId && v.jobId === where.jobId) ?? null;
+  AIVideo.findOne = async ({ where }) => {
+    if (where.courseId !== undefined) {
+      return VIDEOS.find((v) => v.courseId === where.courseId && v.jobId === where.jobId) ?? null;
+    }
+    if (where.jobId !== undefined) {
+      return VIDEOS.find((v) => v.jobId === where.jobId) ?? null;
+    }
+    return null;
+  };
+  AIVideo.update = async () => [1];
   User.findByPk = async (id) => USERS[id] ?? null;
 
   globalThis.fetch = async (url, opts) => {
@@ -108,4 +118,45 @@ test("non-mp4 filenames and non-numeric courseIds return 404", async () => {
   assert.equal((await get("/api/ai/video/1/Intro_20260101_120000.txt", 1)).status, 404);
   assert.equal((await get("/api/ai/video/abc/Intro_20260101_120000.mp4", 1)).status, 404);
   assert.equal(upstreamCalls.length, 0);
+});
+test("status route returns 404 for unknown job", async () => {
+  upstreamCalls.length = 0;
+  const res = await get("/api/ai/status/UnknownJob", 1);
+  assert.equal(res.status, 404);
+  assert.equal(upstreamCalls.length, 0);
+});
+
+test("status route allows the owner to view status and fetches upstream", async () => {
+  upstreamCalls.length = 0;
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/status/Intro_20260101_120000")) {
+      upstreamCalls.push(String(url));
+      return new Response(JSON.stringify({ status: "processing" }), { status: 200 });
+    }
+    return realFetch(url);
+  };
+  const res = await get("/api/ai/status/Intro_20260101_120000", 1);
+  assert.equal(res.status, 200);
+  assert.equal(upstreamCalls.length, 1);
+});
+
+test("status route returns 403 for different user", async () => {
+  upstreamCalls.length = 0;
+  const res = await get("/api/ai/status/Intro_20260101_120000", 2);
+  assert.equal(res.status, 403);
+  assert.equal(upstreamCalls.length, 0);
+});
+
+test("status route allows admin to view any status", async () => {
+  upstreamCalls.length = 0;
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/status/Intro_20260101_120000")) {
+      upstreamCalls.push(String(url));
+      return new Response(JSON.stringify({ status: "processing" }), { status: 200 });
+    }
+    return realFetch(url);
+  };
+  const res = await get("/api/ai/status/Intro_20260101_120000", 3);
+  assert.equal(res.status, 200);
+  assert.equal(upstreamCalls.length, 1);
 });

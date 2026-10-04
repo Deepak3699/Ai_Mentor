@@ -137,6 +137,20 @@ if (!response.ok) {
 
 const data = await response.json();
 
+try {
+  await AIVideo.create({
+    courseId: Number(courseId),
+    lessonId: String(lessonId),
+    celebrity: String(celebrity).toLowerCase(),
+    userId: req.user.id,
+    jobId: String(data.jobId),
+    videoUrl: "",
+    transcriptName: data.text_file || null,
+  });
+} catch (dbErr) {
+  console.error("⚠️ Failed to save AI job ownership to DB:", dbErr.message);
+}
+
 return res.json(data);
 
   } catch (error) {
@@ -189,6 +203,18 @@ router.get("/transcript/:filename", async (req, res) => {
 router.get("/status/:jobId", protect, async (req, res) => {
   try {
     const { jobId } = req.params;
+
+    const videoJob = await AIVideo.findOne({ where: { jobId: String(jobId) } });
+
+    if (!videoJob) {
+      return res.status(404).json({ status: "not_found", message: "Job not found" });
+    }
+
+    const isAdmin = req.user.role === "admin" || req.user.role === "superadmin";
+    if (videoJob.userId !== req.user.id && !isAdmin) {
+      return res.status(403).json({ status: "forbidden", message: "Forbidden" });
+    }
+
     const response = await fetch(`${process.env.AI_SERVICE_URL}/status/${jobId}`);
 
     if (!response.ok) {

@@ -18,7 +18,7 @@ async function processNext() {
     const {
       courseId, lessonId, celebrity,
       courseTitle, lessonTitle,
-      userPreferences, resolve, reject,
+      userPreferences, userId, resolve, reject,
     } = job;
 
     const response = await fetch(`${AI_SERVICE_URL}/generate`, {
@@ -45,6 +45,7 @@ async function processNext() {
       courseId:      Number(courseId),
       lessonId:      String(lessonId),
       celebrity:     String(celebrity).toLowerCase(),
+      userId:        userId || null,
       videoUrl:      "",          // will be updated by status route when Cloudinary URL is ready
       transcriptName: data.text_file || null,
       jobId:         String(data.jobId),
