@@ -8,10 +8,18 @@ yarn-error.log*
 pnpm-debug.log*
 github-setup/CODEOWNERS
 github-setup/workflows
-__pycache__
 
+# =====================
+# Python
+# =====================
+__pycache__/
 venv/
-outputfolder
+
+# =====================
+# Project output
+# =====================
+outputfolder/
+
 # Videos
 videos/
 
@@ -28,17 +36,19 @@ videos/
 # Backend specific
 # =====================
 backend/.env
-backend/.env
 backend/config/*.local.js
 backend/scripts/testValidation.js
+
+# Firebase private credentials
+backend/config/serviceAccountKey.json
 
 # =====================
 # Frontend (Vite / React)
 # =====================
 frontend/.env
-frontend/dist
-frontend/build
-frontend/.vite
+frontend/dist/
+frontend/build/
+frontend/.vite/
 
 # =====================
 # OS / Editor
@@ -59,10 +69,8 @@ logs/
 # =====================
 coverage/
 .cache/
-
 */.agents
 
-backend/config/serviceAccountKey.json
 # =====================
 # Local Scripts
 # =====================
