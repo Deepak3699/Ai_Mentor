@@ -34,6 +34,7 @@ const users = await User.findAndCountAll({
     "purchasedCourses",
     "createdAt",
     "status",
+    "isBlocked",
   ],
   where,
   limit,
@@ -80,7 +81,43 @@ export const updateUserStatus = async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error: " + error.message });
   }
 };
+export const toggleUserBlock = async (req, res) => {
+  try {
+    const { id } = req.params;
 
+    const user = await User.findByPk(id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    user.isBlocked = !user.isBlocked;
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: user.isBlocked
+        ? "User blocked successfully"
+        : "User unblocked successfully",
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isBlocked: user.isBlocked,
+      },
+    });
+  } catch (error) {
+    console.error("TOGGLE USER BLOCK ERROR:", error.message || error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server Error: " + error.message,
+    });
+  }
+};
 export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;

@@ -126,15 +126,17 @@ const SignUpPage = () => {
         throw new Error(data.message || "Something went wrong");
       }
 
-      login(data, false);
+      login(data);
       toast.success("Account created successfully!");
       // Redirect to onboarding for bio + avatar (profile not yet complete)
       navigate("/complete-profile");
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
+      } else if (error.name === "TypeError" && error.message.includes("fetch")) {
+        toast.error("Cannot connect to server. Please check if the backend server is running.");
       } else {
-        toast.error(error.message);
+        toast.error(error.message || "Sign up failed");
       }
     } finally {
       setLoading(false);
