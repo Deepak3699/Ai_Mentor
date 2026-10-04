@@ -13,7 +13,7 @@ const router = express.Router();
 
 router.post("/generate-video", protect, validate(generateVideoSchema), async (req, res) => {
   try {
-    const { courseId, lessonId, celebrity } = req.body;
+    const { courseId, lessonId, celebrity, voice_id, speech_rate, speech_pitch } = req.body;
 
     // 🔐 Check purchase
     const purchasedCourse = req.user.purchasedCourses.find(
@@ -306,6 +306,21 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
     res.status(500).json({
       error: "Failed to load video via proxy",
     });
+  }
+});
+
+// ----------------------------------------------------
+// Proxy Voices from Python
+// ----------------------------------------------------
+router.get("/voices", protect, async (req, res) => {
+  try {
+    const response = await fetch(`${process.env.AI_SERVICE_URL}/voices`);
+    if (!response.ok) throw new Error("Failed to fetch voices");
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Voices Proxy Error:", error.message);
+    res.status(500).json({ error: "Failed to fetch voices" });
   }
 });
 
