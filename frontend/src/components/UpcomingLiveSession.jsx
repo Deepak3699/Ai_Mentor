@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { Radio, Calendar } from "lucide-react";
+import toast from "react-hot-toast";
 
 /**
  * UpcomingLiveSession Component
@@ -19,6 +20,8 @@ const UpcomingLiveSession = ({
   sessions,
   className = "",
 }) => {
+  const [joiningId, setJoiningId] = useState(null);
+
   // Support both single session props and a list of sessions
   const sessionList =
     Array.isArray(sessions) && sessions.length > 0
@@ -26,12 +29,32 @@ const UpcomingLiveSession = ({
       : [{ id: "session-default", title, time, onJoin }];
 
   const handleJoinClick = (session) => {
+    const sessionTitle = session.title || title;
+    const sessionKey = session.id || sessionTitle;
+
+    // Log to console as required by Issue #147
+    console.log(`Joining session: ${sessionTitle}`);
+
+    // Provide visual feedback to the user via toast
+    try {
+      toast.success(`Joining live session: ${sessionTitle}`, {
+        icon: "🎥",
+      });
+    } catch {
+      // In case toast environment is not mounted
+    }
+
+    // Brief visual button click state
+    setJoiningId(sessionKey);
+    setTimeout(() => {
+      setJoiningId(null);
+    }, 1500);
+
+    // Call onJoin handler if provided
     if (typeof session.onJoin === "function") {
       session.onJoin(session);
     } else if (typeof onJoin === "function") {
       onJoin(session);
-    } else {
-      console.log(`Joining session: ${session.title || title}`);
     }
   };
 
@@ -57,6 +80,7 @@ const UpcomingLiveSession = ({
           const sessionTitle = session.title || "React Advanced Concepts";
           const sessionTime = session.time || "Today • 7:00 PM – 8:00 PM";
           const key = session.id || `session-${index}`;
+          const isJoining = joiningId === key;
 
           return (
             <div key={key} className="space-y-4">
@@ -85,10 +109,12 @@ const UpcomingLiveSession = ({
               <button
                 type="button"
                 onClick={() => handleJoinClick(session)}
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-medium border border-blue-400 text-blue-500 dark:border-blue-500 dark:text-blue-400 bg-transparent hover:bg-blue-50/80 dark:hover:bg-blue-950/30 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:ring-offset-2 dark:focus:ring-offset-zinc-800 transition-all duration-200 active:scale-[0.99] cursor-pointer"
+                className={`w-full py-2.5 px-4 rounded-xl text-sm font-medium border border-blue-400 text-blue-500 dark:border-blue-500 dark:text-blue-400 bg-transparent hover:bg-blue-50/80 dark:hover:bg-blue-950/30 hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:ring-offset-2 dark:focus:ring-offset-zinc-800 transition-all duration-200 active:scale-[0.99] cursor-pointer ${
+                  isJoining ? "opacity-75" : ""
+                }`}
                 aria-label={`Join session ${sessionTitle}`}
               >
-                Join Session
+                {isJoining ? "Joining..." : "Join Session"}
               </button>
             </div>
           );
