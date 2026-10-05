@@ -128,6 +128,80 @@ app.use((err, req, res, next) => {
 // ================= SERVER START =================
 const PORT = process.env.PORT || 5000;
 
+// Maximum time allowed for graceful shutdown
+const SHUTDOWN_TIMEOUT = 10_000;
+
+let server;
+let isShuttingDown = false;
+
+// ================= GRACEFUL SHUTDOWN =================
+const shutdown = async (signal) => {
+  if (isShuttingDown) {
+    console.log("⚠️ Shutdown already in progress.");
+    return;
+  }
+
+  isShuttingDown = true;
+
+  console.log(`\n🛑 ${signal} received. Starting graceful shutdown...`);
+
+  // Force exit if shutdown takes too long
+  const forceShutdownTimer = setTimeout(() => {
+    console.error(
+      `❌ Graceful shutdown timed out after ${
+        SHUTDOWN_TIMEOUT / 1000
+      } seconds. Forcing exit.`
+    );
+
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT);
+
+  // Do not keep the process alive because of this timer
+  forceShutdownTimer.unref();
+
+  try {
+    // Stop accepting new connections.
+    // Existing requests are allowed to finish.
+    if (server) {
+      await new Promise((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+          } else {
+            console.log("✅ HTTP server closed.");
+            resolve();
+          }
+        });
+      });
+    }
+
+    // Close Sequelize database connections.
+    if (sequelize) {
+      await sequelize.close();
+      console.log("✅ Sequelize database connection closed.");
+    }
+
+    clearTimeout(forceShutdownTimer);
+
+    console.log("✅ Graceful shutdown completed.");
+    process.exit(0);
+  } catch (error) {
+    clearTimeout(forceShutdownTimer);
+
+    console.error("❌ Error during graceful shutdown:", error);
+    process.exit(1);
+  }
+};
+
+// ================= SIGNAL HANDLERS =================
+process.on("SIGTERM", () => {
+  shutdown("SIGTERM");
+});
+
+process.on("SIGINT", () => {
+  shutdown("SIGINT");
+});
+
 const startServer = async () => {
   try {
     await connectDB();
@@ -143,7 +217,8 @@ const startServer = async () => {
         : "✅ Database models synced"
     );
 
-    app.listen(PORT, () => {
+    // Retain the HTTP server instance for graceful shutdown.
+    server = app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log("✅ Allowed Origins:", allowedOrigins);
     });

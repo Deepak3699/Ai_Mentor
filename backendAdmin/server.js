@@ -5,7 +5,7 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import { connectDB } from "./config/db.js";
+import { connectDB, sequelize } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
 
 dotenv.config();
@@ -54,11 +54,84 @@ app.use((err, req, res, next) => {
 
 // ================= SERVER STARTUP =================
 const PORT = process.env.PORT || 5001;
+const SHUTDOWN_TIMEOUT = 10_000;
+
+let server;
+let isShuttingDown = false;
+
+// ================= GRACEFUL SHUTDOWN =================
+const shutdown = async (signal) => {
+  if (isShuttingDown) {
+    console.log("⚠️ Shutdown already in progress.");
+    return;
+  }
+
+  isShuttingDown = true;
+
+  console.log(
+    `\n🛑 ${signal} received. Starting graceful shutdown...`,
+  );
+
+  const forceShutdownTimer = setTimeout(() => {
+    console.error(
+      `❌ Graceful shutdown timed out after ${
+        SHUTDOWN_TIMEOUT / 1000
+      } seconds. Forcing exit.`,
+    );
+
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT);
+
+  forceShutdownTimer.unref();
+
+  try {
+    // Stop accepting new connections.
+    // Existing requests are allowed to finish.
+    if (server) {
+      await new Promise((resolve, reject) => {
+        server.close((error) => {
+          if (error) {
+            reject(error);
+          } else {
+            console.log("✅ HTTP server closed.");
+            resolve();
+          }
+        });
+      });
+    }
+
+    // Close Sequelize database connections.
+    if (sequelize) {
+      await sequelize.close();
+      console.log("✅ Sequelize database connection closed.");
+    }
+
+    clearTimeout(forceShutdownTimer);
+
+    console.log("✅ Graceful shutdown completed.");
+    process.exit(0);
+  } catch (error) {
+    clearTimeout(forceShutdownTimer);
+
+    console.error("❌ Error during graceful shutdown:", error);
+    process.exit(1);
+  }
+};
+
+// ================= SIGNAL HANDLERS =================
+process.on("SIGTERM", () => {
+  shutdown("SIGTERM");
+});
+
+process.on("SIGINT", () => {
+  shutdown("SIGINT");
+});
 
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(PORT, () => {
+
+    server = app.listen(PORT, () => {
       console.log(
         `✅ Backend Admin Server running on http://localhost:${PORT}`,
       );
