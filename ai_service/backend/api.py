@@ -6,21 +6,27 @@ import asyncio
 import edge_tts
 import cloudinary
 import cloudinary.uploader
-from fastapi import FastAPI, BackgroundTasks
+import requests
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import json
 from google import genai
 from groq import Groq
+from cachetools import TTLCache
 from config import (
     GEMINI_API_KEY,
+    GEMINI_MODEL,
     GROQ_API_KEY,
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
+    validate_config,
 )
-
+import voices
+validate_config()
+from avatar_service import create_avatar_video
 # --------------------------
 # Cloudinary Config
 # --------------------------
@@ -66,22 +72,41 @@ class LessonRequest(BaseModel):
     topic: str
     celebrity: str
     preferences: dict | None = None
+    voice_id: str | None = None
+    gender: str | None = None
+    language: str | None = None
+    speech_rate: str | None = "+0%"
+    speech_pitch: str | None = "+0Hz"
 
 class SyllabusRequest(BaseModel):
     course_title: str
     category: str | None = None
+
+class QuizRequest(BaseModel):
+    lesson: str
+
+
+class QuizQuestion(BaseModel):
+    question: str
+    options: list[str]
+    correct_index: int
+    explanation: str
+
+
+class QuizResponse(BaseModel):
+    questions: list[QuizQuestion]
 
 # --------------------------
 # Helpers
 # --------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-async def generate_tts(text: str, output_file: str):
+async def generate_tts(text: str, output_file: str, voice_id: str = "en-US-GuyNeural", rate: str = "+0%", pitch: str = "+0Hz"):
     communicate = edge_tts.Communicate(
         text=text,
-        voice="en-US-GuyNeural",
-        rate="+0%",
-        pitch="+0Hz"
+        voice=voice_id,
+        rate=rate,
+        pitch=pitch
     )
     await communicate.save(output_file)
 
@@ -141,7 +166,18 @@ def get_status(job_id: str):
 # --------------------------
 @app.post("/generate-syllabus")
 def generate_syllabus(data: SyllabusRequest):
+    """
+    Generate a structured course syllabus using AI.
+
+    Tries Gemini first and falls back to Groq if Gemini fails.
+    This endpoint is synchronous and may take several seconds to complete.
+
+    Returns:
+        A JSON object containing generated modules and lessons,
+        or an error message if both AI providers fail.
+    """
     prompt = f"""
+    
     Create a highly structured course syllabus for a course titled '{data.course_title}'.
     Category: {data.category or 'General Education'}
     
@@ -172,7 +208,7 @@ def generate_syllabus(data: SyllabusRequest):
     try:
         print("⚡ Trying Gemini Primary Model for Syllabus...")
         response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             contents=prompt
         )
         text = response.text.strip()
@@ -197,6 +233,117 @@ def generate_syllabus(data: SyllabusRequest):
         except Exception as e2:
             print(f"❌ Groq failed: {e2}")
             return {"error": "Failed to generate syllabus"}
+
+# --------------------------
+# Voices Endpoint
+# --------------------------
+
+@app.get("/voices")
+def get_voices():
+    return {"voices": voices.get_all_voices()}
+
+# --------------------------
+# Generate Quiz Endpoint
+# --------------------------
+
+@app.post("/generate-quiz", response_model=QuizResponse)
+def generate_quiz(data: QuizRequest):
+    prompt = f"""
+    Generate a multiple-choice quiz for the following lesson:
+
+    Lesson:
+    {data.lesson}
+
+    You MUST respond with ONLY a valid JSON object.
+    Do not include markdown formatting or ```json code fences.
+
+    The JSON structure must match this exactly:
+    {{
+      "questions": [
+        {{
+          "question": "Question text",
+          "options": [
+            "Option A",
+            "Option B",
+            "Option C",
+            "Option D"
+          ],
+          "correct_index": 0,
+          "explanation": "Explanation of why the answer is correct."
+        }}
+      ]
+    }}
+
+    Requirements:
+    - Generate exactly 4 questions.
+    - Each question must have exactly 4 options.
+    - correct_index must be an integer from 0 to 3.
+    - Each question must have a clear explanation.
+    """
+
+    for attempt in range(2):
+        try:
+            print(f"⚡ Generating quiz (attempt {attempt + 1}/2)...")
+
+            try:
+                print("⚡ Trying Gemini...")
+                response = gemini_client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=prompt
+                )
+                text = response.text.strip()
+
+            except Exception as gemini_error:
+                print(f"❌ Gemini failed: {gemini_error}")
+                print("⚡ Trying Groq fallback...")
+
+                groq_response = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=2000,
+                )
+
+                text = groq_response.choices[0].message.content.strip()
+
+            if text.startswith("```json"):
+                text = text[7:]
+            elif text.startswith("```"):
+                text = text[3:]
+
+            if text.endswith("```"):
+                text = text[:-3]
+
+            quiz_data = json.loads(text.strip())
+
+            validated_quiz = QuizResponse.model_validate(quiz_data)
+
+            if len(validated_quiz.questions) != 4:
+                raise ValueError("Quiz must contain exactly 4 questions.")
+
+            for question in validated_quiz.questions:
+                if len(question.options) != 4:
+                    raise ValueError(
+                        "Each question must contain exactly 4 options."
+                    )
+
+                if not 0 <= question.correct_index < 4:
+                    raise ValueError(
+                        "correct_index must be between 0 and 3."
+                    )
+
+            print("✅ Quiz generated and validated successfully.")
+            return validated_quiz
+
+        except Exception as e:
+            print(f"❌ Quiz generation attempt {attempt + 1} failed: {e}")
+
+            if attempt == 1:
+                return {"questions": []}
+
+    return {"questions": []}
 
 # --------------------------
 # Generate Lesson Endpoint
@@ -277,7 +424,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
             print("⚡ Trying Gemini Primary Model...")
 
             response = gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=GEMINI_MODEL,
                 contents=prompt
             )
 
@@ -350,7 +497,13 @@ def process_lesson(data: LessonRequest, base_filename: str):
             if os.path.exists(audio_path):
                 os.remove(audio_path)
 
-            asyncio.run(generate_tts(script, audio_path))
+            # Validate voice or fallback
+            selected_voice = voices.get_voice(data.voice_id)
+            
+            rate = data.speech_rate if data.speech_rate else "+0%"
+            pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
+
+            asyncio.run(generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch))
 
             print(f"✅ Audio saved: {audio_path}")
 
@@ -360,35 +513,69 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             return
 
-        # 5️⃣ Select Video
+        # 5️⃣ Try AI Avatar Video
+        avatar_video_url = None
 
-        input_video = get_celebrity_video(data.celebrity)
+        try:
+            print("🤖 Trying D-ID AI Avatar...")
 
-        if not os.path.exists(input_video):
-            print(f"❌ Error: Video file not found at {input_video}")
-            return
+            avatar_video_url = create_avatar_video(audio_path)
 
-        # 6️⃣ Merge Video + Audio (FFmpeg)
+            print(f"✅ D-ID avatar video ready: {avatar_video_url}")
 
-        ffmpeg_command = (
-            f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
-            f'-i "{audio_path}" '
-            f'-map 0:v:0 -map 1:a:0 '
-            f'-c:v copy -c:a aac -shortest "{final_video}"'
-        )
+            video_response = requests.get(
+                avatar_video_url,
+                timeout=120,
+            )
+            video_response.raise_for_status()
 
-        print(f"🎥 Running ffmpeg command...")
+            with open(final_video, "wb") as video_file:
+                video_file.write(video_response.content)
 
-        os.system(ffmpeg_command)
+            print(f"✅ Avatar video downloaded: {final_video}")
 
-        if not os.path.exists(final_video):
-            print(f"❌ FFmpeg failed — video file not found at {final_video}")
+        except Exception as avatar_error:
+            print(
+                f"⚠️ D-ID avatar generation failed: {avatar_error}"
+            )
+            print("🔄 Falling back to local FFmpeg renderer...")
 
-            job_status[base_filename] = {
-                "status": "failed"
-            }
+            # 6️⃣ Fallback: Merge Stock Video + Audio (FFmpeg)
+            input_video = get_celebrity_video(data.celebrity)
 
-            return
+            if not os.path.exists(input_video):
+                print(
+                    f"❌ Fallback video not found at {input_video}"
+                )
+                job_status[base_filename] = {
+                    "status": "failed"
+                }
+                return
+
+            ffmpeg_command = (
+                f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
+                f'-i "{audio_path}" '
+                f'-map 0:v:0 -map 1:a:0 '
+                f'-c:v copy -c:a aac -shortest "{final_video}"'
+            )
+
+            print("🎥 Running fallback FFmpeg command...")
+
+            os.system(ffmpeg_command)
+
+            if not os.path.exists(final_video):
+                print(
+                    "❌ FFmpeg fallback failed — "
+                    f"video not found at {final_video}"
+                )
+                job_status[base_filename] = {
+                    "status": "failed"
+                }
+                return
+
+            print("✅ FFmpeg fallback video created.")
+
+
 
         # 7️⃣ Upload to Cloudinary
 
@@ -428,7 +615,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
         # 8️⃣ Storage Cleanup
         if cloudinary_url:
             print("🧹 Cleaning up temporary files from local storage...")
-            for local_file in [text_path, audio_path, final_video]:
+            for local_file in [audio_path, final_video]:
                 try:
                     if os.path.exists(local_file):
                         os.remove(local_file)

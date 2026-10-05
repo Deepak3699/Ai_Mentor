@@ -140,8 +140,6 @@ chore: bump express to v5
 4. Green checks plus one approval — then merge
 5. Delete your branch after merging
 
-For what reviewers look for, see the checklist in `GitHub_Workflow_Guide.md`.
-
 ---
 
 ## Project structure (five services)
@@ -175,7 +173,6 @@ help you from that alone.
 
 ## Further reading
 
-- [GitHub Workflow Guide](./GitHub_Workflow_Guide.md) — how pull requests and checks work
 - `initalSetup.md` — environment setup
 - `backend/BACKEND_DOCUMENTATION.md` — the most detailed backend reference
 - `ai_service/README.md` — the AI video pipeline

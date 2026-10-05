@@ -12,7 +12,11 @@ export const useSidebar = () => {
 
 export const SidebarProvider = ({ children }) => {
     // sidebarOpen is for mobile/tablet responsive view
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [sidebarOpen, setSidebarOpen] = useState(() => {
+        return typeof window !== "undefined"
+            ? window.innerWidth >= 1024
+            : false;
+    });
 
     // sidebarCollapsed is the "icons view" for desktop
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {

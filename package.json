@@ -6,7 +6,14 @@
     "lint": "npm run lint --prefix backend && npm run lint --prefix frontend && npm run lint --prefix frontendAdmin",
     "lint:backend": "npm run lint --prefix backend",
     "lint:frontend": "npm run lint --prefix frontend",
-    "lint:admin": "npm run lint --prefix frontendAdmin"
+    "lint:admin": "npm run lint --prefix frontendAdmin",
+    "test": "npm run test --prefix backend && cross-env VITE_API_BASE_URL=\"http://localhost:5000\" VITE_FIREBASE_API_KEY=\"ci-dummy-key\" VITE_FIREBASE_AUTH_DOMAIN=\"ci-dummy.firebaseapp.com\" VITE_FIREBASE_PROJECT_ID=\"ci-dummy\" VITE_FIREBASE_STORAGE_BUCKET=\"ci-dummy.appspot.com\" VITE_FIREBASE_MESSAGING_SENDER_ID=\"000000000000\" VITE_FIREBASE_APP_ID=\"1:000000000000:web:0000000000000000000000\" npm run test --prefix frontend && cross-env VITE_API_BASE_URL=\"http://localhost:5001\" npm run test --prefix frontendAdmin && npm run test --prefix backendAdmin && (cd ai_service && python3 -m pytest)",
+    "prepare": "husky"
   },
-  "type": "commonjs"
+  "type": "commonjs",
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0"
+  }
 }
