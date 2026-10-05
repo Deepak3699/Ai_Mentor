@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "../../lib/api";
 import React, { useState, useMemo, useEffect } from 'react';
 import Header from '../../components/Header';
 import DocSidebar from './DocSidebar';
