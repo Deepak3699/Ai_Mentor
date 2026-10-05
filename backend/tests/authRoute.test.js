@@ -1,13 +1,13 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import jwt from "jsonwebtoken";
 
 process.env.JWT_SECRET = "test-jwt-secret";
 process.env.NODE_ENV = "test";
 
 const { default: express } = await import("express");
 const { default: User } = await import("../models/User.js");
+const { default: Notification } = await import("../models/Notification.js");
 const { default: authRoutes } = await import("../routes/auth.js");
 
 // In-memory mock database for auth tests
@@ -43,6 +43,7 @@ const MOCK_USERS = [
 const originals = {
   findOne: User.findOne,
   create: User.create,
+  notificationCreate: Notification.create,
 };
 
 let server;
@@ -52,6 +53,8 @@ before(async () => {
   User.findOne = async ({ where }) => {
     return MOCK_USERS.find((u) => u.email === where.email) ?? null;
   };
+
+  Notification.create = async (notificationData) => ({ id: "test-notification", ...notificationData });
 
   User.create = async (userData) => {
     const newUser = {
@@ -78,8 +81,10 @@ before(async () => {
 
 after(async () => {
   User.findOne = originals.findOne;
-  User.create = originals.create;
   await new Promise((resolve) => server.close(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+  User.create = originals.create;
+  Notification.create = originals.notificationCreate;
 });
 
 const post = (path, body) =>

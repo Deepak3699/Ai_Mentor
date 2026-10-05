@@ -26,6 +26,7 @@ import API_BASE_URL, { apiFetch } from "../lib/api";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import CourseCardMeta from "../components/common/CourseCardMeta";
 import DashboardHero from "../components/DashboardHero";
+import UpcomingLiveSession from "../components/UpcomingLiveSession";
 import { Helmet } from "react-helmet-async";
 
 // Add this here
@@ -414,8 +415,9 @@ console.log(allCourses);
           console.log("Preferences saved");
         }}
       />
-      <div className="dashboard-main-content max-w-7xl mx-auto space-y-8">
-        <section className="dashboard-hero-block">
+      <div className="dashboard-main-content max-w-7xl mx-auto flex flex-col xl:flex-row gap-8 items-stretch">
+        <div className="flex-1 min-w-0 space-y-8 w-full">
+          <section className="dashboard-hero-block">
           <label className="dashboard-search">
             <Search aria-hidden="true" />
             <input
@@ -791,6 +793,17 @@ console.log(allCourses);
             }
           </div>
         </div>
+        </div>
+
+        {/* Right Sidebar */}
+        <aside
+          className="w-full xl:w-80 shrink-0 flex flex-col justify-end space-y-6"
+          aria-label="Dashboard sidebar"
+        >
+          <div className="mt-auto w-full">
+            <UpcomingLiveSession />
+          </div>
+        </aside>
       </div>
       <FloatingAssistant />
     </main>
