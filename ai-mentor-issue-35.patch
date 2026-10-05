@@ -1,0 +1,331 @@
+diff --git a/frontend/src/components/Sidebar.jsx b/frontend/src/components/Sidebar.jsx
+index b80c8ac..bff5dcc 100644
+--- a/frontend/src/components/Sidebar.jsx
++++ b/frontend/src/components/Sidebar.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import React, { useState, useEffect, useRef } from "react";
+ import { useNavigate } from "react-router-dom";
+ import { useAuth } from "../context/AuthContext";
+diff --git a/frontend/src/components/auth/SocialLogin.jsx b/frontend/src/components/auth/SocialLogin.jsx
+index 5440d47..0952a21 100644
+--- a/frontend/src/components/auth/SocialLogin.jsx
++++ b/frontend/src/components/auth/SocialLogin.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../../lib/api";
+ import React from "react";
+ import { useNavigate } from "react-router-dom";
+ import logoGoogle from "../../assets/images/google.jpg";
+diff --git a/frontend/src/components/common/CourseCardMeta.jsx b/frontend/src/components/common/CourseCardMeta.jsx
+index 18ead18..57c4cdf 100644
+--- a/frontend/src/components/common/CourseCardMeta.jsx
++++ b/frontend/src/components/common/CourseCardMeta.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../../lib/api";
+ /**
+  * CourseCardMeta.jsx
+  *
+diff --git a/frontend/src/components/common/CourseFeedback.jsx b/frontend/src/components/common/CourseFeedback.jsx
+index 52658f1..827571c 100644
+--- a/frontend/src/components/common/CourseFeedback.jsx
++++ b/frontend/src/components/common/CourseFeedback.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../../lib/api";
+ import { useState, useEffect, useCallback } from "react";
+ import { useAuth } from "../../context/AuthContext";
+ import API_BASE_URL from "../../lib/api";
+diff --git a/frontend/src/context/AuthContext.jsx b/frontend/src/context/AuthContext.jsx
+index 2c630a1..f0fc198 100644
+--- a/frontend/src/context/AuthContext.jsx
++++ b/frontend/src/context/AuthContext.jsx
+@@ -9,7 +9,9 @@ import React, {
+ } from "react";
+ import { signOut } from "firebase/auth";
+ import { auth } from "../firebase.js"; 
+-import { apiFetch } from "../lib/api";
++import { apiFetch, SESSION_EXPIRED_EVENT } from "../lib/api";
++import { useNavigate } from "react-router-dom";
++import toast from "react-hot-toast";
+ 
+ const AuthContext = createContext();
+ 
+@@ -22,6 +24,21 @@ export const useAuth = () => {
+ };
+ 
+ export const AuthProvider = ({ children }) => {
++  const navigate = useNavigate();
++  const hasFetchedProfile = useRef(false);
++
++  useEffect(() => {
++    const expireSession = () => {
++      setIsAuthenticated(false);
++      setUser(null);
++      hasFetchedProfile.current = false;
++      if (auth) signOut(auth).catch(console.error);
++      toast.error("Session expired. Please log in again.", { id: "session-expired" });
++      navigate("/login", { replace: true });
++    };
++    window.addEventListener(SESSION_EXPIRED_EVENT, expireSession);
++    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession);
++  }, [navigate]);
+   const [isAuthenticated, setIsAuthenticated] = useState(() => {
+     const token = localStorage.getItem("token");
+     const storedUser = localStorage.getItem("user");
+@@ -50,6 +67,7 @@ export const AuthProvider = ({ children }) => {
+   }, []);
+ 
+   const login = (userData) => {
++    hasFetchedProfile.current = false;
+     setIsAuthenticated(true);
+ 
+     const newUser = {
+@@ -77,6 +95,7 @@ export const AuthProvider = ({ children }) => {
+       if (!response || !response.ok) return;
+ 
+       const userData = await response.json();
++      if (localStorage.getItem("token") !== token) return;
+ 
+       const newUser = {
+         ...userData,
+@@ -98,8 +117,6 @@ export const AuthProvider = ({ children }) => {
+     }
+   }, []);
+ 
+-  const hasFetchedProfile = useRef(false);
+-
+   useEffect(() => {
+     if (isAuthenticated && !hasFetchedProfile.current) {
+       hasFetchedProfile.current = true;
+@@ -116,6 +133,7 @@ export const AuthProvider = ({ children }) => {
+       console.error("Firebase sign out error:", error);
+     }
+ 
++    hasFetchedProfile.current = false;
+     setIsAuthenticated(false);
+     setUser(null);
+ 
+diff --git a/frontend/src/lib/api.js b/frontend/src/lib/api.js
+index 905984c..72f32fb 100644
+--- a/frontend/src/lib/api.js
++++ b/frontend/src/lib/api.js
+@@ -1,27 +1,64 @@
+-import toast from 'react-hot-toast';
++import axios from 'axios';
++
+ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
++export const SESSION_EXPIRED_EVENT = 'auth:session-expired';
++
++function isProtectedApi(url) {
++  const target = new URL(url, window.location.origin);
++  return [window.location.origin, new URL(API_BASE_URL).origin].includes(target.origin)
++    && target.pathname.startsWith('/api/')
++    && !target.pathname.startsWith('/api/auth/');
++}
++
++export function handleUnauthorized(url, authorization) {
++  if (!isProtectedApi(url) || !authorization?.startsWith('Bearer ')) return;
++  const token = authorization.slice(7);
++  // Ignore duplicate responses and responses from a previous login.
++  if (!token || localStorage.getItem('token') !== token) return;
++  localStorage.removeItem('token');
++  localStorage.removeItem('user');
++  localStorage.removeItem('preferencesSkipped');
++  window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
++}
++
+ export const apiFetch = async (url, options = {}) => {
++  const target = url.startsWith('/api/')
++    ? `${API_BASE_URL.replace(/\/$/, '')}${url}`
++    : url;
++  const headers = new Headers(options.headers);
+   const token = localStorage.getItem('token');
+-  const response = await fetch(`${API_BASE_URL}${url}`, {
+-    ...options,
+-    headers: {
+-      'Content-Type': 'application/json',
+-      ...(token && {
+-        Authorization: `Bearer ${token}`,
+-      }),
+-      ...options.headers,
+-    },
+-  });
++  if (isProtectedApi(target) && token && !headers.has('Authorization')) {
++    headers.set('Authorization', `Bearer ${token}`);
++  }
++  if (typeof options.body === 'string' && !headers.has('Content-Type')) {
++    headers.set('Content-Type', 'application/json');
++  }
++  const response = await window.fetch(target, { ...options, headers });
+   if (response.status === 401) {
+-    localStorage.removeItem('token');
+-    localStorage.removeItem('user');
+-
+-    toast.error('Session expired. Please login again.');
+-setTimeout(() => {
+-  window.location.href = '/login';
+-}, 2000);
+-    return null;
++    handleUnauthorized(target, headers.get('Authorization'));
+   }
++  // Preserve the Response contract for existing callers.
+   return response;
+ };
+-export default API_BASE_URL;
+\ No newline at end of file
++
++const inspectAxiosResponse = (response) => {
++  if (response?.status === 401) {
++    const config = response.config;
++    const url = axios.getUri(config);
++    const headers = axios.AxiosHeaders.from(config.headers);
++    handleUnauthorized(url, headers.get('Authorization'));
++  }
++};
++
++axios.interceptors.response.use(
++  (response) => {
++    inspectAxiosResponse(response);
++    return response;
++  },
++  (error) => {
++    inspectAxiosResponse(error.response);
++    return Promise.reject(error);
++  },
++);
++
++export default API_BASE_URL;
+diff --git a/frontend/src/pages/Analytics.jsx b/frontend/src/pages/Analytics.jsx
+index 6ba13ef..db32142 100644
+--- a/frontend/src/pages/Analytics.jsx
++++ b/frontend/src/pages/Analytics.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import React, { useState, useEffect } from "react";
+ import { Link } from "react-router-dom";
+ import { 
+diff --git a/frontend/src/pages/CertificatesPage.jsx b/frontend/src/pages/CertificatesPage.jsx
+index 344ee10..c2a3829 100644
+--- a/frontend/src/pages/CertificatesPage.jsx
++++ b/frontend/src/pages/CertificatesPage.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import React, { useState, useEffect, useCallback } from "react";
+ import { Link } from "react-router-dom";
+ import {
+diff --git a/frontend/src/pages/CompleteProfilePage.jsx b/frontend/src/pages/CompleteProfilePage.jsx
+index 9c56aca..090c1a7 100644
+--- a/frontend/src/pages/CompleteProfilePage.jsx
++++ b/frontend/src/pages/CompleteProfilePage.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import { useState, useEffect } from "react";
+ import { useNavigate } from "react-router-dom";
+ import { useAuth } from "../context/AuthContext";
+diff --git a/frontend/src/pages/CoursePreview.jsx b/frontend/src/pages/CoursePreview.jsx
+index 2223fbd..b41d9b9 100644
+--- a/frontend/src/pages/CoursePreview.jsx
++++ b/frontend/src/pages/CoursePreview.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import React, { useEffect, useRef, useState } from "react";
+ import { useParams, useNavigate } from "react-router-dom";
+ import { Helmet } from "react-helmet-async";
+diff --git a/frontend/src/pages/CoursesPage.jsx b/frontend/src/pages/CoursesPage.jsx
+index 61e7caf..71f8a78 100644
+--- a/frontend/src/pages/CoursesPage.jsx
++++ b/frontend/src/pages/CoursesPage.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+ import { Helmet } from "react-helmet-async";
+ import { Star, X, BookOpen, Search, ChevronLeft, ChevronRight } from "lucide-react";
+diff --git a/frontend/src/pages/Dashboard.jsx b/frontend/src/pages/Dashboard.jsx
+index 212d014..096a3e6 100644
+--- a/frontend/src/pages/Dashboard.jsx
++++ b/frontend/src/pages/Dashboard.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import React, { useState, useEffect } from "react";
+ import { Link, Navigate, useNavigate } from "react-router-dom";
+ import { useAuth } from "../context/AuthContext";
+diff --git a/frontend/src/pages/DiscussionsPage.jsx b/frontend/src/pages/DiscussionsPage.jsx
+index 83953e6..04f8f60 100644
+--- a/frontend/src/pages/DiscussionsPage.jsx
++++ b/frontend/src/pages/DiscussionsPage.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import { useState, useEffect, useRef, useCallback } from "react";
+ import { useLocation, useNavigate } from "react-router-dom";
+ import { useAuth } from "../context/AuthContext";
+diff --git a/frontend/src/pages/Documentation/DocumentationPage.jsx b/frontend/src/pages/Documentation/DocumentationPage.jsx
+index 72ecde1..b3ba980 100644
+--- a/frontend/src/pages/Documentation/DocumentationPage.jsx
++++ b/frontend/src/pages/Documentation/DocumentationPage.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../../lib/api";
+ import React, { useState, useMemo, useEffect } from 'react';
+ import Header from '../../components/Header';
+ import DocSidebar from './DocSidebar';
+diff --git a/frontend/src/pages/LearningPage.jsx b/frontend/src/pages/LearningPage.jsx
+index 5ee3ac5..e225785 100644
+--- a/frontend/src/pages/LearningPage.jsx
++++ b/frontend/src/pages/LearningPage.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import { useState, useRef, useEffect, useCallback } from "react";
+ import { useTranslation } from "react-i18next";
+ 
+diff --git a/frontend/src/pages/ReportPage.jsx b/frontend/src/pages/ReportPage.jsx
+index c61a555..c1e215d 100644
+--- a/frontend/src/pages/ReportPage.jsx
++++ b/frontend/src/pages/ReportPage.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import React, { useState } from "react";
+ import { Flag, Mail, Phone, FileText, Award, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+ import API_BASE_URL from "../lib/api";
+diff --git a/frontend/src/pages/SignUpPage.jsx b/frontend/src/pages/SignUpPage.jsx
+index 51d1c5a..be07b0c 100644
+--- a/frontend/src/pages/SignUpPage.jsx
++++ b/frontend/src/pages/SignUpPage.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import { useState } from "react";
+ import { Link, useNavigate } from "react-router-dom";
+ import { Eye, EyeOff, Lock, Moon, Sun, Check, X } from "lucide-react";
+diff --git a/frontend/src/pages/Success.jsx b/frontend/src/pages/Success.jsx
+index a7154e6..e92852b 100644
+--- a/frontend/src/pages/Success.jsx
++++ b/frontend/src/pages/Success.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import React, { useEffect, useRef } from "react";
+ import { useNavigate, useSearchParams } from "react-router-dom";
+ import API_BASE_URL from "../lib/api";
+diff --git a/frontend/src/pages/WatchedVideos.jsx b/frontend/src/pages/WatchedVideos.jsx
+index ae76560..57a7f82 100644
+--- a/frontend/src/pages/WatchedVideos.jsx
++++ b/frontend/src/pages/WatchedVideos.jsx
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import React, { useState, useEffect } from "react";
+ import { useTranslation } from "react-i18next";
+ import { useNavigate } from "react-router-dom";
+diff --git a/frontend/src/service/aiService.js b/frontend/src/service/aiService.js
+index 8e6128e..39644fd 100644
+--- a/frontend/src/service/aiService.js
++++ b/frontend/src/service/aiService.js
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ export const getAIVideo = async (payload) => {
+   const token = localStorage.getItem("token");
+ 
+diff --git a/frontend/src/service/notificationService.js b/frontend/src/service/notificationService.js
+index a04d9cf..254cca5 100644
+--- a/frontend/src/service/notificationService.js
++++ b/frontend/src/service/notificationService.js
+@@ -1,3 +1,4 @@
++import { apiFetch as fetch } from "../lib/api";
+ import API_BASE_URL from "../lib/api";
+ 
+ const getHeaders = () => {
