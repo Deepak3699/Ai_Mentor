@@ -321,7 +321,7 @@ const forgotPassword = async (req, res) => {
 
       res.status(200).json(genericResponse);
     } catch (err) {
-      console.error("Email could not be sent", err);
+      console.error("Email could not be sent");
       user.resetPasswordToken = null;
       user.resetPasswordExpires = null;
       await user.save();
