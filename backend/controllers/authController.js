@@ -2,27 +2,28 @@ import crypto from "crypto";
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import { Op } from "sequelize";
-import sendEmail from "../utils/sendEmail.js";
 import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
-import cloudinary from "../config/cloudinary.js";
 import admin from "firebase-admin";
+import { authServices } from "../services/authExternalServices.js";
 
-// Initialize Firebase Admin SDK ONLY if real keys are provided
-if (!admin.apps.length && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_PRIVATE_KEY.length > 50) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-      }),
-    });
-    console.log("🔥 Firebase initialized successfully");
-  } catch (err) {
-    console.warn("⚠️ Firebase failed to initialize. Google Login will not work.");
+// Initialize Firebase Admin only outside tests and only when real keys are provided.
+if (process.env.NODE_ENV !== "test") {
+  if (!admin.apps.length && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_PRIVATE_KEY.length > 50) {
+    try {
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+        }),
+      });
+      console.log("🔥 Firebase initialized successfully");
+    } catch (err) {
+      console.warn("⚠️ Firebase failed to initialize. Google Login will not work.");
+    }
+  } else {
+    console.warn("⚠️ No valid Firebase keys found in .env. Skipping Firebase init.");
   }
-} else {
-  console.warn("⚠️ No valid Firebase keys found in .env. Skipping Firebase init.");
 }
 
 const generateToken = (id) => {
@@ -138,7 +139,7 @@ const refreshAvatarInBackground = async (userId, googlePictureUrl) => {
       return;
     }
 
-    const result = await cloudinary.uploader.upload(googlePictureUrl, {
+    const result = await authServices.uploadAvatar(googlePictureUrl, {
       folder: "user_avatars",
       public_id: `user_${userId}`,
       overwrite: true,
@@ -160,7 +161,7 @@ const googleLogin = async (req, res) => {
     // Validates signature, expiry, project (aud), and issuer automatically.
     let decodedToken;
     try {
-      decodedToken = await admin.auth().verifyIdToken(idToken);
+      decodedToken = await authServices.verifyGoogleIdToken(idToken);
     } catch (verifyError) {
       console.error("Google token verification failed:", verifyError.message);
       return res.status(401).json({ message: "Invalid Google token" });
@@ -234,7 +235,7 @@ const googleLogin = async (req, res) => {
 
       if (isNewUser) {
         try {
-          const result = await cloudinary.uploader.upload(avatar_url, {
+          const result = await authServices.uploadAvatar(avatar_url, {
             folder: "user_avatars",
             public_id: `user_${user.id}`,
             overwrite: true,
@@ -312,7 +313,7 @@ const forgotPassword = async (req, res) => {
     `;
 
     try {
-      await sendEmail({
+      await authServices.sendEmail({
         email: user.email,
         subject: "Password Reset Token",
         message,

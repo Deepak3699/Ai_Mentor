@@ -208,7 +208,7 @@ def generate_syllabus(data: SyllabusRequest):
     try:
         print("⚡ Trying Gemini Primary Model for Syllabus...")
         response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             contents=prompt
         )
         text = response.text.strip()
@@ -288,7 +288,7 @@ def generate_quiz(data: QuizRequest):
             try:
                 print("⚡ Trying Gemini...")
                 response = gemini_client.models.generate_content(
-                    model="gemini-3.7-flash",
+                    model=GEMINI_MODEL,
                     contents=prompt
                 )
                 text = response.text.strip()
@@ -424,7 +424,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
             print("⚡ Trying Gemini Primary Model...")
 
             response = gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=GEMINI_MODEL,
                 contents=prompt
             )
 
