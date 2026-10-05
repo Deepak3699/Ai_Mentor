@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "../lib/api";
 import React, { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
