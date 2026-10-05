@@ -111,23 +111,40 @@ const Sidebar = ({ activePage = "dashboard" }) => {
         >
           <div className={`flex flex-col justify-between ${sidebarCollapsed ? "space-y-6" : "min-h-full pb-4"}`}>
             {navigationItems.map((item) => {
-              const isActive = activePage === item.id;
+  const isActive = activePage === item.id;
 
-              return (
-                <div key={item.id} onClick={() => { navigate(item.path); setSidebarOpen(false); }} className={`group relative flex items-center px-4 py-3 rounded-3xl cursor-pointer transition-all duration-300 ${sidebarCollapsed ? "justify-center" : ""} ${isActive ? "bg-blue-600 text-white shadow-xl shadow-blue-600/30" : "hover:bg-white/5"}`}>
-                  <img src={item.icon} alt={item.label} className={`w-5 h-5 shrink-0 transition-transform group-hover:scale-110 ${isActive ? "brightness-0 invert" : "opacity-80"}`} />
-                  {!sidebarCollapsed && <span className={`ml-4 text-[15px] font-bold uppercase tracking-wider ${isActive ? "text-white" : ""}`} style={isActive ? {} : { color: '#b2b2b3' }}>{t(`nav.${item.id}`)}</span>}
-                  {sidebarCollapsed && (
-                    <span
-                      className="absolute left-full ml-6 px-4 py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none transition-all shadow-2xl z-50 uppercase tracking-widest"
-                      aria-hidden="true"
-                    >
-                      {t(`nav.${item.id}`)}
-                    </span>
-                  )}
-                </NavLink>
-              );
-            })}
+  return (
+    <NavLink
+      key={item.id}
+      to={item.path}
+      onClick={() => setSidebarOpen(false)}
+      aria-label={t(`nav.${item.id}`)}
+      className={`group relative flex items-center px-4 py-3 rounded-3xl transition-all duration-300 ${sidebarCollapsed ? "justify-center" : ""} ${isActive ? "bg-teal-500 text-white shadow-xl shadow-teal-500/30" : "hover:bg-canvas-alt"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2`}
+    >
+      <img
+        src={item.icon}
+        alt=""
+        aria-hidden="true"
+        className={`w-5 h-5 shrink-0 transition-transform group-hover:scale-110 ${isActive ? "brightness-0 invert" : "opacity-80"}`}
+      />
+
+      {!sidebarCollapsed && (
+        <span
+          className={`ml-4 text-[15px] font-bold uppercase tracking-wider ${isActive ? "text-white" : ""}`}
+          style={isActive ? {} : { color: "#b2b2b3" }}
+        >
+          {t(`nav.${item.id}`)}
+        </span>
+      )}
+
+      {sidebarCollapsed && (
+        <span className="absolute left-full ml-6 px-4 py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 pointer-events-none transition-all shadow-2xl z-50 uppercase tracking-widest">
+          {t(`nav.${item.id}`)}
+        </span>
+      )}
+    </NavLink>
+  );
+})}
           </div>
         </nav>
 
