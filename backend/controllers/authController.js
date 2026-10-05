@@ -41,10 +41,11 @@ const register = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
+    const fullName = formatFullName(firstName, lastName) || name;
     const user = await User.create({
       firstName,
       lastName,
-      name: formatFullName(name, ""), // Standard register provides 'name', we treat as first part if needed
+      name: fullName,
       email,
       password,
     });
@@ -355,6 +356,7 @@ const resetPassword = async (req, res) => {
     user.set("password", password);
     user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
+    user.passwordChangedAt=Date.now();
 
     await user.save();
 

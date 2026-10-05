@@ -39,7 +39,10 @@ User.init(
       type: DataTypes.STRING,
       allowNull: true,
     },
-
+    passwordChangedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     googleId: {
       type: DataTypes.STRING,
     },
@@ -155,6 +158,7 @@ User.init(
 );
 
 User.prototype.matchPassword = async function (enteredPassword) {
+  if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
