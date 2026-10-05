@@ -1429,7 +1429,6 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-        </div>
 
         {/* Right Sidebar */}
         <aside
