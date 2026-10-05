@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ChevronRight, LogOut, Settings, User, ShieldCheck, LayoutGrid } from "lucide-react";
 import API_BASE_URL from "../lib/api";
@@ -86,13 +86,13 @@ const Sidebar = ({ activePage = "dashboard" }) => {
             {navigationItems.map((item) => {
               const isActive = activePage === item.id;
               return (
-                <div key={item.id} onClick={() => { navigate(item.path); setSidebarOpen(false); }} className={`group relative flex items-center px-4 py-3 rounded-3xl cursor-pointer transition-all duration-300 ${sidebarCollapsed ? "justify-center" : ""} ${isActive ? "bg-teal-500 text-white shadow-xl shadow-teal-500/30" : "hover:bg-canvas-alt"}`}>
+                <NavLink key={item.id} to={item.path} onClick={() => setSidebarOpen(false)} aria-label={t(`nav.${item.id}`)} className={`group relative flex items-center px-4 py-3 rounded-3xl transition-all duration-300 ${sidebarCollapsed ? "justify-center" : ""} ${isActive ? "bg-teal-500 text-white shadow-xl shadow-teal-500/30" : "hover:bg-canvas-alt"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2`}>
                   <img src={item.icon} alt={item.label} className={`w-5 h-5 shrink-0 transition-transform group-hover:scale-110 ${isActive ? "brightness-0 invert" : "opacity-80"}`} />
                   {!sidebarCollapsed && <span className={`ml-4 text-[15px] font-bold uppercase tracking-wider ${isActive ? "text-white" : ""}`} style={isActive ? {} : { color: '#b2b2b3' }}>{t(`nav.${item.id}`)}</span>}
                   {sidebarCollapsed && (
                     <div className="absolute left-full ml-6 px-4 py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all shadow-2xl z-50 uppercase tracking-widest">{t(`nav.${item.id}`)}</div>
                   )}
-                </div>
+                </NavLink>
               );
             })}
           </div>

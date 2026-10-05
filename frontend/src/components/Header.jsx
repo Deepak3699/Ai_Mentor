@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Bell, Menu, X, User, Settings, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import ThemeToggle from "../components/common/ThemeToggle";
 import { useSidebar } from "../context/SidebarContext";
 import { useTranslation } from "react-i18next";
@@ -161,13 +161,17 @@ const Header = () => {
               {sidebarOpen ? <X className="w-5 h-5 text-muted" /> : <Menu className="w-5 h-5 text-muted" />}
             </button>
 
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate("/dashboard")}>
-              <img
-                src="/upto.png"
-                alt="UptoSkills Logo"
-                className="h-8 sm:h-10 w-auto"
-              />
-            </div>
+            <Link
+  to="/dashboard"
+  aria-label="Go to dashboard"
+  className="flex items-center space-x-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2"
+>
+  <img
+    src="/upto.png"
+    alt="UptoSkills Logo"
+    className="h-8 sm:h-10 w-auto"
+  />
+</Link>
           </div>
 
           {/* Action Buttons & Profile */}
