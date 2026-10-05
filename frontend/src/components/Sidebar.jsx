@@ -1,19 +1,41 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { ChevronRight, LogOut, Settings, User, ShieldCheck, LayoutGrid } from "lucide-react";
+import {
+  ChevronRight,
+  LogOut,
+  Settings,
+  LayoutDashboard,
+  BookOpen,
+  MessageSquare,
+  BarChart3,
+  Video,
+  Award,
+  Flag,
+  CircleHelp,
+} from "lucide-react";
 import API_BASE_URL from "../lib/api";
 import { useSidebar } from "../context/SidebarContext";
 import { useTranslation } from "react-i18next";
 
 const Sidebar = ({ activePage = "dashboard" }) => {
+
   const { t } = useTranslation();
-  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed } = useSidebar();
+
+  const {
+    sidebarOpen,
+    setSidebarOpen,
+    sidebarCollapsed,
+    setSidebarCollapsed,
+  } = useSidebar();
+
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
   const [navigationItems, setNavigationItems] = useState([]);
   const [profilePopupOpen, setProfilePopupOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   const profileRef = useRef(null);
 
   const handleLogout = () => {
@@ -27,124 +49,564 @@ const Sidebar = ({ activePage = "dashboard" }) => {
     navigate("/login", { state: { logoutSuccess: true } });
   };
 
-  const displayName = user?.name || user?.email?.split('@')[0] || "User";
+  const displayName = 
+   user?.name || user?.email?.split("@")[0] || "User";
 
+  const iconMap = {
+  dashboard: LayoutDashboard,
+  my_courses: BookOpen,
+  "my-courses": BookOpen,
+  courses: BookOpen,
+  discussion: MessageSquare,
+  analytics: BarChart3,
+  settings: Settings,
+  watched_videos: Video,
+  "watched-videos": Video,
+  certificates: Award,
+  report: Flag,
+};
+
+  // Close profile popup when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
+      if (
+        profileRef.current &&
+        !profileRef.current.contains(event.target)
+      ) {
         setProfilePopupOpen(false);
       }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Fetch navigation items
   useEffect(() => {
     let isMounted = true;
+
     const fetchNavigationItems = async () => {
       try {
         const token = localStorage.getItem("token");
+
         if (!token) return;
-        const response = await fetch(`${API_BASE_URL}/api/sidebar/navigation`, {
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        });
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/sidebar/navigation`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
         if (!response.ok) return;
+
         const data = await response.json();
-        if (isMounted) setNavigationItems(data);
-      } catch (error) { console.error("Error:", error); }
+
+        if (isMounted) {
+          setNavigationItems(data);
+        }
+      } catch (error) {
+        console.error("Error:", error);
+      }
     };
+
     fetchNavigationItems();
-    return () => { isMounted = false; };
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  const handleNavigation = (path) => {
+    navigate(path);
+    setSidebarOpen(false);
+  };
 
   return (
     <>
-      {sidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-60 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+      {/* ================= MOBILE OVERLAY ================= */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
+      {/* ================= LOGOUT CONFIRMATION ================= */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-card border border-border/50 rounded-4xl shadow-2xl p-8 w-80 text-center">
-            <LogOut className="w-10 h-10 text-red-500 mx-auto mb-4" />
-            <h3 className="text-sm font-black uppercase tracking-tight text-main mb-2">Logout</h3>
-            <p className="text-xs text-muted mb-6">Are you sure you want to logout?</p>
-            <div className="flex gap-3">
-              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest border border-border hover:bg-canvas-alt transition-all">Cancel</button>
-              <button onClick={confirmLogout} className="flex-1 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest bg-red-500 text-white hover:bg-red-600 transition-all">Logout</button>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-card border border-border/50 rounded-2xl shadow-2xl p-6 w-full max-w-xs text-center">
+            <LogOut className="w-9 h-9 text-red-500 mx-auto mb-3" />
+
+            <h3 className="text-sm font-bold text-main mb-2">
+              Logout
+            </h3>
+
+            <p className="text-xs text-muted mb-5">
+              Are you sure you want to logout?
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-2.5 rounded-lg text-xs font-semibold border border-border hover:bg-canvas-alt transition-all"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={confirmLogout}
+                className="flex-1 py-2.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className={`fixed lg:fixed top-18.5 left-0 z-[70] bg-card/70 backdrop-blur-2xl border-r border-border/80 transform transition-all duration-500 ease-out lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${sidebarCollapsed ? "lg:w-24" : "lg:w-80"} w-80 h-[calc(100dvh-4.625rem)] flex flex-col overflow-visible`}>
+      {/* ================= SIDEBAR ================= */}
+      <aside
+        className={`
+          fixed
+          top-[4.625rem]
+          left-0
+          z-[70]
+          h-[calc(100dvh-4.625rem)]
+          flex
+          flex-col
+          bg-[#0b1324]
+          border-r
+          border-white/5
+          transition-all
+          duration-300
+          ease-out
 
-        <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="hidden lg:flex absolute -right-5 top-8 w-10 h-10 bg-card border border-border rounded-xl items-center justify-center hover:bg-teal-500 hover:text-white transition-all shadow-xl z-80">
-          <ChevronRight className={`w-5 h-5 transition-transform duration-500 ${sidebarCollapsed ? "" : "rotate-180"}`} />
+          ${
+            sidebarOpen
+              ? "translate-x-0"
+              : "-translate-x-full lg:translate-x-0"
+          }
+
+          ${
+            sidebarCollapsed
+              ? "lg:w-[72px]"
+              : "w-[250px] lg:w-[245px]"
+          }
+        `}
+      >
+        {/* ================= COLLAPSE BUTTON ================= */}
+        <button
+          onClick={() =>
+            setSidebarCollapsed(!sidebarCollapsed)
+          }
+          className="
+            hidden
+            lg:flex
+            absolute
+            -right-3
+            top-6
+            w-6
+            h-6
+            rounded-full
+            bg-[#17223a]
+            border
+            border-white/10
+            items-center
+            justify-center
+            text-gray-300
+            hover:bg-blue-600
+            hover:text-white
+            transition-all
+            z-[80]
+          "
+          aria-label="Toggle sidebar"
+        >
+          <ChevronRight
+            className={`
+              w-3.5
+              h-3.5
+              transition-transform
+              duration-300
+
+              ${sidebarCollapsed ? "" : "rotate-180"}
+            `}
+          />
         </button>
 
-        <nav className={`mt-6 px-4 flex-1 min-h-0 scrollbar-hide ${sidebarCollapsed ? "overflow-visible" : "overflow-y-auto"}`}>
-          <div className={`flex flex-col justify-between ${sidebarCollapsed ? "space-y-6" : "min-h-full pb-4"}`}>
+        {/* ================= MAIN NAVIGATION ================= */}
+        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 py-4">
+          <div className="space-y-2">
             {navigationItems.map((item) => {
               const isActive = activePage === item.id;
+              const Icon = iconMap[item.id] || LayoutDashboard;
+
               return (
-                <div key={item.id} onClick={() => { navigate(item.path); setSidebarOpen(false); }} className={`group relative flex items-center px-4 py-3 rounded-3xl cursor-pointer transition-all duration-300 ${sidebarCollapsed ? "justify-center" : ""} ${isActive ? "bg-blue-600 text-white shadow-xl shadow-blue-600/30" : "hover:bg-white/5"}`}>
-                  <img src={item.icon} alt={item.label} className={`w-5 h-5 shrink-0 transition-transform group-hover:scale-110 ${isActive ? "brightness-0 invert" : "opacity-80"}`} />
-                  {!sidebarCollapsed && <span className={`ml-4 text-[15px] font-bold uppercase tracking-wider ${isActive ? "text-white" : ""}`} style={isActive ? {} : { color: '#b2b2b3' }}>{t(`nav.${item.id}`)}</span>}
-                  {sidebarCollapsed && (
-                    <div className="absolute left-full ml-6 px-4 py-2 bg-slate-900 text-white text-[10px] font-black rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all shadow-2xl z-50 uppercase tracking-widest">{t(`nav.${item.id}`)}</div>
+                <button
+                  key={item.id}
+                  onClick={() => handleNavigation(item.path)}
+                  className={`
+                    group
+                    relative
+                    w-full
+                    flex
+                    items-center
+                    ${
+                      sidebarCollapsed
+                        ? "justify-center"
+                        : "justify-start"
+                    }
+                    gap-3
+                    px-3
+                    py-2.5
+                    rounded-lg
+                    cursor-pointer
+                    transition-all
+                    duration-200
+
+                    ${
+                      isActive
+                        ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
+                        : "text-gray-300 hover:bg-white/5 hover:text-white"
+                    }
+                  `}
+                >
+                  <Icon
+                    className={`
+                      w-[18px]
+                      h-[18px]
+                      shrink-0
+                      transition-all
+                      ${
+                        isActive
+                          ? "text-white"
+                          : "text-gray-400 group-hover:text-white"
+                      }
+                    `}
+                  />
+
+                  {!sidebarCollapsed && (
+                    <span
+                      className={`
+                        text-[13px]
+                        font-medium
+                        whitespace-nowrap
+                        ${
+                          isActive
+                            ? "text-white"
+                            : "text-gray-300"
+                        }
+                      `}
+                    >
+                      {t(`nav.${item.id}`)}
+                    </span>
                   )}
-                </div>
+
+                  {/* Tooltip when collapsed */}
+                  {sidebarCollapsed && (
+                    <span
+                      className="
+                        absolute
+                        left-full
+                        ml-3
+                        px-3
+                        py-1.5
+                        bg-[#17223a]
+                        text-white
+                        text-[11px]
+                        rounded-md
+                        opacity-0
+                        group-hover:opacity-100
+                        pointer-events-none
+                        whitespace-nowrap
+                        transition-opacity
+                        z-[100]
+                        shadow-lg
+                      "
+                    >
+                      {t(`nav.${item.id}`)}
+                    </span>
+                  )}
+                </button>
               );
             })}
           </div>
         </nav>
 
-        {/* --- BOTTOM PROFILE WITH POPUP --- */}
-        <div className="relative mt-auto px-4 pb-8 pt-4" ref={profileRef}>
-          {profilePopupOpen && (
-            <div className={`absolute bottom-full mb-6 left-4 right-4 bg-card/95 backdrop-blur-2xl border border-border/50 rounded-[2.5rem] shadow-[0_-20px_80px_rgba(0,0,0,0.3)] overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 z-90 ${sidebarCollapsed ? "w-52 -left-2" : ""}`}>
-              <div className="p-6 border-b border-border/50 bg-linear-to-tr from-teal-500/10 to-transparent text-center">
-                 <img 
-                   src={user?.avatar_url || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.name || displayName)}`} 
-                   className="w-16 h-16 rounded-3xl mx-auto mb-3 shadow-2xl border-2 border-card object-cover" 
-                   alt="User" 
-                   onError={(e) => {
-                     const seed = encodeURIComponent(`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.name || displayName);
-                     e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
-                   }}
-                 />
-                 <h4 className="text-xs font-black text-main uppercase tracking-tighter">{displayName}</h4>
-              </div>
-              <div className="p-2">
-                <button onClick={() => {navigate("/settings"); setProfilePopupOpen(false);}} className="flex items-center w-full px-4 py-3 text-[10px] font-black uppercase text-main hover:bg-blue-600 hover:text-white rounded-3xl transition-all"><Settings className="w-4 h-4 mr-3" /> {t("header.dashboard_settings")}</button>
-                <button onClick={handleLogout} className="flex items-center w-full px-4 py-3 text-[10px] font-black uppercase text-red-500 hover:bg-red-500 hover:text-white rounded-3xl transition-all mt-1"><LogOut className="w-4 h-4 mr-3" /> {t("auth.logout")}</button>
-              </div>
-            </div>
-          )}
+        {/* ================= BOTTOM SECTION ================= */}
+        <div className="px-3 pb-5">
 
-          <div
-            onClick={() => setProfilePopupOpen(!profilePopupOpen)}
-            className={`cursor-pointer group relative p-0.5 rounded-4xl bg-linear-to-br from-teal-500/20 via-blue-500/10 to-transparent transition-all duration-500 shadow-lg hover:shadow-teal-500/5 ${profilePopupOpen ? 'ring-2 ring-teal-500/50' : 'ring-1 ring-white/5'}`}
+          {/* Settings */}
+          <button
+            onClick={() => {
+              navigate("/settings");
+              setSidebarOpen(false);
+            }}
+            className={`
+              group
+              relative
+              w-full
+              flex
+              items-center
+              ${
+                sidebarCollapsed
+                  ? "justify-center"
+                  : "justify-start"
+              }
+              gap-3
+              px-3
+              py-2.5
+              rounded-lg
+              text-gray-300
+              hover:bg-white/5
+              hover:text-white
+              transition-all
+            `}
           >
-            <div className={`bg-card dark:bg-[#0a0f1e] rounded-[1.9rem] transition-all duration-300 ${sidebarCollapsed ? 'p-1' : 'p-4 flex items-center'}`}>
-              <img 
-                src={user?.avatar_url || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.name || displayName)}`} 
-                className={`${sidebarCollapsed ? 'w-12 h-12' : 'w-10 h-10'} rounded-[1.2rem] shadow-md border-2 border-white dark:border-slate-800 transition-all object-cover`} 
-                alt="Avatar" 
+            <Settings className="w-[17px] h-[17px] shrink-0" />
+
+            {!sidebarCollapsed && (
+              <span className="text-[12px] font-medium">
+                Settings
+              </span>
+            )}
+
+            {sidebarCollapsed && (
+              <span
+                className="
+                  absolute
+                  left-full
+                  ml-3
+                  px-3
+                  py-1.5
+                  bg-[#17223a]
+                  text-white
+                  text-[11px]
+                  rounded-md
+                  opacity-0
+                  group-hover:opacity-100
+                  pointer-events-none
+                  whitespace-nowrap
+                  transition-opacity
+                  z-[100]
+                "
+              >
+                Settings
+              </span>
+            )}
+          </button>
+
+          {/* Help & Support */}
+          <button
+            onClick={() => {
+              setSidebarOpen(false);
+              // Keep this action available without assuming a new route.
+              window.dispatchEvent(
+                new CustomEvent("open-help-support")
+              );
+            }}
+            className={`
+              group
+              relative
+              w-full
+              flex
+              items-center
+              ${
+                sidebarCollapsed
+                  ? "justify-center"
+                  : "justify-start"
+              }
+              gap-3
+              px-3
+              py-2.5
+              rounded-lg
+              text-gray-300
+              hover:bg-white/5
+              hover:text-white
+              transition-all
+            `}
+          >
+            <CircleHelp className="w-[17px] h-[17px] shrink-0" />
+
+            {!sidebarCollapsed && (
+              <span className="text-[12px] font-medium">
+                Help & Support
+              </span>
+            )}
+
+            {sidebarCollapsed && (
+              <span
+                className="
+                  absolute
+                  left-full
+                  ml-3
+                  px-3
+                  py-1.5
+                  bg-[#17223a]
+                  text-white
+                  text-[11px]
+                  rounded-md
+                  opacity-0
+                  group-hover:opacity-100
+                  pointer-events-none
+                  whitespace-nowrap
+                  transition-opacity
+                  z-[100]
+                "
+              >
+                Help & Support
+              </span>
+            )}
+          </button>
+
+          {/* ================= USER PROFILE ================= */}
+          <div
+            className="relative mt-3 pt-3 border-t border-white/5"
+            ref={profileRef}
+          >
+            {profilePopupOpen && (
+              <div
+                className={`
+                  absolute
+                  bottom-full
+                  mb-2
+                  ${
+                    sidebarCollapsed
+                      ? "left-0 w-52"
+                      : "left-0 right-0"
+                  }
+                  bg-[#111b30]
+                  border
+                  border-white/10
+                  rounded-xl
+                  shadow-2xl
+                  overflow-hidden
+                  z-[90]
+                `}
+              >
+                <div className="p-4 border-b border-white/5 text-center">
+                  <img
+                    src={
+                      user?.avatar_url ||
+                      `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(
+                        `${user?.firstName || ""} ${
+                          user?.lastName || ""
+                        }`.trim() ||
+                          user?.name ||
+                          displayName
+                      )}`
+                    }
+                    className="w-11 h-11 rounded-full mx-auto mb-2 object-cover"
+                    alt="User"
+                    onError={(e) => {
+                      const seed = encodeURIComponent(
+                        `${user?.firstName || ""} ${
+                          user?.lastName || ""
+                        }`.trim() ||
+                          user?.name ||
+                          displayName
+                      );
+
+                      e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
+                    }}
+                  />
+
+                  <div className="text-xs font-semibold text-white truncate">
+                    {displayName}
+                  </div>
+                </div>
+
+                <div className="p-1.5">
+                  <button
+                    onClick={() => {
+                      navigate("/settings");
+                      setProfilePopupOpen(false);
+                      setSidebarOpen(false);
+                    }}
+                    className="flex items-center w-full px-3 py-2 text-xs text-gray-300 hover:bg-blue-600 hover:text-white rounded-lg transition-all mb-1"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Settings
+                  </button>
+
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center w-full px-3 py-2 text-xs text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-all"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Profile */}
+            <button
+              onClick={() =>
+                setProfilePopupOpen(!profilePopupOpen)
+              }
+              className={`
+                w-full
+                flex
+                items-center
+                ${
+                  sidebarCollapsed
+                    ? "justify-center"
+                    : "justify-start"
+                }
+                gap-3
+                p-2
+                rounded-lg
+                hover:bg-white/5
+                transition-all
+              `}
+            >
+              <img
+                src={
+                  user?.avatar_url ||
+                  `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(
+                    `${user?.firstName || ""} ${
+                      user?.lastName || ""
+                    }`.trim() ||
+                      user?.name ||
+                      displayName
+                  )}`
+                }
+                className="w-8 h-8 rounded-full object-cover"
+                alt="Avatar"
                 onError={(e) => {
-                  const seed = encodeURIComponent(`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.name || displayName);
+                  const seed = encodeURIComponent(
+                    `${user?.firstName || ""} ${
+                      user?.lastName || ""
+                    }`.trim() ||
+                      user?.name ||
+                      displayName
+                  );
+
                   e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
                 }}
               />
+
               {!sidebarCollapsed && (
-                <div className="ml-3 flex-1 min-w-0">
-                  <div className="text-[11px] font-black truncate uppercase tracking-tight" style={{ color: '#a3a2a3' }}>{displayName}</div>
-                  <div className="text-[9px] font-bold uppercase tracking-widest mt-0.5" style={{ color: '#a3a2a3' }}>{t("nav.account")}</div>
+                <div className="min-w-0 text-left">
+                  <div className="text-[11px] font-medium text-gray-200 truncate">
+                    {displayName}
+                  </div>
+
+                  <div className="text-[9px] text-gray-500">
+                    Account
+                  </div>
                 </div>
               )}
-            </div>
+            </button>
           </div>
         </div>
-      </div>
+      </aside>
     </>
   );
 };
