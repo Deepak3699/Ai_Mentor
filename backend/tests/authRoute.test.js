@@ -1,7 +1,6 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import jwt from "jsonwebtoken";
 
 process.env.JWT_SECRET = "test-jwt-secret";
 process.env.NODE_ENV = "test";

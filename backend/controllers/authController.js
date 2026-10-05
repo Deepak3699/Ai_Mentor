@@ -18,7 +18,7 @@ if (process.env.NODE_ENV !== "test") {
         }),
       });
       console.log("🔥 Firebase initialized successfully");
-    } catch (err) {
+    } catch {
       console.warn("⚠️ Firebase failed to initialize. Google Login will not work.");
     }
   } else {
