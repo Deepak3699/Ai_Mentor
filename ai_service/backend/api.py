@@ -1,4 +1,5 @@
 import os
+import subprocess
 import datetime
 import re
 import traceback
@@ -14,7 +15,6 @@ from pydantic import BaseModel, Field
 import json
 from google import genai
 from groq import Groq
-from cachetools import TTLCache
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
@@ -25,8 +25,10 @@ from config import (
     validate_config,
 )
 import voices
+
 validate_config()
 from avatar_service import create_avatar_video
+
 # --------------------------
 # Cloudinary Config
 # --------------------------
@@ -53,16 +55,13 @@ app.add_middleware(
 # --------------------------
 # GEMINI Client (Primary)
 # --------------------------
-gemini_client = genai.Client(
-    api_key=GEMINI_API_KEY
-)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # --------------------------
 # GROQ Client (Fallback)
 # --------------------------
-groq_client = Groq(
-    api_key=GROQ_API_KEY
-)
+groq_client = Groq(api_key=GROQ_API_KEY)
+
 
 # --------------------------
 # Request Model
@@ -78,9 +77,11 @@ class LessonRequest(BaseModel):
     speech_rate: str | None = "+0%"
     speech_pitch: str | None = "+0Hz"
 
+
 class SyllabusRequest(BaseModel):
     course_title: str
     category: str | None = None
+
 
 class QuizRequest(BaseModel):
     lesson: str
@@ -96,24 +97,30 @@ class QuizQuestion(BaseModel):
 class QuizResponse(BaseModel):
     questions: list[QuizQuestion]
 
+
 # --------------------------
 # Helpers
 # --------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-async def generate_tts(text: str, output_file: str, voice_id: str = "en-US-GuyNeural", rate: str = "+0%", pitch: str = "+0Hz"):
+
+async def generate_tts(
+    text: str,
+    output_file: str,
+    voice_id: str = "en-US-GuyNeural",
+    rate: str = "+0%",
+    pitch: str = "+0Hz",
+):
     communicate = edge_tts.Communicate(
-        text=text,
-        voice=voice_id,
-        rate=rate,
-        pitch=pitch
+        text=text, voice=voice_id, rate=rate, pitch=pitch
     )
     await communicate.save(output_file)
+
 
 def get_celebrity_video(celebrity_name: str):
     input_video_dir = os.path.join(BASE_DIR, "backend", "input")
     celebrity_video = os.path.join(input_video_dir, f"{celebrity_name.lower()}.mp4")
-    
+
     if os.path.exists(celebrity_video):
         print(f"🎬 Using celebrity video: {celebrity_video}")
         return celebrity_video
@@ -121,6 +128,7 @@ def get_celebrity_video(celebrity_name: str):
         input_video = os.path.join(input_video_dir, "modi.mp4")
         print(f"🎬 Using default video: {input_video}")
         return input_video
+
 
 # --------------------------
 # Serve Files
@@ -133,8 +141,15 @@ text_output_path = os.path.join(base_output_path, "text")
 os.makedirs(video_output_path, exist_ok=True)
 os.makedirs(text_output_path, exist_ok=True)
 
-app.mount("/video-stream", StaticFiles(directory=video_output_path), name="video-stream")
-app.mount("/transcript-stream", StaticFiles(directory=text_output_path), name="transcript-stream")
+app.mount(
+    "/video-stream", StaticFiles(directory=video_output_path), name="video-stream"
+)
+app.mount(
+    "/transcript-stream",
+    StaticFiles(directory=text_output_path),
+    name="transcript-stream",
+)
+
 
 # --------------------------
 # Root Route
@@ -142,6 +157,7 @@ app.mount("/transcript-stream", StaticFiles(directory=text_output_path), name="t
 @app.get("/")
 def home():
     return {"message": "AI Lesson Generator Backend Running"}
+
 
 @app.get("/transcript/{filename}")
 def get_transcript(filename: str):
@@ -152,6 +168,7 @@ def get_transcript(filename: str):
         return {"content": content}
     return {"error": "Transcript not found"}
 
+
 @app.get("/status/{job_id}")
 def get_status(job_id: str):
     status_data = job_status.get(job_id, {"status": "not_found"})
@@ -160,6 +177,7 @@ def get_status(job_id: str):
         return {"status": status_data}
 
     return status_data
+
 
 # --------------------------
 # Generate Syllabus Endpoint
@@ -208,43 +226,52 @@ def generate_syllabus(data: SyllabusRequest):
     try:
         print("⚡ Trying Gemini Primary Model for Syllabus...")
         response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
+            model="gemini-2.5-flash", contents=prompt
         )
         text = response.text.strip()
-        if text.startswith("```json"): text = text[7:]
-        if text.startswith("```"): text = text[3:]
-        if text.endswith("```"): text = text[:-3]
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
         return json.loads(text.strip())
     except Exception as e:
         print(f"❌ Gemini failed: {e}. Trying Groq...")
         try:
             groq_response = groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[{ "role": "user", "content": prompt }],
+                messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=1000,
             )
             text = groq_response.choices[0].message.content.strip()
-            if text.startswith("```json"): text = text[7:]
-            if text.startswith("```"): text = text[3:]
-            if text.endswith("```"): text = text[:-3]
+            if text.startswith("```json"):
+                text = text[7:]
+            if text.startswith("```"):
+                text = text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
             return json.loads(text.strip())
         except Exception as e2:
             print(f"❌ Groq failed: {e2}")
             return {"error": "Failed to generate syllabus"}
 
+
 # --------------------------
 # Voices Endpoint
 # --------------------------
+
 
 @app.get("/voices")
 def get_voices():
     return {"voices": voices.get_all_voices()}
 
+
 # --------------------------
 # Generate Quiz Endpoint
 # --------------------------
+
 
 @app.post("/generate-quiz", response_model=QuizResponse)
 def generate_quiz(data: QuizRequest):
@@ -288,8 +315,7 @@ def generate_quiz(data: QuizRequest):
             try:
                 print("⚡ Trying Gemini...")
                 response = gemini_client.models.generate_content(
-                    model="gemini-3.7-flash",
-                    contents=prompt
+                    model="gemini-3.7-flash", contents=prompt
                 )
                 text = response.text.strip()
 
@@ -299,9 +325,7 @@ def generate_quiz(data: QuizRequest):
 
                 groq_response = groq_client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ],
+                    messages=[{"role": "user", "content": prompt}],
                     temperature=0.7,
                     max_tokens=2000,
                 )
@@ -325,14 +349,10 @@ def generate_quiz(data: QuizRequest):
 
             for question in validated_quiz.questions:
                 if len(question.options) != 4:
-                    raise ValueError(
-                        "Each question must contain exactly 4 options."
-                    )
+                    raise ValueError("Each question must contain exactly 4 options.")
 
                 if not 0 <= question.correct_index < 4:
-                    raise ValueError(
-                        "correct_index must be between 0 and 3."
-                    )
+                    raise ValueError("correct_index must be between 0 and 3.")
 
             print("✅ Quiz generated and validated successfully.")
             return validated_quiz
@@ -345,16 +365,18 @@ def generate_quiz(data: QuizRequest):
 
     return {"questions": []}
 
+
 # --------------------------
 # Generate Lesson Endpoint
 # --------------------------
 
 job_status = {}
 
+
 @app.post("/generate")
 def generate_lesson(data: LessonRequest, background_tasks: BackgroundTasks):
 
-    topic_clean = re.sub(r'[^\w\s-]', '', data.topic).strip().replace(" ", "_")
+    topic_clean = re.sub(r"[^\w\s-]", "", data.topic).strip().replace(" ", "_")
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     base_filename = f"{topic_clean}_{timestamp}"
 
@@ -367,8 +389,9 @@ def generate_lesson(data: LessonRequest, background_tasks: BackgroundTasks):
         "filename": f"{base_filename}.mp4",
         "text_file": f"{base_filename}.txt",
         "audio_file": f"{base_filename}.mp3",
-        "jobId": base_filename
+        "jobId": base_filename,
     }
+
 
 # --------------------------
 # Background Task Logic
@@ -424,8 +447,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
             print("⚡ Trying Gemini Primary Model...")
 
             response = gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
+                model="gemini-2.5-flash", contents=prompt
             )
 
             script = response.text.strip().replace("\n", " ")
@@ -441,17 +463,14 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
                 groq_response = groq_client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
+                    messages=[{"role": "user", "content": prompt}],
                     temperature=0.7,
                     max_tokens=300,
                 )
 
-                script = groq_response.choices[0].message.content.strip().replace("\n", " ")
+                script = (
+                    groq_response.choices[0].message.content.strip().replace("\n", " ")
+                )
 
                 print("✅ Groq fallback response generated")
 
@@ -459,9 +478,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
                 print(f"❌ Groq also failed: {groq_error}")
 
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                job_status[base_filename] = {"status": "failed"}
 
                 return
 
@@ -499,11 +516,15 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             # Validate voice or fallback
             selected_voice = voices.get_voice(data.voice_id)
-            
+
             rate = data.speech_rate if data.speech_rate else "+0%"
             pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
 
-            asyncio.run(generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch))
+            asyncio.run(
+                generate_tts(
+                    script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch
+                )
+            )
 
             print(f"✅ Audio saved: {audio_path}")
 
@@ -535,47 +556,60 @@ def process_lesson(data: LessonRequest, base_filename: str):
             print(f"✅ Avatar video downloaded: {final_video}")
 
         except Exception as avatar_error:
-            print(
-                f"⚠️ D-ID avatar generation failed: {avatar_error}"
-            )
+            print(f"⚠️ D-ID avatar generation failed: {avatar_error}")
             print("🔄 Falling back to local FFmpeg renderer...")
 
             # 6️⃣ Fallback: Merge Stock Video + Audio (FFmpeg)
             input_video = get_celebrity_video(data.celebrity)
 
             if not os.path.exists(input_video):
-                print(
-                    f"❌ Fallback video not found at {input_video}"
-                )
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                print(f"❌ Fallback video not found at {input_video}")
+                job_status[base_filename] = {"status": "failed"}
                 return
 
-            ffmpeg_command = (
-                f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
-                f'-i "{audio_path}" '
-                f'-map 0:v:0 -map 1:a:0 '
-                f'-c:v copy -c:a aac -shortest "{final_video}"'
-            )
+            ffmpeg_command = [
+                "ffmpeg",
+                "-y",
+                "-stream_loop",
+                "-1",
+                "-i",
+                input_video,
+                "-i",
+                audio_path,
+                "-map",
+                "0:v:0",
+                "-map",
+                "1:a:0",
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-shortest",
+                final_video,
+            ]
 
             print("🎥 Running fallback FFmpeg command...")
 
-            os.system(ffmpeg_command)
+            try:
+                subprocess.run(
+                    ffmpeg_command,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+            except (subprocess.CalledProcessError, OSError) as ffmpeg_error:
+                print(f"❌ FFmpeg fallback failed: {ffmpeg_error}")
+                job_status[base_filename] = {"status": "failed"}
+                return
 
             if not os.path.exists(final_video):
                 print(
-                    "❌ FFmpeg fallback failed — "
-                    f"video not found at {final_video}"
+                    "❌ FFmpeg fallback failed — " f"video not found at {final_video}"
                 )
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                job_status[base_filename] = {"status": "failed"}
                 return
 
             print("✅ FFmpeg fallback video created.")
-
-
 
         # 7️⃣ Upload to Cloudinary
 
@@ -599,7 +633,9 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
         except Exception as cloud_err:
 
-            print(f"⚠️ Cloudinary upload failed (will fall back to local proxy): {cloud_err}")
+            print(
+                f"⚠️ Cloudinary upload failed (will fall back to local proxy): {cloud_err}"
+            )
 
         job_status[base_filename] = {
             "status": "ready",
@@ -623,13 +659,15 @@ def process_lesson(data: LessonRequest, base_filename: str):
                 except Exception as cleanup_err:
                     print(f"❌ Failed to delete {local_file}: {cleanup_err}")
         else:
-            print("⚠️ Keeping local files on disk as a fallback proxy since Cloudinary upload failed.")
-            print("⚠️ Note: These files will remain until the server is restarted or manually cleaned.")
+            print(
+                "⚠️ Keeping local files on disk as a fallback proxy since Cloudinary upload failed."
+            )
+            print(
+                "⚠️ Note: These files will remain until the server is restarted or manually cleaned."
+            )
     except Exception as e:
 
-        job_status[base_filename] = {
-            "status": "failed"
-        }
+        job_status[base_filename] = {"status": "failed"}
 
         print(f"❌ Error generating lesson: {e}")
 
