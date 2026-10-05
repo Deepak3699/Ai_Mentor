@@ -32,6 +32,12 @@ if (!user) {
 if (user.isBlocked) {
   return res.status(403).json({ message: "Account suspended" });
 }
+if (user.passwordChangedAt){
+  const passwordChangedAt = Math.floor(user.passwordChangedAt.getTime() / 1000);
+  if (passwordChangedAt > decoded.iat) {
+    return res.status(401).json({ message: "Token revoked, Please Log in again" });
+  }
+}
 
 req.user = user;
 return next();
