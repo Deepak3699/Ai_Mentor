@@ -45,9 +45,6 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// ================= MIDDLEWARE =================
-app.use(express.json());
-
 app.use(
   helmet({
     contentSecurityPolicy: false,
@@ -55,9 +52,20 @@ app.use(
 );
 
 // ================= SECURE CORS =================
-const allowedOrigins = process.env.FRONTEND_URL
+const envOrigins = process.env.FRONTEND_URL
   ? process.env.FRONTEND_URL.split(",").map((origin) => origin.trim())
   : [];
+
+const defaultDevOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
+
+const allowedOrigins = Array.from(new Set([...envOrigins, ...defaultDevOrigins]));
 
 app.use(
   cors({
@@ -71,12 +79,22 @@ app.use(
         return callback(null, true);
       }
 
+      // Allow any localhost/127.0.0.1 origin in development
+      if (process.env.NODE_ENV !== "production") {
+        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+          return callback(null, true);
+        }
+      }
+
       console.error(`❌ Blocked by CORS: ${origin}`);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })
 );
+
+// ================= MIDDLEWARE =================
+app.use(express.json({ limit: "100kb" }));
 
 // ================= STATIC FILES =================
 app.use("/videos", express.static(path.join(__dirname, "videos")));
@@ -117,6 +135,20 @@ app.use((req, res) => {
 
 // ================= GLOBAL ERROR HANDLER =================
 app.use((err, req, res, next) => {
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({
+      success: false,
+      message: "Payload Too Large",
+    });
+  }
+
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid JSON",
+    });
+  }
+
   console.error("🔥 Global Error:", err);
 
   res.status(err.status || 500).json({
@@ -153,4 +185,8 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (process.env.NODE_ENV !== "test") {
+  startServer();
+}
+
+export default app;

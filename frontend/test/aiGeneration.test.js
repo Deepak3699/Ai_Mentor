@@ -41,6 +41,23 @@ test("invalid status responses are rejected instead of being treated as ready", 
   );
 });
 
+test("local video URLs are accepted as ready responses", async () => {
+  const fetchStatus = async () => response(200, {
+    status: "ready",
+    local_video_url: "/videos/local.mp4",
+  });
+
+  const result = await pollAIVideoStatus({
+    jobId: "job-1",
+    fetchStatus,
+    timeoutMs: 1000,
+    pollIntervalMs: 1,
+    waitForNextPoll: async () => {},
+  });
+
+  assert.equal(result.videoUrl, "/videos/local.mp4");
+});
+
 test("retrying a generation error resets the failure category", () => {
   const error = classifyGenerationError(new TypeError("Failed to fetch"));
 

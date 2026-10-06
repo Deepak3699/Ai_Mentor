@@ -68,7 +68,7 @@ export const pollAIVideoStatus = async ({
 
     const statusData = await statusResponse.json();
     if (statusData?.status === "ready") {
-      const videoUrl = statusData.cloudinary_url || statusData.videoUrl;
+      const videoUrl = statusData.cloudinary_url || statusData.local_video_url || statusData.videoUrl;
       if (!videoUrl) {
         throw new AIGenerationError("invalid_response", "The AI service returned no video URL.", { retryable: true });
       }

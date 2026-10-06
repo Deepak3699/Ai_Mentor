@@ -86,7 +86,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
             {navigationItems.map((item) => {
               const isActive = activePage === item.id;
               return (
-                <div key={item.id} onClick={() => { navigate(item.path); setSidebarOpen(false); }} className={`group relative flex items-center px-4 py-3 rounded-3xl cursor-pointer transition-all duration-300 ${sidebarCollapsed ? "justify-center" : ""} ${isActive ? "bg-teal-500 text-white shadow-xl shadow-teal-500/30" : "hover:bg-canvas-alt"}`}>
+                <div key={item.id} onClick={() => { navigate(item.path); setSidebarOpen(false); }} className={`group relative flex items-center px-4 py-3 rounded-3xl cursor-pointer transition-all duration-300 ${sidebarCollapsed ? "justify-center" : ""} ${isActive ? "bg-blue-600 text-white shadow-xl shadow-blue-600/30" : "hover:bg-white/5"}`}>
                   <img src={item.icon} alt={item.label} className={`w-5 h-5 shrink-0 transition-transform group-hover:scale-110 ${isActive ? "brightness-0 invert" : "opacity-80"}`} />
                   {!sidebarCollapsed && <span className={`ml-4 text-[15px] font-bold uppercase tracking-wider ${isActive ? "text-white" : ""}`} style={isActive ? {} : { color: '#b2b2b3' }}>{t(`nav.${item.id}`)}</span>}
                   {sidebarCollapsed && (
@@ -115,7 +115,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                  <h4 className="text-xs font-black text-main uppercase tracking-tighter">{displayName}</h4>
               </div>
               <div className="p-2">
-                <button onClick={() => {navigate("/settings"); setProfilePopupOpen(false);}} className="flex items-center w-full px-4 py-3 text-[10px] font-black uppercase text-main hover:bg-teal-500 hover:text-white rounded-3xl transition-all"><Settings className="w-4 h-4 mr-3" /> {t("header.dashboard_settings")}</button>
+                <button onClick={() => {navigate("/settings"); setProfilePopupOpen(false);}} className="flex items-center w-full px-4 py-3 text-[10px] font-black uppercase text-main hover:bg-blue-600 hover:text-white rounded-3xl transition-all"><Settings className="w-4 h-4 mr-3" /> {t("header.dashboard_settings")}</button>
                 <button onClick={handleLogout} className="flex items-center w-full px-4 py-3 text-[10px] font-black uppercase text-red-500 hover:bg-red-500 hover:text-white rounded-3xl transition-all mt-1"><LogOut className="w-4 h-4 mr-3" /> {t("auth.logout")}</button>
               </div>
             </div>
