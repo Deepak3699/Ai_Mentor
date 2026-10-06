@@ -3,6 +3,9 @@ import datetime
 import re
 import traceback
 import asyncio
+import logging
+import subprocess
+from contextlib import asynccontextmanager
 import edge_tts
 import cloudinary
 import cloudinary.uploader
@@ -42,7 +45,48 @@ cloudinary.config(
 # --------------------------
 # FastAPI App
 # --------------------------
-app = FastAPI(title="AI Lesson Generator")
+logger = logging.getLogger(__name__)
+
+
+def check_ffmpeg() -> None:
+    """Verify that FFmpeg is available before starting the service."""
+    try:
+        subprocess.run(
+            ["ffmpeg", "-version"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        logger.info("FFmpeg is available.")
+    except FileNotFoundError:
+        logger.error(
+            "FFmpeg is not installed or not available in PATH. "
+            "Install FFmpeg before starting the AI service."
+        )
+        raise RuntimeError(
+            "FFmpeg is required to start the AI service but was not found in PATH."
+        )
+    except subprocess.CalledProcessError as exc:
+        logger.error(
+            "FFmpeg availability check failed with exit code %s.",
+            exc.returncode,
+        )
+        raise RuntimeError(
+            "FFmpeg is required to start the AI service but the availability check failed."
+        ) from exc
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    check_ffmpeg()
+    yield
+
+
+app = FastAPI(
+    title="AI Lesson Generator",
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
