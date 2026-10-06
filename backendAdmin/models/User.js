@@ -30,6 +30,11 @@ const User = sequelize.define(
       type: DataTypes.STRING,
       defaultValue: "active",
     },
+    isBlocked: {
+  type: DataTypes.BOOLEAN,
+  defaultValue: false,
+  allowNull: false,
+},
     purchasedCourses: {
       type: DataTypes.JSON,
       defaultValue: [],

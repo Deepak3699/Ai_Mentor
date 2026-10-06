@@ -8,6 +8,8 @@
  * @param {Object} user - The user model instance
  */
 export const ensureProfileCompleteness = async (user) => {
+  if (!user) return false;
+
   const isComplete = Boolean(
     user.firstName?.trim() &&
     user.lastName?.trim() &&
@@ -18,7 +20,9 @@ export const ensureProfileCompleteness = async (user) => {
 
   if (user.isProfileComplete !== isComplete) {
     user.isProfileComplete = isComplete;
-    await user.save();
+    if (typeof user.save === "function") {
+      await user.save();
+    }
   }
   
   return isComplete;
