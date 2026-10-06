@@ -26,6 +26,7 @@ import API_BASE_URL, { apiFetch } from "../lib/api";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import CourseCardMeta from "../components/common/CourseCardMeta";
 import DashboardHero from "../components/DashboardHero";
+import AIMentorCard from "../components/common/AIMentorCard";
 import { Helmet } from "react-helmet-async";
 
 // Add this here
@@ -350,6 +351,17 @@ console.log(allCourses);
     }
     handleBrowseCourses();
   };
+  const handleAskMentor = () => {
+  navigate("/ai-mentor");
+};
+
+const handleGenerateLesson = () => {
+  navigate("/ai-mentor", {
+    state: {
+      action: "generate-lesson",
+    },
+  });
+};
 
   const enrollAndPreview = async (course) => {
     if (!user) {
@@ -726,69 +738,98 @@ console.log(allCourses);
               </div>
             </div>
 
-            {/* Continue Learning */}
-            {filteredContinueLearning.length !== 0 ? (
-              <div>
-                <h2 className="text-xl font-bold text-main mt-6 mb-6">
-                  {t("dashboard.continue_learning")}
-                </h2>
-                <div className="space-y-4">
-                  {filteredContinueLearning.map((item, index) => (
-                    <div
-                      key={index}
-                      className="bg-card rounded-xl p-4 border border-border shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-center">
-                        <Link
-                          to={`/course-preview/${item.id}`}
-                          className="flex items-center flex-1"
-                        >
- <img
-  src={
-    item.title === "React Fundamentals"
-      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
-      : item.title === "Python For AI"
-      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
-      : item.title === "AI Ethics & Bias"
-      ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
-      : item.title === "PostgreSQL"
-      ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
-      : item.title === "MongoDB Fundamentals"
-      ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-      : "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
-  }
-  alt={item.title}
-  className="w-12 h-12 rounded-lg mr-4"
-  loading="lazy"
-/>
-                          <div className="flex-1">
-                            <h3 className="font-medium text-main mb-1 hover:text-teal-600">
-                              {item.title}
-                            </h3>
-                            <p className="text-sm text-muted mb-2">
-                              {item.lesson}
-                            </p>
-                            <div className="w-full bg-border rounded-full h-2 mb-2">
-                              <div
-                                className={`h-2 rounded-full ${item.progressColor}`}
-                                style={{ width: `${item.progress}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        </Link>
-                        <Link
-                          to={`/learning/${item.id}`}
-                          className="ml-4 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600"
-                        >
-                          {t("dashboard.continue")}
-                        </Link>
-                      </div>
+            {/* Continue Learning + AI Mentor */}
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  {/* Continue Learning */}
+  <div>
+    {filteredContinueLearning.length !== 0 ? (
+      <div>
+        <h2 className="text-xl font-bold text-main mt-6 mb-6">
+          {t("dashboard.continue_learning")}
+        </h2>
+
+        <div className="space-y-4">
+          {filteredContinueLearning.map((item, index) => (
+            <div
+              key={index}
+              className="bg-card rounded-xl p-4 border border-border shadow-sm hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-center">
+                <Link
+                  to={`/course-preview/${item.id}`}
+                  className="flex items-center flex-1 min-w-0"
+                >
+                  <img
+                    src={
+                      item.title === "React Fundamentals"
+                        ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                        : item.title === "Python For AI"
+                        ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
+                        : item.title === "AI Ethics & Bias"
+                        ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
+                        : item.title === "PostgreSQL"
+                        ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                        : item.title === "MongoDB Fundamentals"
+                        ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                        : "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                    }
+                    alt={item.title}
+                    className="w-12 h-12 rounded-lg mr-4 object-cover flex-shrink-0"
+                    loading="lazy"
+                  />
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-main mb-1 hover:text-teal-600 truncate">
+                      {item.title}
+                    </h3>
+
+                    <p className="text-sm text-muted mb-2 truncate">
+                      {item.lesson}
+                    </p>
+
+                    <div className="w-full bg-border rounded-full h-2 mb-2">
+                      <div
+                        className={`h-2 rounded-full ${item.progressColor}`}
+                        style={{ width: `${item.progress}%` }}
+                      />
                     </div>
-                  ))}
-                </div>
+                  </div>
+                </Link>
+
+                <Link
+                  to={`/learning/${item.id}`}
+                  className="ml-4 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 flex-shrink-0"
+                >
+                  {t("dashboard.continue")}
+                </Link>
               </div>
-            ) : null
-            }
+            </div>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div className="mt-6">
+        <h2 className="text-xl font-bold text-main mb-6">
+          {t("dashboard.continue_learning")}
+        </h2>
+
+        <div className="bg-card rounded-xl border border-border p-6 text-center text-muted">
+          No courses currently in progress.
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* AI Mentor */}
+  <div className="mt-6 lg:mt-0">
+    <AIMentorCard
+      onAskMentor={handleAskMentor}
+      onGenerateLesson={handleGenerateLesson}
+    />
+  </div>
+
+</div>
           </div>
         </div>
       </div>
