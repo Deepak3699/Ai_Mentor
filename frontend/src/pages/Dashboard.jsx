@@ -16,6 +16,7 @@ import Preferences from "../components/Preferences";
 import API_BASE_URL from "../lib/api";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import CourseCardMeta from "../components/common/CourseCardMeta";
+import LearningActivityCard from "../components/dashboard/LearningActivityCard";
 import DashboardHero from "../components/DashboardHero";
 import UpcomingLiveSession from "../components/UpcomingLiveSession";
 import { Helmet } from "react-helmet-async";
@@ -1426,6 +1427,13 @@ const Dashboard = () => {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Learning Activity (bottom-left) */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <div className="lg:col-span-3 min-w-0">
+              <LearningActivityCard />
             </div>
           </div>
         </div>
