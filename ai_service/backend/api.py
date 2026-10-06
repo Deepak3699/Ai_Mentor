@@ -425,9 +425,12 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"⚠️ Cloudinary upload failed (will fall back to local proxy): {cloud_err}")
 
+        local_video_url = f"/video-stream/{base_filename}.mp4"
+
         job_status[base_filename] = {
             "status": "ready",
             "cloudinary_url": cloudinary_url,
+            "local_video_url": local_video_url,
         }
 
         print(f"✅ Lesson ready!")

@@ -198,10 +198,20 @@ router.get("/status/:jobId", protect, async (req, res) => {
     const data = await response.json();
 
     // 🌥️ If video is ready and Cloudinary URL is available, persist it to DB
-    if (data.status === "ready" && data.cloudinary_url) {
+    const aiVideo = await AIVideo.findOne({
+      where: { jobId: String(jobId) },
+      attributes: ["courseId"],
+    });
+
+    if (data.status === "ready" && data.local_video_url && aiVideo) {
+      const filename = data.local_video_url.split("/").pop();
+      data.local_video_url = "/api/ai/video/" + aiVideo.courseId + "/" + filename;
+    }
+
+    if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
       try {
         const updated = await AIVideo.update(
-          { videoUrl: data.cloudinary_url },
+          { videoUrl: data.cloudinary_url || data.local_video_url },
           { where: { jobId: String(jobId) } }
         );
         if (updated[0] > 0) {

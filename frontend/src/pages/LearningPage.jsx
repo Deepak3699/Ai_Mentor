@@ -326,8 +326,8 @@ export default function Learning() {
     if (statusData.status === "ready") {
       isReady = true;
 
-      if (statusData.cloudinary_url) {
-        data.videoUrl = statusData.cloudinary_url;
+      if (statusData.cloudinary_url || statusData.local_video_url) {
+        data.videoUrl = statusData.cloudinary_url || statusData.local_video_url;
       }
 
       break;
@@ -384,7 +384,7 @@ export default function Learning() {
     const statusData = await statusRes.json();
 
     if (statusData.status === "ready") {
-      finalVideoUrl = statusData.cloudinary_url || null;
+      finalVideoUrl = statusData.cloudinary_url || statusData.local_video_url || null;
       if (statusData.transcript_name) finalTranscriptName = statusData.transcript_name;
       break;
     }
