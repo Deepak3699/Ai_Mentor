@@ -121,6 +121,9 @@ GEMINI_API_KEY=your_gemini_api_key_here
 CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+
+# Service-to-Service Authentication (shared with Node.js backend)
+AI_SERVICE_KEY=your_ai_service_key_here
 ```
 
 > **Get a Gemini API key:** [Google AI Studio](https://aistudio.google.com/app/apikey) — free tier available.
@@ -150,7 +153,7 @@ uvicorn api:app --reload --port 8000
 
 The service will be available at **http://localhost:8000**.
 
-> ⚠️ The Node.js backend must be configured with `AI_SERVICE_URL=http://127.0.0.1:8000` to communicate with this service.
+> ⚠️ The Node.js backend must be configured with `AI_SERVICE_URL=http://127.0.0.1:8000` and matching `AI_SERVICE_KEY` to communicate with this service.
 
 ---
 

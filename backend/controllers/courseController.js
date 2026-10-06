@@ -1,3 +1,4 @@
+import { getAIServiceHeaders } from "../utils/aiService.js";
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
 
 /* =========================
@@ -366,7 +367,10 @@ const generateCourseSyllabusWithAI = async (req, res) => {
     // 1. Call Python AI Service
     const aiResponse = await fetch(`${process.env.AI_SERVICE_URL}/generate-syllabus`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...getAIServiceHeaders(),
+      },
       body: JSON.stringify({
         course_title: course.title,
         category: course.category

@@ -106,9 +106,9 @@ Each service has its own `.env` file. Copy the `.env.example` in each folder and
 
 | Service | Key variables |
 |---|---|
-| `backend/` | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `AI_SERVICE_URL` |
+| `backend/` | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `AI_SERVICE_URL`, `AI_SERVICE_KEY` |
 | `frontend/` | `VITE_API_BASE_URL`, `VITE_FIREBASE_*` |
-| `ai_service/backend/` | `GEMINI_API_KEY`, `CLOUDINARY_*` |
+| `ai_service/backend/` | `GEMINI_API_KEY`, `CLOUDINARY_*`, `AI_SERVICE_KEY` |
 
 ## Running the Application
 

@@ -16,6 +16,7 @@ def import_config(monkeypatch):
         "CLOUDINARY_CLOUD_NAME",
         "CLOUDINARY_API_KEY",
         "CLOUDINARY_API_SECRET",
+        "AI_SERVICE_KEY",
     ):
         # Keep an explicit empty value so load_dotenv(override=False) cannot
         # repopulate real local secrets while this test imports config.
@@ -28,6 +29,7 @@ def test_config_imports_without_external_credentials(monkeypatch):
     config = import_config(monkeypatch)
     assert not config.GEMINI_API_KEY
     assert not config.GROQ_API_KEY
+    assert not config.AI_SERVICE_KEY
     assert config.GEMINI_MODEL == "gemini-2.5-flash"
 
 
@@ -52,6 +54,17 @@ def test_validate_config_reports_missing_cloudinary_credentials(monkeypatch):
         config.validate_config()
 
 
+def test_validate_config_reports_missing_ai_service_key(monkeypatch):
+    config = import_config(monkeypatch)
+    config.GEMINI_API_KEY = "gemini-test"
+    config.GROQ_API_KEY = "groq-test"
+    config.CLOUDINARY_CLOUD_NAME = "cloud"
+    config.CLOUDINARY_API_KEY = "key"
+    config.CLOUDINARY_API_SECRET = "secret"
+    with pytest.raises(ValueError, match="AI_SERVICE_KEY"):
+        config.validate_config()
+
+
 def test_validate_config_accepts_complete_configuration(monkeypatch):
     config = import_config(monkeypatch)
     config.GEMINI_API_KEY = "gemini-test"
@@ -59,4 +72,5 @@ def test_validate_config_accepts_complete_configuration(monkeypatch):
     config.CLOUDINARY_CLOUD_NAME = "cloud"
     config.CLOUDINARY_API_KEY = "key"
     config.CLOUDINARY_API_SECRET = "secret"
+    config.AI_SERVICE_KEY = "service-key"
     assert config.validate_config() is None

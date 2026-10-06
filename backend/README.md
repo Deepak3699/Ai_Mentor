@@ -91,8 +91,9 @@ PORT=5000
 # JWT secret key
 JWT_SECRET=your_jwt_secret_key
 
-# Python AI service URL (use deployed AI service URL or local URL during development)
+# Python AI service URL and shared authentication key
 AI_SERVICE_URL=http://127.0.0.1:8000
+AI_SERVICE_KEY=your_ai_service_key
 
 # Frontend URL (for CORS and password reset emails)
 FRONTEND_URL=http://localhost:5173

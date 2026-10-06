@@ -1,3 +1,4 @@
+import { getAIServiceHeaders } from "../utils/aiService.js";
 import { Course, AdminNotification, Module, Lesson, User } from "../models/index.js";
 import { Op, Sequelize } from "sequelize";
 
@@ -322,7 +323,10 @@ export const generateCourseSyllabusWithAI = async (req, res) => {
     const aiUrl = `${process.env.AI_SERVICE_URL}/generate-syllabus`;
     const aiResponse = await fetch(aiUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...getAIServiceHeaders(),
+      },
       body: JSON.stringify({
         course_title: course.title,
         category: course.category

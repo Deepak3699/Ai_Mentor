@@ -1,3 +1,5 @@
+from starlette.responses import JSONResponse
+import secrets
 import os
 import datetime
 import re
@@ -15,6 +17,7 @@ import json
 from google import genai
 from groq import Groq
 from cachetools import TTLCache
+import config
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
@@ -38,9 +41,86 @@ cloudinary.config(
 )
 
 # --------------------------
+
+# --------------------------
+# Service-to-Service Auth Middleware
+# --------------------------
+class ServiceAuthMiddleware:
+    """
+    Enforces service-to-service authentication for operational endpoints.
+    Public health check endpoints (/) and (/health), along with OpenAPI docs,
+    bypass authentication. All operational routes and static media streams
+    require a valid AI_SERVICE_KEY credential.
+    """
+    def __init__(self, app, public_paths=None):
+        self.app = app
+        self.public_paths = public_paths or {
+            "/",
+            "/health",
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+        }
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path = scope.get("path", "")
+        if path in self.public_paths:
+            await self.app(scope, receive, send)
+            return
+
+        headers = {
+            k.decode("latin1").lower(): v.decode("latin1")
+            for k, v in scope.get("headers", [])
+        }
+
+        provided_key = None
+        if "x-service-key" in headers:
+            provided_key = headers["x-service-key"].strip()
+        elif "authorization" in headers:
+            auth_val = headers["authorization"].strip()
+            if auth_val.lower().startswith("bearer "):
+                provided_key = auth_val[7:].strip()
+            else:
+                provided_key = auth_val
+        elif "x-api-key" in headers:
+            provided_key = headers["x-api-key"].strip()
+
+        expected_key = getattr(config, "AI_SERVICE_KEY", None) or os.getenv("AI_SERVICE_KEY")
+
+        if not expected_key:
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": "Server configuration error: AI_SERVICE_KEY is not configured"},
+            )
+            await response(scope, receive, send)
+            return
+
+        if not provided_key:
+            response = JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized: Missing service credential"},
+            )
+            await response(scope, receive, send)
+            return
+
+        if not secrets.compare_digest(provided_key, expected_key):
+            response = JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized: Invalid service credential"},
+            )
+            await response(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)
+
 # FastAPI App
 # --------------------------
 app = FastAPI(title="AI Lesson Generator")
+app.add_middleware(ServiceAuthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -142,6 +222,10 @@ app.mount("/transcript-stream", StaticFiles(directory=text_output_path), name="t
 @app.get("/")
 def home():
     return {"message": "AI Lesson Generator Backend Running"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "message": "AI Lesson Generator Backend Running"}
 
 @app.get("/transcript/{filename}")
 def get_transcript(filename: str):

@@ -1,3 +1,4 @@
+import { getAIServiceHeaders } from "../utils/aiService.js";
 import AIVideo from "../models/AIVideo.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
@@ -57,7 +58,10 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
 
       const videoCheck = await fetch(
         `${process.env.AI_SERVICE_URL}/video-stream/${filename}`,
-        { method: "HEAD" }   // lightweight check
+        {
+          method: "HEAD",
+          headers: getAIServiceHeaders(),
+        }   // lightweight check
       );
 
       if (!videoCheck.ok) {
@@ -121,6 +125,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...getAIServiceHeaders(),
     },
     body: JSON.stringify({
       course: courseTitle,
@@ -166,7 +171,9 @@ router.get("/transcript/:filename", async (req, res) => {
     }
 
     const pythonTranscriptUrl = `${process.env.AI_SERVICE_URL}/transcript/${filename}`;
-    const response = await fetch(pythonTranscriptUrl);
+    const response = await fetch(pythonTranscriptUrl, {
+      headers: getAIServiceHeaders(),
+    });
 
     if (!response.ok) {
       return res.status(404).json({ error: "Transcript not found" });
@@ -192,7 +199,9 @@ router.get("/transcript/:filename", async (req, res) => {
 router.get("/status/:jobId", protect, async (req, res) => {
   try {
     const { jobId } = req.params;
-    const response = await fetch(`${process.env.AI_SERVICE_URL}/status/${jobId}`);
+    const response = await fetch(`${process.env.AI_SERVICE_URL}/status/${jobId}`, {
+      headers: getAIServiceHeaders(),
+    });
 
     if (!response.ok) {
       return res.status(404).json({ status: "not_found" });
@@ -261,7 +270,9 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
     const pythonVideoUrl =
       `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`;
 
-    const response = await fetch(pythonVideoUrl);
+    const response = await fetch(pythonVideoUrl, {
+      headers: getAIServiceHeaders(),
+    });
 
     if (!response.ok) {
       return res.status(404).json({
@@ -293,7 +304,9 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
 // ----------------------------------------------------
 router.get("/voices", protect, async (req, res) => {
   try {
-    const response = await fetch(`${process.env.AI_SERVICE_URL}/voices`);
+    const response = await fetch(`${process.env.AI_SERVICE_URL}/voices`, {
+      headers: getAIServiceHeaders(),
+    });
     if (!response.ok) throw new Error("Failed to fetch voices");
     const data = await response.json();
     res.json(data);

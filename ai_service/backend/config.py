@@ -32,6 +32,11 @@ DID_API_KEY = os.getenv("DID_API_KEY")
 DID_API_URL = os.getenv("DID_API_URL", "https://api.d-id.com")
 DID_SOURCE_URL = os.getenv("DID_SOURCE_URL")
 
+# ================================
+# Service-to-Service Authentication
+# ================================
+AI_SERVICE_KEY = os.getenv("AI_SERVICE_KEY")
+
 
 def validate_config():
     if not GEMINI_API_KEY:
@@ -46,3 +51,6 @@ def validate_config():
         CLOUDINARY_API_SECRET
     ]):
         raise ValueError("❌ Cloudinary credentials missing.")
+
+    if not AI_SERVICE_KEY:
+        raise ValueError("❌ AI_SERVICE_KEY not found in .env")
