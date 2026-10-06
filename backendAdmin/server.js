@@ -15,10 +15,6 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// ================= MIDDLEWARE =================
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
 const allowedOrigins = [
   process.env.FRONTEND_ADMIN_URL || "http://localhost:5174",
   ...(process.env.NODE_ENV !== "production"
@@ -32,6 +28,10 @@ app.use(
     credentials: true,
   }),
 );
+
+// ================= MIDDLEWARE =================
+app.use(express.json({ limit: "100kb" }));
+app.use(express.urlencoded({ extended: true }));
 
 // ================= ROUTES =================
 app.use("/api/admin", adminRoutes);
@@ -48,6 +48,15 @@ app.use((req, res) => {
 
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
+  
+   if (err.type === "entity.too.large") {
+     return res.status(413).json({ message: "Payload Too Large" });
+   }
+
+   if (err.type === "entity.parse.failed") {
+     return res.status(400).json({ message: "Invalid JSON" });
+   }
+
   console.error("ERROR:", err);
   res.status(500).json({ message: "Internal Server Error" });
 });
@@ -69,6 +78,8 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (process.env.NODE_ENV !== "test") {
+  startServer();
+}
 
 export default app;
