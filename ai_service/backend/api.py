@@ -180,7 +180,6 @@ def generate_syllabus(data: SyllabusRequest):
         or an error message if both AI providers fail.
     """
     prompt = f"""
-    
     Create a highly structured course syllabus for a course titled '{data.course_title}'.
     Category: {data.category or 'General Education'}
     
@@ -553,7 +552,6 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             # Validate voice or fallback
             selected_voice = voices.get_voice(data.voice_id)
-            
             rate = data.speech_rate if data.speech_rate else "+0%"
             pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
 
@@ -565,6 +563,9 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"❌ TTS Error: {e}")
 
+            job_status[base_filename] = {
+                "status": "failed"
+            }
             return
 
         # 5️⃣ Try AI Avatar Video

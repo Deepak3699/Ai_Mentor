@@ -332,6 +332,9 @@ export default function Learning() {
 
       break;
     }
+    if (statusData.status === "failed") {
+      throw new Error("Video generation failed.");
+    }
 
     attempts++;
 
