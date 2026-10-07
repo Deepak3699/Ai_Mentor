@@ -7,4 +7,5 @@ edge-tts #Added
 requests
 cloudinary
 pytest
+pytest-asyncio
 cachetools
