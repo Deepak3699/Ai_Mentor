@@ -434,33 +434,33 @@ def process_lesson(data: LessonRequest, base_filename: str):
     except Exception as gemini_error:
         print(f"❌ Gemini failed: {gemini_error}")
 
-        try:
+              try:
             print("⚡ Switching to Groq fallback...")
-        
 
-                groq_response = groq_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    temperature=0.7,
-                    max_tokens=300,
-                )
+            groq_response = groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                temperature=0.7,
+                max_tokens=300,
+            )
 
-                script = groq_response.choices[0].message.content.strip().replace("\n", " ")
+            script = groq_response.choices[0].message.content.strip().replace("\n", " ")
 
-                print("✅ Groq fallback response generated")
+            print("✅ Groq fallback response generated")
 
-            except Exception as groq_error:
+        except Exception as groq_error:
+            print(f"❌ Groq also failed: {groq_error}")
 
-                print(f"❌ Groq also failed: {groq_error}")
+            job_status[base_filename] = {
+                "status": "failed"
+            }
 
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+            return
 
                 return
 
