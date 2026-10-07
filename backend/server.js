@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB, sequelize } from "./config/db.js";
 
@@ -105,6 +106,8 @@ app.get("/", (req, res) => {
   res.send("✅ API is running...");
 });
 
+app.use("/health", healthRoutes);
+
 // ================= API ROUTES =================
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -171,4 +174,6 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (process.env.NODE_ENV !== "test") {
+  startServer();
+}

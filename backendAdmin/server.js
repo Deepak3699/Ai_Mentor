@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -36,10 +37,12 @@ app.use(
 // ================= ROUTES =================
 app.use("/api/admin", adminRoutes);
 
-// Health check endpoint
+// Health checks
 app.get("/health", (req, res) => {
   res.status(200).json({ message: "Backend Admin Server is running" });
 });
+
+app.use("/health", healthRoutes);
 
 // ================= 404 HANDLER =================
 app.use((req, res) => {
@@ -69,6 +72,9 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (process.env.NODE_ENV !== "test") {
+  startServer();
+}
 
 export default app;
+
