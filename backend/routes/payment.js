@@ -1,15 +1,10 @@
 import express from "express";
-import Stripe from "stripe";
 import rateLimit from "express-rate-limit";
 import { protect } from "../middleware/authMiddleware.js";
 import Payment from "../models/Payment.js";
+import { paymentGatewayServices } from "../services/paymentGatewayServices.js";
 
 const router = express.Router();
-
-// ✅ Validate required env vars at startup
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("Missing STRIPE_SECRET_KEY environment variable");
-}
 
 const paymentLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -17,8 +12,8 @@ const paymentLimiter = rateLimit({
   message: { error: "Too many payment attempts. Try again after 15 minutes." },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === "test",
 });
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // ✅ CREATE CHECKOUT SESSION — with idempotency protection
 router.post("/create-checkout-session", protect,paymentLimiter, async (req, res) => {
@@ -69,7 +64,7 @@ router.post("/create-checkout-session", protect,paymentLimiter, async (req, res)
     // ─────────────────────────────────────────────────
     const successUrl = `${process.env.FRONTEND_URL}/success?courseId=${course.id}&title=${encodeURIComponent(course.title)}`;
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await paymentGatewayServices.createStripeCheckoutSession({
       payment_method_types: ["card"],
       mode: "payment",
       line_items: [
