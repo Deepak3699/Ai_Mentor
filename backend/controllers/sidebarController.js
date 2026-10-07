@@ -32,7 +32,9 @@ const getNavigationItems = async (req, res) => {
 
     let filteredItems = navigationItems;
 
-    if (userRole !== "admin") {
+    const allowedAdminRoles = ["admin", "superadmin"];
+
+    if (!allowedAdminRoles.includes(userRole)) {
       filteredItems = navigationItems.filter((item) => item.id !== "admin");
     }
 
