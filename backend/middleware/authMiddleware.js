@@ -22,15 +22,25 @@ const protect = async (req, res, next) => {
 
       // 4️⃣ Fetch user using Sequelize findByPk (not MongoDB findById)
       const user = await User.findByPk(decoded.id, {
-        attributes: { exclude: ["password"] },
-      });
+  attributes: { exclude: ["password"] },
+});
 
-      if (!user) {
-        return res.status(401).json({ message: "User not found" });
-      }
+if (!user) {
+  return res.status(401).json({ message: "User not found" });
+}
 
-      req.user = user;
-      return next();
+if (user.isBlocked) {
+  return res.status(403).json({ message: "Account suspended" });
+}
+if (user.passwordChangedAt){
+  const passwordChangedAt = Math.floor(user.passwordChangedAt.getTime() / 1000);
+  if (passwordChangedAt > decoded.iat) {
+    return res.status(401).json({ message: "Token revoked, Please Log in again" });
+  }
+}
+
+req.user = user;
+return next();
     } catch (error) {
       console.error("AUTH ERROR:", error.message);
       return res.status(401).json({ message: "Not authorized, token failed" });

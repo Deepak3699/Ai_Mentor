@@ -2,10 +2,14 @@ import fs from "fs";
 import { Sequelize } from "sequelize";
 import dotenv from "dotenv";
 
-dotenv.config();
+const isTestEnvironment = process.env.NODE_ENV === "test";
 
-const isProduction = process.env.NODE_ENV === "production";
-const connectionString = process.env.NEON_DATABASE_URL;
+if (!isTestEnvironment) {
+  dotenv.config();
+}
+
+// Tests use inert local metadata and never inherit production database settings.
+const connectionString = isTestEnvironment ? null : process.env.NEON_DATABASE_URL;
 
 const allowInsecureDbSsl =
   !isProduction &&
@@ -78,11 +82,16 @@ const prepareConnectionString = (urlString) => {
 
 let sequelize;
 
-if (connectionString) {
-  const { connectionString: secureConnectionString, ssl } =
-    prepareConnectionString(connectionString);
-
-  sequelize = new Sequelize(secureConnectionString, {
+if (isTestEnvironment) {
+  sequelize = new Sequelize("ai_mentor_test", "test_user", "test_password", {
+    host: "127.0.0.1",
+    port: 5432,
+    dialect: "postgres",
+    logging: false,
+  });
+} else if (connectionString) {
+  // Production: Use Neon connection string
+  sequelize = new Sequelize(connectionString, {
     dialect: "postgres",
     logging: false,
     pool: {
