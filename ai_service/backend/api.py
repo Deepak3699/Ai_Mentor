@@ -417,7 +417,6 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
         print("\n📊 USER PREFERENCES:\n")
         print(data.preferences if data.preferences else "No preferences provided")
-
         script = ""
 
         try:
