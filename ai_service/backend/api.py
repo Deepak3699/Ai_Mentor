@@ -415,215 +415,215 @@ def process_lesson(data: LessonRequest, base_filename: str):
         - Match explanation style with preferred learning style
         """
 
-    print("\n📊 USER PREFERENCES:\n")
-    print(data.preferences if data.preferences else "No preferences provided")
-    script = ""
-
-    try:
-        print("⚡ Trying Gemini Primary Model...")
-
-        response = gemini_client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt
-        )
-
-        script = response.text.strip().replace("\n", " ")
-
-        print("🟩 Gemini response generated")
-
-    except Exception as gemini_error:
-        print(f"❌ Gemini failed: {gemini_error}")
-
-              try:
-            print("⚡ Switching to Groq fallback...")
-
-            groq_response = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
+        print("\n📊 USER PREFERENCES:\n")
+        print(data.preferences if data.preferences else "No preferences provided")
+        script = ""
+    
+        try:
+            print("⚡ Trying Gemini Primary Model...")
+    
+            response = gemini_client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt
+            )
+    
+            script = response.text.strip().replace("\n", " ")
+    
+            print("🟩 Gemini response generated")
+    
+        except Exception as gemini_error:
+            print(f"❌ Gemini failed: {gemini_error}")
+    
+                  try:
+                print("⚡ Switching to Groq fallback...")
+    
+                groq_response = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    temperature=0.7,
+                    max_tokens=300,
+                )
+    
+                script = groq_response.choices[0].message.content.strip().replace("\n", " ")
+    
+                print("✅ Groq fallback response generated")
+    
+            except Exception as groq_error:
+                print(f"❌ Groq also failed: {groq_error}")
+    
+                job_status[base_filename] = {
+                    "status": "failed"
+                }
+    
+                return
+    
+                    return
+    
+            print(f"📝 Generated text: {script}")
+    
+            # 2️⃣ Create Output Folders
+    
+            base_output_dir = os.path.join(BASE_DIR, "outputs")
+            text_dir = os.path.join(base_output_dir, "text")
+            audio_dir = os.path.join(base_output_dir, "audio")
+            video_dir = os.path.join(base_output_dir, "video")
+    
+            os.makedirs(text_dir, exist_ok=True)
+            os.makedirs(audio_dir, exist_ok=True)
+            os.makedirs(video_dir, exist_ok=True)
+    
+            text_path = os.path.join(text_dir, f"{base_filename}.txt")
+            audio_path = os.path.join(audio_dir, f"{base_filename}.mp3")
+            final_video = os.path.join(video_dir, f"{base_filename}.mp4")
+    
+            # 3️⃣ Save Text to File
+    
+            with open(text_path, "w", encoding="utf-8") as f:
+                f.write(script)
+    
+            print(f"💾 Saved text to: {text_path}")
+    
+            # 4️⃣ Convert Text to Speech (edge-tts)
+    
+            print("🎵 Starting TTS generation...")
+    
+            try:
+                if os.path.exists(audio_path):
+                    os.remove(audio_path)
+    
+                # Validate voice or fallback
+                selected_voice = voices.get_voice(data.voice_id)
+                
+                rate = data.speech_rate if data.speech_rate else "+0%"
+                pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
+    
+                asyncio.run(generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch))
+    
+                print(f"✅ Audio saved: {audio_path}")
+    
+            except Exception as e:
+    
+                print(f"❌ TTS Error: {e}")
+    
+                return
+    
+            # 5️⃣ Try AI Avatar Video
+            avatar_video_url = None
+    
+            try:
+                print("🤖 Trying D-ID AI Avatar...")
+    
+                avatar_video_url = create_avatar_video(audio_path)
+    
+                print(f"✅ D-ID avatar video ready: {avatar_video_url}")
+    
+                video_response = requests.get(
+                    avatar_video_url,
+                    timeout=120,
+                )
+                video_response.raise_for_status()
+    
+                with open(final_video, "wb") as video_file:
+                    video_file.write(video_response.content)
+    
+                print(f"✅ Avatar video downloaded: {final_video}")
+    
+            except Exception as avatar_error:
+                print(
+                    f"⚠️ D-ID avatar generation failed: {avatar_error}"
+                )
+                print("🔄 Falling back to local FFmpeg renderer...")
+    
+                # 6️⃣ Fallback: Merge Stock Video + Audio (FFmpeg)
+                input_video = get_celebrity_video(data.celebrity)
+    
+                if not os.path.exists(input_video):
+                    print(
+                        f"❌ Fallback video not found at {input_video}"
+                    )
+                    job_status[base_filename] = {
+                        "status": "failed"
                     }
-                ],
-                temperature=0.7,
-                max_tokens=300,
-            )
-
-            script = groq_response.choices[0].message.content.strip().replace("\n", " ")
-
-            print("✅ Groq fallback response generated")
-
-        except Exception as groq_error:
-            print(f"❌ Groq also failed: {groq_error}")
-
+                    return
+    
+                ffmpeg_command = (
+                    f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
+                    f'-i "{audio_path}" '
+                    f'-map 0:v:0 -map 1:a:0 '
+                    f'-c:v copy -c:a aac -shortest "{final_video}"'
+                )
+    
+                print("🎥 Running fallback FFmpeg command...")
+    
+                os.system(ffmpeg_command)
+    
+                if not os.path.exists(final_video):
+                    print(
+                        "❌ FFmpeg fallback failed — "
+                        f"video not found at {final_video}"
+                    )
+                    job_status[base_filename] = {
+                        "status": "failed"
+                    }
+                    return
+    
+                print("✅ FFmpeg fallback video created.")
+    
+    
+    
+            # 7️⃣ Upload to Cloudinary
+    
+            cloudinary_url = None
+    
+            try:
+                print(f"☁️ Uploading video to Cloudinary...")
+    
+                upload_result = cloudinary.uploader.upload(
+                    final_video,
+                    resource_type="video",
+                    folder="ai_mentor/videos",
+                    public_id=base_filename,
+                    overwrite=True,
+                    chunk_size=6000000,
+                )
+    
+                cloudinary_url = upload_result.get("secure_url")
+    
+                print(f"✅ Cloudinary upload success: {cloudinary_url}")
+    
+            except Exception as cloud_err:
+    
+                print(f"⚠️ Cloudinary upload failed (will fall back to local proxy): {cloud_err}")
+    
             job_status[base_filename] = {
-                "status": "failed"
+                "status": "ready",
+                "cloudinary_url": cloudinary_url,
             }
-
-            return
-
-                return
-
-        print(f"📝 Generated text: {script}")
-
-        # 2️⃣ Create Output Folders
-
-        base_output_dir = os.path.join(BASE_DIR, "outputs")
-        text_dir = os.path.join(base_output_dir, "text")
-        audio_dir = os.path.join(base_output_dir, "audio")
-        video_dir = os.path.join(base_output_dir, "video")
-
-        os.makedirs(text_dir, exist_ok=True)
-        os.makedirs(audio_dir, exist_ok=True)
-        os.makedirs(video_dir, exist_ok=True)
-
-        text_path = os.path.join(text_dir, f"{base_filename}.txt")
-        audio_path = os.path.join(audio_dir, f"{base_filename}.mp3")
-        final_video = os.path.join(video_dir, f"{base_filename}.mp4")
-
-        # 3️⃣ Save Text to File
-
-        with open(text_path, "w", encoding="utf-8") as f:
-            f.write(script)
-
-        print(f"💾 Saved text to: {text_path}")
-
-        # 4️⃣ Convert Text to Speech (edge-tts)
-
-        print("🎵 Starting TTS generation...")
-
-        try:
-            if os.path.exists(audio_path):
-                os.remove(audio_path)
-
-            # Validate voice or fallback
-            selected_voice = voices.get_voice(data.voice_id)
-            
-            rate = data.speech_rate if data.speech_rate else "+0%"
-            pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
-
-            asyncio.run(generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch))
-
-            print(f"✅ Audio saved: {audio_path}")
-
-        except Exception as e:
-
-            print(f"❌ TTS Error: {e}")
-
-            return
-
-        # 5️⃣ Try AI Avatar Video
-        avatar_video_url = None
-
-        try:
-            print("🤖 Trying D-ID AI Avatar...")
-
-            avatar_video_url = create_avatar_video(audio_path)
-
-            print(f"✅ D-ID avatar video ready: {avatar_video_url}")
-
-            video_response = requests.get(
-                avatar_video_url,
-                timeout=120,
-            )
-            video_response.raise_for_status()
-
-            with open(final_video, "wb") as video_file:
-                video_file.write(video_response.content)
-
-            print(f"✅ Avatar video downloaded: {final_video}")
-
-        except Exception as avatar_error:
-            print(
-                f"⚠️ D-ID avatar generation failed: {avatar_error}"
-            )
-            print("🔄 Falling back to local FFmpeg renderer...")
-
-            # 6️⃣ Fallback: Merge Stock Video + Audio (FFmpeg)
-            input_video = get_celebrity_video(data.celebrity)
-
-            if not os.path.exists(input_video):
-                print(
-                    f"❌ Fallback video not found at {input_video}"
-                )
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
-                return
-
-            ffmpeg_command = (
-                f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
-                f'-i "{audio_path}" '
-                f'-map 0:v:0 -map 1:a:0 '
-                f'-c:v copy -c:a aac -shortest "{final_video}"'
-            )
-
-            print("🎥 Running fallback FFmpeg command...")
-
-            os.system(ffmpeg_command)
-
-            if not os.path.exists(final_video):
-                print(
-                    "❌ FFmpeg fallback failed — "
-                    f"video not found at {final_video}"
-                )
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
-                return
-
-            print("✅ FFmpeg fallback video created.")
-
-
-
-        # 7️⃣ Upload to Cloudinary
-
-        cloudinary_url = None
-
-        try:
-            print(f"☁️ Uploading video to Cloudinary...")
-
-            upload_result = cloudinary.uploader.upload(
-                final_video,
-                resource_type="video",
-                folder="ai_mentor/videos",
-                public_id=base_filename,
-                overwrite=True,
-                chunk_size=6000000,
-            )
-
-            cloudinary_url = upload_result.get("secure_url")
-
-            print(f"✅ Cloudinary upload success: {cloudinary_url}")
-
-        except Exception as cloud_err:
-
-            print(f"⚠️ Cloudinary upload failed (will fall back to local proxy): {cloud_err}")
-
-        job_status[base_filename] = {
-            "status": "ready",
-            "cloudinary_url": cloudinary_url,
-        }
-
-        print(f"✅ Lesson ready!")
-        print(f"   Video : {final_video}")
-
-        if cloudinary_url:
-            print(f"   Cloud : {cloudinary_url}")
-
-        # 8️⃣ Storage Cleanup
-        if cloudinary_url:
-            print("🧹 Cleaning up temporary files from local storage...")
-            for local_file in [audio_path, final_video]:
-                try:
-                    if os.path.exists(local_file):
-                        os.remove(local_file)
-                        print(f"🗑️ Successfully deleted: {local_file}")
-                except Exception as cleanup_err:
-                    print(f"❌ Failed to delete {local_file}: {cleanup_err}")
-        else:
-            print("⚠️ Keeping local files on disk as a fallback proxy since Cloudinary upload failed.")
-            print("⚠️ Note: These files will remain until the server is restarted or manually cleaned.")
+    
+            print(f"✅ Lesson ready!")
+            print(f"   Video : {final_video}")
+    
+            if cloudinary_url:
+                print(f"   Cloud : {cloudinary_url}")
+    
+            # 8️⃣ Storage Cleanup
+            if cloudinary_url:
+                print("🧹 Cleaning up temporary files from local storage...")
+                for local_file in [audio_path, final_video]:
+                    try:
+                        if os.path.exists(local_file):
+                            os.remove(local_file)
+                            print(f"🗑️ Successfully deleted: {local_file}")
+                    except Exception as cleanup_err:
+                        print(f"❌ Failed to delete {local_file}: {cleanup_err}")
+            else:
+                print("⚠️ Keeping local files on disk as a fallback proxy since Cloudinary upload failed.")
+                print("⚠️ Note: These files will remain until the server is restarted or manually cleaned.")
     except Exception as e:
 
         job_status[base_filename] = {
