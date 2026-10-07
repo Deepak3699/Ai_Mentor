@@ -18,7 +18,8 @@ const ThemeToggle = () => {
     <button
       onClick={toggleTheme}
       title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-      className="p-2 rounded-lg border border-border bg-card hover:bg-canvas-alt transition-colors"
+      className="p-1.5 sm:px-2 rounded-xl text-muted hover:bg-canvas-alt transition-colors font-semibold"
+      aria-label="Toggle theme"
     >
       {isDark ? (
         <Sun className="w-5 h-5" />

@@ -69,7 +69,8 @@ git checkout -b fix/short-description
 # 3. Write code, run it locally, test it
 
 # 4. Run the linter, otherwise CI will fail
-npm run lint          # from the repo root — checks three services
+npm run lint                  # from the repo root — checks all four Node/React services
+npm run lint:backend-admin    # Backend Admin only
 
 # 5. Commit
 git add .
@@ -140,8 +141,6 @@ chore: bump express to v5
 4. Green checks plus one approval — then merge
 5. Delete your branch after merging
 
-For what reviewers look for, see the checklist in `GitHub_Workflow_Guide.md`.
-
 ---
 
 ## Project structure (five services)
@@ -175,7 +174,6 @@ help you from that alone.
 
 ## Further reading
 
-- [GitHub Workflow Guide](./GitHub_Workflow_Guide.md) — how pull requests and checks work
 - `initalSetup.md` — environment setup
 - `backend/BACKEND_DOCUMENTATION.md` — the most detailed backend reference
 - `ai_service/README.md` — the AI video pipeline

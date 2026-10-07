@@ -1,21 +1,11 @@
 import express from "express";
-import Stripe from "stripe";
 import User from "../models/User.js";
 import Payment from "../models/Payment.js";
 import { createNotification } from "../controllers/notificationController.js";
 import { sequelize } from "../config/db.js";
+import { paymentGatewayServices } from "../services/paymentGatewayServices.js";
 
 const router = express.Router();
-
-// ✅ Validate required env vars at startup
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("Missing STRIPE_SECRET_KEY environment variable");
-}
-if (!process.env.STRIPE_WEBHOOK_SECRET) {
-  throw new Error("Missing STRIPE_WEBHOOK_SECRET environment variable");
-}
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // ⚠️ Stripe webhook MUST use RAW body
 router.post(
@@ -33,7 +23,7 @@ router.post(
         console.error("[Webhook] Missing stripe-signature header");
         return res.status(400).send("Missing stripe-signature header");
       }
-      event = stripe.webhooks.constructEvent(
+      event = paymentGatewayServices.constructStripeWebhookEvent(
         req.body,
         sig,
         process.env.STRIPE_WEBHOOK_SECRET
