@@ -596,16 +596,23 @@ def process_lesson(data: LessonRequest, base_filename: str):
                 }
                 return
 
-            ffmpeg_command = (
-                f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
-                f'-i "{audio_path}" '
-                f'-map 0:v:0 -map 1:a:0 '
-                f'-c:v copy -c:a aac -shortest "{final_video}"'
-            )
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-stream_loop", "-1",
+                "-i", input_video,
+                "-i", audio_path,
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-shortest",
+                final_video,
+            ]
 
             print("🎥 Running fallback FFmpeg command...")
 
-            os.system(ffmpeg_command)
+            subprocess.run(cmd, check=True, capture_output=True)
 
             if not os.path.exists(final_video):
                 print(
