@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import API_BASE_URL from "../lib/api";
 import { Play, ChevronDown, ChevronUp, X } from "lucide-react";
 import toast from "react-hot-toast";
-import { loadRazorpayScript } from "../lib/loadRazorpay";
+import { loadRazorpayScript } from "../lib/loadRazorPay";
 import CourseFeedback from "../components/common/CourseFeedback";
 /* safe getter */
 function safeGet(obj, path, fallback = undefined) {

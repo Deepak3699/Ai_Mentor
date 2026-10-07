@@ -77,6 +77,18 @@ const [errors, setErrors] = useState({});
   };
 
 const [avatarPreview, setAvatarPreview] = useState(() => getInitialAvatar());
+
+useEffect(() => {
+  if (!avatar) return;
+
+  const objectUrl = URL.createObjectURL(avatar);
+  setAvatarPreview(objectUrl);
+
+  return () => {
+    URL.revokeObjectURL(objectUrl);
+  };
+}, [avatar]);
+
   /* ─── Password requirements (Google users only) ─── */
   const passwordRequirements = {
     length: password.length >= 8,
@@ -106,7 +118,6 @@ const [avatarPreview, setAvatarPreview] = useState(() => getInitialAvatar());
     }
 
     setAvatar(file);
-    setAvatarPreview(URL.createObjectURL(file));
     setErrors((prev) => ({ ...prev, avatar: null }));
   };
 

@@ -4,4 +4,7 @@ export const generateVideoSchema = z.object({
   courseId: z.union([z.string(), z.number()]).transform((val) => Number(val)),
   lessonId: z.union([z.string(), z.number()]).transform((val) => Number(val)),
   celebrity: z.string().min(1, "Celebrity name is required"),
+  voice_id: z.string().optional(),
+  speech_rate: z.string().optional(),
+  speech_pitch: z.string().optional(),
 });
