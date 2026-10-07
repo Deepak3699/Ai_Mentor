@@ -425,7 +425,6 @@ def generate_lesson(
         r'[^\w\s-]', '', data.topic
     ).strip().replace(" ", "_")
     topic_clean = topic_clean[:81]
-
     if force:
         base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
     else:
