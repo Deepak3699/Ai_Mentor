@@ -1,5 +1,4 @@
 import express from "express";
-import Razorpay from "razorpay";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
 import User from "../models/User.js";
@@ -7,26 +6,9 @@ import { sequelize } from "../config/db.js";
 import { createNotification } from "../controllers/notificationController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import Payment from "../models/Payment.js";
+import { paymentGatewayServices } from "../services/paymentGatewayServices.js";
 
 const router = express.Router();
-
-const missingEnvVars = ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET"].filter(
-  (key) => !process.env[key],
-);
-
-if (missingEnvVars.length > 0) {
-  throw new Error(
-    `Missing Razorpay environment variables: ${missingEnvVars.join(
-      ", ",
-    )}. Please check your .env file.`,
-  );
-}
-
-// ✅ Initialize Razorpay safely
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
 
 // ✅ Configure the rate limiter for payment creations
 const paymentLimiter = rateLimit({
@@ -37,6 +19,7 @@ const paymentLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === "test",
 });
 
 // ✅ CREATE ORDER
@@ -93,7 +76,7 @@ const payment = await Payment.create({
 // NOW create Razorpay order
 let order;
 try {
-    order = await razorpay.orders.create(options);
+    order = await paymentGatewayServices.createRazorpayOrder(options);
 } catch (razorpayErr) {
     // Clean up the orphaned payment record
     await payment.update({ status: "failed" });
@@ -167,18 +150,24 @@ try {
   const payment = await Payment.findOne({
     where: {
       razorpayOrderId: razorpay_order_id,
+      userId,
     },
     transaction,
   });
-  if (payment) {
-    await payment.update(
-      {
-        status: "success",
-        razorpayPaymentId: razorpay_payment_id,
-      },
-      { transaction }
-    );
+  if (!payment) {
+    await transaction.rollback();
+    return res.status(404).json({
+      success: false,
+      error: "Payment not found",
+    });
   }
+  await payment.update(
+    {
+      status: "success",
+      razorpayPaymentId: razorpay_payment_id,
+    },
+    { transaction }
+  );
   console.log(
     `[Payment] 💰 Payment verified | OrderId: ${razorpay_order_id} | PaymentId: ${razorpay_payment_id} | Status: success`
   );
