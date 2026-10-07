@@ -1,35 +1,30 @@
 import os
 from dotenv import load_dotenv
 
-# Load .env
 load_dotenv()
 
-# ================================
-# Gemini API Key
-# ================================
+# Required: Primary AI provider
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-if not GEMINI_API_KEY:
-    raise ValueError("❌ GEMINI_API_KEY not found in .env")
-
-# ================================
-# Groq API Key
-# ================================
+# Optional: Fallback AI provider
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-if not GROQ_API_KEY:
-    raise ValueError("❌ GROQ_API_KEY not found in .env")
-
-# ================================
-# Cloudinary
-# ================================
+# Optional: Cloudinary storage
 CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
 CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
 CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
-if not all([
+GROQ_ENABLED = bool(GROQ_API_KEY)
+
+CLOUDINARY_ENABLED = all([
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
-    CLOUDINARY_API_SECRET
-]):
-    raise ValueError("❌ Cloudinary credentials missing.")
+    CLOUDINARY_API_SECRET,
+])
+
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY is required for the AI service.")
+
+print(f"Gemini: enabled")
+print(f"Groq fallback: {'enabled' if GROQ_ENABLED else 'disabled'}")
+print(f"Cloudinary: {'enabled' if CLOUDINARY_ENABLED else 'disabled'}")
