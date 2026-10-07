@@ -49,7 +49,7 @@
   },
   {
     "id": "report",
-    "icon": "/AI_Tutor_New_UI/Icons/settings.svg",
+    "icon": "/AI_Tutor_New_UI/Icons/report.svg",
     "label": "Report",
     "path": "/report"
   }
