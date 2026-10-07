@@ -32,7 +32,6 @@ GROQ_ENABLED,
     validate_config,
 )
 import voices
-validate_config()
 from avatar_service import create_avatar_video
 # --------------------------
 # Cloudinary Config
@@ -102,9 +101,7 @@ app.add_middleware(
 # --------------------------
 # GEMINI Client (Primary)
 # --------------------------
-gemini_client = genai.Client(
-    api_key=GEMINI_API_KEY
-)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 # --------------------------
 # GROQ Client (Fallback)
