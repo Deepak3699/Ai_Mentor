@@ -2,10 +2,25 @@ import React from "react";
 
 const LoadingSpinner = () => {
   return (
-    <div className="flex items-center justify-center min-h-[60vh] w-full">
-      <div className="relative w-12 h-12">
-        <div className="absolute top-0 left-0 w-full h-full border-4 border-teal-500/20 rounded-full" />
-        <div className="absolute top-0 left-0 w-full h-full border-4 border-teal-500 border-t-transparent rounded-full animate-spin shadow-lg" />
+    <div style={{ 
+      display: "flex", 
+      justifyContent: "center", 
+      alignItems: "center", 
+      height: "100vh", 
+      background: "#f5f7fb" 
+    }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ 
+          width: "40px", 
+          height: "40px", 
+          border: "4px solid #e5e7eb",
+          borderTop: "4px solid #2563eb",
+          borderRadius: "50%",
+          animation: "spin 1s linear infinite",
+          margin: "0 auto 10px"
+        }}></div>
+        <p style={{ fontSize: "14px", color: "#6b7280" }}>Loading...</p>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
       </div>
     </div>
   );
