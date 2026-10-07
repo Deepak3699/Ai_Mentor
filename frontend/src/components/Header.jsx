@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Bell, Menu, X, User, Settings, LogOut, ShieldCheck, ChevronDown } from "lucide-react";
+import { Bell, Menu, X, User, Settings, LogOut, ShieldCheck, ChevronDown, Search } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import ThemeToggle from "../components/common/ThemeToggle";
@@ -152,8 +152,8 @@ const Header = () => {
     <>
       <header className="bg-card/80 backdrop-blur-xl border-b border-border/50 px-3 sm:px-6 py-3 sm:py-4 fixed top-0 left-0 right-0 z-[100]">
         <div className="flex items-center justify-between max-w-[1600px] mx-auto">
-          {/* Mobile Menu & Logo */}
-          <div className="flex items-center space-x-2 sm:space-x-4">
+          {/* Mobile Menu & Search */}
+          <div className="flex items-center space-x-2 sm:space-x-4 flex-1">
             <button
               className="lg:hidden p-2 rounded-xl bg-card border border-border hover:bg-canvas-alt transition-all"
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -164,7 +164,18 @@ const Header = () => {
                 <Menu className="w-5 h-5 text-muted" />
               )}
             </button>
-            {/* Logo removed as it is now in the sidebar */}
+            
+            {/* Search Bar */}
+            <div className="relative w-full max-w-md hidden md:block ml-4 transition-all duration-300">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <Search className="h-[18px] w-[18px] text-muted-foreground opacity-70" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search mentors, topics, or projects..."
+                className="block w-full pl-10 pr-4 py-2.5 border border-border/80 rounded-2xl leading-5 bg-canvas-alt/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#2f5cc4]/30 focus:border-[#2f5cc4]/50 sm:text-sm transition-all shadow-sm"
+              />
+            </div>
           </div>
 
           {/* Action Buttons & Profile */}
