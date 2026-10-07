@@ -6,6 +6,7 @@ import asyncio
 import edge_tts
 import cloudinary
 import cloudinary.uploader
+import requests
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
