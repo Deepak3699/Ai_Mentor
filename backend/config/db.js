@@ -1,14 +1,25 @@
 import { Sequelize } from "sequelize";
 import dotenv from "dotenv";
 
-dotenv.config();
+const isTestEnvironment = process.env.NODE_ENV === "test";
 
-// Support both Neon (production) and local PostgreSQL (development)
-const connectionString = process.env.NEON_DATABASE_URL;
+if (!isTestEnvironment) {
+  dotenv.config();
+}
+
+// Tests use inert local metadata and never inherit production database settings.
+const connectionString = isTestEnvironment ? null : process.env.NEON_DATABASE_URL;
 
 let sequelize;
 
-if (connectionString) {
+if (isTestEnvironment) {
+  sequelize = new Sequelize("ai_mentor_test", "test_user", "test_password", {
+    host: "127.0.0.1",
+    port: 5432,
+    dialect: "postgres",
+    logging: false,
+  });
+} else if (connectionString) {
   // Production: Use Neon connection string
   sequelize = new Sequelize(connectionString, {
     dialect: "postgres",

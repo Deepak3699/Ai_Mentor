@@ -13,7 +13,7 @@ const router = express.Router();
 
 router.post("/generate-video", protect, validate(generateVideoSchema), async (req, res) => {
   try {
-    const { courseId, lessonId, celebrity } = req.body;
+    const { courseId, lessonId, celebrity, voice_id, speech_rate, speech_pitch } = req.body;
 
     // 🔐 Check purchase
     const purchasedCourse = req.user.purchasedCourses.find(
@@ -127,6 +127,9 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
       topic: lessonTitle,
       celebrity,
       preferences: userPreferences,
+      voice_id,
+      speech_rate,
+      speech_pitch,
     }),
   }
 );
@@ -198,10 +201,20 @@ router.get("/status/:jobId", protect, async (req, res) => {
     const data = await response.json();
 
     // 🌥️ If video is ready and Cloudinary URL is available, persist it to DB
-    if (data.status === "ready" && data.cloudinary_url) {
+    const aiVideo = await AIVideo.findOne({
+      where: { jobId: String(jobId) },
+      attributes: ["courseId"],
+    });
+
+    if (data.status === "ready" && data.local_video_url && aiVideo) {
+      const filename = data.local_video_url.split("/").pop();
+      data.local_video_url = "/api/ai/video/" + aiVideo.courseId + "/" + filename;
+    }
+
+    if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
       try {
         const updated = await AIVideo.update(
-          { videoUrl: data.cloudinary_url },
+          { videoUrl: data.cloudinary_url || data.local_video_url },
           { where: { jobId: String(jobId) } }
         );
         if (updated[0] > 0) {
@@ -222,12 +235,41 @@ router.get("/status/:jobId", protect, async (req, res) => {
 // ----------------------------------------------------
 // 3. Proxy Video Stream from Python (The "Middleman")
 // ----------------------------------------------------
-router.get("/video/:courseId/:filename", async (req, res) => {
+router.get("/video/:courseId/:filename", protect, async (req, res) => {
   try {
-    const { filename } = req.params;
+    const { courseId, filename } = req.params;
+    const numericCourseId = Number(courseId);
+
+    if (!Number.isInteger(numericCourseId)) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    // 🔐 The user must be enrolled in the course named in the URL
+    const isEnrolled = (req.user.purchasedCourses || []).some(
+      (c) => Number(c.courseId) === numericCourseId
+    );
+
+    if (!isEnrolled) {
+      return res.status(403).json({ error: "Course not purchased" });
+    }
+
+    // 🎯 The AI service names each video "<jobId>.mp4". Only serve a file that
+    // belongs to an AIVideo record of *this* course; anything else is a 404.
+    if (!filename.endsWith(".mp4")) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    const jobId = filename.slice(0, -".mp4".length);
+    const video = await AIVideo.findOne({
+      where: { courseId: numericCourseId, jobId },
+    });
+
+    if (!video) {
+      return res.status(404).json({ error: "Video not found" });
+    }
 
     const pythonVideoUrl =
-      `${process.env.AI_SERVICE_URL}/video-stream/${filename}`;
+      `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`;
 
     const response = await fetch(pythonVideoUrl);
 
@@ -253,6 +295,21 @@ router.get("/video/:courseId/:filename", async (req, res) => {
     res.status(500).json({
       error: "Failed to load video via proxy",
     });
+  }
+});
+
+// ----------------------------------------------------
+// Proxy Voices from Python
+// ----------------------------------------------------
+router.get("/voices", protect, async (req, res) => {
+  try {
+    const response = await fetch(`${process.env.AI_SERVICE_URL}/voices`);
+    if (!response.ok) throw new Error("Failed to fetch voices");
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Voices Proxy Error:", error.message);
+    res.status(500).json({ error: "Failed to fetch voices" });
   }
 });
 

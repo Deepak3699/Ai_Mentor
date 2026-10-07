@@ -5,7 +5,7 @@ import Report from "../models/Report.js";
 import crypto from "crypto";
 import { createNotification } from "./notificationController.js";
 import AdminNotification from "../models/AdminNotification.js";
-import { sequelize } from "../config/db.js";
+import{sequelize} from "../config/db.js"; 
 
 // @desc    Get course community stats (list of courses with post counts)
 // @route   GET /api/community/courses
@@ -76,18 +76,10 @@ const getCourseDiscussions = async (req, res) => {
       include: [
         { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
-      order: [["createdAt", "DESC"]],
+      order: sort === "popular" ? [[sequelize.literal("jsonb_array_length(likes)"), "DESC"]] : [["createdAt", "DESC"]],
       limit: sanitizedLimit,
       offset: offset,
     });
-
-    // Sort in JS to avoid sequelize literal issues
-    if (sort === "popular") {
-      posts.sort(
-        (a, b) => (b.likes?.length || 0) - (a.likes?.length || 0)
-      );
-    }
-
     // Return posts array with pagination metadata in headers for backward compatibility
     res.set("X-Total-Count", count);
     res.set("X-Page", sanitizedPage);
