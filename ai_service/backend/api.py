@@ -393,8 +393,14 @@ def generate_quiz(data: QuizRequest):
 # Generate Lesson Endpoint
 # --------------------------
 
-job_status = {}
-generation_cache = {}
+# Job status cache:
+# - Entries expire automatically after 1 hour.
+# - Cache is limited to 1000 jobs.
+# - This prevents the dictionary from growing indefinitely.
+job_status = TTLCache(
+    maxsize=1000,
+    ttl=3600
+)
 
 @app.post("/generate")
 def generate_lesson(
@@ -468,7 +474,7 @@ def generate_lesson(
 # --------------------------
 # Background Task Logic
 # --------------------------
-def process_lesson(data: LessonRequest, base_filename: str):
+async def process_lesson(data: LessonRequest, base_filename: str):
 
     print("\n📥 RAW REQUEST DATA:")
     print(data.dict())
@@ -594,10 +600,11 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             # Validate voice or fallback
             selected_voice = voices.get_voice(data.voice_id)
+
             rate = data.speech_rate if data.speech_rate else "+0%"
             pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
 
-            asyncio.run(generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch))
+            await generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch)
 
             print(f"✅ Audio saved: {audio_path}")
 
@@ -616,7 +623,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
         try:
             print("🤖 Trying D-ID AI Avatar...")
 
-            avatar_video_url = create_avatar_video(audio_path)
+            avatar_video_url = await create_avatar_video(audio_path)
 
             print(f"✅ D-ID avatar video ready: {avatar_video_url}")
 
@@ -649,16 +656,36 @@ def process_lesson(data: LessonRequest, base_filename: str):
                 }
                 return
 
-            ffmpeg_command = (
-                f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
-                f'-i "{audio_path}" '
-                f'-map 0:v:0 -map 1:a:0 '
-                f'-c:v copy -c:a aac -shortest "{final_video}"'
-            )
-
             print("🎥 Running fallback FFmpeg command...")
 
-            os.system(ffmpeg_command)
+            ffmpeg_args = [
+                "ffmpeg",
+                "-y",
+                "-stream_loop", "-1",
+                "-i", input_video,
+                "-i", audio_path,
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-shortest",
+                final_video,
+            ]
+
+            process = await asyncio.create_subprocess_exec(
+                *ffmpeg_args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
+
+            if process.returncode != 0:
+                error_msg = stderr.decode(errors="replace")
+                print(f"❌ FFmpeg fallback failed with code {process.returncode}: {error_msg}")
+                job_status[base_filename] = {
+                    "status": "failed"
+                }
+                return
 
             if not os.path.exists(final_video):
                 print(

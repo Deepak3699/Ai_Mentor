@@ -164,17 +164,7 @@ const Header = () => {
                 <Menu className="w-5 h-5 text-muted" />
               )}
             </button>
-
-            <div
-              className="flex items-center space-x-2 cursor-pointer"
-              onClick={() => navigate("/dashboard")}
-            >
-              <img
-                src="/upto.png"
-                alt="UptoSkills Logo"
-                className="h-8 sm:h-10 w-auto"
-              />
-            </div>
+            {/* Logo removed as it is now in the sidebar */}
           </div>
 
           {/* Action Buttons & Profile */}
