@@ -175,10 +175,10 @@ const Sidebar = ({ activePage = "dashboard" }) => {
       <aside
         className={`
           fixed
-          top-[4.625rem]
+          top-0
           left-0
-          z-[70]
-          h-[calc(100dvh-4.625rem)]
+          z-[105]
+          h-[100dvh]
           flex
           flex-col
           bg-[#0b1324]
@@ -203,42 +203,27 @@ const Sidebar = ({ activePage = "dashboard" }) => {
       >
         {/* ================= COLLAPSE BUTTON ================= */}
         <button
-          onClick={() =>
-            setSidebarCollapsed(!sidebarCollapsed)
-          }
-          className="
-            hidden
-            lg:flex
-            absolute
-            -right-3
-            top-6
-            w-6
-            h-6
-            rounded-full
-            bg-[#17223a]
-            border
-            border-white/10
-            items-center
-            justify-center
-            text-gray-300
-            hover:bg-blue-600
-            hover:text-white
-            transition-all
-            z-[80]
-          "
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="hidden lg:flex absolute -right-3.5 top-12 w-7 h-7 bg-card border border-border/80 rounded-full items-center justify-center hover:bg-[#2f5cc4] hover:border-[#2f5cc4] transition-all shadow-sm z-[110] group cursor-pointer"
           aria-label="Toggle sidebar"
         >
-          <ChevronRight
-            className={`
-              w-3.5
-              h-3.5
-              transition-transform
-              duration-300
-
-              ${sidebarCollapsed ? "" : "rotate-180"}
-            `}
-          />
+          <ChevronRight className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform duration-500 ${sidebarCollapsed ? "" : "rotate-180"}`} />
         </button>
+
+        {/* --- LOGO SECTION --- */}
+        <div className={`pt-6 px-4 pb-2 transition-all duration-300 ${sidebarCollapsed ? "flex justify-center" : ""}`}>
+          <div className={`border border-border/50 rounded-[1.5rem] p-5 flex flex-col items-center justify-center bg-card shadow-sm w-full ${sidebarCollapsed ? "hidden" : "flex"}`}>
+            <img src="/upto.png" alt="UptoSkills Logo" className="h-10 mb-3 object-contain" />
+            <h2 className="text-[1.2rem] font-bold text-slate-900 dark:text-white tracking-wide">Ai Mentor</h2>
+            <p className="text-[11px] text-muted-foreground mt-1 tracking-wide">Learn · Build · Grow</p>
+          </div>
+          {/* Logo when collapsed */}
+          {sidebarCollapsed && (
+            <div className="w-12 h-12 bg-card border border-border/50 rounded-xl flex items-center justify-center shadow-sm">
+               <img src="/upto.png" alt="Logo" className="h-6 object-contain" />
+            </div>
+          )}
+        </div>
 
         {/* ================= MAIN NAVIGATION ================= */}
         <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 py-4">
@@ -272,7 +257,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
 
                     ${
                       isActive
-                        ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
+                        ? "bg-[#2f5cc4] text-white shadow-md shadow-[#2f5cc4]/20"
                         : "text-gray-300 hover:bg-white/5 hover:text-white"
                     }
                   `}
