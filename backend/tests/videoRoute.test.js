@@ -4,6 +4,7 @@ import http from "node:http";
 import jwt from "jsonwebtoken";
 
 // Env must be set before the app modules are imported.
+process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = "test-secret";
 process.env.AI_SERVICE_URL = "http://ai-service.test";
 
