@@ -243,7 +243,7 @@ return res.status(200).json({
 }
   } catch (error) {
     console.error("❌ Razorpay Verify Error:", error);
-    console.log(`[Payment] ❌ Invalid signature | OrderId: ${razorpay_order_id} | Status: failed`);
+    console.log(`[Payment] ❌ Invalid signature | OrderId: ${req.body?.razorpay_order_id || "unknown"} | Status: failed`);
     return res
       .status(500)
       .json({ success: false, error: "Payment verification failed" });

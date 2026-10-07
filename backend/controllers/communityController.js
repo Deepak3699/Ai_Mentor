@@ -5,6 +5,7 @@ import Report from "../models/Report.js";
 import crypto from "crypto";
 import { createNotification } from "./notificationController.js";
 import AdminNotification from "../models/AdminNotification.js";
+import { sequelize } from "../config/db.js";
 
 // @desc    Get course community stats (list of courses with post counts)
 // @route   GET /api/community/courses
