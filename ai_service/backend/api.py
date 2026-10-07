@@ -419,7 +419,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
     print(data.preferences if data.preferences else "No preferences provided")
     script = ""
 
-    try:
+     try:
         print("⚡ Trying Gemini Primary Model...")
 
         response = gemini_client.models.generate_content(
@@ -431,10 +431,10 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
         print("🟩 Gemini response generated")
 
-    except Exception as gemini_error:
+     except Exception as gemini_error:
         print(f"❌ Gemini failed: {gemini_error}")
 
-        try:
+     try:
             print("⚡ Switching to Groq fallback...")
             try:
                 print("⚡ Switching to Groq fallback...")
