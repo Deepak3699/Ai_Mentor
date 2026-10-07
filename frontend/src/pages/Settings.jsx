@@ -155,6 +155,7 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const [contactForm, setContactForm] = useState({ subject: "", message: "" });
   const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState(null);
   const [activeSetting, setActiveSetting] = useState("profile");
   const { user, updateUser, fetchUserProfile } = useAuth();
 
@@ -294,6 +295,20 @@ export default function Settings() {
     });
   }, [user]);
 
+  useEffect(() => {
+  if (!avatarFile) {
+    setAvatarPreviewUrl(null);
+    return;
+  }
+
+  const objectUrl = URL.createObjectURL(avatarFile);
+  setAvatarPreviewUrl(objectUrl);
+
+  return () => {
+    URL.revokeObjectURL(objectUrl);
+  };
+}, [avatarFile]);
+
   /* mobile navigation helpers */
   const handleMobileSelect = (key) => {
     if (key === "delete_account") {
@@ -334,7 +349,13 @@ export default function Settings() {
               {/* Avatar + camera button */}
               <div className="relative mb-4">
                 <img
-                  src={avatarFile ? URL.createObjectURL(avatarFile) : user?.avatar_url ? user.avatar_url : `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(`${formData.firstName} ${formData.lastName}`)}`}
+                  src={
+                    avatarPreviewUrl ||
+                    user?.avatar_url ||
+                    `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(
+                      `${formData.firstName} ${formData.lastName}`
+                    )}`
+                  }
                   onError={(e) => {
                     e.currentTarget.onerror = null;
                     e.currentTarget.src = `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(`${formData.firstName} ${formData.lastName}`)}`;
