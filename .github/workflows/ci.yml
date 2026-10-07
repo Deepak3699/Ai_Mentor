@@ -205,6 +205,12 @@ jobs:
 
       - name: Run tests
         working-directory: ai_service
+        env:
+          GEMINI_API_KEY: ci-dummy-key
+          GROQ_API_KEY: ci-dummy-key
+          CLOUDINARY_CLOUD_NAME: ci-dummy
+          CLOUDINARY_API_KEY: ci-dummy
+          CLOUDINARY_API_SECRET: ci-dummy
         run: |
           pip install -r backend/requirements.txt
           python -m pytest
