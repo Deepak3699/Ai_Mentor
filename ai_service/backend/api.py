@@ -436,9 +436,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
         try:
             print("⚡ Switching to Groq fallback...")
-            print("⚡ Switching to Groq fallback...")
-            try:
-                print("⚡ Switching to Groq fallback...")
+        
 
                 groq_response = groq_client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
