@@ -69,7 +69,8 @@ git checkout -b fix/short-description
 # 3. Write code, run it locally, test it
 
 # 4. Run the linter, otherwise CI will fail
-npm run lint          # from the repo root — checks three services
+npm run lint                  # from the repo root — checks all four Node/React services
+npm run lint:backend-admin    # Backend Admin only
 
 # 5. Commit
 git add .

@@ -102,13 +102,11 @@ const App = () => {
             element={<CoursePreview />}
           />
 
-          {/* =========================
-              ADMIN ROUTES (RBAC FIX)
-          ========================= */}
+          {/* Authorized admins are handed off to the dedicated frontendAdmin app. */}
           <Route element={<AdminRoute />}>
-            <Route path="/admin" element={<div>Admin Dashboard</div>} />
-            <Route path="/admin/users" element={<div>Manage Users</div>} />
-            <Route path="/admin/courses" element={<div>Manage Courses</div>} />
+            <Route path="/admin" element={null} />
+            <Route path="/admin/users" element={null} />
+            <Route path="/admin/courses" element={null} />
           </Route>
         </Route>
 
