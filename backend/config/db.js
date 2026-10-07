@@ -3,6 +3,7 @@ import { Sequelize } from "sequelize";
 import dotenv from "dotenv";
 
 const isTestEnvironment = process.env.NODE_ENV === "test";
+const isProduction = process.env.NODE_ENV === "production";
 
 if (!isTestEnvironment) {
   dotenv.config();
@@ -30,11 +31,11 @@ const getCaCertificate = () => {
     try {
       return fs.readFileSync(process.env.DB_SSL_CA_FILE, "utf8");
     } catch (error) {
-  throw new Error(
-    `Invalid database TLS configuration: unable to read DB_SSL_CA_FILE (${error.message})`,
-    { cause: error }
-  );
-}
+      throw new Error(
+        `Invalid database TLS configuration: unable to read DB_SSL_CA_FILE (${error.message})`,
+        { cause: error }
+      );
+    }
   }
 
   return undefined;
@@ -48,7 +49,7 @@ const prepareConnectionString = (urlString) => {
 
   if (isProduction && sslMode !== "verify-full") {
     throw new Error(
-      'Invalid production database TLS configuration: NEON_DATABASE_URL must use sslmode=verify-full.'
+      "Invalid production database TLS configuration: NEON_DATABASE_URL must use sslmode=verify-full."
     );
   }
 
@@ -59,11 +60,11 @@ const prepareConnectionString = (urlString) => {
     sslMode !== "verify-full"
   ) {
     throw new Error(
-      'Invalid database TLS configuration: use sslmode=verify-full, or explicitly set ALLOW_INSECURE_DB_SSL=true for development only.'
+      "Invalid database TLS configuration: use sslmode=verify-full, or explicitly set ALLOW_INSECURE_DB_SSL=true for development only."
     );
   }
 
-  // We configure TLS explicitly below.
+  // Configure TLS explicitly below.
   // Remove connection-string SSL options so they cannot override
   // dialectOptions.ssl.
   url.searchParams.delete("sslmode");
@@ -90,8 +91,12 @@ if (isTestEnvironment) {
     logging: false,
   });
 } else if (connectionString) {
-  // Production: Use Neon connection string
-  sequelize = new Sequelize(connectionString, {
+  const {
+    connectionString: secureConnectionString,
+    ssl,
+  } = prepareConnectionString(connectionString);
+
+  sequelize = new Sequelize(secureConnectionString, {
     dialect: "postgres",
     logging: false,
     pool: {
