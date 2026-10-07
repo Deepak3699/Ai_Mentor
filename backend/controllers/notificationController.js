@@ -89,18 +89,32 @@ export const clearAll = async (req, res) => {
  * Utility function to create a notification
  * Can be used from other controllers
  */
-export const createNotification = async (userId, { title, message, type, metadata = null }) => {
-    try {
-        const notification = await Notification.create({
-            userId,
-            title,
-            message,
-            type,
-            metadata,
-        });
-        return notification;
-    } catch (error) {
-        console.error("Error creating notification:", error.message);
-        return null;
+export const createNotification = async (
+  userId,
+  { title, message, type, metadata = null, transaction } = {}
+) => {
+  try {
+    const options = transaction ? { transaction } : {};
+
+    const notification = await Notification.create(
+      {
+        userId,
+        title,
+        message,
+        type,
+        metadata,
+      },
+      options
+    );
+
+    return notification;
+  } catch (error) {
+    console.error("Error creating notification:", error.message);
+
+    if (transaction) {
+      throw error;
     }
+
+    return null;
+  }
 };
