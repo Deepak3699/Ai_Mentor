@@ -823,6 +823,15 @@ const Dashboard = () => {
       <div className="max-w-7xl pt-16 mx-auto space-y-8">
 
         {/* =================================================
+            HERO BANNER
+            ================================================= */}
+        <DashboardHero
+          name={user?.name || "User"}
+          streak={learningStreak}
+          onContinue={handleContinueLearning}
+        />
+
+        {/* =================================================
             STATS CARDS
             ================================================= */}
 
