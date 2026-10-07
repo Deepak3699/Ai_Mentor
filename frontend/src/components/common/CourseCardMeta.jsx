@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "../../lib/api";
 /**
  * CourseCardMeta.jsx
  *

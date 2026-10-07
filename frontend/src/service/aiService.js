@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "../lib/api";
 export const getAIVideo = async (payload) => {
   const token = localStorage.getItem("token");
 

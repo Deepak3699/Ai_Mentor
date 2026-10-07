@@ -9,7 +9,9 @@ import React, {
 } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase.js"; 
-import { apiFetch } from "../lib/api";
+import { apiFetch, SESSION_EXPIRED_EVENT } from "../lib/api";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 const AuthContext = createContext();
 
@@ -22,6 +24,21 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
+  const navigate = useNavigate();
+  const hasFetchedProfile = useRef(false);
+
+  useEffect(() => {
+    const expireSession = () => {
+      setIsAuthenticated(false);
+      setUser(null);
+      hasFetchedProfile.current = false;
+      if (auth) signOut(auth).catch(console.error);
+      toast.error("Session expired. Please log in again.", { id: "session-expired" });
+      navigate("/login", { replace: true });
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, expireSession);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession);
+  }, [navigate]);
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     const token = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
@@ -50,6 +67,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = (userData) => {
+    hasFetchedProfile.current = false;
     setIsAuthenticated(true);
 
     const newUser = {
@@ -77,6 +95,7 @@ export const AuthProvider = ({ children }) => {
       if (!response || !response.ok) return;
 
       const userData = await response.json();
+      if (localStorage.getItem("token") !== token) return;
 
       const newUser = {
         ...userData,
@@ -98,8 +117,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const hasFetchedProfile = useRef(false);
-
   useEffect(() => {
     if (isAuthenticated && !hasFetchedProfile.current) {
       hasFetchedProfile.current = true;
@@ -116,6 +133,7 @@ export const AuthProvider = ({ children }) => {
       console.error("Firebase sign out error:", error);
     }
 
+    hasFetchedProfile.current = false;
     setIsAuthenticated(false);
     setUser(null);
 
