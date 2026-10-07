@@ -7,9 +7,11 @@ const { default: CommunityPost } = await import("../models/CommunityPost.js");
 const { default: User } = await import("../models/User.js");
 const { default: Report } = await import("../models/Report.js");
 const { default: AdminNotification } = await import("../models/AdminNotification.js");
+const { sequelize } = await import("../config/db.js");
 const community = await import("../controllers/communityController.js");
 
 const originals = {
+  transaction: sequelize.transaction,
   postFindAll: CommunityPost.findAll,
   postFindAndCountAll: CommunityPost.findAndCountAll,
   postFindByPk: CommunityPost.findByPk,
@@ -35,6 +37,7 @@ const response = () => {
 };
 
 beforeEach(() => {
+  sequelize.transaction = async (callback) => callback({});
   CommunityPost.findAll = async () => [];
   CommunityPost.findAndCountAll = async () => ({ count: 0, rows: [] });
   CommunityPost.findByPk = async () => null;
@@ -48,6 +51,7 @@ beforeEach(() => {
 });
 
 after(() => {
+  sequelize.transaction = originals.transaction;
   CommunityPost.findAll = originals.postFindAll;
   CommunityPost.findAndCountAll = originals.postFindAndCountAll;
   CommunityPost.findByPk = originals.postFindByPk;
