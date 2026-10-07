@@ -6,7 +6,7 @@ import asyncio
 import edge_tts
 import cloudinary
 import cloudinary.uploader
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -189,29 +189,57 @@ def generate_syllabus(data: SyllabusRequest):
             model="gemini-2.5-flash",
             contents=prompt
         )
+
         text = response.text.strip()
-        if text.startswith("```json"): text = text[7:]
-        if text.startswith("```"): text = text[3:]
-        if text.endswith("```"): text = text[:-3]
-        return json.loads(text.strip())
+
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+
+        if text.endswith("```"):
+            text = text[:-3]
+
+        try:
+            return json.loads(text.strip())
+        except json.JSONDecodeError as json_error:
+            print(f"❌ Gemini returned invalid JSON: {json_error}")
+            raise
+
     except Exception as e:
         print(f"❌ Gemini failed: {e}. Trying Groq...")
+
         try:
             groq_response = groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[{ "role": "user", "content": prompt }],
+                messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=1000,
             )
+
             text = groq_response.choices[0].message.content.strip()
-            if text.startswith("```json"): text = text[7:]
-            if text.startswith("```"): text = text[3:]
-            if text.endswith("```"): text = text[:-3]
-            return json.loads(text.strip())
+
+            if text.startswith("```json"):
+                text = text[7:]
+            elif text.startswith("```"):
+                text = text[3:]
+
+            if text.endswith("```"):
+                text = text[:-3]
+
+            try:
+                return json.loads(text.strip())
+            except json.JSONDecodeError as json_error:
+                print(f"❌ Groq returned invalid JSON: {json_error}")
+                raise
+
         except Exception as e2:
             print(f"❌ Groq failed: {e2}")
-            return {"error": "Failed to generate syllabus"}
 
+            raise HTTPException(
+                status_code=503,
+                detail="Failed to generate syllabus"
+            )
 # --------------------------
 # Generate Quiz Endpoint
 # --------------------------
