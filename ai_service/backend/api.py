@@ -415,9 +415,9 @@ def process_lesson(data: LessonRequest, base_filename: str):
         - Match explanation style with preferred learning style
         """
 
-   print("\n📊 USER PREFERENCES:\n")
-   print(data.preferences if data.preferences else "No preferences provided")
-   script = ""
+    print("\n📊 USER PREFERENCES:\n")
+    print(data.preferences if data.preferences else "No preferences provided")
+    script = ""
 
         try:
             print("⚡ Trying Gemini Primary Model...")
