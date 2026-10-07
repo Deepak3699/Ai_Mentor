@@ -34,4 +34,4 @@ def validate_config():
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is required for the AI service.")
 
-validate_config()
+
