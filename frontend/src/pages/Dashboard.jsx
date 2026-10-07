@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "../lib/api";
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -820,6 +821,15 @@ const Dashboard = () => {
       />
 
       <div className="max-w-7xl pt-16 mx-auto space-y-8">
+
+        {/* =================================================
+            HERO BANNER
+            ================================================= */}
+        <DashboardHero
+          name={user?.name || "User"}
+          streak={learningStreak}
+          onContinue={handleContinueLearning}
+        />
 
         {/* =================================================
             STATS CARDS

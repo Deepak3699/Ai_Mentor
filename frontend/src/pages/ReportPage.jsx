@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "../lib/api";
 import React, { useState } from "react";
 import { Flag, Mail, Phone, FileText, Award, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import API_BASE_URL from "../lib/api";

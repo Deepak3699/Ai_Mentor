@@ -493,6 +493,15 @@ def generate_quiz(data: QuizRequest):
 # Generate Lesson Endpoint
 # --------------------------
 
+# Job status cache:
+# - Entries expire automatically after 1 hour.
+# - Cache is limited to 1000 jobs.
+# - This prevents the dictionary from growing indefinitely.
+job_status = TTLCache(
+    maxsize=1000,
+    ttl=3600
+)
+
 @app.post("/generate")
 def generate_lesson(
     data: LessonRequest,
@@ -514,7 +523,6 @@ def generate_lesson(
         r'[^\w\s-]', '', data.topic
     ).strip().replace(" ", "_")
     topic_clean = topic_clean[:81]
-
     if force:
         base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
     else:
@@ -558,7 +566,7 @@ def generate_lesson(
 # --------------------------
 # Background Task Logic
 # --------------------------
-def process_lesson(data: LessonRequest, base_filename: str):
+async def process_lesson(data: LessonRequest, base_filename: str):
 
     print("\n📥 RAW REQUEST DATA:")
     print(data.dict())
@@ -713,10 +721,11 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             # Validate voice or fallback
             selected_voice = voices.get_voice(data.voice_id)
+
             rate = data.speech_rate if data.speech_rate else "+0%"
             pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
 
-            asyncio.run(generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch))
+            await generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch)
 
             print(f"✅ Audio saved: {audio_path}")
 
@@ -744,7 +753,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
         try:
             print("🤖 Trying D-ID AI Avatar...")
 
-            avatar_video_url = create_avatar_video(audio_path)
+            avatar_video_url = await create_avatar_video(audio_path)
 
             if is_job_cancelled(base_filename):
                 print(f"🛑 Job {base_filename} was cancelled after D-ID generation.")
@@ -796,48 +805,35 @@ def process_lesson(data: LessonRequest, base_filename: str):
                         cleanup_job_files(base_filename)
                 return
 
-            if is_job_cancelled(base_filename):
-                print(f"🛑 Job {base_filename} was cancelled before FFmpeg start.")
-                cleanup_job_files(base_filename)
-                return
+            print("🎥 Running fallback FFmpeg command...")
 
-            ffmpeg_cmd = [
+            ffmpeg_args = [
                 "ffmpeg",
                 "-y",
-                "-stream_loop",
-                "-1",
-                "-i",
-                input_video,
-                "-i",
-                audio_path,
-                "-map",
-                "0:v:0",
-                "-map",
-                "1:a:0",
-                "-c:v",
-                "copy",
-                "-c:a",
-                "aac",
+                "-stream_loop", "-1",
+                "-i", input_video,
+                "-i", audio_path,
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-c:v", "copy",
+                "-c:a", "aac",
                 "-shortest",
                 final_video,
             ]
 
-            print("🎥 Running fallback FFmpeg command...")
+            process = await asyncio.create_subprocess_exec(
+                *ffmpeg_args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
 
-            try:
-                proc = subprocess.Popen(
-                    ffmpeg_cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-                active_processes[base_filename] = proc
-                proc.communicate()
-            finally:
-                active_processes.pop(base_filename, None)
-
-            if is_job_cancelled(base_filename):
-                print(f"🛑 Job {base_filename} was cancelled during/after FFmpeg.")
-                cleanup_job_files(base_filename)
+            if process.returncode != 0:
+                error_msg = stderr.decode(errors="replace")
+                print(f"❌ FFmpeg fallback failed with code {process.returncode}: {error_msg}")
+                job_status[base_filename] = {
+                    "status": "failed"
+                }
                 return
 
             if not os.path.exists(final_video):
