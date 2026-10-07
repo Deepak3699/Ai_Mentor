@@ -23,8 +23,9 @@ def load_config(monkeypatch, **env):
 
 
 def test_gemini_is_required(monkeypatch):
+    config = load_config(monkeypatch)
     with pytest.raises(ValueError):
-        load_config(monkeypatch)
+        config.validate_config()
 
 
 def test_groq_and_cloudinary_are_optional(monkeypatch):
