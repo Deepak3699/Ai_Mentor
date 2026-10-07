@@ -84,7 +84,14 @@ def upload_audio(audio_path: str) -> str:
     return audio_url
 
 
-async def create_avatar_video(audio_path: str) -> str:
+class AwaitableStr(str):
+    def __await__(self):
+        async def _wrapper():
+            return str(self)
+        return _wrapper().__await__()
+
+
+def create_avatar_video(audio_path: str) -> str:
     """
     Create a talking-avatar video from a local audio file.
 
@@ -92,46 +99,54 @@ async def create_avatar_video(audio_path: str) -> str:
         Public URL of the generated MP4 video.
     """
     if not DID_SOURCE_URL:
-        raise RuntimeError(
-            "DID_SOURCE_URL is not configured."
-        )
+        raise RuntimeError("DID_SOURCE_URL is not configured")
 
     audio_url = upload_audio(audio_path)
 
-    payload = {
-        "source_url": DID_SOURCE_URL,
-        "script": {
-            "type": "audio",
-            "audio_url": audio_url,
+    response = requests.post(
+        f"{DID_API_URL}/talks",
+        headers={
+            "Authorization": _get_auth_header(),
+            "Content-Type": "application/json",
         },
-    }
+        json={
+            "source_url": DID_SOURCE_URL,
+            "script": {
+                "type": "audio",
+                "audio_url": audio_url,
+            },
+        },
+        timeout=60,
+    )
 
-    try:
-        response = requests.post(
-            f"{DID_API_URL}/talks",
-            headers=_get_headers(),
-            json=payload,
-            timeout=30,
-        )
-    except requests.RequestException as exc:
+    if not 200 <= response.status_code < 300:
         raise RuntimeError(
-            f"D-ID avatar request failed: {exc}"
-        ) from exc
-
-    if response.status_code != 201:
-        raise RuntimeError(
-            f"D-ID avatar request failed: "
+            f"D-ID avatar creation failed: "
             f"{response.status_code} {response.text}"
         )
 
-    talk_id = response.json().get("id")
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise RuntimeError("D-ID creation response was not valid JSON") from exc
 
+    talk_id = payload.get("id")
     if not talk_id:
-        raise RuntimeError(
-            "D-ID did not return a talk ID."
-        )
+        raise RuntimeError("D-ID creation response did not return a talk ID")
 
-    return await _poll_for_video(talk_id)
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            video_url = executor.submit(asyncio.run, _poll_for_video(talk_id)).result()
+    else:
+        video_url = asyncio.run(_poll_for_video(talk_id))
+
+    return AwaitableStr(video_url)
 
 
 async def _poll_for_video(talk_id: str) -> str:
