@@ -121,7 +121,6 @@ class LessonRequest(BaseModel):
     preferences: dict | None = None
     voice_id: str | None = None
     gender: str | None = None
-    language: str | None = None
     speech_rate: str | None = "+0%"
     speech_pitch: str | None = "+0Hz"
 
