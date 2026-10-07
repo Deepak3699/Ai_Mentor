@@ -182,6 +182,11 @@ router.get("/status/:jobId", protect, async (req, res) => {
       return res.status(404).json({ status: "not_found" });
     }
 
+    const isAdmin = req.user.role === "admin" || req.user.role === "superAdmin";
+    if (videoJob.userId && videoJob.userId !== req.user.id && !isAdmin) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
     if (videoJob.status === "failed") {
       return res.json({ status: "failed", error: videoJob.error });
     }

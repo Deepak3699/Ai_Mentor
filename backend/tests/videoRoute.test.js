@@ -14,7 +14,7 @@ const { default: User } = await import("../models/User.js");
 const { default: aiRoutes } = await import("../routes/aiRoutes.js");
 
 // In-memory stand-ins for the database.
-const VIDEOS = [{ courseId: 1, jobId: "Intro_20260101_120000", userId: 1 }];
+const VIDEOS = [{ id: "test-ai-id", courseId: 1, jobId: "Intro_20260101_120000", userId: 1, status: "processing" }];
 const USERS = {
   1: { id: 1, role: "user", purchasedCourses: [{ courseId: 1 }, { courseId: 2 }] },
   2: { id: 2, role: "user", purchasedCourses: [{ courseId: 2 }] },
@@ -35,7 +35,13 @@ let baseUrl;
 
 before(async () => {
   AIVideo.findOne = async ({ where }) => {
-    if (where.courseId !== undefined) {
+    if (where.courseId !== undefined && where.id !== undefined) {
+      return VIDEOS.find((v) => v.courseId === where.courseId && v.id === where.id) ?? null;
+    }
+    if (where.id !== undefined) {
+      return VIDEOS.find((v) => v.id === where.id) ?? null;
+    }
+    if (where.courseId !== undefined && where.jobId !== undefined) {
       return VIDEOS.find((v) => v.courseId === where.courseId && v.jobId === where.jobId) ?? null;
     }
     if (where.jobId !== undefined) {
@@ -77,14 +83,14 @@ const get = (path, userId) =>
 
 test("unauthenticated request returns 401 and never reaches the AI service", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/video/1/Intro_20260101_120000.mp4");
+  const res = await get("/api/ai/video/1/test-ai-id.mp4");
   assert.equal(res.status, 401);
   assert.equal(upstreamCalls.length, 0);
 });
 
 test("enrolled user gets the video for the matching course", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/video/1/Intro_20260101_120000.mp4", 1);
+  const res = await get("/api/ai/video/1/test-ai-id.mp4", 1);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-type"), "video/mp4");
   assert.deepEqual(Buffer.from(await res.arrayBuffer()), VIDEO_BYTES);
@@ -95,14 +101,14 @@ test("enrolled user gets the video for the matching course", async () => {
 
 test("mismatched courseId returns 404 even if the user owns that course", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/video/2/Intro_20260101_120000.mp4", 1);
+  const res = await get("/api/ai/video/2/test-ai-id.mp4", 1);
   assert.equal(res.status, 404);
   assert.equal(upstreamCalls.length, 0);
 });
 
 test("user not enrolled in the course returns 403", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/video/1/Intro_20260101_120000.mp4", 2);
+  const res = await get("/api/ai/video/1/test-ai-id.mp4", 2);
   assert.equal(res.status, 403);
   assert.equal(upstreamCalls.length, 0);
 });
@@ -116,8 +122,8 @@ test("filename with no matching AIVideo record returns 404", async () => {
 
 test("non-mp4 filenames and non-numeric courseIds return 404", async () => {
   upstreamCalls.length = 0;
-  assert.equal((await get("/api/ai/video/1/Intro_20260101_120000.txt", 1)).status, 404);
-  assert.equal((await get("/api/ai/video/abc/Intro_20260101_120000.mp4", 1)).status, 404);
+  assert.equal((await get("/api/ai/video/1/test-ai-id.txt", 1)).status, 404);
+  assert.equal((await get("/api/ai/video/abc/test-ai-id.mp4", 1)).status, 404);
   assert.equal(upstreamCalls.length, 0);
 });
 test("status route returns 404 for unknown job", async () => {
@@ -136,14 +142,14 @@ test("status route allows the owner to view status and fetches upstream", async 
     }
     return realFetch(url);
   };
-  const res = await get("/api/ai/status/Intro_20260101_120000", 1);
+  const res = await get("/api/ai/status/test-ai-id", 1);
   assert.equal(res.status, 200);
   assert.equal(upstreamCalls.length, 1);
 });
 
 test("status route returns 403 for different user", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/status/Intro_20260101_120000", 2);
+  const res = await get("/api/ai/status/test-ai-id", 2);
   assert.equal(res.status, 403);
   assert.equal(upstreamCalls.length, 0);
 });
@@ -157,7 +163,7 @@ test("status route allows admin to view any status", async () => {
     }
     return realFetch(url);
   };
-  const res = await get("/api/ai/status/Intro_20260101_120000", 3);
+  const res = await get("/api/ai/status/test-ai-id", 3);
   assert.equal(res.status, 200);
   assert.equal(upstreamCalls.length, 1);
 });

@@ -10,22 +10,26 @@ const connection = {
   port: process.env.REDIS_PORT || 6379,
 };
 
-export const videoQueue = new Queue("video", {
-  connection,
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: "exponential",
-      delay: 5000,
-    },
-  },
-});
+export const videoQueue = process.env.NODE_ENV === "test" 
+  ? { add: async () => ({ id: "test-job-id" }) } 
+  : new Queue("video", {
+      connection,
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+          type: "exponential",
+          delay: 5000,
+        },
+      },
+    });
 
 // Adding a worker
-const worker = new Worker(
-  "video",
-  async (job) => {
-    // Mark as processing
+let worker;
+if (process.env.NODE_ENV !== "test") {
+  worker = new Worker(
+    "video",
+    async (job) => {
+      // Mark as processing
     await AIVideo.update(
       { status: "processing" },
       { where: { id: job.data.aiVideoId } }
@@ -74,16 +78,17 @@ const worker = new Worker(
   }
 );
 
-worker.on("failed", async (job, err) => {
-  console.error(`❌ Job ${job.id} failed:`, err.message);
-  if (job && job.data && job.data.aiVideoId) {
-    try {
-        await AIVideo.update(
-          { status: "failed", error: err.message },
-          { where: { id: job.data.aiVideoId } }
-        );
-    } catch (dbErr) {
-        console.error("Failed to update AIVideo status to failed:", dbErr);
+  worker.on("failed", async (job, err) => {
+    console.error(`❌ Job ${job.id} failed:`, err.message);
+    if (job && job.data && job.data.aiVideoId) {
+      try {
+          await AIVideo.update(
+            { status: "failed", error: err.message },
+            { where: { id: job.data.aiVideoId } }
+          );
+      } catch (dbErr) {
+          console.error("Failed to update AIVideo status to failed:", dbErr);
+      }
     }
-  }
-});
+  });
+}
