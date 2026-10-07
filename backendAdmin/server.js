@@ -1,5 +1,6 @@
 // backendAdmin/server.js
 import express from "express";
+import http from "node:http";
 import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
@@ -15,10 +16,6 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// ================= MIDDLEWARE =================
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
 const allowedOrigins = [
   process.env.FRONTEND_ADMIN_URL || "http://localhost:5174",
   ...(process.env.NODE_ENV !== "production"
@@ -32,6 +29,10 @@ app.use(
     credentials: true,
   }),
 );
+
+// ================= MIDDLEWARE =================
+app.use(express.json({ limit: "100kb" }));
+app.use(express.urlencoded({ extended: true }));
 
 // ================= ROUTES =================
 app.use("/api/admin", adminRoutes);
@@ -48,6 +49,15 @@ app.use((req, res) => {
 
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
+  
+   if (err.type === "entity.too.large") {
+     return res.status(413).json({ message: "Payload Too Large" });
+   }
+
+   if (err.type === "entity.parse.failed") {
+     return res.status(400).json({ message: "Invalid JSON" });
+   }
+
   console.error("ERROR:", err);
   res.status(500).json({ message: "Internal Server Error" });
 });
@@ -132,6 +142,13 @@ const startServer = async () => {
     await connectDB();
 
     server = app.listen(PORT, () => {
+    const server = http.createServer(app);
+
+    server.requestTimeout = 120_000;
+    server.headersTimeout = 65_000;
+    server.keepAliveTimeout = 60_000;
+
+    server.listen(PORT, () => {
       console.log(
         `✅ Backend Admin Server running on http://localhost:${PORT}`,
       );
@@ -142,6 +159,8 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (process.env.NODE_ENV !== "test") {
+  startServer();
+}
 
 export default app;

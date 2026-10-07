@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Bell, Menu, X, User, Settings, LogOut, ShieldCheck } from "lucide-react";
+import { Bell, Menu, X, User, Settings, LogOut, ShieldCheck, ChevronDown } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import ThemeToggle from "../components/common/ThemeToggle";
@@ -158,163 +158,238 @@ const Header = () => {
               className="lg:hidden p-2 rounded-xl bg-card border border-border hover:bg-canvas-alt transition-all"
               onClick={() => setSidebarOpen(!sidebarOpen)}
             >
-              {sidebarOpen ? <X className="w-5 h-5 text-muted" /> : <Menu className="w-5 h-5 text-muted" />}
+              {sidebarOpen ? (
+                <X className="w-5 h-5 text-muted" />
+              ) : (
+                <Menu className="w-5 h-5 text-muted" />
+              )}
             </button>
-
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate("/dashboard")}>
-              <img
-                src="/upto.png"
-                alt="UptoSkills Logo"
-                className="h-8 sm:h-10 w-auto"
-              />
-            </div>
+            {/* Logo removed as it is now in the sidebar */}
           </div>
 
           {/* Action Buttons & Profile */}
-          <div className="flex items-center space-x-1.5 sm:space-x-5">
-            <ThemeToggle />
+          <div className="flex items-center space-x-1.5 sm:space-x-3">
+            {isAuthenticated && (
+              <div className="relative" ref={notificationRef}>
+                <button
+                  onClick={() => setNotifOpen(!notifOpen)}
+                  className="relative cursor-pointer p-1.5 sm:px-2 rounded-xl hover:bg-canvas-alt transition-all group text-muted font-semibold"
+                >
+                  <Bell className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-0 right-0 translate-x-1/4 -translate-y-1/4 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-black text-white animate-in zoom-in duration-300">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
 
-            {isAuthenticated ? (
-              <>
-                <div className="relative" ref={notificationRef}>
-                  <div
-                    onClick={() => setNotifOpen(!notifOpen)}
-                    className="relative cursor-pointer p-1.5 sm:p-2.5 hover:bg-canvas-alt rounded-xl transition-all group"
-                  >
-                    <Bell className="w-5 h-5 text-muted group-hover:rotate-12 transition-transform" />
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-orange-500 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-black text-white animate-in zoom-in duration-300">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </div>
-
-                  {notifOpen && (
-                    <div className="fixed md:absolute left-4 right-4 top-16 md:left-auto md:right-0 md:top-auto md:mt-4 md:w-96 bg-card border border-border/50 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] z-[110] overflow-hidden animate-in fade-in zoom-in slide-in-from-top-4 duration-300">
-                      <div className="p-6 bg-gradient-to-br from-teal-500/10 via-blue-500/5 to-transparent border-b border-border/50 flex items-center justify-between">
-                        <div>
-                          <h4 className="text-sm font-black text-main uppercase">Notifications</h4>
-                          <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-0.5">
-                            {unreadCount > 0 ? `You have ${unreadCount} unread messages` : "All caught up!"}
-                          </p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <button
-                            onClick={markAllRead}
-                            disabled={unreadCount === 0}
-                            className={`text-[10px] font-black uppercase tracking-wider transition-colors
-    ${unreadCount === 0
-                                ? "text-gray-400 cursor-not-allowed opacity-50"
-                                : "text-teal-600 dark:text-teal-400 hover:text-teal-500"
-                              }`}
-                          >
-                            Mark all read
-                          </button>
-
-                          {notifications.length > 0 && (
-                            <button
-                              onClick={clearAll}
-                              className="text-[10px] font-black text-red-500 hover:text-red-600 transition-colors uppercase tracking-wider"
-                            >
-                              Clear All
-                            </button>
-                          )}
-                        </div>
+                {notifOpen && (
+                  <div className="fixed md:absolute left-4 right-4 top-16 md:left-auto md:right-0 md:top-auto md:mt-4 md:w-96 bg-card border border-border/50 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] z-[110] overflow-hidden animate-in fade-in zoom-in slide-in-from-top-4 duration-300">
+                    <div className="p-6 bg-gradient-to-br from-teal-500/10 via-blue-500/5 to-transparent border-b border-border/50 flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-black text-main uppercase">
+                          Notifications
+                        </h4>
+                        <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-0.5">
+                          {unreadCount > 0
+                            ? `You have ${unreadCount} unread messages`
+                            : "All caught up!"}
+                        </p>
                       </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <button
+                          onClick={markAllRead}
+                          disabled={unreadCount === 0}
+                          className={`text-[10px] font-black uppercase tracking-wider transition-colors
+                  ${
+                    unreadCount === 0
+                      ? "text-gray-400 cursor-not-allowed opacity-50"
+                      : "text-teal-600 dark:text-teal-400 hover:text-teal-500"
+                  }`}
+                        >
+                          Mark all read
+                        </button>
 
-                      <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
-                        {loading ? (
-                          <div className="p-12 text-center">
-                            <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                            <p className="text-xs text-muted">Updating yours...</p>
-                          </div>
-                        ) : notifications.length > 0 ? (
-                          notifications.map((notif) => (
-                            <NotificationItem
-                              key={notif.id}
-                              notification={notif}
-                              onClick={(n) => {
-                                markAsRead(n.id);
-                              }}
-                            />
-                          ))
-                        ) : (
-                          <div className="p-12 text-center">
-                            <div className="w-16 h-16 bg-canvas rounded-3xl flex items-center justify-center mx-auto mb-4 border border-border/50">
-                              <Bell className="w-8 h-8 text-muted/30" />
-                            </div>
-                            <p className="text-sm font-bold text-main">No Notifications</p>
-                            <p className="text-xs text-muted mt-1">Check back later for updates.</p>
-                          </div>
+                        {notifications.length > 0 && (
+                          <button
+                            onClick={clearAll}
+                            className="text-[10px] font-black text-red-500 hover:text-red-600 transition-colors uppercase tracking-wider"
+                          >
+                            Clear All
+                          </button>
                         )}
                       </div>
                     </div>
-                  )}
-                </div>
 
-                {/* PROFILE DROPDOWN SECTION */}
-                <div className="relative" ref={dropdownRef}>
-                  <button
-                    onClick={toggleDropdown}
-                    className="flex items-center space-x-2 sm:space-x-3 p-1 sm:pr-3 rounded-2xl hover:bg-canvas-alt transition-all border border-transparent hover:border-border group"
-                  >
-                    <div className="relative">
-                      <img
-                        src={user?.avatar_url || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.name || displayName)}`}
-                        className="w-9 h-9 rounded-xl shadow-md border border-border/50 group-hover:border-teal-500 transition-all object-cover"
-                        alt="Avatar"
-                        onError={(e) => {
-                          const seed = encodeURIComponent(`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.name || displayName);
-                          e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
-                        }}
-                      />
-                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-card rounded-full" />
-                    </div>
-                    <span className="text-sm font-bold text-main hidden lg:block">{displayName}</span>
-                  </button>
-
-                  {dropdownOpen && (
-                    <div className="absolute right-0 mt-4 w-[90vw] sm:w-72 bg-card/95 backdrop-blur-2xl border border-border/50 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] z-[110] overflow-hidden animate-in fade-in zoom-in slide-in-from-top-4 duration-300">
-                      <div className="p-6 bg-gradient-to-br from-teal-500/10 via-blue-500/5 to-transparent border-b border-border/50">
-                        <div className="flex items-center space-x-4 mb-4">
-                          <img
-                            src={user?.avatar_url || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.name || displayName)}`}
-                            className="w-14 h-14 rounded-2xl shadow-xl border-2 border-white dark:border-slate-800 object-cover"
-                            alt="User"
-                            onError={(e) => {
-                              const seed = encodeURIComponent(`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.name || displayName);
-                              e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
+                    <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
+                      {loading ? (
+                        <div className="p-12 text-center">
+                          <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                          <p className="text-xs text-muted">
+                            Updating yours...
+                          </p>
+                        </div>
+                      ) : notifications.length > 0 ? (
+                        notifications.map((notif) => (
+                          <NotificationItem
+                            key={notif.id}
+                            notification={notif}
+                            onClick={(n) => {
+                              markAsRead(n.id);
                             }}
                           />
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-black text-main truncate leading-tight uppercase">{user?.name || displayName}</h4>
-                            <p className="text-[10px] text-muted font-bold truncate opacity-60 mt-0.5 uppercase tracking-widest">{user?.role || "STUDENT"}</p>
+                        ))
+                      ) : (
+                        <div className="p-12 text-center">
+                          <div className="w-16 h-16 bg-canvas rounded-3xl flex items-center justify-center mx-auto mb-4 border border-border/50">
+                            <Bell className="w-8 h-8 text-muted/30" />
                           </div>
+                          <p className="text-sm font-bold text-main">
+                            No Notifications
+                          </p>
+                          <p className="text-xs text-muted mt-1">
+                            Check back later for updates.
+                          </p>
                         </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
-                        <div className="flex items-center space-x-2 text-[10px] font-black bg-teal-500/10 text-teal-600 dark:text-teal-400 py-1.5 px-3 rounded-full w-fit uppercase">
-                          <ShieldCheck className="w-3 h-3" /> <span>Verified Profile</span>
+            {/* Divider 1 */}
+            {isAuthenticated && <div className="h-8 w-px bg-border shrink-0" />}
+
+            <ThemeToggle />
+
+            {/* Divider 2 */}
+            {isAuthenticated && <div className="h-8 w-px bg-border shrink-0" />}
+
+            {/* PROFILE DROPDOWN SECTION */}
+            {isAuthenticated ? (
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={toggleDropdown}
+                  className="flex items-center space-x-2 sm:space-x-3 p-1 sm:pr-3 rounded-2xl hover:bg-canvas-alt transition-all group"
+                >
+                  <div className="relative">
+                    <img
+                      src={
+                        user?.avatar_url ||
+                        `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(
+                          `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+                            user?.name ||
+                            displayName,
+                        )}&backgroundColor=3b82f6&textColor=ffffff`
+                      }
+                      className="w-9 h-9 rounded-full object-cover"
+                      alt="Avatar"
+                      onError={(e) => {
+                        const seed = encodeURIComponent(
+                          `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+                            user?.name ||
+                            displayName,
+                        );
+                        e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}&backgroundColor=3b82f6&textColor=ffffff`;
+                      }}
+                    />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-card rounded-full" />
+                  </div>
+
+                  {/* Name + Role */}
+                  <div className="hidden lg:flex flex-col text-left">
+                    <span className="text-sm font-bold text-main leading-tight">
+                      {displayName}
+                    </span>
+                    <span className="text-xs text-muted leading-tight mt-0.5">
+                      {user?.role || "BTech CSE"}
+                    </span>
+                  </div>
+
+                  {/* Dropdown arrow */}
+                  <ChevronDown
+                    className={`w-4 h-4 text-muted transition-transform ${
+                      dropdownOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {dropdownOpen && (
+                  <div className="absolute right-0 mt-4 w-[90vw] sm:w-72 bg-card/95 backdrop-blur-2xl border border-border/50 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] z-[110] overflow-hidden animate-in fade-in zoom-in slide-in-from-top-4 duration-300">
+                    <div className="p-6 bg-gradient-to-br from-teal-500/10 via-blue-500/5 to-transparent border-b border-border/50">
+                      <div className="flex items-center space-x-4 mb-4">
+                        <img
+                          src={
+                            user?.avatar_url ||
+                            `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(
+                              `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+                                user?.name ||
+                                displayName,
+                            )}&backgroundColor=3b82f6&textColor=ffffff`
+                          }
+                          className="w-14 h-14 rounded-full shadow-xl border-2 border-white dark:border-slate-800 object-cover"
+                          alt="User"
+                          onError={(e) => {
+                            const seed = encodeURIComponent(
+                              `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+                                user?.name ||
+                                displayName,
+                            );
+                            e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}&backgroundColor=3b82f6&textColor=ffffff`;
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <h4 className="text-sm font-black text-main truncate leading-tight uppercase">
+                            {user?.name || displayName}
+                          </h4>
+                          <p className="text-[10px] text-muted font-bold truncate opacity-60 mt-0.5 uppercase tracking-widest">
+                            {user?.role || "STUDENT"}
+                          </p>
                         </div>
                       </div>
 
-                      <div className="p-3 text-left">
-                        <button onClick={() => { navigate("/settings"); setDropdownOpen(false); }} className="flex items-center w-full px-4 py-3.5 text-xs font-bold text-main hover:bg-teal-500 hover:text-white rounded-[1.2rem] transition-all group">
-                          <User className="mr-3 w-4 h-4 group-hover:scale-110 transition-transform" /> {t("nav.profile")}
-                        </button>
-                        <button onClick={() => { navigate("/settings"); setDropdownOpen(false); }} className="flex items-center w-full px-4 py-3.5 text-xs font-bold text-main hover:bg-teal-500 hover:text-white rounded-[1.2rem] transition-all group mt-1">
-                          <Settings className="mr-3 w-4 h-4 group-hover:rotate-45 transition-transform" /> {t("nav.settings")}
-                        </button>
-
-                        <div className="my-2 border-t border-border/50 mx-2" />
-
-                        <button onClick={handleLogout} className="flex items-center w-full px-4 py-3.5 text-xs font-black text-red-500 hover:bg-red-500 hover:text-white rounded-[1.2rem] transition-all group">
-                          <LogOut className="mr-3 w-4 h-4 group-hover:translate-x-1 transition-transform" /> {t("auth.logout")}
-                        </button>
+                      <div className="flex items-center space-x-2 text-[10px] font-black bg-teal-500/10 text-teal-600 dark:text-teal-400 py-1.5 px-3 rounded-full w-fit uppercase">
+                        <ShieldCheck className="w-3 h-3" />{" "}
+                        <span>Verified Profile</span>
                       </div>
                     </div>
-                  )}
-                </div>
-              </>
+
+                    <div className="p-3 text-left">
+                      <button
+                        onClick={() => {
+                          navigate("/settings");
+                          setDropdownOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3.5 text-xs font-bold text-main hover:bg-teal-500 hover:text-white rounded-[1.2rem] transition-all group"
+                      >
+                        <User className="mr-3 w-4 h-4 group-hover:scale-110 transition-transform" />{" "}
+                        {t("nav.profile")}
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigate("/settings");
+                          setDropdownOpen(false);
+                        }}
+                        className="flex items-center w-full px-4 py-3.5 text-xs font-bold text-main hover:bg-teal-500 hover:text-white rounded-[1.2rem] transition-all group mt-1"
+                      >
+                        <Settings className="mr-3 w-4 h-4 group-hover:rotate-45 transition-transform" />{" "}
+                        {t("nav.settings")}
+                      </button>
+
+                      <div className="my-2 border-t border-border/50 mx-2" />
+
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center w-full px-4 py-3.5 text-xs font-black text-red-500 hover:bg-red-500 hover:text-white rounded-[1.2rem] transition-all group"
+                      >
+                        <LogOut className="mr-3 w-4 h-4 group-hover:translate-x-1 transition-transform" />{" "}
+                        {t("auth.logout")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : null}
           </div>
         </div>
@@ -323,11 +398,25 @@ const Header = () => {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-card border border-border/50 rounded-[2rem] shadow-2xl p-6 sm:p-8 w-[90%] max-w-sm text-center">
             <LogOut className="w-10 h-10 text-red-500 mx-auto mb-4" />
-            <h3 className="text-sm font-black uppercase tracking-tight text-main mb-2">Logout</h3>
-            <p className="text-xs text-muted mb-6">Are you sure you want to logout?</p>
+            <h3 className="text-sm font-black uppercase tracking-tight text-main mb-2">
+              Logout
+            </h3>
+            <p className="text-xs text-muted mb-6">
+              Are you sure you want to logout?
+            </p>
             <div className="flex gap-3">
-              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest border border-border hover:bg-canvas-alt transition-all">Cancel</button>
-              <button onClick={confirmLogout} className="flex-1 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest bg-red-500 text-white hover:bg-red-600 transition-all">Logout</button>
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest border border-border hover:bg-canvas-alt transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="flex-1 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest bg-red-500 text-white hover:bg-red-600 transition-all"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>

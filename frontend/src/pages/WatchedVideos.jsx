@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "../lib/api";
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -32,9 +33,14 @@ const WatchedVideos = () => {
   });
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  // ISSUE_54_WATCHED_VIDEOS_ERROR_UI_V1
+  const [error, setError] = useState("");
 
 
   const fetchWatchedVideos = async () => {
+    setError("");
+    setLoading(true);
+
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(`${API_BASE_URL}/api/users/watched-videos`, {
@@ -70,6 +76,23 @@ const WatchedVideos = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
           <p className="text-muted">{t("watched.loading")}</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="flex-1 p-4 md:p-6 lg:p-8 flex items-center justify-center">
+        <div className="max-w-md text-center">
+          <p className="mb-4 text-red-600 dark:text-red-400">{error}</p>
+          <button
+            type="button"
+            onClick={fetchWatchedVideos}
+            className="rounded-lg bg-orange-500 px-4 py-2 font-medium text-white hover:bg-orange-600"
+          >
+            Try again
+          </button>
         </div>
       </main>
     );

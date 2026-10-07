@@ -217,23 +217,63 @@ Polls the status of a generation job.
 ---
 
 ### `GET /transcript/{filename}`
+
 Returns the text content of a generated lesson script.
 
 **Response:**
+
 ```json
 { "content": "Welcome students! Today we will learn about..." }
 ```
 
 ---
 
-### Static File Mounts
+### `POST /generate-syllabus`
+
+Generates a structured course syllabus using AI. This endpoint is **synchronous** and may take several seconds to complete. It tries Gemini first and falls back to Groq if Gemini fails.
+
+**Request Body:**
+
+```json
+{
+  "course_title": "ReactJS",
+  "category": "Programming"
+}
+```
+
+**Success Response:**
+
+```json
+{
+  "modules": [
+    {
+      "title": "Module 1: Introduction",
+      "lessons": [
+        {
+          "title": "Lesson 1: Basics",
+          "duration": "5 mins",
+          "type": "video"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Failure Response:**
+
+```json
+{
+  "error": "Failed to generate syllabus"
+}
+```
+
+---
 
 | Mount Path | Directory Served | Description |
 |---|---|---|
 | `/video-stream/{filename}` | `outputs/video/` | Serves generated `.mp4` videos |
 | `/transcript-stream/{filename}` | `outputs/text/` | Serves raw transcript `.txt` files |
-
----
 
 ## 🔄 Generation Pipeline
 
