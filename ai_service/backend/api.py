@@ -423,7 +423,6 @@ def generate_lesson(
    job_id = uuid.uuid4().hex
    base_filename = f"{topic_clean}_{job_id}"
 
-
 job_status[base_filename] = {"status": "processing"}
 background_tasks.add_task(process_lesson, data, base_filename)
 
