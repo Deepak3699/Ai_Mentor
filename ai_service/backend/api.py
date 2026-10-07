@@ -411,16 +411,13 @@ def generate_lesson(
     force: bool = False,
 ):
 
-    cache_data = "|".join([
+cache_data = "|".join([
         data.course,
         data.topic,
         data.celebrity,
         data.language,
     ])
-    cache_key = hashlib.sha256(
-        cache_data.encode("utf-8")
-    ).hexdigest()
-
+cache_key = hashlib.sha256(cache_data.encode("utf-8")).hexdigest()
     topic_clean = re.sub(
         r'[^\w\s-]', '', data.topic
     ).strip().replace(" ", "_")
