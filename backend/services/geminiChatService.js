@@ -62,12 +62,6 @@ try {
   console.error("Gemini API error:", error);
 
   return "The AI Assistant is currently unavailable. Please try again later.";
-}
-  const response = await getAIClient().models.generateContent({
-    model: "gemini-2.5-flash",
-    config: { systemInstruction },
-    contents: message,
-  });
-  return response.text;
-};
 
+};
+};
