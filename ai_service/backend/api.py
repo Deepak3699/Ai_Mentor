@@ -417,9 +417,10 @@ def generate_lesson(
         data.celebrity,
         data.language,
     ])
-          cache_key = hashlib.sha256(
+      cache_key = hashlib.sha256(
         cache_data.encode("utf-8")
     ).hexdigest()
+
     topic_clean = re.sub(
         r'[^\w\s-]', '', data.topic
     ).strip().replace(" ", "_")
