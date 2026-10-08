@@ -5,7 +5,7 @@ import validate from "../middleware/validate.js";
 import { generateVideoSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
-import { videoQueue } from "../queues/videoQueue.js";
+import { getVideoQueue } from "../queues/videoQueue.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -106,6 +106,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
     });
 
     // Add to queue
+    const videoQueue = getVideoQueue();
     const job = await videoQueue.add("generate-video", {
       aiVideoId: aiVideo.id,
       courseId,
@@ -114,6 +115,9 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
       courseTitle,
       lessonTitle,
       userPreferences,
+      voice_id,
+      speech_rate,
+      speech_pitch,
     });
 
     console.log(`📥 Job added to queue: ${job.id}, DB ID: ${aiVideo.id}`);
