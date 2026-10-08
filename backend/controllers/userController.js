@@ -7,6 +7,7 @@ import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
 import { createNotification } from "./notificationController.js";
+import { sequelize } from "../config/db.js";
 
 
 // Generate JWT Token
@@ -536,24 +537,30 @@ const deleteAccount = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    await sequelize.transaction(async (transaction) => {
+      await CommunityPost.destroy({
+        where: { userId },
+        transaction,
+      });
+
+      await Notifications.destroy({
+        where: { userId },
+        transaction,
+      });
+
+      await User.destroy({
+        where: { id: userId },
+        transaction,
+      });
+    });
+
+    // External cleanup happens after the database transaction commits.
     try {
       const avatarPublicId = `user_avatars/user_${userId}`;
       await cloudinary.uploader.destroy(avatarPublicId);
     } catch (cloudinaryError) {
       console.error("Cloudinary avatar deletion error:", cloudinaryError);
     }
-
-    await CommunityPost.destroy({
-      where: { userId },
-    });
-
-    await Notifications.destroy({
-      where: { userId },
-    });
-
-    await User.destroy({
-      where: { id: userId },
-    });
 
     res.status(200).json({
       message: "Account Deleted Successfully",
@@ -562,7 +569,7 @@ const deleteAccount = async (req, res) => {
     console.error("Delete Account Error", error);
     res.status(500).json({ message: "Failed to delete account" });
   }
-}
+};
 // Complete first-time user profile onboarding
 // Google users: firstName, lastName, password (required), bio, avatar
 // Email users: bio, avatar

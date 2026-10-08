@@ -5,6 +5,7 @@ import Report from "../models/Report.js";
 import crypto from "crypto";
 import { createNotification } from "./notificationController.js";
 import AdminNotification from "../models/AdminNotification.js";
+import{sequelize} from "../config/db.js"; 
 
 // @desc    Get course community stats (list of courses with post counts)
 // @route   GET /api/community/courses
@@ -75,18 +76,10 @@ const getCourseDiscussions = async (req, res) => {
       include: [
         { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
       ],
-      order: [["createdAt", "DESC"]],
+      order: sort === "popular" ? [[sequelize.literal("jsonb_array_length(likes)"), "DESC"]] : [["createdAt", "DESC"]],
       limit: sanitizedLimit,
       offset: offset,
     });
-
-    // Sort in JS to avoid sequelize literal issues
-    if (sort === "popular") {
-      posts.sort(
-        (a, b) => (b.likes?.length || 0) - (a.likes?.length || 0)
-      );
-    }
-
     // Return posts array with pagination metadata in headers for backward compatibility
     res.set("X-Total-Count", count);
     res.set("X-Page", sanitizedPage);
@@ -278,8 +271,14 @@ if (post.type === "course") {
     }
 
     // Remove related report rows first to satisfy Reports.postId FK constraint.
-    await Report.destroy({ where: { postId: post.id } });
-    await post.destroy();
+    // Remove related report rows first to satisfy Reports.postId FK constraint.
+await sequelize.transaction(async (transaction) => {
+  await Report.destroy({
+    where: { postId: post.id },
+    transaction,
+  });
+  await post.destroy({ transaction });
+});
     res.json({ message: "Post deleted successfully" });
   } catch (error) {
     console.error("DELETE COMMUNITY POST ERROR:", error);
@@ -562,11 +561,11 @@ const reportContent = async (req, res) => {
     }
     
     // Also notify the admin dashboard
-    await AdminNotification.create({
-      title: isCommentReport ? "Comment Reported" : "Discussion Post Reported",
-      message: `${reporterName} reported a ${contentLabel}. ${reasonOrDescription}`,
-      type: "report",
-    });
+await AdminNotification.create({
+  title: isCommentReport ? "Comment Reported" : "Discussion Post Reported",
+  message: `${reporterName} reported a ${contentLabel}. ${reasonOrDescription}`,
+  type: "report",
+});
 
     res.status(201).json({ message: "Report submitted successfully", report });
   } catch (error) {
@@ -610,89 +609,130 @@ const moderateReport = async (req, res) => {
   try {
     const { action } = req.body;
 
-    const report = await Report.findByPk(req.params.reportId);
-    if (!report) return res.status(404).json({ message: "Report not found" });
+    const result = await sequelize.transaction(async (transaction) => {
+      const report = await Report.findByPk(req.params.reportId, {
+        transaction,
+      });
 
-    if (report.status === "resolved") {
-      return res.status(400).json({ message: "Report already resolved" });
-    }
+      if (!report) {
+        return {
+          status: 404,
+          body: { message: "Report not found" },
+        };
+      }
 
-    const post = await CommunityPost.findByPk(report.postId);
+      if (report.status === "resolved") {
+        return {
+          status: 400,
+          body: { message: "Report already resolved" },
+        };
+      }
 
-    const resolveWhere = report.replyId
-      ? { postId: report.postId, replyId: report.replyId, status: "pending" }
-      : action === "deleted"
-        ? { postId: report.postId, status: "pending" }
-        : { postId: report.postId, replyId: null, status: "pending" };
+      const post = await CommunityPost.findByPk(report.postId, {
+        transaction,
+      });
 
-    if (action === "hidden") {
-      if (post) {
+      if (!post) {
+        return {
+          status: 404,
+          body: { message: "Post not found" },
+        };
+      }
+
+      const resolveWhere = report.replyId
+        ? { postId: report.postId, replyId: report.replyId, status: "pending" }
+        : action === "deleted"
+          ? { postId: report.postId, status: "pending" }
+          : { postId: report.postId, replyId: null, status: "pending" };
+
+      if (action === "hidden") {
         if (report.replyId) {
-          // Hide the specific reply once; all pending reports for this reply are resolved together.
           const replies = (post.replies || []).map((r) =>
-            String(r.id) === String(report.replyId) ? { ...r, hidden: true } : r
+            String(r.id) === String(report.replyId)
+              ? { ...r, hidden: true }
+              : r
           );
           post.replies = replies;
           post.changed("replies", true);
-          await post.save();
+          await post.save({ transaction });
         } else {
-          // Hide the post once; all pending reports for this post are resolved together.
           post.hiddenAt = new Date().toISOString();
           post.changed("hiddenAt", true);
-          await post.save();
+          await post.save({ transaction });
         }
       }
-    }
-    // For "dismissed", no content change is required.
 
-    const reportsToResolve = await Report.findAll({ where: resolveWhere });
-    const resolvedReportIds = reportsToResolve.map((r) => r.id);
-    const reporterIds = [...new Set(reportsToResolve.map((r) => r.reporterId))];
+      const reportsToResolve = await Report.findAll({
+        where: resolveWhere,
+        transaction,
+      });
 
-    if (resolvedReportIds.length > 0) {
-      await Report.update(
-        { status: "resolved", action },
-        { where: { id: resolvedReportIds } }
-      );
-    }
+      const resolvedReportIds = reportsToResolve.map((r) => r.id);
+      const reporterIds = [...new Set(reportsToResolve.map((r) => r.reporterId))];
 
-    if (action === "deleted") {
-      if (post) {
+      if (resolvedReportIds.length > 0) {
+        await Report.update(
+          { status: "resolved", action },
+          {
+            where: { id: resolvedReportIds },
+            transaction,
+          }
+        );
+      }
+
+      if (action === "deleted") {
         if (report.replyId) {
-          // Delete the specific reply once; all pending reports for this reply are resolved together.
-          const replies = (post.replies || []).filter((r) => String(r.id) !== String(report.replyId));
+          const replies = (post.replies || []).filter(
+            (r) => String(r.id) !== String(report.replyId)
+          );
           post.replies = replies;
           post.changed("replies", true);
-          await post.save();
+          await post.save({ transaction });
         } else {
-          // Delete report rows first to satisfy Reports.postId FK, then delete post.
-          await Report.destroy({ where: { postId: report.postId } });
-          await post.destroy();
+          await Report.destroy({
+            where: { postId: report.postId },
+            transaction,
+          });
+
+          await post.destroy({ transaction });
         }
       }
-    }
 
-    const actionMessages = {
-      hidden: "The content you reported has been hidden by a moderator.",
-      deleted: "The content you reported has been deleted by a moderator.",
-      dismissed: "Your report has been reviewed and dismissed by a moderator.",
-    };
+      const actionMessages = {
+        hidden: "The content you reported has been hidden by a moderator.",
+        deleted: "The content you reported has been deleted by a moderator.",
+        dismissed: "Your report has been reviewed and dismissed by a moderator.",
+      };
 
-    await Promise.all(
-      reporterIds.map((reporterId) =>
-        createNotification(reporterId, {
+      for (const reporterId of reporterIds) {
+        await createNotification(reporterId, {
           title: "Report Resolved",
           message: actionMessages[action],
           type: "system",
-        })
-      )
-    );
+          transaction,
+        });
+      }
 
-    res.json({
-      message: `Report ${action} successfully`,
-      resolvedReportsCount: resolvedReportIds.length,
-      resolvedReporterCount: reporterIds.length,
+      await AdminNotification.create(
+        {
+          title: "Report Resolved",
+          message: actionMessages[action],
+          type: "report",
+        },
+        { transaction }
+      );
+
+      return {
+        status: 200,
+        body: {
+          message: `Report ${action} successfully`,
+          resolvedReportsCount: resolvedReportIds.length,
+          resolvedReporterCount: reporterIds.length,
+        },
+      };
     });
+
+    return res.status(result.status).json(result.body);
   } catch (error) {
     console.error("MODERATE REPORT ERROR:", error);
     res.status(500).json({ message: error.message || "Server error" });

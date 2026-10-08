@@ -1,0 +1,64 @@
+name: PR Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  eslint:
+    name: ESLint with Reviewdog
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies (Backend)
+        working-directory: backend
+        run: npm ci
+
+      - name: Install dependencies (Frontend)
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install dependencies (FrontendAdmin)
+        working-directory: frontendAdmin
+        run: npm ci
+
+      - name: Install dependencies (BackendAdmin)
+        working-directory: backendAdmin
+        run: npm ci
+
+      - name: Run reviewdog for backend
+        uses: reviewdog/action-eslint@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          eslint_flags: '.'
+          workdir: backend
+
+      - name: Run reviewdog for frontend
+        uses: reviewdog/action-eslint@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          eslint_flags: '.'
+          workdir: frontend
+
+      - name: Run reviewdog for frontendAdmin
+        uses: reviewdog/action-eslint@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          eslint_flags: '.'
+          workdir: frontendAdmin
+
+      - name: Run reviewdog for backendAdmin
+        uses: reviewdog/action-eslint@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          eslint_flags: '.'
+          workdir: backendAdmin
