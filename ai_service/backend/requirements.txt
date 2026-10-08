@@ -9,3 +9,4 @@ cloudinary
 pytest
 pytest-asyncio
 cachetools
+mutagen
