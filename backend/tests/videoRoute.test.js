@@ -14,7 +14,7 @@ const { default: User } = await import("../models/User.js");
 const { default: aiRoutes } = await import("../routes/aiRoutes.js");
 
 // In-memory stand-ins for the database.
-const VIDEOS = [{ courseId: 1, jobId: "Intro_20260101_120000" }];
+const VIDEOS = [{ id: "video-1", courseId: 1, jobId: "Intro_20260101_120000" }];
 const USERS = {
   1: { id: 1, purchasedCourses: [{ courseId: 1 }, { courseId: 2 }] },
   2: { id: 2, purchasedCourses: [{ courseId: 2 }] },
@@ -33,7 +33,7 @@ let baseUrl;
 
 before(async () => {
   AIVideo.findOne = async ({ where }) =>
-    VIDEOS.find((v) => v.courseId === where.courseId && v.jobId === where.jobId) ?? null;
+    VIDEOS.find((v) => v.courseId === where.courseId && v.id === where.id) ?? null;
   User.findByPk = async (id) => USERS[id] ?? null;
 
   globalThis.fetch = async (url, opts) => {
@@ -67,14 +67,14 @@ const get = (path, userId) =>
 
 test("unauthenticated request returns 401 and never reaches the AI service", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/video/1/Intro_20260101_120000.mp4");
+  const res = await get("/api/ai/video/1/video-1.mp4");
   assert.equal(res.status, 401);
   assert.equal(upstreamCalls.length, 0);
 });
 
 test("enrolled user gets the video for the matching course", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/video/1/Intro_20260101_120000.mp4", 1);
+  const res = await get("/api/ai/video/1/video-1.mp4", 1);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-type"), "video/mp4");
   assert.deepEqual(Buffer.from(await res.arrayBuffer()), VIDEO_BYTES);
@@ -92,7 +92,7 @@ test("mismatched courseId returns 404 even if the user owns that course", async 
 
 test("user not enrolled in the course returns 403", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/video/1/Intro_20260101_120000.mp4", 2);
+  const res = await get("/api/ai/video/1/video-1.mp4", 2);
   assert.equal(res.status, 403);
   assert.equal(upstreamCalls.length, 0);
 });
