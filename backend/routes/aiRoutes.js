@@ -5,7 +5,7 @@ import validate from "../middleware/validate.js";
 import { generateVideoSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
-import { videoQueue } from "../queues/videoQueue.js";
+import { getVideoQueue } from "../queues/videoQueue.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -100,12 +100,14 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
       courseId: Number(courseId),
       lessonId: String(lessonId),
       celebrity: String(celebrity).toLowerCase(),
+      userId: req.user.id,
       videoUrl: "",
       transcriptName: "",
       status: "pending",
     });
 
     // Add to queue
+    const videoQueue = getVideoQueue();
     const job = await videoQueue.add("generate-video", {
       aiVideoId: aiVideo.id,
       courseId,
@@ -114,6 +116,9 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
       courseTitle,
       lessonTitle,
       userPreferences,
+      voice_id,
+      speech_rate,
+      speech_pitch,
     });
 
     console.log(`📥 Job added to queue: ${job.id}, DB ID: ${aiVideo.id}`);
@@ -182,8 +187,8 @@ router.get("/status/:jobId", protect, async (req, res) => {
       return res.status(404).json({ status: "not_found" });
     }
 
-    const isAdmin = req.user.role === "admin" || req.user.role === "superAdmin";
-    if (videoJob.userId && videoJob.userId !== req.user.id && !isAdmin) {
+    const isAdmin = req.user.role === "admin" || req.user.role === "superadmin";
+    if (!isAdmin && videoJob.userId !== req.user.id) {
       return res.status(403).json({ error: "Access denied" });
     }
 

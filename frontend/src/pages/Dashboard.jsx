@@ -161,9 +161,8 @@ const LessonItem = ({ lesson, onPlay }) => {
 
         <div className="flex items-center gap-2 mt-[3px]">
           <span
-            className={`inline-flex items-center rounded-full px-[7px] py-[2px] text-[8px] leading-[11px] font-medium ${
-              categoryStyles[lesson.category]
-            }`}
+            className={`inline-flex items-center rounded-full px-[7px] py-[2px] text-[8px] leading-[11px] font-medium ${categoryStyles[lesson.category]
+              }`}
           >
             {lesson.category}
           </span>
@@ -417,11 +416,11 @@ const Dashboard = () => {
             (courseInfo.lessons
               ? courseInfo.lessons.includes(" of ")
                 ? parseInt(
-                    courseInfo.lessons.split(" of ")[1]
-                  )
+                  courseInfo.lessons.split(" of ")[1]
+                )
                 : parseInt(
-                    courseInfo.lessons.split(" ")[0]
-                  )
+                  courseInfo.lessons.split(" ")[0]
+                )
               : 0);
 
           const completedLessons =
@@ -484,11 +483,11 @@ const Dashboard = () => {
         (course.lessons
           ? course.lessons.includes(" of ")
             ? parseInt(
-                course.lessons.split(" of ")[1]
-              )
+              course.lessons.split(" of ")[1]
+            )
             : parseInt(
-                course.lessons.split(" ")[0]
-              )
+              course.lessons.split(" ")[0]
+            )
           : 0);
 
       const completedLessons =
@@ -502,9 +501,9 @@ const Dashboard = () => {
         progress:
           totalLessons > 0
             ? Math.round(
-                (completedLessons / totalLessons) *
-                  100
-              )
+              (completedLessons / totalLessons) *
+              100
+            )
             : 0,
         lessons: `${completedLessons}/${totalLessons}`,
         level: course.level,
@@ -544,11 +543,11 @@ const Dashboard = () => {
         (course.lessons
           ? course.lessons.includes(" of ")
             ? parseInt(
-                course.lessons.split(" of ")[1]
-              )
+              course.lessons.split(" of ")[1]
+            )
             : parseInt(
-                course.lessons.split(" ")[0]
-              )
+              course.lessons.split(" ")[0]
+            )
           : 0);
 
       const completedLessons =
@@ -572,11 +571,11 @@ const Dashboard = () => {
         (course.lessons
           ? course.lessons.includes(" of ")
             ? parseInt(
-                course.lessons.split(" of ")[1]
-              )
+              course.lessons.split(" of ")[1]
+            )
             : parseInt(
-                course.lessons.split(" ")[0]
-              )
+              course.lessons.split(" ")[0]
+            )
           : 0);
 
       const completedLessons =
@@ -586,9 +585,9 @@ const Dashboard = () => {
       const progress =
         totalLessons > 0
           ? Math.round(
-              (completedLessons / totalLessons) *
-                100
-            )
+            (completedLessons / totalLessons) *
+            100
+          )
           : 0;
 
       const currentLesson =
@@ -596,9 +595,8 @@ const Dashboard = () => {
 
       const lessonTitle = currentLesson
         ? `Lesson ${currentLesson.lessonId}: ${currentLesson.moduleTitle}`
-        : `Continue from Lesson ${
-            completedLessons + 1
-          }`;
+        : `Continue from Lesson ${completedLessons + 1
+        }`;
 
       return {
         id: course.id,
@@ -820,7 +818,7 @@ const Dashboard = () => {
         }}
       />
 
-      <div className="max-w-7xl pt-16 mx-auto space-y-8">
+      <div className="max-w-7xl pt-6 mx-auto space-y-8">
 
         {/* =================================================
             HERO BANNER
@@ -942,19 +940,19 @@ const Dashboard = () => {
                       <img
                         src={
                           course.title ===
-                          "React Fundamentals"
+                            "React Fundamentals"
                             ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
                             : course.title ===
-                                "Python For AI"
+                              "Python For AI"
                               ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
                               : course.title ===
-                                  "AI Ethics & Bias"
+                                "AI Ethics & Bias"
                                 ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
                                 : course.title ===
-                                    "MongoDB Fundamentals"
+                                  "MongoDB Fundamentals"
                                   ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
                                   : course.title ===
-                                      "PostgreSQL"
+                                    "PostgreSQL"
                                     ? "/AI_Tutor_New_UI/Dashboard/logo.png"
                                     : "/AI_Tutor_New_UI/Dashboard/logo.png"
                         }
@@ -988,8 +986,8 @@ const Dashboard = () => {
                             (c) =>
                               String(
                                 c?.id ??
-                                  c?.courseId ??
-                                  c?.course?.id
+                                c?.courseId ??
+                                c?.course?.id
                               ) ===
                               String(course.id)
                           );
@@ -998,7 +996,7 @@ const Dashboard = () => {
                           <div className="flex justify-between items-center mt-2">
                             <span className="font-bold text-green-500">
                               {course.priceValue ===
-                              0
+                                0
                                 ? "Free"
                                 : `₹${course.priceValue}`}
                             </span>
@@ -1012,17 +1010,16 @@ const Dashboard = () => {
                               disabled={
                                 isEnrolled
                               }
-                              className={`px-3 py-1.5 text-xs rounded-lg ${
-                                isEnrolled
+                              className={`px-3 py-1.5 text-xs rounded-lg ${isEnrolled
                                   ? "bg-emerald-100 text-emerald-700 cursor-default"
                                   : "bg-teal-500 text-white hover:bg-teal-600"
-                              }`}
+                                }`}
                             >
                               {isEnrolled
                                 ? "Enrolled"
                                 : t(
-                                    "dashboard.enroll"
-                                  )}
+                                  "dashboard.enroll"
+                                )}
                             </button>
                           </div>
                         );
@@ -1047,7 +1044,7 @@ const Dashboard = () => {
             <div className="bg-card rounded-xl border border-border overflow-hidden">
               <div className="overflow-x-auto">
                 {filteredMyCourses.length !==
-                0 ? (
+                  0 ? (
                   <table className="w-full">
                     <thead className="bg-canvas-alt">
                       <tr>
@@ -1095,19 +1092,19 @@ const Dashboard = () => {
                                 <img
                                   src={
                                     course.title ===
-                                    "React Fundamentals"
+                                      "React Fundamentals"
                                       ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
                                       : course.title ===
-                                          "Python For AI"
+                                        "Python For AI"
                                         ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
                                         : course.title ===
-                                            "AI Ethics & Bias"
+                                          "AI Ethics & Bias"
                                           ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
                                           : course.title ===
-                                              "PostgreSQL"
+                                            "PostgreSQL"
                                             ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
                                             : course.title ===
-                                                "MongoDB Fundamentals"
+                                              "MongoDB Fundamentals"
                                               ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
                                               : "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
                                   }
@@ -1174,7 +1171,7 @@ const Dashboard = () => {
                   </table>
                 ) : normalizedSearchQuery &&
                   filteredAllCourses.length >
-                    0 ? (
+                  0 ? (
                   <div className="p-6">
                     <p className="text-center text-muted mb-4">
                       {t(
@@ -1197,16 +1194,16 @@ const Dashboard = () => {
                                 <img
                                   src={
                                     course.title ===
-                                    "React Fundamentals"
+                                      "React Fundamentals"
                                       ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
                                       : course.title ===
-                                          "Python For AI"
+                                        "Python For AI"
                                         ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
                                         : course.title ===
-                                            "AI Ethics & Bias"
+                                          "AI Ethics & Bias"
                                           ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
                                           : course.title ===
-                                              "MongoDB Fundamentals"
+                                            "MongoDB Fundamentals"
                                             ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
                                             : "/AI_Tutor_New_UI/Dashboard/logo.png"
                                   }
@@ -1257,11 +1254,11 @@ const Dashboard = () => {
                     <p>
                       {normalizedSearchQuery
                         ? t(
-                            "dashboard.no_courses_search"
-                          )
+                          "dashboard.no_courses_search"
+                        )
                         : t(
-                            "dashboard.no_courses_enrolled"
-                          )}
+                          "dashboard.no_courses_enrolled"
+                        )}
                     </p>
 
                     <button
@@ -1285,93 +1282,93 @@ const Dashboard = () => {
 
             {filteredContinueLearning.length !==
               0 && (
-              <div>
-                <h2 className="text-xl font-bold text-main mt-6 mb-6">
-                  {t(
-                    "dashboard.continue_learning"
-                  )}
-                </h2>
+                <div>
+                  <h2 className="text-xl font-bold text-main mt-6 mb-6">
+                    {t(
+                      "dashboard.continue_learning"
+                    )}
+                  </h2>
 
-                <div className="space-y-4">
-                  {filteredContinueLearning.map(
-                    (
-                      item,
-                      index
-                    ) => (
-                      <div
-                        key={index}
-                        className="bg-card rounded-xl p-4 border border-border shadow-sm hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-center">
-                          <Link
-                            to={`/course-preview/${item.id}`}
-                            className="flex items-center flex-1"
-                          >
-                            <img
-                              src={
-                                item.title ===
-                                "React Fundamentals"
-                                  ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
-                                  : item.title ===
-                                      "Python For AI"
-                                    ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
+                  <div className="space-y-4">
+                    {filteredContinueLearning.map(
+                      (
+                        item,
+                        index
+                      ) => (
+                        <div
+                          key={index}
+                          className="bg-card rounded-xl p-4 border border-border shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-center">
+                            <Link
+                              to={`/course-preview/${item.id}`}
+                              className="flex items-center flex-1"
+                            >
+                              <img
+                                src={
+                                  item.title ===
+                                    "React Fundamentals"
+                                    ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
                                     : item.title ===
-                                        "AI Ethics & Bias"
-                                      ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
+                                      "Python For AI"
+                                      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
                                       : item.title ===
-                                          "PostgreSQL"
-                                        ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                                        "AI Ethics & Bias"
+                                        ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
                                         : item.title ===
+                                          "PostgreSQL"
+                                          ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                                          : item.title ===
                                             "MongoDB Fundamentals"
-                                          ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                                          : "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
-                              }
-                              alt={
-                                item.title
-                              }
-                              className="w-12 h-12 rounded-lg mr-4"
-                              loading="lazy"
-                            />
-
-                            <div className="flex-1">
-                              <h3 className="font-medium text-main mb-1 hover:text-teal-600">
-                                {
+                                            ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                                            : "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                                }
+                                alt={
                                   item.title
                                 }
-                              </h3>
+                                className="w-12 h-12 rounded-lg mr-4"
+                                loading="lazy"
+                              />
 
-                              <p className="text-sm text-muted mb-2">
-                                {
-                                  item.lesson
-                                }
-                              </p>
+                              <div className="flex-1">
+                                <h3 className="font-medium text-main mb-1 hover:text-teal-600">
+                                  {
+                                    item.title
+                                  }
+                                </h3>
 
-                              <div className="w-full bg-border rounded-full h-2 mb-2">
-                                <div
-                                  className={`h-2 rounded-full ${item.progressColor}`}
-                                  style={{
-                                    width: `${item.progress}%`,
-                                  }}
-                                />
+                                <p className="text-sm text-muted mb-2">
+                                  {
+                                    item.lesson
+                                  }
+                                </p>
+
+                                <div className="w-full bg-border rounded-full h-2 mb-2">
+                                  <div
+                                    className={`h-2 rounded-full ${item.progressColor}`}
+                                    style={{
+                                      width: `${item.progress}%`,
+                                    }}
+                                  />
+                                </div>
                               </div>
-                            </div>
-                          </Link>
+                            </Link>
 
-                          <Link
-                            to={`/learning/${item.id}`}
-                            className="ml-4 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600"
-                          >
-                            {t(
-                              "dashboard.continue"
-                            )}
-                          </Link>
+                            <Link
+                              to={`/learning/${item.id}`}
+                              className="ml-4 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600"
+                            >
+                              {t(
+                                "dashboard.continue"
+                              )}
+                            </Link>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  )}
+                      )
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* =================================================
                 LATEST AI LESSONS

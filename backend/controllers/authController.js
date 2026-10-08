@@ -112,7 +112,7 @@ if (user.isBlocked) {
 
       import("../controllers/notificationController.js")
         .then(({ createNotification }) => {
-          return createNotification(user.id, {
+          createNotification(user.id, {
             title: "New Login Detected",
             message: `A new login was detected for your account at ${new Date().toLocaleString()}.`,
             type: "security",
@@ -363,7 +363,7 @@ const resetPassword = async (req, res) => {
 
     import("../controllers/notificationController.js")
       .then(({ createNotification }) => {
-        return createNotification(user.id, {
+        createNotification(user.id, {
           title: "Password Changed",
           message: "Your password has been successfully reset. If this wasn't you, please secure your account.",
           type: "security",

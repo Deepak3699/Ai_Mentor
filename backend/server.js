@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB, sequelize } from "./config/db.js";
 
@@ -105,6 +106,8 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.get("/", (req, res) => {
   res.send("✅ API is running...");
 });
+
+app.use("/health", healthRoutes);
 
 // ================= API ROUTES =================
 app.use("/api/auth", authRoutes);
