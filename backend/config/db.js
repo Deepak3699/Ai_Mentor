@@ -14,7 +14,7 @@ const connectionString = isTestEnvironment ? null : process.env.NEON_DATABASE_UR
 
 const allowInsecureDbSsl =
   !isProduction &&
-  process.env.ALLOW_INSECURE_DB_SSL === "true";
+  String(process.env.ALLOW_INSECURE_DB_SSL).trim() === "true";
 
 if (isProduction && process.env.ALLOW_INSECURE_DB_SSL === "true") {
   throw new Error(
