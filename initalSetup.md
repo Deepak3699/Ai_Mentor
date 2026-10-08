@@ -295,11 +295,13 @@ Check each one. If a step fails, see the troubleshooting table below.
 
 | Check | How | Expected result |
 |---|---|---|
-| Backend is up | Open http://localhost:5000 | `✅ API is running...` |
+| Backend liveness | Open http://localhost:5000/health/live | `{"status":"alive"}` |
+| Backend readiness | Open http://localhost:5000/health/ready | `{"status":"ready"}` when the database is available |
 | Backend connected to the database | Look at the backend terminal | `✅ Connected to Neon PostgreSQL using Sequelize` then `✅ Database models synced` |
 | Env vars are valid | Look at the backend terminal | `✔ All environment variables are set correctly.` |
 | Learner app loads | Open http://localhost:5173 | The login page appears |
-| Admin API is up | Open http://localhost:5001/health | `{"message":"Backend Admin Server is running"}` |
+| Admin liveness | Open http://localhost:5001/health/live | `{"status":"alive"}` |
+| Admin readiness | Open http://localhost:5001/health/ready | `{"status":"ready"}` when the database is available |
 | Admin panel loads | Open http://localhost:5174 | The admin login page appears |
 | Admin login works | Log in with your super admin email and password | You reach the dashboard and see data |
 | AI service is up | Open http://localhost:8000 | `{"message":"AI Lesson Generator Backend Running"}` |
@@ -351,8 +353,10 @@ Tick every box before you move on to real work.
 - [ ] `npm install` run in backend, frontend, backendAdmin and frontendAdmin
 - [ ] Python venv created and `requirements.txt` installed
 - [ ] All five services started, in the correct order
-- [ ] http://localhost:5000 shows `✅ API is running...`
-- [ ] http://localhost:5001/health reports the server is running
+- [ ] http://localhost:5000/health/live reports `{"status":"alive"}`
+- [ ] http://localhost:5000/health/ready reports `{"status":"ready"}` when the database is available
+- [ ] http://localhost:5001/health/live reports `{"status":"alive"}`
+- [ ] http://localhost:5001/health/ready reports `{"status":"ready"}` when the database is available
 - [ ] http://localhost:8000/docs opens
 - [ ] Admin seeded with `npm run seed:superadmin`
 - [ ] Included courses seeded once with `npm run seed:courses` on the new empty database

@@ -21,14 +21,14 @@ import api
 from api import LessonRequest, process_lesson, job_status
 
 
-@pytest.mark.asyncio
-async def test_process_lesson_is_async():
+
+def test_process_lesson_is_async():
     """Verify that process_lesson is defined as an async coroutine function."""
     assert asyncio.iscoroutinefunction(process_lesson)
 
 
-@pytest.mark.asyncio
-async def test_tts_execution_awaited():
+
+def test_tts_execution_awaited():
     """A. TTS execution: Verify that generate_tts is awaited directly without asyncio.run()."""
     req = LessonRequest(
         course="Python",
@@ -52,12 +52,12 @@ async def test_tts_execution_awaited():
          patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
          patch("cloudinary.uploader.upload", return_value={"secure_url": "http://cloudinary.com/test.mp4"}):
 
-        await process_lesson(req, base_filename)
+        asyncio.run(process_lesson(req, base_filename))
         mock_tts.assert_awaited_once()
 
 
-@pytest.mark.asyncio
-async def test_ffmpeg_execution_async_and_success():
+
+def test_ffmpeg_execution_async_and_success():
     """B & C. FFmpeg execution & success: Verify FFmpeg is invoked asynchronously and preserves behavior on success."""
     req = LessonRequest(
         course="Python",
@@ -81,7 +81,7 @@ async def test_ffmpeg_execution_async_and_success():
          patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec, \
          patch("cloudinary.uploader.upload", return_value={"secure_url": "http://cloudinary.com/test.mp4"}):
 
-        await process_lesson(req, base_filename)
+        asyncio.run(process_lesson(req, base_filename))
 
         # Verify asyncio.create_subprocess_exec was called asynchronously
         mock_exec.assert_called_once()
@@ -95,8 +95,8 @@ async def test_ffmpeg_execution_async_and_success():
         assert job_status[base_filename]["status"] == "ready"
 
 
-@pytest.mark.asyncio
-async def test_ffmpeg_execution_failure():
+
+def test_ffmpeg_execution_failure():
     """D. FFmpeg failure: Simulate a non-zero return code and verify that the error is correctly handled."""
     req = LessonRequest(
         course="Python",
@@ -119,7 +119,7 @@ async def test_ffmpeg_execution_failure():
          patch("os.remove"), \
          patch("asyncio.create_subprocess_exec", return_value=mock_proc):
 
-        await process_lesson(req, base_filename)
+        asyncio.run(process_lesson(req, base_filename))
 
         # Verify job status is set to failed on FFmpeg non-zero exit code
         assert job_status[base_filename]["status"] == "failed"

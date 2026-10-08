@@ -1,3 +1,4 @@
+import asyncio
 import os
 import sys
 import subprocess
@@ -12,6 +13,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1] / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
 import api
+import avatar_service
 from api import app, job_status, generation_cache, job_cancellation_events, active_processes, cleanup_job_files, process_lesson, LessonRequest
 
 
@@ -37,7 +39,7 @@ def client():
 def test_delete_route_exists(client):
     """1. Verify DELETE /jobs/{job_id} route is registered."""
     response = client.delete("/jobs/non_existent_job_123")
-    assert response.status_code in (404, 400, 200)
+    assert response.status_code == 404
 
 
 def test_unknown_job_returns_404(client):
@@ -79,7 +81,7 @@ def test_cancelled_job_cannot_become_ready(monkeypatch):
     monkeypatch.setattr(api, "gemini_client", mock_gemini)
 
     req = LessonRequest(course="Math", topic="Algebra", celebrity="modi")
-    process_lesson(req, job_id)
+    asyncio.run(process_lesson(req, job_id))
 
     assert job_status[job_id]["status"] == "cancelled"
     assert "ready" not in job_status[job_id].values()
@@ -106,7 +108,7 @@ def test_cancelled_job_cannot_become_failed(monkeypatch):
     monkeypatch.setattr(api, "groq_client", mock_groq)
 
     req = LessonRequest(course="Math", topic="Algebra", celebrity="modi")
-    process_lesson(req, job_id)
+    asyncio.run(process_lesson(req, job_id))
 
     assert job_status[job_id]["status"] == "cancelled"
     assert job_status[job_id].get("status") != "failed"
@@ -243,7 +245,7 @@ def test_job_cancellation_events_cleaned_up_after_completion(monkeypatch):
         pass
 
     monkeypatch.setattr(api, "generate_tts", mock_tts)
-    monkeypatch.setattr(api, "create_avatar_video", lambda p: "http://example.com/avatar.mp4")
+    monkeypatch.setattr(api, "create_avatar_video", lambda p: avatar_service.AwaitableStr("http://example.com/avatar.mp4"))
 
     mock_resp = MagicMock()
     mock_resp.content = b"fake video content"
@@ -255,7 +257,7 @@ def test_job_cancellation_events_cleaned_up_after_completion(monkeypatch):
     monkeypatch.setattr(api.cloudinary, "uploader", mock_uploader)
 
     req = LessonRequest(course="Science", topic="Biology", celebrity="modi")
-    process_lesson(req, job_id)
+    asyncio.run(process_lesson(req, job_id))
 
     assert job_status[job_id]["status"] == "ready"
     assert job_id not in job_cancellation_events
@@ -280,7 +282,7 @@ def test_concurrent_cancellation_during_pipeline(monkeypatch, client):
     monkeypatch.setattr(api, "gemini_client", mock_gemini)
 
     req = LessonRequest(course="Science", topic="ConcurrentTest", celebrity="modi")
-    process_lesson(req, job_id)
+    asyncio.run(process_lesson(req, job_id))
 
     assert job_status[job_id]["status"] == "cancelled"
     assert job_status[job_id].get("status") != "ready"

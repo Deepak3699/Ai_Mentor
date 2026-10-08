@@ -21,6 +21,7 @@ import uuid
 from google import genai
 from groq import Groq
 from cachetools import TTLCache
+from subtitles import write_subtitles
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
@@ -28,20 +29,22 @@ from config import (
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
+GROQ_ENABLED,
+    CLOUDINARY_ENABLED,
     validate_config,
 )
 import voices
-validate_config()
 from avatar_service import create_avatar_video
 # --------------------------
 # Cloudinary Config
 # --------------------------
-cloudinary.config(
-    cloud_name=CLOUDINARY_CLOUD_NAME,
-    api_key=CLOUDINARY_API_KEY,
-    api_secret=CLOUDINARY_API_SECRET,
-    secure=True,
-)
+if CLOUDINARY_ENABLED:
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+        secure=True,
+    )
 
 # --------------------------
 # FastAPI App
@@ -100,16 +103,12 @@ app.add_middleware(
 # --------------------------
 # GEMINI Client (Primary)
 # --------------------------
-gemini_client = genai.Client(
-    api_key=GEMINI_API_KEY
-)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 # --------------------------
 # GROQ Client (Fallback)
 # --------------------------
-groq_client = Groq(
-    api_key=GROQ_API_KEY
-)
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_ENABLED else None
 
 # --------------------------
 # Request Model
@@ -122,7 +121,6 @@ class LessonRequest(BaseModel):
     preferences: dict | None = None
     voice_id: str | None = None
     gender: str | None = None
-    language: str | None = None
     speech_rate: str | None = "+0%"
     speech_pitch: str | None = "+0Hz"
 
@@ -354,29 +352,57 @@ def generate_syllabus(data: SyllabusRequest):
             model=GEMINI_MODEL,
             contents=prompt
         )
+
         text = response.text.strip()
-        if text.startswith("```json"): text = text[7:]
-        if text.startswith("```"): text = text[3:]
-        if text.endswith("```"): text = text[:-3]
-        return json.loads(text.strip())
+
+        if text.startswith("```json"):
+            text = text[7:]
+        elif text.startswith("```"):
+            text = text[3:]
+
+        if text.endswith("```"):
+            text = text[:-3]
+
+        try:
+            return json.loads(text.strip())
+        except json.JSONDecodeError as json_error:
+            print(f"❌ Gemini returned invalid JSON: {json_error}")
+            raise
+
     except Exception as e:
         print(f"❌ Gemini failed: {e}. Trying Groq...")
+
         try:
             groq_response = groq_client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
-                messages=[{ "role": "user", "content": prompt }],
+                messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=1000,
             )
+
             text = groq_response.choices[0].message.content.strip()
-            if text.startswith("```json"): text = text[7:]
-            if text.startswith("```"): text = text[3:]
-            if text.endswith("```"): text = text[:-3]
-            return json.loads(text.strip())
+
+            if text.startswith("```json"):
+                text = text[7:]
+            elif text.startswith("```"):
+                text = text[3:]
+
+            if text.endswith("```"):
+                text = text[:-3]
+
+            try:
+                return json.loads(text.strip())
+            except json.JSONDecodeError as json_error:
+                print(f"❌ Groq returned invalid JSON: {json_error}")
+                raise
+
         except Exception as e2:
             print(f"❌ Groq failed: {e2}")
-            return {"error": "Failed to generate syllabus"}
 
+            raise HTTPException(
+                status_code=503,
+                detail="Failed to generate syllabus"
+            )
 # --------------------------
 # Voices Endpoint
 # --------------------------
@@ -597,9 +623,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         Create a 50 word educational explanation about '{data.topic}' in the subject '{data.course}'.
 
         Rules:
-        - 100% English only
-        - No Hindi
-        - No Hinglish
+        - {data.language or "English"} only
         - Simple classroom teaching tone
         - Between 45 and 60 words
 
@@ -857,6 +881,16 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             cleanup_job_files(base_filename)
             return
 
+        # 6.5 Generate subtitles (.vtt + .srt)
+        vtt_path, srt_path = None, None
+        try:
+            vtt_path, srt_path = write_subtitles(
+                script, audio_path, os.path.join(video_dir, base_filename)
+            )
+            print(f"📝 Subtitles created: {vtt_path}, {srt_path}")
+        except Exception as sub_err:
+            print(f"⚠️ Subtitle generation failed (video will still work): {sub_err}")
+
         # 7️⃣ Upload to Cloudinary
 
         cloudinary_url = None
@@ -881,20 +915,54 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"⚠️ Cloudinary upload failed (will fall back to local proxy): {cloud_err}")
 
+        if is_job_cancelled(base_filename):
+            print(f"🛑 Job {base_filename} was cancelled before subtitle upload.")
+            cleanup_job_files(base_filename)
+            return
+
+        # Upload subtitles to Cloudinary when available. Local static URLs remain
+        # available as a fallback when video or subtitle upload fails.
+        local_video_url = f"/video-stream/{base_filename}.mp4"
+        local_vtt_url = f"/video-stream/{base_filename}.vtt" if vtt_path else None
+        local_srt_url = f"/video-stream/{base_filename}.srt" if srt_path else None
+        vtt_url, srt_url = None, None
+        if vtt_path and srt_path:
+            try:
+                vtt_url = cloudinary.uploader.upload(
+                    vtt_path,
+                    resource_type="raw",
+                    folder="ai_mentor/subtitles",
+                    public_id=f"{base_filename}.vtt",
+                    overwrite=True,
+                ).get("secure_url")
+                srt_url = cloudinary.uploader.upload(
+                    srt_path,
+                    resource_type="raw",
+                    folder="ai_mentor/subtitles",
+                    public_id=f"{base_filename}.srt",
+                    overwrite=True,
+                ).get("secure_url")
+                print(f"✅ Subtitles uploaded: {vtt_url}, {srt_url}")
+            except Exception as sub_up_err:
+                print(f"⚠️ Subtitle upload failed; using local subtitle URLs: {sub_up_err}")
+
+        subtitle_vtt_url = vtt_url or local_vtt_url
+        subtitle_srt_url = srt_url or local_srt_url
+
         with job_state_lock:
             if is_job_cancelled(base_filename):
                 print(f"🛑 Job {base_filename} was cancelled before marking ready.")
                 cleanup_job_files(base_filename)
                 return
 
-            local_video_url = f"/video-stream/{base_filename}.mp4"
-
             job_status[base_filename] = {
                 "status": "ready",
                 "cloudinary_url": cloudinary_url,
                 "local_video_url": local_video_url,
+                "subtitle_url": subtitle_vtt_url,
+                "subtitle_vtt_url": subtitle_vtt_url,
+                "subtitle_srt_url": subtitle_srt_url,
             }
-
         print(f"✅ Lesson ready!")
         print(f"   Video : {final_video}")
 
@@ -904,9 +972,14 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         # 8️⃣ Storage Cleanup
         if cloudinary_url:
             print("🧹 Cleaning up temporary files from local storage...")
-            for local_file in [audio_path, final_video]:
+            cleanup_files = [audio_path, final_video]
+            if vtt_url and vtt_path:
+                cleanup_files.append(vtt_path)
+            if srt_url and srt_path:
+                cleanup_files.append(srt_path)
+            for local_file in cleanup_files:
                 try:
-                    if os.path.exists(local_file):
+                    if local_file and os.path.exists(local_file):
                         os.remove(local_file)
                         print(f"🗑️ Successfully deleted: {local_file}")
                 except Exception as cleanup_err:
