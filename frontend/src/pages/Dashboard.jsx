@@ -20,6 +20,7 @@ import CourseCardMeta from "../components/common/CourseCardMeta";
 import LearningActivityCard from "../components/dashboard/LearningActivityCard";
 import DashboardHero from "../components/DashboardHero";
 import UpcomingLiveSession from "../components/UpcomingLiveSession";
+import RecommendedForYou from "../components/RecommendedForYou";
 import { Helmet } from "react-helmet-async";
 
 /* =========================================================
@@ -1456,6 +1457,7 @@ const Dashboard = () => {
         </aside>
       </div>
 
+       <RecommendedForYou />
       {/* =====================================================
           PLAY LESSON MODAL
           ===================================================== */}
