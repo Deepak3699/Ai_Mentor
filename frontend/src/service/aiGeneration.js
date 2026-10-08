@@ -40,7 +40,36 @@ export const classifyGenerationError = (error) => {
   });
 };
 
-export const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+export const isAbortError = (error) =>
+  error?.name === "AbortError" || error?.code === "ABORT_ERR";
+
+export const createAbortError = () => {
+  if (typeof DOMException === "function") {
+    return new DOMException("The operation was aborted.", "AbortError");
+  }
+  const error = new Error("The operation was aborted.");
+  error.name = "AbortError";
+  return error;
+};
+
+// Resolves after `milliseconds`. If `signal` aborts first, the timer is cleared
+// and the promise rejects with an AbortError so no work keeps running.
+export const wait = (milliseconds, signal) =>
+  new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(createAbortError());
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(createAbortError());
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, milliseconds);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 
 export const pollAIVideoStatus = async ({
   jobId,
@@ -48,6 +77,7 @@ export const pollAIVideoStatus = async ({
   timeoutMs = AI_GENERATION_TIMEOUT_MS,
   pollIntervalMs = AI_GENERATION_POLL_INTERVAL_MS,
   waitForNextPoll = wait,
+  signal,
 }) => {
   if (!jobId) {
     throw new AIGenerationError("invalid_response", "The AI service returned no job ID.", { retryable: true });
@@ -57,7 +87,9 @@ export const pollAIVideoStatus = async ({
   let attempts = 0;
 
   while (attempts < Math.max(1, Math.ceil(timeoutMs / pollIntervalMs))) {
+    if (signal?.aborted) throw createAbortError();
     const statusResponse = await fetchStatus(jobId);
+    if (signal?.aborted) throw createAbortError();
     if (!statusResponse.ok) {
       const message = await getApiError(statusResponse, "status");
       throw new AIGenerationError("connectivity", "The AI generation status could not be checked. Please check your connection and try again.", {
@@ -88,7 +120,7 @@ export const pollAIVideoStatus = async ({
 
     attempts += 1;
     if (Date.now() >= timeoutAt) break;
-    await waitForNextPoll(pollIntervalMs);
+    await waitForNextPoll(pollIntervalMs, signal);
   }
 
   throw new AIGenerationError("timeout", "Video generation took too long. Please try again.", { retryable: true });
