@@ -55,7 +55,7 @@ async def test_gemini_metadata():
          patch("api.cloudinary.uploader.upload", side_effect=Exception("Cloud fail")), \
          patch("api.os.makedirs") as mock_makedirs, \
          patch("api.os.remove"), \
-         patch("builtins.open", create=True) as mock_open:
+         patch("builtins.open", side_effect=safe_open):
         
         mock_makedirs.return_value = None
         mock_tts.return_value = None
@@ -78,6 +78,21 @@ async def test_gemini_metadata():
     assert "completed_at" in job_status[base_filename]["meta"]["timestamps"]
     assert "started_at" in job_status[base_filename]["meta"]["timestamps"]
 
+original_exists = os.path.exists
+def safe_exists(path):
+    if isinstance(path, str) and ("test_groq_123" in path or "stock" in path or ".mp4" in path):
+        return True
+    return original_exists(path)
+
+original_open = open
+m_open = MagicMock()
+m_open.__enter__.return_value = MagicMock()
+m_open.__exit__.return_value = False
+def safe_open(file, *args, **kwargs):
+    if isinstance(file, str) and "test_" in file:
+        return m_open
+    return original_open(file, *args, **kwargs)
+
 @pytest.mark.asyncio
 async def test_groq_metadata_and_mp3_duration():
     base_filename = "test_groq_123"
@@ -92,10 +107,10 @@ async def test_groq_metadata_and_mp3_duration():
          patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, \
          patch("api.create_avatar_video", side_effect=Exception("Avatar failed")), \
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec, \
-         patch("api.os.path.exists", return_value=True), \
+         patch("api.os.path.exists", side_effect=safe_exists), \
          patch("api.os.makedirs") as mock_makedirs, \
          patch("api.os.remove"), \
-         patch("builtins.open", create=True) as mock_open:
+         patch("builtins.open", side_effect=safe_open):
          
         # Ensure makedirs doesn't raise an error
         mock_makedirs.return_value = None
