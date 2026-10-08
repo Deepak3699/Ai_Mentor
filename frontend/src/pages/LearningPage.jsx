@@ -72,6 +72,13 @@ export default function Learning() {
   const [aiGenerationError, setAiGenerationError] = useState(null);
   const [generationAttempt, setGenerationAttempt] = useState(0);
 
+  // Adaptive quiz state
+  const [quiz, setQuiz] = useState(null);
+  const [quizAnswers, setQuizAnswers] = useState({});
+  const [quizResult, setQuizResult] = useState(null);
+  const [isQuizLoading, setIsQuizLoading] = useState(false);
+  const [quizError, setQuizError] = useState(null);
+
   const videoRef = useRef(null);
   const playerContainerRef = useRef(null);
   const transcriptContainerRef = useRef(null);
@@ -465,6 +472,13 @@ export default function Learning() {
   const allLessons = (modules || []).flatMap((module) => module.lessons || []);
   const currentLessonIndex = allLessons.findIndex((lesson) => lesson.id === currentLesson?.id);
 
+  // Generate an adaptive quiz whenever the active lesson changes.
+  useEffect(() => {
+    if (!currentLesson?.id) return;
+
+    generateAdaptiveQuiz(currentLesson.id);
+  }, [currentLesson?.id]);
+
   // ─── Helper functions ───
   const saveLessonData = async (lessonId, data) => {
     try {
@@ -492,7 +506,99 @@ export default function Learning() {
     }
   };
 
+  const generateAdaptiveQuiz = async (lessonId) => {
+    if (!lessonId) return;
+
+    setIsQuizLoading(true);
+    setQuizError(null);
+    setQuiz(null);
+    setQuizAnswers({});
+    setQuizResult(null);
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("/api/ai/generate-quiz", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          courseId: Number(courseId),
+          lessonId: Number(lessonId),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to generate quiz");
+      }
+
+      setQuiz(data);
+    } catch (error) {
+      console.error("Quiz generation failed:", error);
+      setQuizError(error.message || "Failed to generate quiz");
+    } finally {
+      setIsQuizLoading(false);
+    }
+  };
+
+  const handleQuizAnswer = (questionIndex, answerIndex) => {
+    if (quizResult) return;
+
+    setQuizAnswers((previous) => ({
+      ...previous,
+      [questionIndex]: answerIndex,
+    }));
+  };
+
+  const submitAdaptiveQuiz = async () => {
+    if (!quiz?.quizSessionId || !quiz?.lessonId) return;
+
+    if (Object.keys(quizAnswers).length !== 4) {
+      setQuizError("Please answer all 4 questions before submitting.");
+      return;
+    }
+
+    setIsQuizLoading(true);
+    setQuizError(null);
+
+    try {
+      const token = localStorage.getItem("token");
+      const answers = [0, 1, 2, 3].map((index) => quizAnswers[index]);
+
+      const response = await fetch("/api/ai/submit-quiz", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          courseId: Number(courseId),
+          lessonId: Number(quiz.lessonId),
+          quizSessionId: quiz.quizSessionId,
+          answers,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to submit quiz");
+      }
+
+      setQuizResult(data);
+    } catch (error) {
+      console.error("Quiz submission failed:", error);
+      setQuizError(error.message || "Failed to submit quiz");
+    } finally {
+      setIsQuizLoading(false);
+    }
+  };
+
   const completeLesson = async (lessonId) => {
+
     const courseProgress = user?.purchasedCourses?.find(
       (course) => course.courseId === parseInt(courseId)
     )?.progress;
@@ -1041,6 +1147,181 @@ export default function Learning() {
                   <span>{label}</span>
                 </span>
               ))}
+            </div>
+
+            {/* Adaptive Quiz */}
+            <div className="mb-8 rounded-2xl border border-border bg-card p-6 shadow-sm">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-6">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-blue-600" />
+                    <h2 className="text-xl font-bold text-main">Adaptive Quiz</h2>
+                  </div>
+                  <p className="text-sm text-muted mt-1">
+                    Test your understanding of this lesson. The next quiz adapts to your performance.
+                  </p>
+                </div>
+
+                {quiz?.difficulty && (
+                  <span className="inline-flex w-fit items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold capitalize text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                    {quiz.difficulty} level
+                  </span>
+                )}
+              </div>
+
+              {isQuizLoading && !quiz && (
+                <div className="flex items-center justify-center py-10 text-muted">
+                  <RefreshCw className="mr-2 h-5 w-5 animate-spin" />
+                  Generating your adaptive quiz...
+                </div>
+              )}
+
+              {quizError && (
+                <div className="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                  <div className="flex-1">
+                    <p>{quizError}</p>
+                    {currentLesson?.id && (
+                      <button
+                        type="button"
+                        onClick={() => generateAdaptiveQuiz(currentLesson.id)}
+                        className="mt-3 rounded-lg bg-red-700 px-3 py-2 text-xs font-semibold text-white hover:bg-red-800"
+                      >
+                        Try again
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {quiz?.questions?.length === 4 && (
+                <div className="space-y-6">
+                  {quiz.questions.map((question, questionIndex) => {
+                    const result = quizResult?.results?.[questionIndex];
+
+                    return (
+                      <div
+                        key={questionIndex}
+                        className="rounded-xl border border-border bg-canvas-alt p-5"
+                      >
+                        <div className="mb-4 flex items-start gap-3">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white">
+                            {questionIndex + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-main">
+                              {question.question}
+                            </p>
+                            {question.topic && (
+                              <p className="mt-1 text-xs text-muted">
+                                Topic: {question.topic}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {question.options.map((option, optionIndex) => {
+                            const selected = quizAnswers[questionIndex] === optionIndex;
+                            const correct =
+                              result && result.correctAnswer === optionIndex;
+                            const incorrectSelected =
+                              result &&
+                              selected &&
+                              result.correctAnswer !== optionIndex;
+
+                            let optionClass =
+                              "border-border bg-card hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950";
+
+                            if (selected && !result) {
+                              optionClass =
+                                "border-blue-600 bg-blue-50 dark:bg-blue-950";
+                            }
+
+                            if (correct) {
+                              optionClass =
+                                "border-green-500 bg-green-50 dark:bg-green-950/40";
+                            }
+
+                            if (incorrectSelected) {
+                              optionClass =
+                                "border-red-500 bg-red-50 dark:bg-red-950/40";
+                            }
+
+                            return (
+                              <button
+                                key={optionIndex}
+                                type="button"
+                                disabled={Boolean(quizResult)}
+                                onClick={() =>
+                                  handleQuizAnswer(questionIndex, optionIndex)
+                                }
+                                className={`w-full rounded-xl border p-3 text-left text-sm transition-all ${optionClass} ${
+                                  quizResult
+                                    ? "cursor-default"
+                                    : "cursor-pointer"
+                                }`}
+                              >
+                                <span className="mr-3 font-semibold">
+                                  {String.fromCharCode(65 + optionIndex)}.
+                                </span>
+                                {option}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {result && (
+                          <div
+                            className={`mt-4 rounded-lg p-4 text-sm ${
+                              result.correct
+                                ? "bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-200"
+                                : "bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-200"
+                            }`}
+                          >
+                            <p className="font-semibold">
+                              {result.correct ? "Correct!" : "Not quite."}
+                            </p>
+                            <p className="mt-1">{result.explanation}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {!quizResult ? (
+                    <button
+                      type="button"
+                      onClick={submitAdaptiveQuiz}
+                      disabled={
+                        isQuizLoading ||
+                        Object.keys(quizAnswers).length !== 4
+                      }
+                      className="w-full rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isQuizLoading ? "Submitting..." : "Submit Quiz"}
+                    </button>
+                  ) : (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 text-center dark:border-blue-900 dark:bg-blue-950/40">
+                      <p className="text-sm font-medium text-muted">
+                        Quiz completed
+                      </p>
+                      <p className="mt-1 text-3xl font-bold text-main">
+                        {quizResult.score}%
+                      </p>
+                      <p className="mt-1 text-sm text-muted">
+                        {quizResult.correctAnswers} of {quizResult.totalQuestions} correct
+                      </p>
+
+                      {quizResult.weakTopics?.length > 0 && (
+                        <p className="mt-3 text-xs text-muted">
+                          Areas to improve: {quizResult.weakTopics.join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Navigation Buttons */}

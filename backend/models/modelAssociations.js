@@ -7,10 +7,27 @@ import Preference from "./Preference.js";
 import AIVideo from "./AIVideo.js";
 import CalendarTask from "./CalendarTask.js";
 import CourseFeedback from "./CourseFeedback.js";
+import QuizSession from "./QuizSession.js";
+
+/* ======================
+   USER → QUIZ SESSION
+====================== */
+
+User.hasMany(QuizSession, {
+    foreignKey: "userId",
+    as: "quizSessions",
+    onDelete: "CASCADE",
+});
+
+QuizSession.belongsTo(User, {
+    foreignKey: "userId",
+});
 
 /* ======================
    COURSE → MODULE
 ====================== */
+
+
 
 Course.hasMany(Module, {
     foreignKey: "courseId",
@@ -119,4 +136,4 @@ CourseFeedback.belongsTo(User, {
     foreignKey: "userId",
 });
 
-export { Course, Module, Lesson, LessonContent, User, AIVideo, Preference, CalendarTask, CourseFeedback };
+export { Course, Module, Lesson, LessonContent, User, AIVideo, Preference, CalendarTask, CourseFeedback, QuizSession };
