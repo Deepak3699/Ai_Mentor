@@ -95,7 +95,7 @@ def test_create_avatar_requires_a_source_url_before_upload(monkeypatch):
         lambda path: pytest.fail("audio must not upload without a source URL"),
     )
     with pytest.raises(RuntimeError, match="DID_SOURCE_URL is not configured"):
-        avatar_service.create_avatar_video("voice.mp3")
+        asyncio.run(avatar_service.create_avatar_video("voice.mp3"))
 
 
 def test_create_avatar_validates_creation_response_before_polling(monkeypatch):
@@ -108,7 +108,7 @@ def test_create_avatar_validates_creation_response_before_polling(monkeypatch):
         lambda *args, **kwargs: FakeResponse(201, {}),
     )
     with pytest.raises(RuntimeError, match="did not return a talk ID"):
-        avatar_service.create_avatar_video("voice.mp3")
+        asyncio.run(avatar_service.create_avatar_video("voice.mp3"))
 
 
 def test_poll_returns_completed_video_and_rejects_missing_result(monkeypatch):

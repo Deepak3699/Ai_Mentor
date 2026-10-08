@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "../lib/api";
 import React, { useState, useEffect, useRef } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -174,15 +175,15 @@ const Sidebar = ({ activePage = "dashboard" }) => {
       <aside
         className={`
           fixed
-          top-[4.625rem]
+          top-0
           left-0
-          z-[70]
-          h-[calc(100dvh-4.625rem)]
+          z-[105]
+          h-[100dvh]
           flex
           flex-col
-          bg-[#0b1324]
+          bg-card/70 backdrop-blur-xl
           border-r
-          border-white/5
+          border-border/80
           transition-all
           duration-300
           ease-out
@@ -202,42 +203,27 @@ const Sidebar = ({ activePage = "dashboard" }) => {
       >
         {/* ================= COLLAPSE BUTTON ================= */}
         <button
-          onClick={() =>
-            setSidebarCollapsed(!sidebarCollapsed)
-          }
-          className="
-            hidden
-            lg:flex
-            absolute
-            -right-3
-            top-6
-            w-6
-            h-6
-            rounded-full
-            bg-[#17223a]
-            border
-            border-white/10
-            items-center
-            justify-center
-            text-gray-300
-            hover:bg-blue-600
-            hover:text-white
-            transition-all
-            z-[80]
-          "
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="hidden lg:flex absolute -right-3.5 top-12 w-7 h-7 bg-card border border-border/80 rounded-full items-center justify-center hover:bg-[#2f5cc4] hover:border-[#2f5cc4] transition-all shadow-sm z-[110] group cursor-pointer"
           aria-label="Toggle sidebar"
         >
-          <ChevronRight
-            className={`
-              w-3.5
-              h-3.5
-              transition-transform
-              duration-300
-
-              ${sidebarCollapsed ? "" : "rotate-180"}
-            `}
-          />
+          <ChevronRight className={`w-3.5 h-3.5 text-slate-400 group-hover:text-white transition-transform duration-500 ${sidebarCollapsed ? "" : "rotate-180"}`} />
         </button>
+
+        {/* --- LOGO SECTION --- */}
+        <div className={`pt-6 px-4 pb-2 transition-all duration-300 ${sidebarCollapsed ? "flex justify-center" : ""}`}>
+          <div className={`border border-border/50 rounded-[1.5rem] p-5 flex flex-col items-center justify-center bg-card shadow-sm w-full ${sidebarCollapsed ? "hidden" : "flex"}`}>
+            <img src="/upto.png" alt="UptoSkills Logo" className="h-10 mb-3 object-contain" />
+            <h2 className="text-[1.2rem] font-bold text-slate-900 dark:text-white tracking-wide">Ai Mentor</h2>
+            <p className="text-[11px] text-muted-foreground mt-1 tracking-wide">Learn · Build · Grow</p>
+          </div>
+          {/* Logo when collapsed */}
+          {sidebarCollapsed && (
+            <div className="w-12 h-12 bg-card border border-border/50 rounded-xl flex items-center justify-center shadow-sm">
+               <img src="/upto.png" alt="Logo" className="h-6 object-contain" />
+            </div>
+          )}
+        </div>
 
         {/* ================= MAIN NAVIGATION ================= */}
         <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 py-4">
@@ -271,8 +257,8 @@ const Sidebar = ({ activePage = "dashboard" }) => {
 
                     ${
                       isActive
-                        ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
-                        : "text-gray-300 hover:bg-white/5 hover:text-white"
+                        ? "bg-[#2f5cc4] text-white shadow-md shadow-[#2f5cc4]/20"
+                        : "text-muted-foreground hover:bg-canvas-alt hover:text-foreground"
                     }
                   `}
                 >
@@ -299,7 +285,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                         ${
                           isActive
                             ? "text-white"
-                            : "text-gray-300"
+                            : "text-muted-foreground group-hover:text-foreground"
                         }
                       `}
                     >
@@ -316,8 +302,10 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                         ml-3
                         px-3
                         py-1.5
-                        bg-[#17223a]
-                        text-white
+                        bg-card
+                        border
+                        border-border/50
+                        text-foreground
                         text-[11px]
                         rounded-md
                         opacity-0
@@ -340,129 +328,6 @@ const Sidebar = ({ activePage = "dashboard" }) => {
 
         {/* ================= BOTTOM SECTION ================= */}
         <div className="px-3 pb-5">
-
-          {/* Settings */}
-          <button
-            onClick={() => {
-              navigate("/settings");
-              setSidebarOpen(false);
-            }}
-            className={`
-              group
-              relative
-              w-full
-              flex
-              items-center
-              ${
-                sidebarCollapsed
-                  ? "justify-center"
-                  : "justify-start"
-              }
-              gap-3
-              px-3
-              py-2.5
-              rounded-lg
-              text-gray-300
-              hover:bg-white/5
-              hover:text-white
-              transition-all
-            `}
-          >
-            <Settings className="w-[17px] h-[17px] shrink-0" />
-
-            {!sidebarCollapsed && (
-              <span className="text-[12px] font-medium">
-                Settings
-              </span>
-            )}
-
-            {sidebarCollapsed && (
-              <span
-                className="
-                  absolute
-                  left-full
-                  ml-3
-                  px-3
-                  py-1.5
-                  bg-[#17223a]
-                  text-white
-                  text-[11px]
-                  rounded-md
-                  opacity-0
-                  group-hover:opacity-100
-                  pointer-events-none
-                  whitespace-nowrap
-                  transition-opacity
-                  z-[100]
-                "
-              >
-                Settings
-              </span>
-            )}
-          </button>
-
-          {/* Help & Support */}
-          <button
-            onClick={() => {
-              setSidebarOpen(false);
-              // Keep this action available without assuming a new route.
-              window.dispatchEvent(
-                new CustomEvent("open-help-support")
-              );
-            }}
-            className={`
-              group
-              relative
-              w-full
-              flex
-              items-center
-              ${
-                sidebarCollapsed
-                  ? "justify-center"
-                  : "justify-start"
-              }
-              gap-3
-              px-3
-              py-2.5
-              rounded-lg
-              text-gray-300
-              hover:bg-white/5
-              hover:text-white
-              transition-all
-            `}
-          >
-            <CircleHelp className="w-[17px] h-[17px] shrink-0" />
-
-            {!sidebarCollapsed && (
-              <span className="text-[12px] font-medium">
-                Help & Support
-              </span>
-            )}
-
-            {sidebarCollapsed && (
-              <span
-                className="
-                  absolute
-                  left-full
-                  ml-3
-                  px-3
-                  py-1.5
-                  bg-[#17223a]
-                  text-white
-                  text-[11px]
-                  rounded-md
-                  opacity-0
-                  group-hover:opacity-100
-                  pointer-events-none
-                  whitespace-nowrap
-                  transition-opacity
-                  z-[100]
-                "
-              >
-                Help & Support
-              </span>
-            )}
-          </button>
 
           {/* ================= USER PROFILE ================= */}
           <div
