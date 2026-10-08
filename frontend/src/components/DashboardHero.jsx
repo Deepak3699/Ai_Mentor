@@ -35,19 +35,12 @@ const DashboardHero = ({ name, streak, onContinue }) => {
           <ArrowUpRight />
         </p>
         <div className="dashboard-hero__robot">
-          <span className="dashboard-hero__antenna" />
-          <div className="dashboard-hero__head">
-            <div className="dashboard-hero__visor">
-              <span />
-              <span />
-            </div>
-          </div>
-          <span className="dashboard-hero__neck" />
-          <div className="dashboard-hero__body">
-            <span>AI</span>
-          </div>
-          <span className="dashboard-hero__arm dashboard-hero__arm--left" />
-          <span className="dashboard-hero__arm dashboard-hero__arm--right" />
+          <div className="absolute inset-0 bg-blue-300/30 dark:bg-blue-500/20 rounded-full blur-lg pointer-events-none" />
+          <img
+            src="/AI_Tutor_New_UI/Courses_Page/ai_robot_banner.png"
+            alt="AI Robot"
+            className="relative z-10 w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal drop-shadow-md transform hover:scale-105 transition-transform duration-300"
+          />
         </div>
       </div>
     </section>

@@ -17,6 +17,7 @@ import ReportModal from "../components/common/ReportModal";
 import toast from "react-hot-toast";
 import { AlertTriangle } from "lucide-react";
 import FloatingAssistant from "../components/common/FloatingAssistant";
+import MyCoursesHeroBanner from "../components/common/MyCoursesHeroBanner";
 
 const CoursesPage = () => {
   const { t } = useTranslation();
@@ -1248,14 +1249,24 @@ const CoursesPage = () => {
           <div className="bg-white w-full max-w-md rounded-2xl p-4 sm:p-6 relative mx-4">
             <button
               onClick={() => setShowEnrollPopup(false)}
-              className="absolute top-4 right-4"
+              className="absolute top-4 right-4 text-slate-500 hover:text-slate-800 z-10 p-1 bg-white/80 rounded-full"
             >
-              <X />
+              <X className="w-6 h-6" />
             </button>
             <img
-              src={selectedCourse.image}
+              src={
+                selectedCourse.title === "React Fundamentals"
+                  ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                  : selectedCourse.title === "Python For AI"
+                    ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
+                    : selectedCourse.title === "AI Ethics & Bias"
+                      ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
+                      : selectedCourse.title === "MongoDB Fundamentals"
+                        ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                        : "/AI_Tutor_New_UI/Dashboard/logo.png"
+              }
               alt={selectedCourse.title}
-              className="w-full h-40 object-cover rounded-xl mb-4"
+              className="w-full h-40 object-cover rounded-xl mb-4 bg-slate-100"
               loading="lazy"
             />
             <h2 className="text-xl font-bold">{selectedCourse.title}</h2>
