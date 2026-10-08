@@ -54,7 +54,9 @@ async def test_gemini_metadata():
          patch("api.write_subtitles", return_value=("vtt", "srt")), \
          patch("api.cloudinary.uploader.upload", side_effect=Exception("Cloud fail")), \
          patch("api.os.makedirs"), \
-         patch("builtins.open"):
+         patch("builtins.open", create=True) as mock_open:
+        
+        mock_tts.return_value = None
         
         # We need mock_get to return some bytes
         mock_response = MagicMock()
@@ -85,13 +87,15 @@ async def test_groq_metadata_and_mp3_duration():
     
     with patch("api.gemini_client.models.generate_content", side_effect=Exception("Gemini failed")), \
          patch("api.groq_client.chat.completions.create", return_value=mock_groq_response), \
-         patch("api.generate_tts", new_callable=AsyncMock), \
+         patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, \
          patch("api.create_avatar_video", side_effect=Exception("Avatar failed")), \
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec, \
          patch("api.os.path.exists", return_value=True), \
          patch("api.os.makedirs"), \
-         patch("builtins.open"):  # force fallback video to exist
+         patch("builtins.open", create=True) as mock_open:  # force fallback video to exist
          
+        mock_tts.return_value = None
+        
         mock_process = MagicMock()
         mock_process.communicate = AsyncMock(return_value=(b"", b""))
         mock_process.returncode = 0

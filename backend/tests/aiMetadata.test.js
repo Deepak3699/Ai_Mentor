@@ -1,11 +1,9 @@
-/* eslint-disable no-undef */
-import { expect } from "chai";
+import { test, before } from "node:test";
+import assert from "node:assert/strict";
 import AIVideo from "../models/AIVideo.js";
 
-describe("AI Job Metadata Persistence", () => {
+test("AI Job Metadata Persistence", async (t) => {
   before(async () => {
-    // Replace actual method to avoid real DB side-effects, or use mocking
-    // Wait, the project seems to use mocha and chai, we can mock AIVideo
     AIVideo.findOne = async ({ where }) => {
       if (where.id === "test-job-id") {
         return {
@@ -31,15 +29,13 @@ describe("AI Job Metadata Persistence", () => {
     };
   });
 
-  it("should return metadata in cached ready status responses", async () => {
-    // In aiRoutes.js, when a job is "completed", it returns the meta object directly
-    // since we can't easily run supertest without auth, we can just test the DB model retrieval logic directly
+  await t.test("should return metadata in cached ready status responses", async () => {
     const videoJob = await AIVideo.findOne({ where: { id: "test-job-id" } });
     
-    expect(videoJob.meta).to.exist;
-    expect(videoJob.meta.provider).to.equal("gemini");
-    expect(videoJob.meta.duration_ms).to.equal(1200);
-    expect(videoJob.meta.word_count).to.equal(50);
-    expect(videoJob.meta.timestamps.completed_at).to.exist;
+    assert.ok(videoJob.meta, "meta should exist");
+    assert.equal(videoJob.meta.provider, "gemini");
+    assert.equal(videoJob.meta.duration_ms, 1200);
+    assert.equal(videoJob.meta.word_count, 50);
+    assert.ok(videoJob.meta.timestamps.completed_at, "completed_at timestamp should exist");
   });
 });
