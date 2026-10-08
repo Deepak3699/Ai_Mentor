@@ -5,6 +5,7 @@ import traceback
 import asyncio
 import logging
 import subprocess
+import threading
 from contextlib import asynccontextmanager
 import edge_tts
 import cloudinary
@@ -197,14 +198,118 @@ def get_transcript(filename: str):
         return {"content": content}
     return {"error": "Transcript not found"}
 
+# --------------------------
+# Job Management State & Helpers
+# --------------------------
+job_status: dict[str, dict] = {}
+generation_cache: dict[str, str] = {}
+job_cancellation_events: dict[str, threading.Event] = {}
+active_processes: dict[str, subprocess.Popen] = {}
+job_state_lock = threading.Lock()
+
+
+def cleanup_job_files(base_filename: str) -> None:
+    """Remove partial text, audio, video, subtitle, and temporary files associated with a job."""
+    base_output_dir = os.path.join(BASE_DIR, "outputs")
+    file_paths = [
+        os.path.join(base_output_dir, "text", f"{base_filename}.txt"),
+        os.path.join(base_output_dir, "text", f"{base_filename}_script.txt"),
+        os.path.join(base_output_dir, "audio", f"{base_filename}.mp3"),
+        os.path.join(base_output_dir, "audio", f"{base_filename}_raw.mp3"),
+        os.path.join(base_output_dir, "video", f"{base_filename}.mp4"),
+        os.path.join(base_output_dir, "video", f"{base_filename}.vtt"),
+        os.path.join(base_output_dir, "video", f"{base_filename}.srt"),
+        os.path.join(base_output_dir, "video", f"{base_filename}_temp.mp4"),
+        os.path.join(base_output_dir, f"{base_filename}_part.tmp"),
+    ]
+    for file_path in file_paths:
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"🗑️ Deleted partial file: {file_path}")
+        except Exception as cleanup_err:
+            print(f"❌ Failed to delete {file_path}: {cleanup_err}")
+
+
+def is_job_cancelled(base_filename: str) -> bool:
+    """Check if a cancellation has been requested for the given job under thread lock."""
+    with job_state_lock:
+        event = job_cancellation_events.get(base_filename)
+        if event and event.is_set():
+            return True
+        current = job_status.get(base_filename)
+        if isinstance(current, dict) and current.get("status") == "cancelled":
+            return True
+        return False
+
+
 @app.get("/status/{job_id}")
 def get_status(job_id: str):
-    status_data = job_status.get(job_id, {"status": "not_found"})
+    with job_state_lock:
+        status_data = job_status.get(job_id, {"status": "not_found"})
+        if isinstance(status_data, str):
+            return {"status": status_data}
+        return dict(status_data)
 
-    if isinstance(status_data, str):
-        return {"status": status_data}
 
-    return status_data
+@app.delete("/jobs/{job_id}")
+def cancel_job(job_id: str):
+    proc = None
+    with job_state_lock:
+        if job_id not in job_status:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        status_data = job_status[job_id]
+        current_status = status_data.get("status") if isinstance(status_data, dict) else status_data
+
+        if current_status in ["ready", "failed"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot cancel job with status '{current_status}'",
+            )
+
+        if current_status == "cancelled":
+            return {
+                "message": "Job is already cancelled",
+                "jobId": job_id,
+                "status": "cancelled",
+            }
+
+        # Signal cancellation event
+        event = job_cancellation_events.get(job_id)
+        if event:
+            event.set()
+
+        # Atomically retrieve active subprocess handle
+        proc = active_processes.pop(job_id, None)
+
+        # Update job status
+        job_status[job_id] = {"status": "cancelled"}
+
+        # Remove matching hash keys from generation_cache
+        keys_to_remove = [k for k, v in generation_cache.items() if v == job_id]
+        for k in keys_to_remove:
+            generation_cache.pop(k, None)
+
+    # Perform blocking subprocess termination OUTSIDE critical lock section
+    if proc:
+        try:
+            proc.terminate()
+            try:
+                proc.wait(timeout=2)
+            except Exception:
+                proc.kill()
+        except Exception as exc:
+            print(f"⚠️ Error terminating process for job {job_id}: {exc}")
+
+    # Perform file cleanup OUTSIDE critical lock section
+    cleanup_job_files(job_id)
+
+    return {
+        "message": "Job cancelled successfully",
+        "jobId": job_id,
+        "status": "cancelled",
+    }
 
 # --------------------------
 # Generate Syllabus Endpoint
@@ -418,6 +523,7 @@ def generate_quiz(data: QuizRequest):
     return {"questions": []}
 
 # --------------------------
+# --------------------------
 # Generate Lesson Endpoint
 # --------------------------
 
@@ -441,7 +547,7 @@ def generate_lesson(
         data.course,
         data.topic,
         data.celebrity,
-        data.language,
+        data.language if data.language else "English",
     ])
     cache_key = hashlib.sha256(
         cache_data.encode("utf-8")
@@ -457,34 +563,28 @@ def generate_lesson(
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         base_filename = f"{topic_clean}_{timestamp}"
 
-    if not force and cache_key in generation_cache:
-        base_filename = generation_cache[cache_key]
-        existing_status = job_status.get(
-            base_filename,
-            {"status": "processing"}
-        )
+    with job_state_lock:
+        if not force and cache_key in generation_cache:
+            cached_job_id = generation_cache[cache_key]
+            existing_status = job_status.get(
+                cached_job_id,
+                {"status": "processing"}
+            )
+            cached_status_str = existing_status.get("status", "processing") if isinstance(existing_status, dict) else existing_status
 
-        return {
-            "status": existing_status.get("status", "processing").capitalize(),
-            "filename": f"{base_filename}.mp4",
-            "text_file": f"{base_filename}.txt",
-            "audio_file": f"{base_filename}.mp3",
-            "jobId": base_filename,
-            "cached": True,
-        }
+            if cached_status_str != "cancelled":
+                return {
+                    "status": cached_status_str.capitalize(),
+                    "filename": f"{cached_job_id}.mp4",
+                    "text_file": f"{cached_job_id}.txt",
+                    "audio_file": f"{cached_job_id}.mp3",
+                    "jobId": cached_job_id,
+                    "cached": True,
+                }
 
-    topic_clean = re.sub(
-        r'[^\w\s-]', '', data.topic
-    ).strip().replace(" ", "_")
-
-    if force:
-        base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
-    else:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        base_filename = f"{topic_clean}_{timestamp}"
-
-    generation_cache[cache_key] = base_filename
-    job_status[base_filename] = {"status": "processing"}
+        generation_cache[cache_key] = base_filename
+        job_status[base_filename] = {"status": "processing"}
+        job_cancellation_events[base_filename] = threading.Event()
 
     background_tasks.add_task(process_lesson, data, base_filename)
 
@@ -505,6 +605,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
     print("\n📥 RAW REQUEST DATA:")
     print(data.dict())
+
+    if is_job_cancelled(base_filename):
+        print(f"🛑 Job {base_filename} was cancelled before starting.")
+        cleanup_job_files(base_filename)
+        return
 
     try:
         print(f"\n🚀 Starting generation for: {data.topic} ({data.celebrity})")
@@ -544,6 +649,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         print("\n📊 USER PREFERENCES:\n")
         print(data.preferences if data.preferences else "No preferences provided")
 
+        if is_job_cancelled(base_filename):
+            print(f"🛑 Job {base_filename} was cancelled before LLM generation.")
+            cleanup_job_files(base_filename)
+            return
+
         script = ""
 
         try:
@@ -561,6 +671,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         except Exception as gemini_error:
 
             print(f"❌ Gemini failed: {gemini_error}")
+
+            if is_job_cancelled(base_filename):
+                print(f"🛑 Job {base_filename} was cancelled during Gemini call.")
+                cleanup_job_files(base_filename)
+                return
 
             try:
                 print("⚡ Switching to Groq fallback...")
@@ -585,11 +700,20 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
                 print(f"❌ Groq also failed: {groq_error}")
 
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                with job_state_lock:
+                    if not is_job_cancelled(base_filename):
+                        job_status[base_filename] = {
+                            "status": "failed"
+                        }
+                    else:
+                        cleanup_job_files(base_filename)
 
                 return
+
+        if is_job_cancelled(base_filename):
+            print(f"🛑 Job {base_filename} was cancelled after script generation.")
+            cleanup_job_files(base_filename)
+            return
 
         print(f"📝 Generated text: {script}")
 
@@ -615,6 +739,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         print(f"💾 Saved text to: {text_path}")
 
+        if is_job_cancelled(base_filename):
+            print(f"🛑 Job {base_filename} was cancelled after saving text.")
+            cleanup_job_files(base_filename)
+            return
+
         # 4️⃣ Convert Text to Speech (edge-tts)
 
         print("🎵 Starting TTS generation...")
@@ -637,9 +766,18 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"❌ TTS Error: {e}")
 
-            job_status[base_filename] = {
-                "status": "failed"
-            }
+            with job_state_lock:
+                if not is_job_cancelled(base_filename):
+                    job_status[base_filename] = {
+                        "status": "failed"
+                    }
+                else:
+                    cleanup_job_files(base_filename)
+            return
+
+        if is_job_cancelled(base_filename):
+            print(f"🛑 Job {base_filename} was cancelled after TTS generation.")
+            cleanup_job_files(base_filename)
             return
 
         # 5️⃣ Try AI Avatar Video
@@ -650,6 +788,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             avatar_video_url = await create_avatar_video(audio_path)
 
+            if is_job_cancelled(base_filename):
+                print(f"🛑 Job {base_filename} was cancelled after D-ID generation.")
+                cleanup_job_files(base_filename)
+                return
+
             print(f"✅ D-ID avatar video ready: {avatar_video_url}")
 
             video_response = requests.get(
@@ -658,12 +801,22 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             )
             video_response.raise_for_status()
 
+            if is_job_cancelled(base_filename):
+                print(f"🛑 Job {base_filename} was cancelled before writing avatar video.")
+                cleanup_job_files(base_filename)
+                return
+
             with open(final_video, "wb") as video_file:
                 video_file.write(video_response.content)
 
             print(f"✅ Avatar video downloaded: {final_video}")
 
         except Exception as avatar_error:
+            if is_job_cancelled(base_filename):
+                print(f"🛑 Job {base_filename} was cancelled during avatar processing.")
+                cleanup_job_files(base_filename)
+                return
+
             print(
                 f"⚠️ D-ID avatar generation failed: {avatar_error}"
             )
@@ -676,9 +829,13 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 print(
                     f"❌ Fallback video not found at {input_video}"
                 )
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                with job_state_lock:
+                    if not is_job_cancelled(base_filename):
+                        job_status[base_filename] = {
+                            "status": "failed"
+                        }
+                    else:
+                        cleanup_job_files(base_filename)
                 return
 
             print("🎥 Running fallback FFmpeg command...")
@@ -697,34 +854,66 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 final_video,
             ]
 
-            process = await asyncio.create_subprocess_exec(
-                *ffmpeg_args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await process.communicate()
+            cancelled_before_proc = False
+            proc = None
+            with job_state_lock:
+                if is_job_cancelled(base_filename):
+                    cancelled_before_proc = True
+                else:
+                    try:
+                        proc = subprocess.Popen(
+                            ffmpeg_args,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                        )
+                        active_processes[base_filename] = proc
+                    except Exception as ffmpeg_launch_err:
+                        print(f"❌ Failed to launch FFmpeg: {ffmpeg_launch_err}")
+                        proc = None
 
-            if process.returncode != 0:
-                error_msg = stderr.decode(errors="replace")
-                print(f"❌ FFmpeg fallback failed with code {process.returncode}: {error_msg}")
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+            if cancelled_before_proc:
+                print(f"🛑 Job {base_filename} was cancelled before FFmpeg execution.")
+                cleanup_job_files(base_filename)
                 return
+
+            if proc:
+                stdout, stderr = proc.communicate()
+                with job_state_lock:
+                    active_processes.pop(base_filename, None)
+
+                if is_job_cancelled(base_filename):
+                    print(f"🛑 Job {base_filename} was cancelled during FFmpeg execution.")
+                    cleanup_job_files(base_filename)
+                    return
+
+                if proc.returncode != 0:
+                    error_msg = stderr.decode(errors="replace")
+                    print(f"❌ FFmpeg fallback failed with code {proc.returncode}: {error_msg}")
+                    with job_state_lock:
+                        if not is_job_cancelled(base_filename):
+                            job_status[base_filename] = {"status": "failed"}
+                    return
 
             if not os.path.exists(final_video):
                 print(
                     "❌ FFmpeg fallback failed — "
                     f"video not found at {final_video}"
                 )
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                with job_state_lock:
+                    if not is_job_cancelled(base_filename):
+                        job_status[base_filename] = {
+                            "status": "failed"
+                        }
+                    else:
+                        cleanup_job_files(base_filename)
                 return
 
             print("✅ FFmpeg fallback video created.")
 
-
+        if is_job_cancelled(base_filename):
+            print(f"🛑 Job {base_filename} was cancelled before Cloudinary upload.")
+            cleanup_job_files(base_filename)
+            return
 
         # 6.5 Generate subtitles (.vtt + .srt)
         vtt_path, srt_path = None, None
@@ -760,6 +949,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"⚠️ Cloudinary upload failed (will fall back to local proxy): {cloud_err}")
 
+        if is_job_cancelled(base_filename):
+            print(f"🛑 Job {base_filename} was cancelled before subtitle upload.")
+            cleanup_job_files(base_filename)
+            return
+
         # Upload subtitles to Cloudinary when available. Local static URLs remain
         # available as a fallback when video or subtitle upload fails.
         local_video_url = f"/video-stream/{base_filename}.mp4"
@@ -788,14 +982,21 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         subtitle_vtt_url = vtt_url or local_vtt_url
         subtitle_srt_url = srt_url or local_srt_url
-        job_status[base_filename] = {
-            "status": "ready",
-            "cloudinary_url": cloudinary_url,
-            "local_video_url": local_video_url,
-            "subtitle_url": subtitle_vtt_url,
-            "subtitle_vtt_url": subtitle_vtt_url,
-            "subtitle_srt_url": subtitle_srt_url,
-        }
+
+        with job_state_lock:
+            if is_job_cancelled(base_filename):
+                print(f"🛑 Job {base_filename} was cancelled before marking ready.")
+                cleanup_job_files(base_filename)
+                return
+
+            job_status[base_filename] = {
+                "status": "ready",
+                "cloudinary_url": cloudinary_url,
+                "local_video_url": local_video_url,
+                "subtitle_url": subtitle_vtt_url,
+                "subtitle_vtt_url": subtitle_vtt_url,
+                "subtitle_srt_url": subtitle_srt_url,
+            }
         print(f"✅ Lesson ready!")
         print(f"   Video : {final_video}")
 
@@ -821,11 +1022,23 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             print("⚠️ Keeping local files on disk as a fallback proxy since Cloudinary upload failed.")
             print("⚠️ Note: These files will remain until the server is restarted or manually cleaned.")
     except Exception as e:
+        with job_state_lock:
+            if is_job_cancelled(base_filename):
+                print(f"🛑 Job {base_filename} was cancelled: {e}")
+                cleanup_job_files(base_filename)
+                return
 
-        job_status[base_filename] = {
-            "status": "failed"
-        }
+            job_status[base_filename] = {
+                "status": "failed"
+            }
 
         print(f"❌ Error generating lesson: {e}")
 
         traceback.print_exc()
+    finally:
+        with job_state_lock:
+            active_processes.pop(base_filename, None)
+            job_cancellation_events.pop(base_filename, None)
+            is_cancelled = is_job_cancelled(base_filename)
+        if is_cancelled:
+            cleanup_job_files(base_filename)

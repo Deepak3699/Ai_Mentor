@@ -1,8 +1,14 @@
 import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
-from backend.subtitles import build_cues, chunk_script, get_audio_duration, write_subtitles
+BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
+if str(BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(BACKEND_DIR))
+
+from subtitles import build_cues, chunk_script, get_audio_duration, write_subtitles
 
 
 def test_chunk_script_normalizes_whitespace_and_limits_words():
@@ -39,7 +45,7 @@ def test_get_audio_duration_propagates_ffprobe_failure(monkeypatch):
 
 
 def test_write_subtitles_creates_valid_vtt_and_srt(monkeypatch, tmp_path):
-    monkeypatch.setattr("backend.subtitles.get_audio_duration", lambda _: 20.0)
+    monkeypatch.setattr("subtitles.get_audio_duration", lambda _: 20.0)
     out_base = str(tmp_path / "lesson")
     vtt_path, srt_path = write_subtitles("one two. three four.", "audio.mp3", out_base)
     vtt = (tmp_path / "lesson.vtt").read_text(encoding="utf-8")
