@@ -1,4 +1,4 @@
-/* eslint-env mocha */
+/* eslint-disable no-undef */
 import { expect } from "chai";
 import AIVideo from "../models/AIVideo.js";
 
