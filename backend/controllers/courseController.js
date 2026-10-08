@@ -373,9 +373,11 @@ const generateCourseSyllabusWithAI = async (req, res) => {
       }),
     });
 
-    if (!aiResponse.ok) {
-      return res.status(500).json({ message: "AI Service failed to generate syllabus" });
-    }
+  if (!aiResponse.ok) {
+   return res.status(aiResponse.status).json({
+    message: "AI Service failed to generate syllabus"
+   });
+ }
 
     const data = await aiResponse.json();
     if (data.error) {
