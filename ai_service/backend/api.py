@@ -20,6 +20,7 @@ import uuid
 from google import genai
 from groq import Groq
 from cachetools import TTLCache
+from subtitles import write_subtitles
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
@@ -725,6 +726,16 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
 
 
+        # 6.5 Generate subtitles (.vtt + .srt)
+        vtt_path, srt_path = None, None
+        try:
+            vtt_path, srt_path = write_subtitles(
+                script, audio_path, os.path.join(video_dir, base_filename)
+            )
+            print(f"📝 Subtitles created: {vtt_path}, {srt_path}")
+        except Exception as sub_err:
+            print(f"⚠️ Subtitle generation failed (video will still work): {sub_err}")
+
         # 7️⃣ Upload to Cloudinary
 
         cloudinary_url = None
@@ -749,14 +760,42 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"⚠️ Cloudinary upload failed (will fall back to local proxy): {cloud_err}")
 
+        # Upload subtitles to Cloudinary when available. Local static URLs remain
+        # available as a fallback when video or subtitle upload fails.
         local_video_url = f"/video-stream/{base_filename}.mp4"
+        local_vtt_url = f"/video-stream/{base_filename}.vtt" if vtt_path else None
+        local_srt_url = f"/video-stream/{base_filename}.srt" if srt_path else None
+        vtt_url, srt_url = None, None
+        if vtt_path and srt_path:
+            try:
+                vtt_url = cloudinary.uploader.upload(
+                    vtt_path,
+                    resource_type="raw",
+                    folder="ai_mentor/subtitles",
+                    public_id=f"{base_filename}.vtt",
+                    overwrite=True,
+                ).get("secure_url")
+                srt_url = cloudinary.uploader.upload(
+                    srt_path,
+                    resource_type="raw",
+                    folder="ai_mentor/subtitles",
+                    public_id=f"{base_filename}.srt",
+                    overwrite=True,
+                ).get("secure_url")
+                print(f"✅ Subtitles uploaded: {vtt_url}, {srt_url}")
+            except Exception as sub_up_err:
+                print(f"⚠️ Subtitle upload failed; using local subtitle URLs: {sub_up_err}")
 
+        subtitle_vtt_url = vtt_url or local_vtt_url
+        subtitle_srt_url = srt_url or local_srt_url
         job_status[base_filename] = {
             "status": "ready",
             "cloudinary_url": cloudinary_url,
             "local_video_url": local_video_url,
+            "subtitle_url": subtitle_vtt_url,
+            "subtitle_vtt_url": subtitle_vtt_url,
+            "subtitle_srt_url": subtitle_srt_url,
         }
-
         print(f"✅ Lesson ready!")
         print(f"   Video : {final_video}")
 
@@ -766,9 +805,14 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         # 8️⃣ Storage Cleanup
         if cloudinary_url:
             print("🧹 Cleaning up temporary files from local storage...")
-            for local_file in [audio_path, final_video]:
+            cleanup_files = [audio_path, final_video]
+            if vtt_url and vtt_path:
+                cleanup_files.append(vtt_path)
+            if srt_url and srt_path:
+                cleanup_files.append(srt_path)
+            for local_file in cleanup_files:
                 try:
-                    if os.path.exists(local_file):
+                    if local_file and os.path.exists(local_file):
                         os.remove(local_file)
                         print(f"🗑️ Successfully deleted: {local_file}")
                 except Exception as cleanup_err:
@@ -785,5 +829,3 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         print(f"❌ Error generating lesson: {e}")
 
         traceback.print_exc()
-
-
