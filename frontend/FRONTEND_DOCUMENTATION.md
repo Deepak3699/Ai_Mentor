@@ -13,7 +13,7 @@ The frontend communicates with the Node.js backend API and provides:
 * Learning analytics
 * User profile management
 * Theme and language customization
-* Admin dashboard access
+* Guarded handoff to the separate Frontend Admin application
 
 The frontend is designed using a modular React architecture with reusable UI components, centralized context management, protected routing, API service abstraction, and responsive Tailwind based layouts.
 
@@ -49,6 +49,8 @@ The frontend is designed using a modular React architecture with reusable UI com
                     ┌──────────────────────┐
                     │    Backend API       │
                     └──────────────────────┘
+
+Administrators and super administrators do not use learner-frontend admin pages. When an authorized admin visits a learner `/admin` entry point, the learner app redirects the browser to the supported `frontendAdmin` application.
 ```
 
 ---
@@ -64,6 +66,7 @@ Frontend Application
  ├── Cloudinary Media URLs
  ├── FastAPI AI Video Service
  ├── PostgreSQL Data via Backend
+ ├── Frontend Admin application for admin workflows
  └── i18next Translation Engine
 ```
 
@@ -152,7 +155,7 @@ Responsibilities:
 
 * Configure frontend routes
 * Handle protected routes
-* Handle admin routes
+* Guard admin handoff routes
 * Render layouts
 * Redirect unauthorized users
 
@@ -168,7 +171,7 @@ The frontend uses React Router DOM.
 | ---------------- | --------------------------------- |
 | Public Routes    | Accessible without authentication |
 | Protected Routes | Require logged in user            |
-| Admin Routes     | Require admin privileges          |
+| Admin Handoff Routes | Require admin or superadmin privileges and redirect to `frontendAdmin` |
 
 ---
 
@@ -184,7 +187,7 @@ React Router
 ProtectedRoute / AdminRoute
        │
        ▼
-Page Component
+Page Component or frontendAdmin redirect
        │
        ▼
 API Requests + UI Rendering
@@ -204,7 +207,9 @@ API Requests + UI Rendering
 | /analytics    | User learning analytics |
 | /discussions  | Community discussions   |
 | /settings     | User settings           |
-| /admin        | Admin dashboard         |
+| /admin        | Guarded redirect to `frontendAdmin` dashboard |
+| /admin/users  | Guarded redirect to `frontendAdmin` users page |
+| /admin/courses | Guarded redirect to `frontendAdmin` courses page |
 
 ---
 
@@ -306,13 +311,25 @@ If token missing → Redirect to login
 
 # AdminRoute Component
 
-The `AdminRoute` component restricts admin pages.
+The `AdminRoute` component protects learner-side admin entry points and hands authorized admins off to the dedicated Frontend Admin application.
 
 Checks include:
 
-* Admin authentication
-* Role validation
-* Access control
+* Authentication check
+* Role validation for `admin` and `superadmin`
+* Redirect unauthenticated users to `/login`
+* Redirect normal users away from admin entry points
+* Redirect authorized admins to `frontendAdmin`
+
+Default handoff targets:
+
+| Learner Route | Frontend Admin Target |
+| ------------- | --------------------- |
+| /admin        | /dashboard            |
+| /admin/users  | /users                |
+| /admin/courses | /courses             |
+
+The learner frontend does not render duplicate or placeholder admin pages.
 
 ---
 
@@ -836,6 +853,14 @@ VITE_FIREBASE_STORAGE_BUCKET=
 VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 ```
+
+## Optional Variables
+
+```env
+VITE_ADMIN_APP_URL=http://localhost:5174
+```
+
+`VITE_ADMIN_APP_URL` controls where authorized learner `/admin` handoff routes send administrators. If it is not set, the learner frontend defaults to `http://localhost:5174`, which is the local development URL for the `frontendAdmin` application.
 
 ---
 

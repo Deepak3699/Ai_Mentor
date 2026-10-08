@@ -70,7 +70,12 @@ const LoginPage = () => {
       if (err instanceof z.ZodError) {
         toast.error(err.errors[0].message);
       } else {
-        toast.error(err.response?.data?.message || "Invalid Credentials!");
+        const errorMessage =
+          err.response?.data?.message ||
+          (err.code === "ERR_NETWORK" || !err.response
+            ? "Cannot connect to server. Please check if the backend server is running."
+            : "Invalid Credentials!");
+        toast.error(errorMessage);
       }
     }
   };

@@ -16,6 +16,16 @@ jobs:
   lint-backend:
     name: Lint backend
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -59,6 +69,18 @@ jobs:
       - name: Run ESLint
         working-directory: frontend
         run: npm run lint
+
+      - name: Run tests
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://localhost:5000
+          VITE_FIREBASE_API_KEY: ci-dummy-key
+          VITE_FIREBASE_AUTH_DOMAIN: ci-dummy.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: ci-dummy
+          VITE_FIREBASE_STORAGE_BUCKET: ci-dummy.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+          VITE_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000000000"
+        run: npm test
 
   build-frontend:
     name: Build frontend
@@ -113,6 +135,12 @@ jobs:
         working-directory: frontendAdmin
         run: npm run lint
 
+      - name: Run tests
+        working-directory: frontendAdmin
+        env:
+          VITE_API_BASE_URL: http://localhost:5001
+        run: npm test
+
   build-admin-frontend:
     name: Build admin frontend
     runs-on: ubuntu-latest
@@ -158,6 +186,10 @@ jobs:
         working-directory: backendAdmin
         run: npm run lint
 
+      - name: Run tests
+        working-directory: backendAdmin
+        run: npm test
+
   # ─────────────────────────────────────────────────────────────
   # AI SERVICE (Python + FastAPI, port 8000)
   # ─────────────────────────────────────────────────────────────
@@ -181,14 +213,37 @@ jobs:
           python -m pip install --upgrade pip
           pip install --dry-run -r backend/requirements.txt
 
+      - name: Run tests
+        working-directory: ai_service
+        env:
+          GEMINI_API_KEY: ci-dummy-key
+          GROQ_API_KEY: ci-dummy-key
+          CLOUDINARY_CLOUD_NAME: ci-dummy
+          CLOUDINARY_API_KEY: ci-dummy
+          CLOUDINARY_API_SECRET: ci-dummy
+        run: |
+          pip install -r backend/requirements.txt
+          python -m pytest
+
   # ─────────────────────────────────────────────────────────────
-  # SECRET SCAN — make sure no .env file slipped in
+  # SECRET SCAN — no .env files, and no credentials in content or history
   # ─────────────────────────────────────────────────────────────
   check-no-secrets:
     name: Check for committed secrets
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GITLEAKS_VERSION: "8.30.0"
+      # SHA-256 of gitleaks_<version>_linux_x64.tar.gz from the official
+      # release checksums file. Update both values together.
+      GITLEAKS_SHA256: "79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e"
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history, so a secret that was added and later deleted
+          # is still caught.
+          fetch-depth: 0
 
       - name: Fail if a .env file is committed
         run: |
@@ -198,3 +253,28 @@ jobs:
             exit 1
           fi
           echo "No .env files committed"
+
+      - name: Install gitleaks
+        run: |
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/bin"
+          tar -xzf gitleaks.tar.gz -C "$RUNNER_TEMP/bin" gitleaks
+          rm gitleaks.tar.gz
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Test the scanner against fake credentials
+        run: bash scripts/test-secret-scan.sh
+
+      - name: Scan commit history and content for secrets
+        # --redact keeps secret values out of the logs.
+        # Confirmed false positives go in .gitleaksignore or .gitleaks.toml
+        # (reviewed by Team Leads) — see "Secret scanning" in CONTRIBUTING.md.
+        run: |
+          gitleaks git . \
+            --config .gitleaks.toml \
+            --redact \
+            --no-banner \
+            --no-color \
+            --exit-code 1

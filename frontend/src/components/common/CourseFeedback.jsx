@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "../../lib/api";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import API_BASE_URL from "../../lib/api";
