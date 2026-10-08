@@ -7,8 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "test": "vitest run"
+    "test": "node --test test/*.test.js",
+    "test:vitest": "vitest run",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@radix-ui/react-switch": "^1.2.6",

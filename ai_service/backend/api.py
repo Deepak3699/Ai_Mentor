@@ -15,6 +15,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import json
+import hashlib
+import uuid
 from google import genai
 from groq import Groq
 from cachetools import TTLCache
@@ -25,20 +27,22 @@ from config import (
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
+GROQ_ENABLED,
+    CLOUDINARY_ENABLED,
     validate_config,
 )
 import voices
-validate_config()
 from avatar_service import create_avatar_video
 # --------------------------
 # Cloudinary Config
 # --------------------------
-cloudinary.config(
-    cloud_name=CLOUDINARY_CLOUD_NAME,
-    api_key=CLOUDINARY_API_KEY,
-    api_secret=CLOUDINARY_API_SECRET,
-    secure=True,
-)
+if CLOUDINARY_ENABLED:
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+        secure=True,
+    )
 
 # --------------------------
 # FastAPI App
@@ -97,28 +101,24 @@ app.add_middleware(
 # --------------------------
 # GEMINI Client (Primary)
 # --------------------------
-gemini_client = genai.Client(
-    api_key=GEMINI_API_KEY
-)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 # --------------------------
 # GROQ Client (Fallback)
 # --------------------------
-groq_client = Groq(
-    api_key=GROQ_API_KEY
-)
+groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_ENABLED else None
 
 # --------------------------
 # Request Model
 # --------------------------
 class LessonRequest(BaseModel):
-    course: str
-    topic: str
-    celebrity: str
+    course: str = Field(..., min_length=1, max_length=100)
+    topic: str = Field(..., min_length=1, max_length=200)
+    celebrity: str = Field("modi", min_length=1, max_length=50)
+    language: str = "English"
     preferences: dict | None = None
     voice_id: str | None = None
     gender: str | None = None
-    language: str | None = None
     speech_rate: str | None = "+0%"
     speech_pitch: str | None = "+0Hz"
 
@@ -221,7 +221,6 @@ def generate_syllabus(data: SyllabusRequest):
         or an error message if both AI providers fail.
     """
     prompt = f"""
-    
     Create a highly structured course syllabus for a course titled '{data.course_title}'.
     Category: {data.category or 'General Education'}
     
@@ -393,15 +392,69 @@ def generate_quiz(data: QuizRequest):
 # Generate Lesson Endpoint
 # --------------------------
 
-job_status = {}
+# Job status cache:
+# - Entries expire automatically after 1 hour.
+# - Cache is limited to 1000 jobs.
+# - This prevents the dictionary from growing indefinitely.
+job_status = TTLCache(
+    maxsize=1000,
+    ttl=3600
+)
 
 @app.post("/generate")
-def generate_lesson(data: LessonRequest, background_tasks: BackgroundTasks):
+def generate_lesson(
+    data: LessonRequest,
+    background_tasks: BackgroundTasks,
+    force: bool = False,
+):
 
-    topic_clean = re.sub(r'[^\w\s-]', '', data.topic).strip().replace(" ", "_")
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    base_filename = f"{topic_clean}_{timestamp}"
+    cache_data = "|".join([
+        data.course,
+        data.topic,
+        data.celebrity,
+        data.language,
+    ])
+    cache_key = hashlib.sha256(
+        cache_data.encode("utf-8")
+    ).hexdigest()
 
+    topic_clean = re.sub(
+        r'[^\w\s-]', '', data.topic
+    ).strip().replace(" ", "_")
+    topic_clean = topic_clean[:81]
+    if force:
+        base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
+    else:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        base_filename = f"{topic_clean}_{timestamp}"
+
+    if not force and cache_key in generation_cache:
+        base_filename = generation_cache[cache_key]
+        existing_status = job_status.get(
+            base_filename,
+            {"status": "processing"}
+        )
+
+        return {
+            "status": existing_status.get("status", "processing").capitalize(),
+            "filename": f"{base_filename}.mp4",
+            "text_file": f"{base_filename}.txt",
+            "audio_file": f"{base_filename}.mp3",
+            "jobId": base_filename,
+            "cached": True,
+        }
+
+    topic_clean = re.sub(
+        r'[^\w\s-]', '', data.topic
+    ).strip().replace(" ", "_")
+
+    if force:
+        base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
+    else:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        base_filename = f"{topic_clean}_{timestamp}"
+
+    generation_cache[cache_key] = base_filename
     job_status[base_filename] = {"status": "processing"}
 
     background_tasks.add_task(process_lesson, data, base_filename)
@@ -411,13 +464,15 @@ def generate_lesson(data: LessonRequest, background_tasks: BackgroundTasks):
         "filename": f"{base_filename}.mp4",
         "text_file": f"{base_filename}.txt",
         "audio_file": f"{base_filename}.mp3",
-        "jobId": base_filename
+        "jobId": base_filename,
+        "cached": False,
     }
+
 
 # --------------------------
 # Background Task Logic
 # --------------------------
-def process_lesson(data: LessonRequest, base_filename: str):
+async def process_lesson(data: LessonRequest, base_filename: str):
 
     print("\n📥 RAW REQUEST DATA:")
     print(data.dict())
@@ -443,9 +498,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
         Create a 50 word educational explanation about '{data.topic}' in the subject '{data.course}'.
 
         Rules:
-        - 100% English only
-        - No Hindi
-        - No Hinglish
+        - {data.language or "English"} only
         - Simple classroom teaching tone
         - Between 45 and 60 words
 
@@ -543,11 +596,11 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             # Validate voice or fallback
             selected_voice = voices.get_voice(data.voice_id)
-            
+
             rate = data.speech_rate if data.speech_rate else "+0%"
             pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
 
-            asyncio.run(generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch))
+            await generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch)
 
             print(f"✅ Audio saved: {audio_path}")
 
@@ -555,6 +608,9 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"❌ TTS Error: {e}")
 
+            job_status[base_filename] = {
+                "status": "failed"
+            }
             return
 
         # 5️⃣ Try AI Avatar Video
@@ -563,7 +619,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
         try:
             print("🤖 Trying D-ID AI Avatar...")
 
-            avatar_video_url = create_avatar_video(audio_path)
+            avatar_video_url = await create_avatar_video(audio_path)
 
             print(f"✅ D-ID avatar video ready: {avatar_video_url}")
 
@@ -596,7 +652,9 @@ def process_lesson(data: LessonRequest, base_filename: str):
                 }
                 return
 
-            cmd = [
+            print("🎥 Running fallback FFmpeg command...")
+
+            ffmpeg_args = [
                 "ffmpeg",
                 "-y",
                 "-stream_loop", "-1",
@@ -610,9 +668,20 @@ def process_lesson(data: LessonRequest, base_filename: str):
                 final_video,
             ]
 
-            print("🎥 Running fallback FFmpeg command...")
+            process = await asyncio.create_subprocess_exec(
+                *ffmpeg_args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await process.communicate()
 
-            subprocess.run(cmd, check=True, capture_output=True)
+            if process.returncode != 0:
+                error_msg = stderr.decode(errors="replace")
+                print(f"❌ FFmpeg fallback failed with code {process.returncode}: {error_msg}")
+                job_status[base_filename] = {
+                    "status": "failed"
+                }
+                return
 
             if not os.path.exists(final_video):
                 print(
@@ -652,9 +721,12 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"⚠️ Cloudinary upload failed (will fall back to local proxy): {cloud_err}")
 
+        local_video_url = f"/video-stream/{base_filename}.mp4"
+
         job_status[base_filename] = {
             "status": "ready",
             "cloudinary_url": cloudinary_url,
+            "local_video_url": local_video_url,
         }
 
         print(f"✅ Lesson ready!")
@@ -685,3 +757,5 @@ def process_lesson(data: LessonRequest, base_filename: str):
         print(f"❌ Error generating lesson: {e}")
 
         traceback.print_exc()
+
+

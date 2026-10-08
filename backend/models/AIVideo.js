@@ -42,6 +42,14 @@ AIVideo.init(
             type: DataTypes.STRING,
             allowNull: true,
         },
+        status: {
+            type: DataTypes.ENUM("pending", "processing", "completed", "failed"),
+            defaultValue: "pending",
+        },
+        error: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
     },
     {
         sequelize,
