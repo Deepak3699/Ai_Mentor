@@ -26,7 +26,6 @@ import preferenceRoutes from "./routes/preferenceRoutes.js";
 import contactUsRoutes from "./routes/contactus.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import docsRoutes from "./routes/docsRoutes.js";
-import helmet from "helmet";
 import chatRoutes from "./routes/chatRoutes.js";
 import assistantRoutes from "./routes/assistantRoutes.js";
 
@@ -40,18 +39,14 @@ import "./models/Contactmessage.js";
 dotenv.config();
 
 import { validateEnv } from "./env-validator.js";
+import { securityHeaders } from "./config/securityHeaders.js";
+
 validateEnv();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-  })
-);
 
 // ================= SECURE CORS =================
 const envOrigins = process.env.FRONTEND_URL
@@ -68,6 +63,8 @@ const defaultDevOrigins = [
 ];
 
 const allowedOrigins = Array.from(new Set([...envOrigins, ...defaultDevOrigins]));
+
+app.use(securityHeaders());
 
 app.use(
   cors({

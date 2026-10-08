@@ -94,6 +94,35 @@ Requests are guarded by **Zod-based structural runtime validation parameters**. 
 
 ---
 
+## Security Headers
+
+The admin service sends security headers using Helmet. The policy is defined in
+`config/securityHeaders.js` and applied as the first middleware in `server.js`,
+before CORS and routes, so every response (including 404s and errors) carries
+the headers.
+
+```js
+app.use(securityHeaders());   // must stay above cors() and routes
+```
+
+| Header | Value |
+| ------ | ----- |
+| Content-Security-Policy | `default-src 'none'; frame-ancestors 'none'` |
+| Strict-Transport-Security | `max-age=15552000; includeSubDomains` (production only) |
+| X-Frame-Options | `DENY` |
+| X-Content-Type-Options | `nosniff` |
+| Referrer-Policy | `no-referrer` |
+| Cross-Origin-Resource-Policy | `same-origin` (Helmet default) |
+
+* This service only returns JSON, so the CSP allows nothing to load.
+* HSTS is sent only when `NODE_ENV=production`, so `http://localhost` keeps working. All other headers are the same in every environment.
+* `helmet` must be installed in this service (`npm i helmet`).
+
+Verify with `curl -i http://localhost:5001/health`, and run `npm test`
+(`tests/securityHeaders.test.js`) to check the headers automatically.
+
+---
+
 ## Administrative API Directory
 
 ### 1. Course Management APIs (`/api/admin/courses`)
