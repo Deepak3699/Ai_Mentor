@@ -17,6 +17,8 @@ from pydantic import BaseModel, Field
 import json
 import hashlib
 import uuid
+import time
+from mutagen.mp3 import MP3
 from google import genai
 from groq import Groq
 from cachetools import TTLCache
@@ -484,7 +486,14 @@ def generate_lesson(
         base_filename = f"{topic_clean}_{timestamp}"
 
     generation_cache[cache_key] = base_filename
-    job_status[base_filename] = {"status": "processing"}
+    job_status[base_filename] = {
+        "status": "queued",
+        "meta": {
+            "timestamps": {
+                "queued_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+            }
+        }
+    }
 
     background_tasks.add_task(process_lesson, data, base_filename)
 
@@ -505,6 +514,29 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
     print("\n📥 RAW REQUEST DATA:")
     print(data.dict())
+    
+    start_time = time.time()
+    provider_used = "unknown"
+    model_used = "unknown"
+    audio_seconds = 0.0
+
+    # INITIALIZE job_status ENTRY IF IT DOESN'T EXIST (For Tests)
+    if base_filename not in job_status:
+        job_status[base_filename] = {
+            "status": "processing",
+            "meta": {
+                "timestamps": {
+                    "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                }
+            }
+        }
+    else:
+        job_status[base_filename]["status"] = "processing"
+        if "meta" not in job_status[base_filename]:
+            job_status[base_filename]["meta"] = {"timestamps": {}}
+        if "timestamps" not in job_status[base_filename]["meta"]:
+            job_status[base_filename]["meta"]["timestamps"] = {}
+        job_status[base_filename]["meta"]["timestamps"]["started_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     try:
         print(f"\n🚀 Starting generation for: {data.topic} ({data.celebrity})")
@@ -555,7 +587,8 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             )
 
             script = response.text.strip().replace("\n", " ")
-
+            provider_used = "gemini"
+            model_used = GEMINI_MODEL
             print("✅ Gemini response generated")
 
         except Exception as gemini_error:
@@ -578,16 +611,17 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 )
 
                 script = groq_response.choices[0].message.content.strip().replace("\n", " ")
-
+                provider_used = "groq"
+                model_used = "llama-3.3-70b-versatile"
                 print("✅ Groq fallback response generated")
 
             except Exception as groq_error:
 
                 print(f"❌ Groq also failed: {groq_error}")
 
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                if base_filename in job_status:
+                    job_status[base_filename]["status"] = "failed"
+                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
                 return
 
@@ -630,16 +664,22 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
 
             await generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch)
+            
+            try:
+                audio = MP3(audio_path)
+                audio_seconds = audio.info.length
+            except Exception as e:
+                print(f"⚠️ Could not calculate audio duration: {e}")
 
-            print(f"✅ Audio saved: {audio_path}")
+            print(f"✅ Audio saved: {audio_path} ({audio_seconds:.2f}s)")
 
         except Exception as e:
 
             print(f"❌ TTS Error: {e}")
 
-            job_status[base_filename] = {
-                "status": "failed"
-            }
+            if base_filename in job_status:
+                job_status[base_filename]["status"] = "failed"
+                job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
             return
 
         # 5️⃣ Try AI Avatar Video
@@ -676,9 +716,9 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 print(
                     f"❌ Fallback video not found at {input_video}"
                 )
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                if base_filename in job_status:
+                    job_status[base_filename]["status"] = "failed"
+                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                 return
 
             print("🎥 Running fallback FFmpeg command...")
@@ -707,9 +747,9 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             if process.returncode != 0:
                 error_msg = stderr.decode(errors="replace")
                 print(f"❌ FFmpeg fallback failed with code {process.returncode}: {error_msg}")
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                if base_filename in job_status:
+                    job_status[base_filename]["status"] = "failed"
+                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                 return
 
             if not os.path.exists(final_video):
@@ -717,9 +757,9 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     "❌ FFmpeg fallback failed — "
                     f"video not found at {final_video}"
                 )
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                if base_filename in job_status:
+                    job_status[base_filename]["status"] = "failed"
+                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                 return
 
             print("✅ FFmpeg fallback video created.")
@@ -788,14 +828,21 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         subtitle_vtt_url = vtt_url or local_vtt_url
         subtitle_srt_url = srt_url or local_srt_url
-        job_status[base_filename] = {
-            "status": "ready",
-            "cloudinary_url": cloudinary_url,
-            "local_video_url": local_video_url,
-            "subtitle_url": subtitle_vtt_url,
-            "subtitle_vtt_url": subtitle_vtt_url,
-            "subtitle_srt_url": subtitle_srt_url,
-        }
+        
+        duration_ms = int((time.time() - start_time) * 1000)
+        
+        job_status[base_filename]["status"] = "ready"
+        job_status[base_filename]["cloudinary_url"] = cloudinary_url
+        job_status[base_filename]["local_video_url"] = local_video_url
+        job_status[base_filename]["subtitle_url"] = subtitle_vtt_url
+        job_status[base_filename]["subtitle_vtt_url"] = subtitle_vtt_url
+        job_status[base_filename]["subtitle_srt_url"] = subtitle_srt_url
+        job_status[base_filename]["meta"]["provider"] = provider_used
+        job_status[base_filename]["meta"]["model"] = model_used
+        job_status[base_filename]["meta"]["duration_ms"] = duration_ms
+        job_status[base_filename]["meta"]["audio_seconds"] = audio_seconds
+        job_status[base_filename]["meta"]["word_count"] = len(script.split())
+        job_status[base_filename]["meta"]["timestamps"]["completed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         print(f"✅ Lesson ready!")
         print(f"   Video : {final_video}")
 
@@ -822,9 +869,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             print("⚠️ Note: These files will remain until the server is restarted or manually cleaned.")
     except Exception as e:
 
-        job_status[base_filename] = {
-            "status": "failed"
-        }
+        if base_filename in job_status:
+            job_status[base_filename]["status"] = "failed"
+            if "meta" not in job_status[base_filename]:
+                job_status[base_filename]["meta"] = {"timestamps": {}}
+            job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
         print(f"❌ Error generating lesson: {e}")
 
