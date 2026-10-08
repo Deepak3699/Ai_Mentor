@@ -54,6 +54,7 @@ async def test_gemini_metadata():
          patch("api.write_subtitles", return_value=("vtt", "srt")), \
          patch("api.cloudinary.uploader.upload", side_effect=Exception("Cloud fail")), \
          patch("api.os.makedirs"), \
+         patch("api.os.remove"), \
          patch("builtins.open", create=True) as mock_open:
         
         mock_tts.return_value = None
@@ -92,6 +93,7 @@ async def test_groq_metadata_and_mp3_duration():
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec, \
          patch("api.os.path.exists", return_value=True), \
          patch("api.os.makedirs"), \
+         patch("api.os.remove"), \
          patch("builtins.open", create=True) as mock_open:  # force fallback video to exist
          
         mock_tts.return_value = None
