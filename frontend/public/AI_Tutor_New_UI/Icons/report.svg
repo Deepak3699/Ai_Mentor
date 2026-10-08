@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <path
+    d="M6 21.5A1.5 1.5 0 0 1 4.5 20V4A1.5 1.5 0 0 1 6 2.5h8.2c.4 0 .78.16 1.06.44l4.3 4.3c.28.28.44.66.44 1.06V20a1.5 1.5 0 0 1-1.5 1.5H6Z"
+    stroke="#687588"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M14 2.5V7a1 1 0 0 0 1 1h4.5"
+    stroke="#687588"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M8 18v-3M12 18v-5M16 18v-7"
+    stroke="#687588"
+    stroke-width="2"
+    stroke-linecap="round"
+  />
+</svg>

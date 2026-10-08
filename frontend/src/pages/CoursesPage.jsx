@@ -1,12 +1,5 @@
-import MyCoursesHeroBanner from "../components/common/MyCoursesHeroBanner";
-
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
+import { apiFetch as fetch } from "../lib/api";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import {
   Star,
