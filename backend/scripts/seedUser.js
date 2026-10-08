@@ -12,7 +12,7 @@ const seedUser = async () => {
     await sequelize.sync();
 
     const email = "user@aimentor.local";
-    
+
     let user = await User.findOne({ where: { email } });
     if (!user) {
       user = await User.create({
@@ -28,7 +28,7 @@ const seedUser = async () => {
     } else {
       console.log("⚠️ User already exists!");
     }
-    
+
     process.exit(0);
   } catch (error) {
     console.error("❌ Seeding failed:", error);
