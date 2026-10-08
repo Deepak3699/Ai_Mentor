@@ -286,3 +286,69 @@ def test_concurrent_cancellation_during_pipeline(monkeypatch, client):
 
     assert job_status[job_id]["status"] == "cancelled"
     assert job_status[job_id].get("status") != "ready"
+
+
+def test_multithreaded_race_cancellation_during_pipeline(client, monkeypatch):
+    """13. Multithreaded race test: concurrent worker thread and cancellation thread."""
+    job_id = "test_job_multithreaded_race"
+    job_status[job_id] = {"status": "processing"}
+    job_cancellation_events[job_id] = threading.Event()
+
+    step_reached = threading.Event()
+
+    async def slow_tts(*args, **kwargs):
+        step_reached.set()
+        await asyncio.sleep(0.15)
+
+    monkeypatch.setattr(api, "generate_tts", slow_tts)
+
+    mock_gemini = MagicMock()
+    mock_gemini.models.generate_content.return_value = MagicMock(text="Test content")
+    monkeypatch.setattr(api, "gemini_client", mock_gemini)
+
+    req = LessonRequest(course="Math", topic="RaceTest", celebrity="modi")
+
+    def worker():
+        asyncio.run(process_lesson(req, job_id))
+
+    t_worker = threading.Thread(target=worker)
+    t_worker.start()
+
+    assert step_reached.wait(timeout=2.0)
+
+    delete_resp = client.delete(f"/jobs/{job_id}")
+    assert delete_resp.status_code == 200
+
+    t_worker.join(timeout=5.0)
+
+    assert job_status[job_id]["status"] == "cancelled"
+    assert job_status[job_id].get("status") != "ready"
+    assert job_id not in active_processes
+
+
+def test_cancellation_during_active_file_writes(client, monkeypatch):
+    """14. Test cancellation during active file writes ensures output cleanup."""
+    job_id = "test_job_write_race"
+    job_status[job_id] = {"status": "processing"}
+    job_cancellation_events[job_id] = threading.Event()
+
+    base_output = os.path.join(api.BASE_DIR, "outputs")
+    text_file = os.path.join(base_output, "text", f"{job_id}.txt")
+    os.makedirs(os.path.dirname(text_file), exist_ok=True)
+
+    def slow_write(*args, **kwargs):
+        with open(text_file, "w") as f:
+            f.write("partial content")
+        delete_resp = client.delete(f"/jobs/{job_id}")
+        assert delete_resp.status_code == 200
+        return MagicMock(text="Generated text")
+
+    mock_gemini = MagicMock()
+    mock_gemini.models.generate_content.side_effect = slow_write
+    monkeypatch.setattr(api, "gemini_client", mock_gemini)
+
+    req = LessonRequest(course="Math", topic="WriteRace", celebrity="modi")
+    asyncio.run(process_lesson(req, job_id))
+
+    assert job_status[job_id]["status"] == "cancelled"
+    assert not os.path.exists(text_file)

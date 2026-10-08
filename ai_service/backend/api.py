@@ -209,12 +209,18 @@ job_state_lock = threading.Lock()
 
 
 def cleanup_job_files(base_filename: str) -> None:
-    """Remove partial text, audio, and video files associated with a job."""
+    """Remove partial text, audio, video, subtitle, and temporary files associated with a job."""
     base_output_dir = os.path.join(BASE_DIR, "outputs")
     file_paths = [
         os.path.join(base_output_dir, "text", f"{base_filename}.txt"),
+        os.path.join(base_output_dir, "text", f"{base_filename}_script.txt"),
         os.path.join(base_output_dir, "audio", f"{base_filename}.mp3"),
+        os.path.join(base_output_dir, "audio", f"{base_filename}_raw.mp3"),
         os.path.join(base_output_dir, "video", f"{base_filename}.mp4"),
+        os.path.join(base_output_dir, "video", f"{base_filename}.vtt"),
+        os.path.join(base_output_dir, "video", f"{base_filename}.srt"),
+        os.path.join(base_output_dir, "video", f"{base_filename}_temp.mp4"),
+        os.path.join(base_output_dir, f"{base_filename}_part.tmp"),
     ]
     for file_path in file_paths:
         try:
@@ -226,28 +232,29 @@ def cleanup_job_files(base_filename: str) -> None:
 
 
 def is_job_cancelled(base_filename: str) -> bool:
-    """Check if a cancellation has been requested for the given job."""
-    event = job_cancellation_events.get(base_filename)
-    if event and event.is_set():
-        return True
-    current = job_status.get(base_filename)
-    if isinstance(current, dict) and current.get("status") == "cancelled":
-        return True
-    return False
+    """Check if a cancellation has been requested for the given job under thread lock."""
+    with job_state_lock:
+        event = job_cancellation_events.get(base_filename)
+        if event and event.is_set():
+            return True
+        current = job_status.get(base_filename)
+        if isinstance(current, dict) and current.get("status") == "cancelled":
+            return True
+        return False
 
 
 @app.get("/status/{job_id}")
 def get_status(job_id: str):
-    status_data = job_status.get(job_id, {"status": "not_found"})
-
-    if isinstance(status_data, str):
-        return {"status": status_data}
-
-    return status_data
+    with job_state_lock:
+        status_data = job_status.get(job_id, {"status": "not_found"})
+        if isinstance(status_data, str):
+            return {"status": status_data}
+        return dict(status_data)
 
 
 @app.delete("/jobs/{job_id}")
 def cancel_job(job_id: str):
+    proc = None
     with job_state_lock:
         if job_id not in job_status:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -268,40 +275,41 @@ def cancel_job(job_id: str):
                 "status": "cancelled",
             }
 
-        # Signal cancellation
+        # Signal cancellation event
         event = job_cancellation_events.get(job_id)
         if event:
             event.set()
 
-        # Terminate active subprocess (e.g. FFmpeg) if running
-        proc = active_processes.get(job_id)
-        if proc:
-            try:
-                proc.terminate()
-                try:
-                    proc.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-            except Exception as exc:
-                print(f"⚠️ Error terminating process for job {job_id}: {exc}")
-            finally:
-                active_processes.pop(job_id, None)
+        # Atomically retrieve active subprocess handle
+        proc = active_processes.pop(job_id, None)
 
+        # Update job status
         job_status[job_id] = {"status": "cancelled"}
 
-        # Remove from generation_cache if present
+        # Remove matching hash keys from generation_cache
         keys_to_remove = [k for k, v in generation_cache.items() if v == job_id]
         for k in keys_to_remove:
             generation_cache.pop(k, None)
 
-        # Clean up partial files
-        cleanup_job_files(job_id)
+    # Perform blocking subprocess termination OUTSIDE critical lock section
+    if proc:
+        try:
+            proc.terminate()
+            try:
+                proc.wait(timeout=2)
+            except Exception:
+                proc.kill()
+        except Exception as exc:
+            print(f"⚠️ Error terminating process for job {job_id}: {exc}")
 
-        return {
-            "message": "Job cancelled successfully",
-            "jobId": job_id,
-            "status": "cancelled",
-        }
+    # Perform file cleanup OUTSIDE critical lock section
+    cleanup_job_files(job_id)
+
+    return {
+        "message": "Job cancelled successfully",
+        "jobId": job_id,
+        "status": "cancelled",
+    }
 
 # --------------------------
 # Generate Syllabus Endpoint
@@ -555,27 +563,28 @@ def generate_lesson(
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         base_filename = f"{topic_clean}_{timestamp}"
 
-    if not force and cache_key in generation_cache:
-        cached_job_id = generation_cache[cache_key]
-        existing_status = job_status.get(
-            cached_job_id,
-            {"status": "processing"}
-        )
-        cached_status_str = existing_status.get("status", "processing") if isinstance(existing_status, dict) else existing_status
+    with job_state_lock:
+        if not force and cache_key in generation_cache:
+            cached_job_id = generation_cache[cache_key]
+            existing_status = job_status.get(
+                cached_job_id,
+                {"status": "processing"}
+            )
+            cached_status_str = existing_status.get("status", "processing") if isinstance(existing_status, dict) else existing_status
 
-        if cached_status_str != "cancelled":
-            return {
-                "status": cached_status_str.capitalize(),
-                "filename": f"{cached_job_id}.mp4",
-                "text_file": f"{cached_job_id}.txt",
-                "audio_file": f"{cached_job_id}.mp3",
-                "jobId": cached_job_id,
-                "cached": True,
-            }
+            if cached_status_str != "cancelled":
+                return {
+                    "status": cached_status_str.capitalize(),
+                    "filename": f"{cached_job_id}.mp4",
+                    "text_file": f"{cached_job_id}.txt",
+                    "audio_file": f"{cached_job_id}.mp3",
+                    "jobId": cached_job_id,
+                    "cached": True,
+                }
 
-    generation_cache[cache_key] = base_filename
-    job_status[base_filename] = {"status": "processing"}
-    job_cancellation_events[base_filename] = threading.Event()
+        generation_cache[cache_key] = base_filename
+        job_status[base_filename] = {"status": "processing"}
+        job_cancellation_events[base_filename] = threading.Event()
 
     background_tasks.add_task(process_lesson, data, base_filename)
 
@@ -845,20 +854,45 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 final_video,
             ]
 
-            process = await asyncio.create_subprocess_exec(
-                *ffmpeg_args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await process.communicate()
+            cancelled_before_proc = False
+            proc = None
+            with job_state_lock:
+                if is_job_cancelled(base_filename):
+                    cancelled_before_proc = True
+                else:
+                    try:
+                        proc = subprocess.Popen(
+                            ffmpeg_args,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE,
+                        )
+                        active_processes[base_filename] = proc
+                    except Exception as ffmpeg_launch_err:
+                        print(f"❌ Failed to launch FFmpeg: {ffmpeg_launch_err}")
+                        proc = None
 
-            if process.returncode != 0:
-                error_msg = stderr.decode(errors="replace")
-                print(f"❌ FFmpeg fallback failed with code {process.returncode}: {error_msg}")
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+            if cancelled_before_proc:
+                print(f"🛑 Job {base_filename} was cancelled before FFmpeg execution.")
+                cleanup_job_files(base_filename)
                 return
+
+            if proc:
+                stdout, stderr = proc.communicate()
+                with job_state_lock:
+                    active_processes.pop(base_filename, None)
+
+                if is_job_cancelled(base_filename):
+                    print(f"🛑 Job {base_filename} was cancelled during FFmpeg execution.")
+                    cleanup_job_files(base_filename)
+                    return
+
+                if proc.returncode != 0:
+                    error_msg = stderr.decode(errors="replace")
+                    print(f"❌ FFmpeg fallback failed with code {proc.returncode}: {error_msg}")
+                    with job_state_lock:
+                        if not is_job_cancelled(base_filename):
+                            job_status[base_filename] = {"status": "failed"}
+                    return
 
             if not os.path.exists(final_video):
                 print(
@@ -1002,5 +1036,9 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         traceback.print_exc()
     finally:
-        active_processes.pop(base_filename, None)
-        job_cancellation_events.pop(base_filename, None)
+        with job_state_lock:
+            active_processes.pop(base_filename, None)
+            job_cancellation_events.pop(base_filename, None)
+            is_cancelled = is_job_cancelled(base_filename)
+        if is_cancelled:
+            cleanup_job_files(base_filename)
