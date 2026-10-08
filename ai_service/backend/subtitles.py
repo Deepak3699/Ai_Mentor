@@ -33,10 +33,11 @@ def build_cues(script: str, duration: float) -> list[tuple[float, float, str]]:
     if total_words == 0:
         return []
     cues, current = [], 0.0
-    for chunk in chunks:
+    for index, chunk in enumerate(chunks):
         share = len(chunk.split()) / total_words * duration
-        cues.append((current, current + share, chunk))
-        current += share
+        end = duration if index == len(chunks) - 1 else current + share
+        cues.append((current, end, chunk))
+        current = end
     return cues
 
 
