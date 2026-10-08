@@ -119,7 +119,6 @@ class LessonRequest(BaseModel):
     preferences: dict | None = None
     voice_id: str | None = None
     gender: str | None = None
-    language: str | None = None
     speech_rate: str | None = "+0%"
     speech_pitch: str | None = "+0Hz"
 
@@ -499,9 +498,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         Create a 50 word educational explanation about '{data.topic}' in the subject '{data.course}'.
 
         Rules:
-        - 100% English only
-        - No Hindi
-        - No Hinglish
+        - {data.language or "English"} only
         - Simple classroom teaching tone
         - Between 45 and 60 words
 
