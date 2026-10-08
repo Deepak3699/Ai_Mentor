@@ -175,7 +175,7 @@ const Header = () => {
                 placeholder="Search mentors, topics, or projects..."
                 className="block w-full pl-10 pr-4 py-2.5 border border-border/80 rounded-2xl leading-5 bg-canvas-alt/50 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-[#2f5cc4]/30 focus:border-[#2f5cc4]/50 sm:text-sm transition-all shadow-sm"
               />
-            </Link>
+            </div>
           </div>
 
           {/* Action Buttons & Profile */}
