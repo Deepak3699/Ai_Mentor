@@ -1,8 +1,6 @@
+/* eslint-env mocha */
 import { expect } from "chai";
 import AIVideo from "../models/AIVideo.js";
-import request from "supertest";
-import app from "../server.js";
-import { sequelize } from "../config/db.js";
 
 describe("AI Job Metadata Persistence", () => {
   before(async () => {

@@ -520,7 +520,17 @@ async def process_lesson(data: LessonRequest, base_filename: str):
     model_used = "unknown"
     audio_seconds = 0.0
 
-    if base_filename in job_status:
+    # INITIALIZE job_status ENTRY IF IT DOESN'T EXIST (For Tests)
+    if base_filename not in job_status:
+        job_status[base_filename] = {
+            "status": "processing",
+            "meta": {
+                "timestamps": {
+                    "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                }
+            }
+        }
+    else:
         job_status[base_filename]["status"] = "processing"
         if "meta" not in job_status[base_filename]:
             job_status[base_filename]["meta"] = {"timestamps": {}}
