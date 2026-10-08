@@ -28,7 +28,7 @@
   /* Dark Mode - Carbon/Graphite Palette */
   --color-canvas: #18181b;
   /* Zinc-900 - Deep Matte Grey for Background */
-  --color-canvas-alt: rgb(26,26,26);
+  --color-canvas-alt: rgb(26, 26, 26);
   /* Same as canvas for unified background */
   --color-card: #27272a;
   /* Zinc-800 - Lighter Grey for Cards/Sidebar to pop */
@@ -75,7 +75,7 @@ body {
   color: var(--color-text-main);
 }
 
-button{
+button {
   cursor: pointer;
 }
 
@@ -335,13 +335,13 @@ button{
 
 .dashboard-hero__note {
   position: absolute;
-  top: 19%;
-  right: 41%;
+  top: 25%;
+  right: 55%;
   margin: 0;
   transform: rotate(-10deg);
   color: #e0eaff;
   font-family: "Segoe Print", "Bradley Hand", cursive;
-  font-size: clamp(12px, 1.35vw, 16px);
+  font-size: clamp(14px, 1.6vw, 20px);
   font-weight: 600;
   line-height: 1.05;
 }
@@ -358,10 +358,11 @@ button{
 
 .dashboard-hero__robot {
   position: absolute;
+  top: 3%;
   right: 8%;
   bottom: -17px;
-  width: 118px;
-  height: 164px;
+  width: 200px;
+  height: 250px;
   filter: drop-shadow(0 0 18px rgba(42, 149, 255, 0.26));
 }
 
@@ -555,11 +556,13 @@ button{
   opacity: 0;
   transform: translateX(30px);
 }
+
 .wizard-step-enter-active {
   opacity: 1;
   transform: translateX(0);
   transition: opacity 0.3s ease, transform 0.3s ease;
 }
+
 .wizard-step-exit {
   opacity: 0;
   transform: translateX(-30px);
@@ -570,12 +573,22 @@ button{
 .wizard-progress-bar {
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 /* Selected option highlight pulse */
 @keyframes option-select {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.02); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
+
 .wizard-option-selected {
   animation: option-select 0.2s ease;
 }

@@ -29,10 +29,10 @@ const DashboardLayout = () => {
       <Header />
       <Sidebar activePage={activePage} />
       <div
-        className={`flex-1 flex flex-col transition-[margin-left] duration-300 mt-[4.5rem] ${
-          isDesktop ? (sidebarCollapsed ? "ml-20" : "ml-80") : ""
-        }`}
+        className={`flex-1 flex flex-col transition-[margin-left] duration-300 mt-[4rem] ${isDesktop ? (sidebarCollapsed ? "ml-[72px]" : "ml-[245px]") : ""
+          }`}
       >
+
         <Outlet />
       </div>
     </div>
