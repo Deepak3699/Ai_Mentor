@@ -165,16 +165,17 @@ const Header = () => {
               )}
             </button>
 
-            <div
-              className="flex items-center space-x-2 cursor-pointer"
-              onClick={() => navigate("/dashboard")}
+            <Link
+              to="/dashboard"
+              aria-label="Go to dashboard"
+              className="flex items-center space-x-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:ring-offset-2"
             >
               <img
                 src="/upto.png"
                 alt="UptoSkills Logo"
                 className="h-8 sm:h-10 w-auto"
               />
-            </div>
+            </Link>
           </div>
 
           {/* Action Buttons & Profile */}
