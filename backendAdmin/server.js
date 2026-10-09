@@ -1,9 +1,11 @@
 // backendAdmin/server.js
 import express from "express";
+import http from "node:http";
 import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -36,10 +38,12 @@ app.use(express.urlencoded({ extended: true }));
 // ================= ROUTES =================
 app.use("/api/admin", adminRoutes);
 
-// Health check endpoint
+// Health checks
 app.get("/health", (req, res) => {
   res.status(200).json({ message: "Backend Admin Server is running" });
 });
+
+app.use("/health", healthRoutes);
 
 // ================= 404 HANDLER =================
 app.use((req, res) => {
@@ -67,7 +71,13 @@ const PORT = process.env.PORT || 5001;
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(PORT, () => {
+    const server = http.createServer(app);
+
+    server.requestTimeout = 120_000;
+    server.headersTimeout = 65_000;
+    server.keepAliveTimeout = 60_000;
+
+    server.listen(PORT, () => {
       console.log(
         `✅ Backend Admin Server running on http://localhost:${PORT}`,
       );
@@ -83,3 +93,4 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 export default app;
+

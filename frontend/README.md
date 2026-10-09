@@ -1,6 +1,6 @@
 # AI Mentor — Frontend
 
-The React + Vite frontend for the **AI Mentor** learning platform. It provides a complete student and admin experience including course browsing, AI-powered video lessons, community discussions, analytics, and user account management.
+The React + Vite frontend for the **AI Mentor** learning platform. It provides the learner experience including course browsing, AI-powered video lessons, community discussions, analytics, and user account management.
 
 ---
 
@@ -15,7 +15,7 @@ The React + Vite frontend for the **AI Mentor** learning platform. It provides a
 | 📊 Analytics | Personal learning statistics and progress charts (Recharts) |
 | 🎥 Watched Videos | History of all viewed AI-generated lessons |
 | ⚙️ Settings | Profile management, theme toggle (light/dark), language switching |
-| 🛡️ Admin Panel | Manage courses, lessons, users, and uploaded videos (admin-only) |
+| 🛡️ Admin Handoff | Authorized admins are redirected to the separate `frontendAdmin` application |
 | 🌐 i18n | Multi-language support via `i18next` |
 
 ---
@@ -160,7 +160,9 @@ The app will be available at **http://localhost:5173**.
 | `/analytics` | Learning analytics | Protected |
 | `/watchedvideos` | Watched video history | Protected |
 | `/settings` | Account settings | Protected |
-| `/admin` | Admin panel | Admin only |
+| `/admin` | Redirects authorized admins to `frontendAdmin` dashboard | Admin or superadmin only |
+| `/admin/users` | Redirects authorized admins to `frontendAdmin` users page | Admin or superadmin only |
+| `/admin/courses` | Redirects authorized admins to `frontendAdmin` courses page | Admin or superadmin only |
 
 ---
 

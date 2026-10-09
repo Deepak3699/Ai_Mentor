@@ -1,7 +1,7 @@
 # AI Mentor — Backend Admin Documentation
 
 ## Introduction
-The `backendAdmin` module is an isolated Express.js management service running on Node.js. It acts as the dedicated administrative terminal for the *AI Mentor* platform, providing content moderation, system configuration overrides, analytical metrics aggregation, dynamic schema toggles, database auditing, and validation logic.
+The `backendAdmin` module is an isolated Express.js management service running on Node.js. It acts as the dedicated administrative API for the *AI Mentor* platform, providing course management, user management, discussion moderation, enrollment and payment analytics, notification management, and content reporting.
 
 ---
 
@@ -10,7 +10,7 @@ The `backendAdmin` module is an isolated Express.js management service running o
 ```text
 ┌────────────────────────────────────────────────────────┐
 │                   Admin Dashboard UI                   │
-│               (React Frontend Admin Apps)              │
+│               (React Frontend Admin App)               │
 └───────────────────────────┬────────────────────────────┘
                             │ (Secure Admin Routes)
                             ▼
@@ -39,15 +39,14 @@ The `backendAdmin` module is an isolated Express.js management service running o
 ```text
 backendAdmin/
 ├── config/                  # Database connections & Sequelize management instances
-├── controllers/             # Action managers (dynamic deletes, disabling status updates)
+├── controllers/             # Action managers (course CRUD, user status, moderation)
 ├── middleware/              # Permission checks, logging, and error-handling pipelines
-├── models/                  # Core schemas supporting structural mutations 
-├── routes/                  # Declared endpoint pathways specialized for administrative use
+├── models/                  # Core schemas for Admin, Course, User, Notification, etc.
+├── routes/                  # Declared endpoint pathways for administrative use
 ├── schemas/                 # Zod payload structures ensuring zero corrupt data entries
-├── scripts/                 # Automation protocols (status updates, deletion rules)
+├── scripts/                 # Automation protocols (superadmin seeding)
+├── tests/                   # Automated test suites
 ├── .env.example             # Blueprints for setting local environmental scope variables
-├── add_column.js            # Table schema modification migration runner
-├── list_tables.js           # Structural diagnostic layout utility
 ├── server.js                # Microservice initialization gateway entry point
 └── package.json             # Service metadata and dependencies manifest
 ```
@@ -59,88 +58,204 @@ backendAdmin/
 | Layer | Technology | Description |
 | :--- | :--- | :--- |
 | **Runtime Environment** | Node.js | Server-side execution environment |
-| **Framework** | Express.js v4 | Web routing framework for management configurations |
+| **Framework** | Express.js v5 | Web routing framework for management configurations |
 | **Data Validation** | Zod | Robust schema validation for runtime request filtering |
 | **ORM** | Sequelize v6 | Controls administrative migrations, status checks, and data queries |
 | **Style & Standard** | ESLint v9 | Enforces backend syntax patterns and operational consistency |
 
 ---
 
-## Functional Operations & Control Flow
+## Authorization Levels
 
-### 1. Dynamic Status and Deletion Pipeline
-Instead of applying destructively hard removals across databases, the Admin panel defaults to safe entity visibility state switches:
+All protected routes require a valid `Authorization: Bearer <token>` header issued at login.
 
-```text
-[Dashboard Request Action] ──> [Zod Schema Check] ──> [Admin Middleware Route Gate]
-                                                             │
-                                                             ▼
-[Database Record Mutator] <── [Disable / Soft-Delete] <── [Controller Handler]
-```
-### 2. Live Schema Expansions (`add_column.js` / `list_tables.js`)
-* **`list_tables.js`:** Runs system-level metadata diagnostics against the active relational environment, surfacing indices and structural compositions safely.
-* **`add_column.js`:** A specialized CLI tool providing a secure method for executing database schema alterations dynamically across models without standard migration bottlenecks.
-
----
-
-## API & Route Formats
-
-### Data Integrity Safeguarding (`/schemas`)
-Requests are guarded by **Zod-based structural runtime validation parameters**. Any structural payload misalignment triggers an immediate payload rejection error before touching database layers.
-
-### Administrative Route Control Modules (`/routes`)
-* **Content Management:** Endpoints built to create, update, or deprecate system-wide resources (e.g., managing operational courses, editing lesson components).
-* **System Toggles:** Modules processing custom status checks, feature toggle controls, user visibility restrictions, and platform reporting logs.
+| Middleware | Required Role | Applied To |
+| :--- | :--- | :--- |
+| `protectAdmin` | Any admin | Most read and status-update routes |
+| `superAdminOnly` | `superadmin` role only | Register admin, delete admin, delete course, delete user, update user/admin status |
 
 ---
 
 ## Administrative API Directory
 
-### 1. Course Management APIs (`/api/admin/courses`)
-
-| Method | Endpoint | Administrative Use |
-| :--- | :--- | :--- |
-| **POST** | `/` | **Create New Course:** Initializes a new educational track in the database with title, descriptions, price structures, and category tags. |
-| **PUT** | `/:id` | **Update Course Details:** Overrides existing parameters of a specific course, allowing administrators to modify descriptions, price points, or update the syllabus structure. |
-| **DELETE** | `/:id` | **Toggle Visibility / Archive:** Executes a safe visibility flag switch (soft-delete) to remove the course from the public frontend catalog without wiping historical enrollment metrics. |
-
-### 2. Lesson & Content Orchestration (`/api/admin/lessons`)
-
-| Method | Endpoint | Administrative Use |
-| :--- | :--- | :--- |
-| **POST** | `/` | **Append Lesson Module:** Injects a new instructional step or lesson object into an existing course track. |
-| **PUT** | `/:id` | **Edit Lesson Meta:** Modifies specific lesson criteria, timing, title structures, or underlying text transcripts. |
-| **DELETE** | `/:id` | **Remove Lesson Component:** Detaches a lesson module from a course syllabus path. |
-
-### 3. User & Moderation Controls (`/api/admin/users` & `/api/admin/moderation`)
-
-| Method | Endpoint | Administrative Use |
-| :--- | :--- | :--- |
-| **GET** | `/` | **Audit User Directory:** Pulls the global registration registry to monitor platform signups, access permissions, and account creation timelines. |
-| **PATCH** | `/:id/status` | **Account Access Suspension:** Instantly toggles account access status flags to ban or restrict users violating community guidelines. |
-| **DELETE** | `/comments/:id` | **Forum Content Moderation:** Destructively removes flagged community messages, toxic comments, or spam posts from discussion boards. |
-
-### 4. Metrics & Diagnostics (`/api/admin/analytics` & `/api/admin/system`)
-
-| Method | Endpoint | Administrative Use |
-| :--- | :--- | :--- |
-| **GET** | `/summary` | **Aggregated Analytics Engine:** Computes system-wide performance telemetry, processing total revenue, course completion ratios, active session counts, and signup growth curves. |
-| **GET** | `/db-status` | **Database Schema Health Check:** Executes internal table metadata diagnostics to verify connection integrity and indexes with the relational database layer. |
+All routes are prefixed with `/api/admin`.
 
 ---
+
+### 1. Authentication (`/api/admin`)
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| **POST** | `/login` | Public | Authenticate with email and password; returns a JWT token. |
+| **POST** | `/register` | Superadmin | Create a new admin account (role defaults to `"admin"`). |
+| **GET** | `/profile` | Admin | Return the authenticated admin's own profile. |
+| **POST** | `/logout` | Admin | Invalidate the admin's session token. |
+| **PUT** | `/change-password` | Admin | Update the authenticated admin's password. |
+| **DELETE** | `/:id` | Superadmin | Permanently delete an admin account by ID. |
+
+**Login request body:**
+```json
+{ "email": "admin@example.com", "password": "yourpassword" }
+```
+
+**Login success response:**
+```json
+{
+  "token": "<jwt>",
+  "admin": { "id": 1, "name": "Admin Name", "email": "admin@example.com", "role": "admin" }
+}
+```
+
+---
+
+### 2. Admin User Management (`/api/admin/admins`)
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/admins` | Admin | List all registered admin accounts. |
+| **PATCH** | `/admins/:id/status` | Superadmin | Activate or deactivate an admin account by ID. |
+
+---
+
+### 3. Course Management (`/api/admin/courses`)
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/courses` | Admin | List all courses (all statuses visible). Supports `?search=` query. |
+| **POST** | `/courses` | Admin | Create a new course with `title`, `category`, `priceValue`, `currency`. |
+| **PATCH** | `/courses/:id/status` | Admin (Superadmin for `"deleted"`) | Update a course's status: `"published"`, `"disabled"`, or `"deleted"` (soft-delete — hides from public catalog without removing enrollment history). |
+| **DELETE** | `/courses/:id` | Superadmin | **Permanently hard-delete** a course and cascade-delete its modules and lessons. Warns if students are enrolled; pass `?force=true` to confirm. |
+| **GET** | `/courses/:id/enrollments` | Admin | List enrolled students for a course with pagination (`?page=&limit=`). |
+| **GET** | `/courses/:id/learning` | Admin | Retrieve the full module and lesson syllabus tree for a course. |
+| **POST** | `/courses/:id/generate-syllabus` | Admin | Call the AI service to auto-generate and persist a course syllabus. |
+
+**Create course request body:**
+```json
+{ "title": "React Advanced", "category": "Frontend", "priceValue": 999, "currency": "INR" }
+```
+
+**Course status values:**
+
+| Status | Effect |
+| :--- | :--- |
+| `published` | Visible to students in the public catalog |
+| `disabled` | Hidden from the public catalog; enrollments are preserved |
+| `deleted` | Soft-deleted; hidden from catalog; only superadmin can set this |
+
+> **Note:** `PUT /courses/:id` (full course update) is **not currently implemented**. Use `PATCH /courses/:id/status` to change a course's status.
+
+---
+
+### 4. User Management (`/api/admin/users`)
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/users` | Admin | List all platform user accounts. |
+| **PATCH** | `/users/:id/status` | Superadmin | Update a user's account status (e.g. active/inactive). |
+| **PATCH** | `/users/:id/block` | Superadmin | Toggle a user's blocked state. |
+| **DELETE** | `/users/:id` | Superadmin | Permanently delete a user account. |
+
+---
+
+### 5. Enrollment & Payment Analytics (`/api/admin`)
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/enrollments` | Admin | Aggregated enrollment metrics. Use `?type=stats` (default) for totals or `?type=list` for paginated enrollment records. |
+| **GET** | `/payments` | Admin | Paginated payment transaction history. Supports `?page=`, `?limit=`, and `?search=`. |
+
+**Enrollments stats response (`?type=stats`):**
+```json
+{
+  "success": true,
+  "data": {
+    "totalEnrollments": 120,
+    "totalUsers": 80,
+    "activeUsers": 25,
+    "totalRevenue": 98000,
+    "totalCourses": 10
+  }
+}
+```
+
+---
+
+### 6. Discussion Moderation (`/api/admin/discussions`)
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/discussions` | Admin | List all community posts. Supports `?type=global` or `?type=course` filter. |
+| **PUT** | `/discussions/:id/hide` | Admin | Set a post's `hiddenAt` timestamp to hide it from public view. |
+| **PUT** | `/discussions/:id/unhide` | Admin | Clear a post's `hiddenAt` timestamp to restore public visibility. |
+| **DELETE** | `/discussions/:id` | Admin | Permanently delete a community post. |
+
+---
+
+### 7. Reports (`/api/admin/reports`)
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/reports` | Admin | List all user-submitted content reports, including reporter and post details. |
+
+---
+
+### 8. Course Reports (`/api/admin/course-reports`)
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/course-reports` | Admin | List all course-specific reports. |
+| **PATCH** | `/course-reports/:id` | Admin | Update the status of a course report (`"pending"`, `"resolved"`, `"rejected"`). |
+| **DELETE** | `/course-reports/:id` | Admin | Permanently delete a course report. |
+
+---
+
+### 9. Notifications (`/api/admin/notifications`)
+
+| Method | Endpoint | Auth | Description |
+| :--- | :--- | :--- | :--- |
+| **GET** | `/notifications` | Admin | List the 30 most recent admin notifications. |
+| **PATCH** | `/notifications/mark-all-read` | Admin | Mark all notifications as read. |
+| **PATCH** | `/notifications/:id/read` | Admin | Mark a single notification as read by ID. |
+| **DELETE** | `/notifications/clear` | Admin | Clear all notifications. |
+
+---
+
+## Endpoints Not Currently Implemented
+
+The following capabilities are **planned but not yet active**. They must not be called against the running service:
+
+| Planned Capability | Planned Path | Notes |
+| :--- | :--- | :--- |
+| Full course update | `PUT /courses/:id` | Update course title, price, category, etc. |
+| Lesson CRUD | `POST/PUT/DELETE /lessons` | Add, edit, or remove individual lessons |
+| Analytics summary | `GET /analytics/summary` | Platform-wide revenue and completion metrics |
+| DB status / diagnostics | `GET /system/db-status` | Database health check endpoint |
+
+---
+
 ## Configuration & Local Setup
 
 ### Environment Settings (`.env.example`)
-Create a copy of `.env.example` named `.env` inside the `backendAdmin` folder root:
+Copy `.env.example` to `.env` inside the `backendAdmin` folder:
 
 ```bash
-# PostgreSQL Connection Data Link 
-DATABASE_URL=postgres://admin:password@endpoint.neon.tech/dbname?sslmode=require
-
-# Admin Microservice Variables
+# Server
 PORT=5001
-JWT_ADMIN_SECRET=your_isolated_admin_jwt_secret
+FRONTEND_ADMIN_URL=http://localhost:5174
+AI_SERVICE_URL=http://127.0.0.1:8000
+
+# Authentication
+JWT_SECRET=your_super_secret_jwt_key
+
+# Database (Neon Cloud)
+NEON_DATABASE_URL=postgresql://user:password@host/dbname?sslmode=verify-full&channel_binding=require
+
+# Super Admin Seed credentials (used only by npm run seed:superadmin)
+SUPER_ADMIN_NAME=Super Admin
+SUPER_ADMIN_EMAIL=admin@yourdomain.com
+SUPER_ADMIN_PASSWORD=strong_admin_password
 ```
+
 ### System Installation Instructions
 
 1. **Install Administrative Dependencies:**
@@ -148,12 +263,20 @@ JWT_ADMIN_SECRET=your_isolated_admin_jwt_secret
    cd backendAdmin
    npm install
    ```
-2. **Run Linter Quality Check:**
+
+2. **Seed the Superadmin account** (first-time setup only):
+   ```bash
+   npm run seed:superadmin
+   ```
+
+3. **Run Linter Quality Check:**
    ```bash
    npm run lint
    ```
-3. **Boot Development Environment:**
+
+4. **Boot Development Environment:**
    ```bash
    npm run dev
-The backend administration sub-tier service api gateway maps live directly on `http://localhost:5001`.
+   ```
 
+The backend administration service runs on `http://localhost:5001`.
