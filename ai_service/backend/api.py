@@ -702,14 +702,14 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"❌ TTS Error: {e}")
 
-                if base_filename in job_status:
-                    job_status[base_filename]["status"] = "failed"
-                    if "meta" not in job_status[base_filename]:
-                        job_status[base_filename]["meta"] = {"timestamps": {}}
-                    if "timestamps" not in job_status[base_filename]["meta"]:
-                        job_status[base_filename]["meta"]["timestamps"] = {}
-                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                remove_failed_generation_cache(base_filename)
+            if base_filename in job_status:
+                job_status[base_filename]["status"] = "failed"
+                if "meta" not in job_status[base_filename]:
+                    job_status[base_filename]["meta"] = {"timestamps": {}}
+                if "timestamps" not in job_status[base_filename]["meta"]:
+                    job_status[base_filename]["meta"]["timestamps"] = {}
+                job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            remove_failed_generation_cache(base_filename)
             return
 
         # 5️⃣ Try AI Avatar Video
@@ -913,16 +913,14 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             print("⚠️ Keeping local files on disk as a fallback proxy since Cloudinary upload failed.")
             print("⚠️ Note: These files will remain until the server is restarted or manually cleaned.")
     except Exception as e:
-
-                if base_filename in job_status:
-                    job_status[base_filename]["status"] = "failed"
-                    if "meta" not in job_status[base_filename]:
-                        job_status[base_filename]["meta"] = {"timestamps": {}}
-                    if "timestamps" not in job_status[base_filename]["meta"]:
-                        job_status[base_filename]["meta"]["timestamps"] = {}
-                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                remove_failed_generation_cache(base_filename)
+        if base_filename in job_status:
+            job_status[base_filename]["status"] = "failed"
+            if "meta" not in job_status[base_filename]:
+                job_status[base_filename]["meta"] = {"timestamps": {}}
+            if "timestamps" not in job_status[base_filename]["meta"]:
+                job_status[base_filename]["meta"]["timestamps"] = {}
+            job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        remove_failed_generation_cache(base_filename)
 
         print(f"❌ Error generating lesson: {e}")
-
         traceback.print_exc()
