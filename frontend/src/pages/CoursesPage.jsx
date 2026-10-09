@@ -9,6 +9,29 @@ import ReportModal from "../components/common/ReportModal";
 import toast from "react-hot-toast";
 import { AlertTriangle } from "lucide-react";
 import FloatingAssistant from "../components/common/FloatingAssistant";
+import RecommendedForYou from "../components/RecommendedForYou";
+import { SiJavascript, SiDocker, SiGithub } from "react-icons/si";
+
+const recommendedCourses = [
+    {
+        id: "javascript",
+        title: "JavaScript",
+        level: "Beginner",
+        icon: "🟨",
+    },
+    {
+        id: "docker",
+        title: "Docker",
+        level: "Intermediate",
+        icon: "🐳",
+    },
+    {
+        id: "git",
+        title: "Git & GitHub",
+        level: "Beginner",
+        icon: "🐙",
+    },
+];
 
 const CoursesPage = () => {
     const { t } = useTranslation();
@@ -901,12 +924,14 @@ const CoursesPage = () => {
 
                     {/* ================= MY COURSES ================= */}
                     {activeTab === "my-courses" && (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-4 auto-rows-fr
-">
-
-
-
-
+                        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-6 items-start">
+                            <aside className="space-y-6 xl:col-start-2 xl:row-start-1">
+                                <RecommendedForYou
+                                    items={recommendedCourses}
+                                    onViewAll={() => setActiveTab("explore")}
+                                />
+                            </aside>
+                            
                             {myCourses.length === 0 && (
                                 <p className="text-slate-500">
                                     {t("courses.not_enrolled")}
