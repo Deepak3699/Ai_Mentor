@@ -123,3 +123,18 @@ def test_real_generation_failure_clears_cache_and_allows_retry():
     retry = generate(make_request())
     assert retry["cached"] is False
     assert retry["jobId"] != failed_job_id
+
+
+def test_force_regeneration_does_not_replace_normal_cache_entry():
+    normal = generate(make_request())
+    forced = api.generate_lesson(
+        make_request(),
+        BackgroundTasks(),
+        force=True,
+    )
+    cached = generate(make_request())
+
+    assert forced["cached"] is False
+    assert forced["jobId"] != normal["jobId"]
+    assert cached["cached"] is True
+    assert cached["jobId"] == normal["jobId"]
