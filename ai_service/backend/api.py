@@ -280,7 +280,7 @@ def generate_syllabus(data: SyllabusRequest):
 
         try:
             groq_response = groq_client.chat.completions.create(
-                model="openai/gpt-oss-120b",
+                model="llama-3.3-70b-versatile",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=1000,
@@ -407,7 +407,7 @@ def generate_quiz(data: QuizRequest):
                 print("⚡ Trying Groq fallback...")
 
                 groq_response = groq_client.chat.completions.create(
-                    model="openai/gpt-oss-120b",
+                    model="llama-3.3-70b-versatile",
                     messages=[
                         {"role": "user", "content": prompt}
                     ],
@@ -603,7 +603,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 print("⚡ Switching to Groq fallback...")
 
                 groq_response = groq_client.chat.completions.create(
-                    model="openai/gpt-oss-120b",
+                    model="llama-3.3-70b-versatile",
                     messages=[
                         {
                             "role": "user",

@@ -6,7 +6,7 @@ load_dotenv()
 
 # Required: Primary AI provider
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 # Optional: Fallback AI provider
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
