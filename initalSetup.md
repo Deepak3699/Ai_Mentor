@@ -253,7 +253,7 @@ this order** — `backend` must come first because it creates the database table
 | 2 | frontend | `cd frontend && npm run dev` |
 | 3 | backendAdmin | `cd backendAdmin && npm run dev` |
 | 4 | frontendAdmin | `cd frontendAdmin && npm run dev` |
-| 5 | ai_service | `cd ai_service/backend && uvicorn api:app --reload --port 8000` |
+| 5 | ai_service | `cd ai_service/backend && python graceful_server.py` |
 
 > **The AI service must be started from `ai_service/backend`, not from
 > `ai_service`.** The code imports `config` directly and loads `.env` from the

@@ -145,7 +145,7 @@ The video is looped silently and merged with the TTS audio.
 
 # From the ai_service/ directory:
 cd backend
-uvicorn api:app --reload --port 8000
+python graceful_server.py
 ```
 
 The service will be available at **http://localhost:8000**.

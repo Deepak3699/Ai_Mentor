@@ -6,6 +6,7 @@ import asyncio
 import logging
 import subprocess
 from contextlib import asynccontextmanager
+from job_shutdown import wait_for_jobs_to_finish
 import edge_tts
 import cloudinary
 import cloudinary.uploader
@@ -79,8 +80,19 @@ def check_ffmpeg() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global shutting_down
+
     check_ffmpeg()
+    shutting_down = False
     yield
+
+    shutting_down = True
+    await wait_for_jobs_to_finish(
+        active_jobs=active_jobs,
+        job_status=job_status,
+        shutdown_failed_jobs=shutdown_failed_jobs,
+        timeout_seconds=0,
+    )
 
 
 app = FastAPI(
@@ -397,6 +409,9 @@ def generate_quiz(data: QuizRequest):
 
 job_status = {}
 generation_cache = {}
+active_jobs = set()
+shutdown_failed_jobs = set()
+shutting_down = False
 
 @app.post("/generate")
 def generate_lesson(
@@ -404,6 +419,11 @@ def generate_lesson(
     background_tasks: BackgroundTasks,
     force: bool = False,
 ):
+    if shutting_down:
+        raise HTTPException(
+            status_code=503,
+            detail="Service is shutting down; new jobs are not accepted.",
+        )
 
     cache_data = "|".join([
         data.course,
@@ -455,7 +475,8 @@ def generate_lesson(
     generation_cache[cache_key] = base_filename
     job_status[base_filename] = {"status": "processing"}
 
-    background_tasks.add_task(process_lesson, data, base_filename)
+    active_jobs.add(base_filename)
+    background_tasks.add_task(run_tracked_lesson, data, base_filename)
 
     return {
         "status": "Processing",
@@ -470,6 +491,13 @@ def generate_lesson(
 # --------------------------
 # Background Task Logic
 # --------------------------
+def run_tracked_lesson(data: LessonRequest, base_filename: str):
+    try:
+        process_lesson(data, base_filename)
+    finally:
+        active_jobs.discard(base_filename)
+
+
 def process_lesson(data: LessonRequest, base_filename: str):
 
     print("\n📥 RAW REQUEST DATA:")
@@ -556,9 +584,10 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
                 print(f"❌ Groq also failed: {groq_error}")
 
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                if base_filename not in shutdown_failed_jobs:
+                    job_status[base_filename] = {
+                        "status": "failed"
+                    }
 
                 return
 
@@ -607,9 +636,10 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"❌ TTS Error: {e}")
 
-            job_status[base_filename] = {
-                "status": "failed"
-            }
+            if base_filename not in shutdown_failed_jobs:
+                job_status[base_filename] = {
+                    "status": "failed"
+                }
             return
 
         # 5️⃣ Try AI Avatar Video
@@ -646,9 +676,10 @@ def process_lesson(data: LessonRequest, base_filename: str):
                 print(
                     f"❌ Fallback video not found at {input_video}"
                 )
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                if base_filename not in shutdown_failed_jobs:
+                    job_status[base_filename] = {
+                        "status": "failed"
+                    }
                 return
 
             ffmpeg_command = (
@@ -667,9 +698,10 @@ def process_lesson(data: LessonRequest, base_filename: str):
                     "❌ FFmpeg fallback failed — "
                     f"video not found at {final_video}"
                 )
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+                if base_filename not in shutdown_failed_jobs:
+                    job_status[base_filename] = {
+                        "status": "failed"
+                    }
                 return
 
             print("✅ FFmpeg fallback video created.")
@@ -702,11 +734,12 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
         local_video_url = f"/video-stream/{base_filename}.mp4"
 
-        job_status[base_filename] = {
-            "status": "ready",
-            "cloudinary_url": cloudinary_url,
-            "local_video_url": local_video_url,
-        }
+        if base_filename not in shutdown_failed_jobs:
+            job_status[base_filename] = {
+                "status": "ready",
+                "cloudinary_url": cloudinary_url,
+                "local_video_url": local_video_url,
+            }
 
         print(f"✅ Lesson ready!")
         print(f"   Video : {final_video}")
@@ -729,9 +762,10 @@ def process_lesson(data: LessonRequest, base_filename: str):
             print("⚠️ Note: These files will remain until the server is restarted or manually cleaned.")
     except Exception as e:
 
-        job_status[base_filename] = {
-            "status": "failed"
-        }
+        if base_filename not in shutdown_failed_jobs:
+            job_status[base_filename] = {
+                "status": "failed"
+            }
 
         print(f"❌ Error generating lesson: {e}")
 

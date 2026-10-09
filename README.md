@@ -63,7 +63,7 @@ pip install -r backend/requirements.txt
 cp backend/.env.example backend/.env
 # Fill in Gemini and Cloudinary keys in .env
 cd backend
-uvicorn api:app --reload --port 8000
+python graceful_server.py
 ```
 > See [`ai_service/README.md`](./ai_service/README.md) for full setup guide.
 
@@ -123,7 +123,7 @@ cd frontend && npm run dev
 
 # Terminal 3 — AI Service
 
-cd ai_service && .\venv\Scripts\activate && cd backend && uvicorn api:app --reload --port 8000
+cd ai_service && .\venv\Scripts\activate && cd backend && python graceful_server.py
 
 OR 
 
