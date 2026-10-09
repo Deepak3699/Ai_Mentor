@@ -1,9 +1,17 @@
+import { apiFetch as fetch } from "../lib/api";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getAIVideo } from "../service/aiService";
+import {
+  AIGenerationError,
+  classifyGenerationError,
+  fetchTranscript,
+  isAbortError,
+  pollAIVideoStatus,
+} from "../service/aiGeneration";
 import VideoPlayer from "../components/video/VideoPlayer";
 import AITranscript from "../components/video/AITranscript";
 import toast from "react-hot-toast";
@@ -25,6 +33,8 @@ import {
   User,
   X,
   Sparkles,
+  RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 
 export default function Learning() {
@@ -60,6 +70,8 @@ export default function Learning() {
   const [aiVideoUrl, setAiVideoUrl] = useState(null);
   const [isAIVideoLoading, setIsAIVideoLoading] = useState(false);
   const [generatedTextContent, setGeneratedTextContent] = useState("");
+  const [aiGenerationError, setAiGenerationError] = useState(null);
+  const [generationAttempt, setGenerationAttempt] = useState(0);
 
   const videoRef = useRef(null);
   const playerContainerRef = useRef(null);
@@ -71,6 +83,10 @@ export default function Learning() {
   const hasRestoredProgressRef = useRef(false);
   const jumpToTimeRef = useRef(null);
   const lastSavedTimeRef = useRef(0);
+  const generationRequestIdRef = useRef(0);
+  const userRef = useRef(user);
+
+  userRef.current = user;
 
   // Auto-scroll transcript
   useEffect(() => {
@@ -260,194 +276,166 @@ export default function Learning() {
     }
   }, [selectedCelebrity, generatedTextContent, learningData?.currentLesson?.id]);
 
+  const handleRetryGeneration = () => {
+    setAiGenerationError(null);
+    setGenerationAttempt((attempt) => attempt + 1);
+  };
+
   // Load video on lesson/celebrity change
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !learningData?.currentLesson) return;
 
+    if (!selectedCelebrity) {
+      // No generation flow for this selection. A cancelled flow no longer clears
+      // the loading flag itself, and forgetting the celebrity lets re-selecting
+      // the same one start a fresh generation.
+      lastCelebrityRef.current = null;
+      setIsAIVideoLoading(false);
+      setAiGenerationError(null);
+      return;
+    }
+
     const lessonChanged = lastLessonIdRef.current !== learningData.currentLesson.id;
     const celebrityChanged = lastCelebrityRef.current !== selectedCelebrity;
     if (!lessonChanged && !celebrityChanged && v.src) return;
 
+    const requestId = ++generationRequestIdRef.current;
     lastLessonIdRef.current = learningData.currentLesson.id;
     lastCelebrityRef.current = selectedCelebrity;
+
+    // One controller per generation flow. The cleanup below aborts it when the
+    // lesson/celebrity changes or the page unmounts, which cancels the pending
+    // poll delay and any in-flight generate/status/transcript request.
+    const controller = new AbortController();
+    const { signal } = controller;
+    const isStale = () => signal.aborted || requestId !== generationRequestIdRef.current;
+    let finished = false;
+
+    const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem("token")}` });
+
+    // Loads the transcript; resolves to false when this flow went stale.
+    const loadTranscript = async (transcriptName) => {
+      try {
+        const transcript = await fetchTranscript(transcriptName, (name) =>
+          fetch(`/api/ai/transcript/${name}`, { headers: authHeaders(), signal })
+        );
+        if (isStale()) return false;
+        setGeneratedTextContent(transcript);
+      } catch (error) {
+        if (isStale() || isAbortError(error)) return false;
+        if (error instanceof AIGenerationError) {
+          setAiGenerationError({
+            type: error.type,
+            message: "The video is ready, but its transcript is unavailable.",
+            retryable: false,
+            details: error,
+          });
+        }
+        console.error("Transcript loading failed:", error);
+      }
+      return true;
+    };
 
     const loadVideo = async () => {
       setCaptions([]);
       setActiveCaption("");
+      setAiGenerationError(null);
+      setGeneratedTextContent("");
+      setAiVideoUrl(null);
+      setIsPlaying(false);
+      setIsAIVideoLoading(true);
 
-      if (selectedCelebrity) {
-        const savedData = user?.purchasedCourses
-          ?.find((c) => c.courseId === parseInt(courseId))
-          ?.progress?.lessonData?.[learningData.currentLesson.id];
+      const savedData = userRef.current?.purchasedCourses
+        ?.find((c) => c.courseId === parseInt(courseId))
+        ?.progress?.lessonData?.[learningData.currentLesson.id];
+      const hasSavedMatchingContent =
+        savedData?.celebrity === selectedCelebrity && savedData?.generatedTextContent;
 
-        const hasSavedMatchingContent =
-          savedData?.celebrity === selectedCelebrity && savedData?.generatedTextContent;
+      if (hasSavedMatchingContent) {
+        finished = true;
+        setGeneratedTextContent(savedData.generatedTextContent);
+        setAiVideoUrl(savedData.aiVideoUrl);
+        setIsAIVideoLoading(false);
+        return;
+      }
 
-        if (hasSavedMatchingContent) {
-          if (!aiVideoUrl) {
-            setGeneratedTextContent(savedData.generatedTextContent);
-            setAiVideoUrl(savedData.aiVideoUrl);
-          }
-          setIsPlaying(false);
+      try {
+        const payload = {
+          courseId: parseInt(courseId),
+          lessonId: learningData.currentLesson.id,
+          celebrity: selectedCelebrity.split(" ")[0].toLowerCase(),
+        };
+        const data = await getAIVideo(payload, { signal });
+        if (isStale()) return;
+
+        if (data?.cached && data?.videoUrl) {
+          setAiVideoUrl(data.videoUrl);
+          if (data.transcriptName && !(await loadTranscript(data.transcriptName))) return;
+          setIsPlaying(true);
+          await saveLessonData(learningData.currentLesson.id, {
+            generatedTextContent: "",
+            aiVideoUrl: data.videoUrl,
+            celebrity: selectedCelebrity,
+          });
           return;
         }
 
-        setIsAIVideoLoading(true);
-        setGeneratedTextContent("");
-        setAiVideoUrl(null);
-
-        try {
-  const payload = {
-    courseId: parseInt(courseId),
-    lessonId: learningData.currentLesson.id,
-    celebrity: selectedCelebrity.split(" ")[0].toLowerCase(),
-  };
-
-          const data = await getAIVideo(payload);
-          console.log("AI RESPONSE =", data);
-
-          if (data?.jobId || data?.videoUrl || data?.cloudinary_url) {
-            let isReady = data.cached || false;
-            let attempts = 0;
-
-           if (!isReady) {
-  while (!isReady && attempts < 60) {
-    const statusRes = await fetch(`/api/ai/status/${data.jobId}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    });
-
-    const statusData = await statusRes.json();
-
-    console.log("STATUS DATA =", statusData);
-
-    if (statusData.status === "ready") {
-      isReady = true;
-
-      if (statusData.cloudinary_url || statusData.local_video_url) {
-        data.videoUrl = statusData.cloudinary_url || statusData.local_video_url;
-      }
-
-      break;
-    }
-    if (statusData.status === "failed") {
-      throw new Error("Video generation failed.");
-    }
-
-    attempts++;
-
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  }
-}
-
-  // CASE 1: cached video — videoUrl is already available
-  if (data?.cached && data?.videoUrl) {
-    setAiVideoUrl(data.videoUrl);
-
-    if (data.transcriptName) {
-      try {
-        const trRes = await fetch(`/api/ai/transcript/${data.transcriptName}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        });
-        if (trRes.ok) {
-          const trData = await trRes.json();
-          setGeneratedTextContent(trData.content);
+        if (!data?.jobId) {
+          throw new AIGenerationError("invalid_response", "The AI service returned no job ID.", { retryable: true });
         }
-      } catch (trErr) {
-        console.error("Transcript error:", trErr);
-      }
-    }
 
-            setAiVideoUrl(data.videoUrl || data.cloudinary_url);
-    setIsPlaying(true);
-    saveLessonData(learningData.currentLesson.id, {
-      generatedTextContent: "",
-      aiVideoUrl: data.videoUrl,
-      celebrity: selectedCelebrity,
-    });
-    return;
-  }
+        const result = await pollAIVideoStatus({
+          jobId: data.jobId,
+          signal,
+          fetchStatus: (jobId) =>
+            fetch(`/api/ai/status/${jobId}`, { headers: authHeaders(), signal }),
+        });
 
-  // CASE 2: new job — poll status until ready
-  const jobId = data?.jobId;
-  if (!jobId) throw new Error("No jobId returned from server.");
+        if (isStale()) return;
+        setAiVideoUrl(result.videoUrl);
 
-  let finalVideoUrl = null;
-  let finalTranscriptName = data?.transcriptName || null;
-  attempts = 0;
+        if (result.transcriptName && !(await loadTranscript(result.transcriptName))) return;
 
-  while (attempts < 120) {
-    await new Promise((r) => setTimeout(r, 1000));
-
-    const statusRes = await fetch(`/api/ai/status/${jobId}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-    });
-    const statusData = await statusRes.json();
-
-    if (statusData.status === "ready") {
-      finalVideoUrl = statusData.cloudinary_url || statusData.local_video_url || null;
-      if (statusData.transcript_name) finalTranscriptName = statusData.transcript_name;
-      break;
-    }
-
-    if (statusData.status === "failed") {
-      throw new Error("Video generation failed.");
-    }
-
-    attempts++;
-  }
-
-  if (!finalVideoUrl) throw new Error("Video generation timed out or no URL returned.");
-
-  // Guard: user may have navigated away
-  if (
-    lastLessonIdRef.current !== learningData.currentLesson.id ||
-    lastCelebrityRef.current !== selectedCelebrity
-  ) return;
-
-  setAiVideoUrl(finalVideoUrl);
-
-  if (finalTranscriptName) {
-    try {
-      const trRes = await fetch(`/api/ai/transcript/${finalTranscriptName}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
-      if (trRes.ok) {
-        const trData = await trRes.json();
-        setGeneratedTextContent(trData.content);
-      }
-    } catch (trErr) {
-      console.error("Transcript error:", trErr);
-    }
-  }
-
-  setIsPlaying(true);
-  saveLessonData(learningData.currentLesson.id, {
-    generatedTextContent: "",
-    aiVideoUrl: finalVideoUrl,
-    celebrity: selectedCelebrity,
-  });
-}
-} catch (error) {
-  console.error("AI video error:", error);
-  setGeneratedTextContent("");
-  setAiVideoUrl(null);
-  setIsPlaying(false);
-} finally {
-  setIsAIVideoLoading(false);
-}
-      } else {
-        setIsAIVideoLoading(false);
-        setGeneratedTextContent("");
-        setAiVideoUrl(null);
-        setIsPlaying(false);
+        setIsPlaying(true);
+        await saveLessonData(learningData.currentLesson.id, {
+          generatedTextContent: "",
+          aiVideoUrl: result.videoUrl,
+          celebrity: selectedCelebrity,
+        });
+      } catch (error) {
+        // Cancelled flows (navigation, lesson/celebrity switch) are expected: stay silent.
+        if (isStale() || isAbortError(error)) return;
+        const generationError = classifyGenerationError(error);
+        setAiGenerationError({
+          type: generationError.type,
+          message: generationError.message,
+          retryable: generationError.retryable,
+          details: generationError.details,
+        });
+        console.error("AI video generation failed:", {
+          type: generationError.type,
+          message: generationError.message,
+          details: generationError.details,
+        });
+      } finally {
+        finished = true;
+        // Only the latest flow may touch the loading flag.
+        if (!isStale()) setIsAIVideoLoading(false);
       }
     };
 
     loadVideo();
-  }, [learningData?.currentLesson?.id, selectedCelebrity]);
+    return () => {
+      generationRequestIdRef.current += 1;
+      // A flow cut short never produced a result, so let the next run start fresh.
+      if (!finished) {
+        lastLessonIdRef.current = null;
+        lastCelebrityRef.current = null;
+      }
+      controller.abort();
+    };
+  }, [courseId, generationAttempt, learningData?.currentLesson?.id, selectedCelebrity]);
 
   // Fullscreen change handler
   useEffect(() => {
@@ -1023,6 +1011,32 @@ export default function Learning() {
               toggleFullscreen={toggleFullscreen}
               formatTime={formatTime}
             />
+
+            {aiGenerationError && (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900 shadow-sm dark:border-red-900 dark:bg-red-950/40 dark:text-red-200" role="alert">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{aiGenerationError.message}</p>
+                    {aiGenerationError.type === "transcript" && (
+                      <p className="mt-1 text-xs text-red-700 dark:text-red-300">
+                        The video remains available, but the transcript could not be loaded.
+                      </p>
+                    )}
+                    {aiGenerationError.retryable && (
+                      <button
+                        type="button"
+                        onClick={handleRetryGeneration}
+                        className="mt-3 inline-flex items-center gap-2 rounded-lg bg-red-700 px-3 py-2 font-medium text-white transition hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Try again
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ── Keyboard Shortcuts Hint ── */}
             <div className="flex flex-wrap gap-2 my-3 text-xs text-muted">
