@@ -42,9 +42,11 @@ jobs:
       - name: Run ESLint
         working-directory: backend
         run: npm run lint
-
+      
       - name: Run tests
         working-directory: backend
+        env:
+          NODE_ENV: test
         run: npm test
 
   # ─────────────────────────────────────────────────────────────
