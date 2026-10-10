@@ -4,7 +4,6 @@ import multer from "multer";
 import path from "path";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
-import { registerSchema, loginSchema } from "../schemas/authSchema.js";
 import {
   updateProfileSchema,
   changePasswordSchema,
@@ -15,8 +14,6 @@ import {
 } from "../schemas/userSchema.js";
 
 import {
-  registerUser,
-  loginUser,
   getUserProfile,
   updateUserProfile,
   purchaseCourse,
@@ -43,11 +40,6 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
-
-/* ---------- AUTH ROUTES ---------- */
-
-router.post("/register", validate(registerSchema), registerUser);
-router.post("/login", validate(loginSchema), loginUser);
 
 /* ---------- FIRST-TIME ONBOARDING ---------- */
 // Accepts avatar via multipart form data, requires JWT auth

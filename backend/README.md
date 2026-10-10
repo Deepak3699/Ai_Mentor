@@ -58,7 +58,7 @@ backend/
 │   └── User.js                  # User model (with bcrypt hooks)
 ├── routes/
 │   ├── auth.js                  # /api/auth — register, login, Google auth, password reset
-│   ├── userRoutes.js            # /api/users — profile, avatar, course purchases
+│   ├── userRoutes.js            # /api/users — profile, avatar, settings, course purchases
 │   ├── courseRoutes.js          # /api/courses — course catalogue, lesson data
 │   ├── aiRoutes.js              # /api/ai — AI video generation proxy & transcripts
 │   ├── communityRoutes.js       # /api/community — community posts
