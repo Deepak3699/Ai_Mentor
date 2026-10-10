@@ -54,6 +54,16 @@ const sendMessage = async () => {
 
   const userMessage = input;
 
+  // Earlier turns give the assistant conversation memory.
+  // Skip the greeting (first message) and error bubbles; the server also caps the length.
+  const history = messages
+    .slice(1)
+    .filter((msg) => !msg.isError)
+    .map((msg) => ({
+      role: msg.sender === "user" ? "user" : "model",
+      text: msg.text,
+    }));
+
   setMessages((prev) => [
     ...prev,
     {
@@ -73,6 +83,7 @@ const sendMessage = async () => {
       "/api/assistant/chat",
       {
         message: userMessage,
+        history,
       },
       {
         headers: {
@@ -99,6 +110,7 @@ const sendMessage = async () => {
         text:
           error?.response?.data?.message ||
           "Sorry, something went wrong.",
+        isError: true,
       },
     ]);
   } finally {
