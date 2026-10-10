@@ -32,6 +32,7 @@
     "pdf-lib": "^1.17.1",
     "pg": "^8.18.0",
     "pg-hstore": "^2.3.4",
+    "pino": "^10.4.0",
     "razorpay": "^2.9.6",
     "sequelize": "^6.37.8",
     "stripe": "^21.0.1",
@@ -41,6 +42,7 @@
     "@eslint/js": "^10.0.1",
     "eslint": "^10.1.0",
     "globals": "^17.4.0",
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.11",
+    "pino-pretty": "^13.2.0"
   }
 }
