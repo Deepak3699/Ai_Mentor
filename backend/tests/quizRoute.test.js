@@ -13,9 +13,27 @@ const { default: User } = await import("../models/User.js");
 const { default: Lesson } = await import("../models/Lesson.js");
 const { default: LessonContent } = await import("../models/LessonContent.js");
 const { default: QuizSession } = await import("../models/QuizSession.js");
+const { mock } = await import("node:test");
+
+mock.module("../queues/videoQueue.js", {
+  exports: {
+    videoQueue: {
+      add: async () => ({ id: "mock-video-job" }),
+    },
+  },
+});
+
 const { default: aiRoutes } = await import("../routes/aiRoutes.js");
 
 const USERS = {
+  2: {
+    id: 2,
+    role: "user",
+    purchasedCourses: [],
+    set(key, value) { this[key] = value; },
+    changed() {},
+    async save() {},
+  },
   1: {
     id: 1,
     role: "user",
@@ -75,11 +93,13 @@ const originals = {
   lessonFindByPk: Lesson.findByPk,
   sessionCreate: QuizSession.create,
   sessionFindOne: QuizSession.findOne,
+  sessionUpdate: QuizSession.update,
 };
 
 let server;
 let baseUrl;
 let createdSession;
+let lastSessionLookup;
 
 before(async () => {
   User.findByPk = async (id) => USERS[id] ?? null;
@@ -110,7 +130,36 @@ before(async () => {
     return createdSession;
   };
 
-  QuizSession.findOne = async () => createdSession ?? null;
+  QuizSession.findOne = async ({ where } = {}) => {
+    lastSessionLookup = where;
+    if (!createdSession || !where) return null;
+    const matches =
+      String(createdSession.id) === String(where.id) &&
+      String(createdSession.userId) === String(where.userId) &&
+      Number(createdSession.courseId) === Number(where.courseId) &&
+      Number(createdSession.lessonId) === Number(where.lessonId) &&
+      where.submittedAt === null &&
+      createdSession.submittedAt === null;
+    return matches ? createdSession : null;
+  };
+
+  QuizSession.update = async (values, options = {}) => {
+    const where = options.where ?? {};
+    const matches =
+      createdSession !== null &&
+      createdSession !== undefined &&
+      String(createdSession.id) === String(where.id) &&
+      String(createdSession.userId) === String(where.userId) &&
+      Number(createdSession.courseId) === Number(where.courseId) &&
+      Number(createdSession.lessonId) === Number(where.lessonId) &&
+      createdSession.submittedAt === null;
+
+    if (!matches) return [0];
+
+    Object.assign(createdSession, values);
+    createdSession.saved = true;
+    return [1];
+  };
 
   globalThis.fetch = async (url, options) => {
     if (String(url) === `${process.env.AI_SERVICE_URL}/generate-quiz`) {
@@ -143,6 +192,7 @@ after(async () => {
   Lesson.findByPk = originals.lessonFindByPk;
   QuizSession.create = originals.sessionCreate;
   QuizSession.findOne = originals.sessionFindOne;
+  QuizSession.update = originals.sessionUpdate;
   globalThis.fetch = realFetch;
 
   await new Promise((resolve) => server.close(resolve));
@@ -289,4 +339,74 @@ test("submit-quiz rejects an already submitted session", async () => {
   });
 
   assert.equal(response.status, 404);
+});
+
+
+test("submit-quiz scopes session lookup to owner, course, lesson, and unused status", async () => {
+  createdSession = {
+    id: "ownership-session",
+    userId: 1,
+    courseId: 1,
+    lessonId: 10,
+    difficulty: "intermediate",
+    expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+    submittedAt: null,
+    questions: QUIZ.questions,
+  };
+
+  const response = await realFetch(`${baseUrl}/api/ai/submit-quiz`, {
+    method: "POST",
+    headers: authHeaders(2),
+    body: JSON.stringify({
+      courseId: 1,
+      lessonId: 10,
+      quizSessionId: "ownership-session",
+      answers: [0, 0, 0, 0],
+    }),
+  });
+
+  assert.equal(response.status, 404);
+  assert.deepEqual(lastSessionLookup, {
+    id: "ownership-session",
+    userId: 2,
+    courseId: 1,
+    lessonId: 10,
+    submittedAt: null,
+  });
+  assert.equal(createdSession.submittedAt, null);
+});
+
+test("submit-quiz prevents concurrent submissions of the same session", async () => {
+  createdSession = {
+    id: "concurrent-session",
+    userId: 1,
+    courseId: 1,
+    lessonId: 10,
+    difficulty: "intermediate",
+    expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+    submittedAt: null,
+    questions: QUIZ.questions,
+  };
+  USERS[1].purchasedCourses[0].progress.quizHistory = [];
+
+  const submit = () => realFetch(`${baseUrl}/api/ai/submit-quiz`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: JSON.stringify({
+      courseId: 1,
+      lessonId: 10,
+      quizSessionId: "concurrent-session",
+      answers: [0, 1, 2, 0],
+    }),
+  });
+
+  const responses = await Promise.all([submit(), submit()]);
+  const statuses = responses.map((response) => response.status).sort();
+
+  assert.deepEqual(statuses, [200, 404]);
+  assert.ok(createdSession.submittedAt instanceof Date);
+  assert.equal(
+    USERS[1].purchasedCourses[0].progress.quizHistory.length,
+    1
+  );
 });

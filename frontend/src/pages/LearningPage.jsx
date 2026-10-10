@@ -2,7 +2,7 @@ import { apiFetch as fetch } from "../lib/api";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getAIVideo } from "../service/aiService";
 import {
@@ -38,6 +38,7 @@ import {
 
 export default function Learning() {
   const { t } = useTranslation();
+  const location = useLocation();
   const navigate = useNavigate();
   const { id: courseId } = useParams();
   const { user, updateUser } = useAuth();
@@ -90,6 +91,7 @@ export default function Learning() {
   const jumpToTimeRef = useRef(null);
   const lastSavedTimeRef = useRef(0);
   const generationRequestIdRef = useRef(0);
+  const quizRequestIdRef = useRef(0);
   const userRef = useRef(user);
 
   userRef.current = user;
@@ -472,13 +474,6 @@ export default function Learning() {
   const allLessons = (modules || []).flatMap((module) => module.lessons || []);
   const currentLessonIndex = allLessons.findIndex((lesson) => lesson.id === currentLesson?.id);
 
-  // Generate an adaptive quiz whenever the active lesson changes.
-  useEffect(() => {
-    if (!currentLesson?.id) return;
-
-    generateAdaptiveQuiz(currentLesson.id);
-  }, [currentLesson?.id]);
-
   // ─── Helper functions ───
   const saveLessonData = async (lessonId, data) => {
     try {
@@ -506,8 +501,9 @@ export default function Learning() {
     }
   };
 
-  const generateAdaptiveQuiz = async (lessonId) => {
+  const generateAdaptiveQuiz = useCallback(async (lessonId) => {
     if (!lessonId) return;
+    const requestId = ++quizRequestIdRef.current;
 
     setIsQuizLoading(true);
     setQuizError(null);
@@ -535,14 +531,22 @@ export default function Learning() {
         throw new Error(data?.message || "Failed to generate quiz");
       }
 
-      setQuiz(data);
+      if (requestId === quizRequestIdRef.current) setQuiz(data);
     } catch (error) {
       console.error("Quiz generation failed:", error);
-      setQuizError(error.message || "Failed to generate quiz");
+      if (requestId === quizRequestIdRef.current) {
+        setQuizError(error.message || "Failed to generate quiz");
+      }
     } finally {
-      setIsQuizLoading(false);
+      if (requestId === quizRequestIdRef.current) setIsQuizLoading(false);
     }
-  };
+  }, [courseId]);
+
+  // Generate an adaptive quiz whenever the active lesson changes.
+  useEffect(() => {
+    if (!currentLesson?.id) return;
+    generateAdaptiveQuiz(currentLesson.id);
+  }, [currentLesson?.id, generateAdaptiveQuiz]);
 
   const handleQuizAnswer = (questionIndex, answerIndex) => {
     if (quizResult) return;
@@ -561,6 +565,7 @@ export default function Learning() {
       return;
     }
 
+    const requestId = ++quizRequestIdRef.current;
     setIsQuizLoading(true);
     setQuizError(null);
 
@@ -588,12 +593,14 @@ export default function Learning() {
         throw new Error(data?.message || "Failed to submit quiz");
       }
 
-      setQuizResult(data);
+      if (requestId === quizRequestIdRef.current) setQuizResult(data);
     } catch (error) {
       console.error("Quiz submission failed:", error);
-      setQuizError(error.message || "Failed to submit quiz");
+      if (requestId === quizRequestIdRef.current) {
+        setQuizError(error.message || "Failed to submit quiz");
+      }
     } finally {
-      setIsQuizLoading(false);
+      if (requestId === quizRequestIdRef.current) setIsQuizLoading(false);
     }
   };
 

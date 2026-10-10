@@ -1,3 +1,4 @@
+import { getQuizDifficulty, getWeakTopics } from "../utils/quizDifficulty.js";
 import AIVideo from "../models/AIVideo.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
@@ -22,30 +23,6 @@ dotenv.config();
 
 const router = express.Router();
 
-
-const getQuizDifficulty = (quizHistory = []) => {
-  if (!quizHistory.length) return "intermediate";
-
-  const recentAttempt = quizHistory[quizHistory.length - 1];
-  const score = Number(recentAttempt.score);
-
-  if (!Number.isFinite(score)) return "intermediate";
-
-  if (score < 50) return "beginner";
-  if (score <= 80) return "intermediate";
-  return "advanced";
-};
-
-const getWeakTopics = (quizHistory = []) => {
-  return [
-    ...new Set(
-      quizHistory
-        .slice(-3)
-        .flatMap((attempt) => Array.isArray(attempt.weakTopics) ? attempt.weakTopics : [])
-        .filter(Boolean)
-    ),
-  ].slice(0, 10);
-};
 
 const getPurchasedCourse = (user, courseId) => {
   return (user.purchasedCourses || []).find(
@@ -285,6 +262,26 @@ router.post("/submit-quiz", protect, validate(submitQuizSchema), async (req, res
       attemptedAt: new Date().toISOString(),
     };
 
+    const submittedAt = new Date();
+    const [claimedCount] = await QuizSession.update(
+      { submittedAt },
+      {
+        where: {
+          id: quizSessionId,
+          userId: req.user.id,
+          courseId: Number(courseId),
+          lessonId: Number(lessonId),
+          submittedAt: null,
+        },
+      }
+    );
+
+    if (claimedCount !== 1) {
+      return res.status(404).json({
+        message: "Quiz session not found or already submitted.",
+      });
+    }
+
     /*
      * Save adaptive-learning history for enrolled/purchased users.
      * Free/admin access can still submit quizzes, but without a
@@ -320,9 +317,6 @@ router.post("/submit-quiz", protect, validate(submitQuizSchema), async (req, res
       }
     }
 
-    // Mark this session as submitted so it cannot be reused.
-    quizSession.submittedAt = new Date();
-    await quizSession.save();
 
     return res.json({
       success: true,
