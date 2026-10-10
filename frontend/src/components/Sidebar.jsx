@@ -1,6 +1,6 @@
 import { apiFetch as fetch } from "../lib/api";
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   ChevronRight,
