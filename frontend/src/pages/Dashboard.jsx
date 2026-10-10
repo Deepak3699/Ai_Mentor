@@ -1012,7 +1012,7 @@ const Dashboard = () => {
                               }
                               className={`px-3 py-1.5 text-xs rounded-lg ${isEnrolled
                                   ? "bg-emerald-100 text-emerald-700 cursor-default"
-                                  : "bg-teal-500 text-white hover:bg-teal-600"
+                                  : "bg-blue-600 text-white hover:bg-blue-700"
                                 }`}
                             >
                               {isEnrolled
@@ -1239,7 +1239,7 @@ const Dashboard = () => {
                                     course
                                   )
                                 }
-                                className="ml-3 px-3 py-2 bg-teal-500 text-white text-xs font-medium rounded-lg hover:bg-teal-600"
+                                className="ml-3 px-3 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700"
                               >
                                 {t(
                                   "dashboard.view"
@@ -1263,7 +1263,7 @@ const Dashboard = () => {
                     </p>
 
                     <button
-                      className="mt-4 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600"
+                      className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
                       onClick={
                         handleBrowseCourses
                       }
