@@ -28,6 +28,8 @@ import {
   MoreVertical,
 } from "lucide-react";
 import FloatingAssistant from "../components/common/FloatingAssistant";
+import PageBanner from "../components/common/PageBanner";
+import DiscussionSidebar from "../components/discussions/DiscussionSidebar";
 
 //helpers
 const getRelativeTime = (dateStr) => {
@@ -895,66 +897,54 @@ const latestPostsByCourse = Object.values(
 
   return (
     <>
-        <div className="relative overflow-hidden bg-linear-to-br from-teal-700 via-teal-600 to-teal-800 pt-14 sm:pt-16 pb-10 sm:pb-12 px-3 sm:px-6 md:px-8">
-          {/* grid pattern overlay */}
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.15) 1px, transparent 1px)",
-              backgroundSize: "40px 40px",
-            }}
-          />
-          <div className="relative z-10 max-w-4xl mx-auto text-center space-y-4">
-            <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight">
-              {activeView === "courseCommunity" ? (
-                <>
-                  {t("discussions.course_communities").split(" ")[0]}{" "}
-                  <span className="text-yellow-400">
-                    {t("discussions.course_communities")
-                      .split(" ")
-                      .slice(1)
-                      .join(" ")}
-                  </span>
-                </>
-              ) : (
-                <span className="text-orange-400">
-                  {t("discussions.global_title")}
+        <PageBanner
+          title={
+            activeView === "courseCommunity" ? (
+              <>
+                {t("discussions.course_communities").split(" ")[0]}{" "}
+                <span className="text-yellow-400">
+                  {t("discussions.course_communities")
+                    .split(" ")
+                    .slice(1)
+                    .join(" ")}
                 </span>
-              )}
-            </h1>
-            <p className="text-teal-100 text-xs sm:text-sm md:text-base max-w-md sm:max-w-xl mx-auto">
-              {t("discussions.global_subtitle")}
-            </p>
-            {/* Tabs */}
-            <div className="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-3 pt-2 px-2 sm:px-4">
-              <button
-                onClick={() => setActiveView("courseCommunity")}
-                className={`flex items-center gap-2 px-4 sm:px-5 md:px-6 py-2 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all ${
-                  activeView === "courseCommunity"
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
-                    : "bg-black/30 text-white hover:bg-black/40"
-                }`}
-              >
-                <BookOpen className="w-4 h-4" />
-                {t("discussions.course_communities")}
-              </button>
-              <button
-                onClick={() => setActiveView("global")}
-                className={`flex items-center gap-2 px-4 sm:px-5 md:px-6 py-2 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all ${
-                  activeView === "global"
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
-                    : "bg-black/30 text-white hover:bg-black/40"
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                {t("discussions.global_btn")}
-              </button>
-            </div>
+              </>
+            ) : (
+              <span className="text-orange-400">
+                {t("discussions.global_title")}
+              </span>
+            )
+          }
+          subtitle={t("discussions.global_subtitle")}
+        >
+          <div className="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-3 pt-2 px-2 sm:px-4">
+            <button
+              onClick={() => setActiveView("courseCommunity")}
+              className={`flex items-center gap-2 px-4 sm:px-5 md:px-6 py-2 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all ${
+                activeView === "courseCommunity"
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                  : "bg-black/30 text-white hover:bg-black/40"
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              {t("discussions.course_communities")}
+            </button>
+            <button
+              onClick={() => setActiveView("global")}
+              className={`flex items-center gap-2 px-4 sm:px-5 md:px-6 py-2 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all ${
+                activeView === "global"
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                  : "bg-black/30 text-white hover:bg-black/40"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              {t("discussions.global_btn")}
+            </button>
           </div>
-        </div>
+        </PageBanner>
 
-        <div className="flex-1 flex relative">
+        <div className="flex-1 flex relative w-full">
+          <div className="flex-1 flex relative overflow-hidden">
           {activeView === "courseCommunity" && (
            <main className="flex-1 p-3 sm:p-5 md:p-6 overflow-y-auto">
               <div
@@ -1016,12 +1006,21 @@ const latestPostsByCourse = Object.values(
                               courseName: c.title,
                             });
                           }}
-                          className="bg-card border border-border rounded-xl p-4 text-left hover:border-indigo-500 transition-colors"
+                          className="bg-card border border-border rounded-xl p-4 text-left hover:border-indigo-500 transition-colors flex items-center gap-4 group"
                         >
-                          <h3 className="font-semibold text-main">{c.title}</h3>
-                          <p className="text-xs text-muted mt-1">
-                            {c.category}
-                          </p>
+                          <div className="w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-canvas border border-border/50">
+                            {c.image ? (
+                              <img src={c.image} alt={c.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                            ) : (
+                              <div className="w-full h-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-bold text-lg">{c.title.charAt(0)}</div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-main line-clamp-1">{c.title}</h3>
+                            <p className="text-xs text-muted mt-1 line-clamp-1">
+                              {c.category || "General"}
+                            </p>
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -1118,7 +1117,7 @@ const latestPostsByCourse = Object.values(
                       <h3 className="text-sm font-semibold text-muted mb-3 uppercase tracking-wide">
                         {t("discussions.start_in_course")}
                       </h3>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {allCourses.map((c) => (
                           <button
                             key={c.id}
@@ -1129,9 +1128,19 @@ const latestPostsByCourse = Object.values(
                                 courseName: c.title,
                               });
                             }}
-                            className="px-4 py-2 bg-card border border-border rounded-lg text-sm text-main hover:border-indigo-500 transition-colors"
+                            className="bg-card border border-border rounded-xl p-3 text-left hover:border-indigo-500 transition-colors flex items-center gap-3 group"
                           >
-                            {c.title}
+                            <div className="w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-canvas border border-border/50">
+                              {c.image ? (
+                                <img src={c.image} alt={c.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                              ) : (
+                                <div className="w-full h-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 font-bold text-base">{c.title.charAt(0)}</div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm font-semibold text-main line-clamp-1">{c.title}</h3>
+                              <p className="text-[10px] text-muted mt-0.5 line-clamp-1">{c.category || "General"}</p>
+                            </div>
                           </button>
                         ))}
                       </div>
@@ -2439,6 +2448,8 @@ const latestPostsByCourse = Object.values(
               <FloatingAssistant />
             </main>
           )}
+          </div>
+          <DiscussionSidebar />
         </div>
 
       {/* Popup Modal */}
