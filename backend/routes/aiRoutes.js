@@ -1,15 +1,348 @@
+import { getQuizDifficulty, getWeakTopics } from "../utils/quizDifficulty.js";
 import AIVideo from "../models/AIVideo.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
-import { generateVideoSchema } from "../schemas/aiSchema.js";
+import {
+  generateVideoSchema,
+  generateQuizSchema,
+  submitQuizSchema,
+} from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
+import {
+  Course,
+  Module,
+  Lesson,
+  LessonContent,
+  QuizSession,
+} from "../models/modelAssociations.js";
 import Preferences from "../models/Preference.js";
 import { getVideoQueue } from "../queues/videoQueue.js";
 import dotenv from "dotenv";
 dotenv.config();
 
 const router = express.Router();
+
+
+const getPurchasedCourse = (user, courseId) => {
+  return (user.purchasedCourses || []).find(
+    (course) => Number(course.courseId) === Number(courseId)
+  );
+};
+
+router.post("/generate-quiz", protect, validate(generateQuizSchema), async (req, res) => {
+  try {
+    const { courseId, lessonId } = req.body;
+
+    const course = await Course.findByPk(courseId);
+
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    if (course.status === "disabled") {
+      return res.status(403).json({ message: "This course is currently disabled." });
+    }
+
+    if (course.status === "deleted") {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    const purchasedCourse = getPurchasedCourse(req.user, courseId);
+    const priceValue = parseFloat(course.priceValue) || 0;
+    const isFreeOrOne = priceValue <= 1;
+
+    if (!purchasedCourse && req.user.role !== "admin" && !isFreeOrOne) {
+      return res.status(403).json({
+        message: "Access denied. Please purchase/enroll in this course.",
+      });
+    }
+
+    const lesson = await Lesson.findByPk(lessonId, {
+      include: [
+        {
+          model: Module,
+          required: true,
+          where: {
+            courseId: Number(courseId),
+          },
+        },
+        {
+          model: LessonContent,
+          as: "content",
+          required: false,
+        },
+      ],
+    });
+
+    if (!lesson) {
+      return res.status(404).json({
+        message: "Lesson not found in this course.",
+      });
+    }
+
+    const quizHistory = purchasedCourse?.progress?.quizHistory || [];
+
+    const difficulty = getQuizDifficulty(quizHistory);
+    const weakTopics = getWeakTopics(quizHistory);
+
+    const lessonContent = [
+      lesson.title ? `Lesson title: ${lesson.title}` : "",
+      lesson.content?.introduction
+        ? `Introduction: ${lesson.content.introduction}`
+        : "",
+      lesson.content?.keyConcepts
+        ? `Key concepts: ${JSON.stringify(lesson.content.keyConcepts)}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    if (!lessonContent) {
+      return res.status(400).json({
+        message: "This lesson does not contain enough content to generate a quiz.",
+      });
+    }
+
+    const aiResponse = await fetch(
+      `${process.env.AI_SERVICE_URL}/generate-quiz`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          lesson: lessonContent,
+          difficulty,
+          weak_topics: weakTopics,
+        }),
+      }
+    );
+
+    if (!aiResponse.ok) {
+      const errorText = await aiResponse.text();
+      console.error("QUIZ AI SERVICE ERROR:", errorText);
+
+      return res.status(502).json({
+        message: "Quiz generation service failed.",
+      });
+    }
+
+    const quiz = await aiResponse.json();
+
+    if (
+      !quiz ||
+      !Array.isArray(quiz.questions) ||
+      quiz.questions.length !== 4
+    ) {
+      return res.status(502).json({
+        message: "AI service returned an invalid quiz.",
+      });
+    }
+
+    for (const question of quiz.questions) {
+      if (
+        !question ||
+        typeof question.question !== "string" ||
+        !Array.isArray(question.options) ||
+        question.options.length !== 4 ||
+        !Number.isInteger(question.correct_index) ||
+        question.correct_index < 0 ||
+        question.correct_index > 3 ||
+        typeof question.explanation !== "string" ||
+        typeof question.topic !== "string" ||
+        !question.topic.trim()
+      ) {
+        return res.status(502).json({
+          message: "AI service returned an invalid quiz question.",
+        });
+      }
+    }
+
+    const quizSession = await QuizSession.create({
+      userId: req.user.id,
+      courseId: Number(courseId),
+      lessonId: Number(lessonId),
+      difficulty,
+      questions: quiz.questions.map((question) => ({
+        question: question.question,
+        options: question.options,
+        correct_index: question.correct_index,
+        explanation: question.explanation,
+        topic: question.topic,
+      })),
+      // Quiz sessions are valid for 30 minutes.
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+    });
+
+    // Never expose correct answers to the frontend.
+    const clientQuiz = {
+      quizSessionId: quizSession.id,
+      lessonId: Number(lessonId),
+      difficulty,
+      questions: quiz.questions.map((question) => ({
+        question: question.question,
+        options: question.options,
+        topic: question.topic,
+      })),
+    };
+
+    return res.json(clientQuiz);
+  } catch (error) {
+    console.error("GENERATE QUIZ ERROR:", error);
+
+    return res.status(500).json({
+      message: "Failed to generate quiz.",
+    });
+  }
+});
+
+router.post("/submit-quiz", protect, validate(submitQuizSchema), async (req, res) => {
+  try {
+    const { courseId, lessonId, quizSessionId, answers } = req.body;
+
+    const quizSession = await QuizSession.findOne({
+      where: {
+        id: quizSessionId,
+        userId: req.user.id,
+        courseId: Number(courseId),
+        lessonId: Number(lessonId),
+        submittedAt: null,
+      },
+    });
+
+    if (!quizSession) {
+      return res.status(404).json({
+        message: "Quiz session not found or already submitted.",
+      });
+    }
+
+    if (new Date(quizSession.expiresAt).getTime() <= Date.now()) {
+      return res.status(410).json({
+        message: "Quiz session has expired. Please generate a new quiz.",
+      });
+    }
+
+    const questions = quizSession.questions;
+
+    if (!Array.isArray(questions) || questions.length !== 4) {
+      return res.status(500).json({
+        message: "Stored quiz session is invalid.",
+      });
+    }
+
+    let correctAnswers = 0;
+    const weakTopics = [];
+
+    questions.forEach((question, index) => {
+      const selectedAnswer = answers[index];
+
+      if (selectedAnswer === question.correct_index) {
+        correctAnswers += 1;
+      } else if (
+        question.topic &&
+        !weakTopics.includes(question.topic)
+      ) {
+        weakTopics.push(question.topic);
+      }
+    });
+
+    const totalQuestions = questions.length;
+    const score = Math.round(
+      (correctAnswers / totalQuestions) * 100
+    );
+
+    const attempt = {
+      lessonId: Number(lessonId),
+      score,
+      totalQuestions,
+      correctAnswers,
+      difficulty: quizSession.difficulty,
+      weakTopics,
+      attemptedAt: new Date().toISOString(),
+    };
+
+    const submittedAt = new Date();
+    const [claimedCount] = await QuizSession.update(
+      { submittedAt },
+      {
+        where: {
+          id: quizSessionId,
+          userId: req.user.id,
+          courseId: Number(courseId),
+          lessonId: Number(lessonId),
+          submittedAt: null,
+        },
+      }
+    );
+
+    if (claimedCount !== 1) {
+      return res.status(404).json({
+        message: "Quiz session not found or already submitted.",
+      });
+    }
+
+    /*
+     * Save adaptive-learning history for enrolled/purchased users.
+     * Free/admin access can still submit quizzes, but without a
+     * purchasedCourses progress record there is no history to update.
+     */
+    const purchasedCourse = getPurchasedCourse(req.user, courseId);
+
+    if (purchasedCourse) {
+      const courses = req.user.purchasedCourses || [];
+      const courseIndex = courses.findIndex(
+        (courseItem) =>
+          Number(courseItem.courseId) === Number(courseId)
+      );
+
+      if (courseIndex !== -1) {
+        const progress = courses[courseIndex].progress || {};
+
+        if (!Array.isArray(progress.quizHistory)) {
+          progress.quizHistory = [];
+        }
+
+        progress.quizHistory.push(attempt);
+
+        // Keep quiz history manageable.
+        progress.quizHistory = progress.quizHistory.slice(-20);
+
+        courses[courseIndex].progress = progress;
+
+        req.user.set("purchasedCourses", courses);
+        req.user.changed("purchasedCourses", true);
+
+        await req.user.save();
+      }
+    }
+
+
+    return res.json({
+      success: true,
+      lessonId: Number(lessonId),
+      score,
+      correctAnswers,
+      totalQuestions,
+      difficulty: quizSession.difficulty,
+      weakTopics,
+      results: questions.map((question, index) => ({
+        question: question.question,
+        selectedAnswer: answers[index],
+        correctAnswer: question.correct_index,
+        explanation: question.explanation,
+        topic: question.topic,
+        correct: answers[index] === question.correct_index,
+      })),
+    });
+  } catch (error) {
+    console.error("SUBMIT QUIZ ERROR:", error);
+
+    return res.status(500).json({
+      message: "Failed to submit quiz.",
+    });
+  }
+});
 
 router.post("/generate-video", protect, validate(generateVideoSchema), async (req, res) => {
   try {

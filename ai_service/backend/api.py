@@ -1,3 +1,4 @@
+from typing import Literal
 import os
 import datetime
 import re
@@ -143,6 +144,8 @@ class SyllabusRequest(BaseModel):
 
 class QuizRequest(BaseModel):
     lesson: str
+    difficulty: Literal["beginner", "intermediate", "advanced"] = "intermediate"
+    weak_topics: list[str] | None = None
 
 
 class QuizQuestion(BaseModel):
@@ -150,6 +153,7 @@ class QuizQuestion(BaseModel):
     options: list[str]
     correct_index: int
     explanation: str
+    topic: str
 
 
 class QuizResponse(BaseModel):
@@ -334,11 +338,42 @@ def get_voices():
 
 @app.post("/generate-quiz", response_model=QuizResponse)
 def generate_quiz(data: QuizRequest):
+    weak_topics_text = ", ".join(data.weak_topics or []) or "None provided"
+
+    difficulty_guidance = {
+        "beginner": """
+        Target difficulty: BEGINNER.
+        Focus on core concepts, definitions, recognition, and straightforward applications.
+        Keep questions accessible and encouraging for learners who are still building mastery.
+        """,
+        "intermediate": """
+        Target difficulty: INTERMEDIATE.
+        Test understanding and application of concepts using a balanced mix of conceptual and scenario-based questions.
+        Avoid questions that are purely recall-based.
+        """,
+        "advanced": """
+        Target difficulty: ADVANCED.
+        Test deep understanding, reasoning, edge cases, trade-offs, and multi-step application.
+        Prefer challenging scenario-based or deep-dive questions that distinguish strong mastery.
+        """
+    }[data.difficulty]
+
+    weak_topics_guidance = f"""
+    Previously weak topics: {weak_topics_text}
+
+    If previously weak topics are provided, include questions that reinforce those concepts.
+    Do not mention the learner's performance history in the questions.
+    """
+
     prompt = f"""
-    Generate a multiple-choice quiz for the following lesson:
+    Generate a multiple-choice quiz for the following lesson.
 
     Lesson:
     {data.lesson}
+
+    {difficulty_guidance}
+
+    {weak_topics_guidance}
 
     You MUST respond with ONLY a valid JSON object.
     Do not include markdown formatting or ```json code fences.
@@ -355,7 +390,8 @@ def generate_quiz(data: QuizRequest):
             "Option D"
           ],
           "correct_index": 0,
-          "explanation": "Explanation of why the answer is correct."
+          "explanation": "Explanation of why the answer is correct.",
+          "topic": "Specific concept/topic being tested"
         }}
       ]
     }}
@@ -365,6 +401,8 @@ def generate_quiz(data: QuizRequest):
     - Each question must have exactly 4 options.
     - correct_index must be an integer from 0 to 3.
     - Each question must have a clear explanation.
+    - Each question must include a concise "topic" identifying the specific concept being tested.
+    - The topic must be relevant to the lesson and useful for identifying weak areas.
     """
 
     for attempt in range(2):
