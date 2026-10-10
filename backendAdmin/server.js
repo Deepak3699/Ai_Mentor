@@ -9,6 +9,7 @@ import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import { securityHeaders } from "./config/securityHeaders.js";
 
 dotenv.config();
 
@@ -23,6 +24,8 @@ const allowedOrigins = [
     ? ["http://localhost:3000", "http://localhost:5173"]
     : []),
 ];
+
+app.use(securityHeaders());
 
 app.use(
   cors({
