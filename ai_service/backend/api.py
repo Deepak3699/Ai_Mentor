@@ -6,6 +6,7 @@ import asyncio
 import logging
 import subprocess
 from contextlib import asynccontextmanager
+from job_shutdown import wait_for_jobs_to_finish
 import edge_tts
 import cloudinary
 import cloudinary.uploader
@@ -84,8 +85,19 @@ def check_ffmpeg() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global shutting_down
+
     check_ffmpeg()
+    shutting_down = False
     yield
+
+    shutting_down = True
+    await wait_for_jobs_to_finish(
+        active_jobs=active_jobs,
+        job_status=job_status,
+        shutdown_failed_jobs=shutdown_failed_jobs,
+        timeout_seconds=0,
+    )
 
 
 app = FastAPI(
@@ -423,6 +435,11 @@ def generate_quiz(data: QuizRequest):
 # Generate Lesson Endpoint
 # --------------------------
 
+job_status = {}
+generation_cache = {}
+active_jobs = set()
+shutdown_failed_jobs = set()
+shutting_down = False
 # Job status cache:
 # - Entries expire automatically after 1 hour.
 # - Cache is limited to 1000 jobs.
@@ -440,6 +457,11 @@ def generate_lesson(
     background_tasks: BackgroundTasks,
     force: bool = False,
 ):
+    if shutting_down:
+        raise HTTPException(
+            status_code=503,
+            detail="Service is shutting down; new jobs are not accepted.",
+        )
 
     cache_data = json.dumps(
         {
@@ -508,7 +530,8 @@ def generate_lesson(
         }
     }
 
-    background_tasks.add_task(process_lesson, data, base_filename)
+    active_jobs.add(base_filename)
+    background_tasks.add_task(run_tracked_lesson, data, base_filename)
 
     return {
         "status": "Processing",
@@ -530,8 +553,14 @@ def remove_failed_generation_cache(base_filename: str) -> None:
 # --------------------------
 # Background Task Logic
 # --------------------------
-async def process_lesson(data: LessonRequest, base_filename: str):
+async def run_tracked_lesson(data: LessonRequest, base_filename: str):
+    try:
+        await process_lesson(data, base_filename)
+    finally:
+        active_jobs.discard(base_filename)
 
+
+async def process_lesson(data: LessonRequest, base_filename: str):
     print("\n📥 RAW REQUEST DATA:")
     print(data.dict())
     
@@ -639,15 +668,25 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
                 print(f"❌ Groq also failed: {groq_error}")
 
-                if base_filename in job_status:
-                    job_status[base_filename]["status"] = "failed"
-                    if "meta" not in job_status[base_filename]:
-                        job_status[base_filename]["meta"] = {"timestamps": {}}
-                    if "timestamps" not in job_status[base_filename]["meta"]:
-                        job_status[base_filename]["meta"]["timestamps"] = {}
-                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                remove_failed_generation_cache(base_filename)
+                if base_filename not in shutdown_failed_jobs:
+                    if base_filename in job_status:
+                        job_status[base_filename]["status"] = "failed"
 
+                        if "meta" not in job_status[base_filename]:
+                            job_status[base_filename]["meta"] = {
+                                "timestamps": {}
+                            }
+
+                        if "timestamps" not in job_status[base_filename]["meta"]:
+                            job_status[base_filename]["meta"]["timestamps"] = {}
+
+                        job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                            datetime.datetime.now(
+                                datetime.timezone.utc
+                            ).isoformat()
+                        )
+
+                remove_failed_generation_cache(base_filename)
                 return
 
         print(f"📝 Generated text: {script}")
@@ -702,13 +741,24 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"❌ TTS Error: {e}")
 
-            if base_filename in job_status:
-                job_status[base_filename]["status"] = "failed"
-                if "meta" not in job_status[base_filename]:
-                    job_status[base_filename]["meta"] = {"timestamps": {}}
-                if "timestamps" not in job_status[base_filename]["meta"]:
-                    job_status[base_filename]["meta"]["timestamps"] = {}
-                job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            if base_filename not in shutdown_failed_jobs:
+                if base_filename in job_status:
+                    job_status[base_filename]["status"] = "failed"
+
+                    if "meta" not in job_status[base_filename]:
+                        job_status[base_filename]["meta"] = {
+                            "timestamps": {}
+                        }
+
+                    if "timestamps" not in job_status[base_filename]["meta"]:
+                        job_status[base_filename]["meta"]["timestamps"] = {}
+
+                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                        datetime.datetime.now(
+                            datetime.timezone.utc
+                        ).isoformat()
+                    )
+
             remove_failed_generation_cache(base_filename)
             return
 
@@ -746,13 +796,24 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 print(
                     f"❌ Fallback video not found at {input_video}"
                 )
-                if base_filename in job_status:
-                    job_status[base_filename]["status"] = "failed"
-                    if "meta" not in job_status[base_filename]:
-                        job_status[base_filename]["meta"] = {"timestamps": {}}
-                    if "timestamps" not in job_status[base_filename]["meta"]:
-                        job_status[base_filename]["meta"]["timestamps"] = {}
-                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                if base_filename not in shutdown_failed_jobs:
+                    if base_filename in job_status:
+                        job_status[base_filename]["status"] = "failed"
+
+                        if "meta" not in job_status[base_filename]:
+                            job_status[base_filename]["meta"] = {
+                                "timestamps": {}
+                            }
+
+                        if "timestamps" not in job_status[base_filename]["meta"]:
+                            job_status[base_filename]["meta"]["timestamps"] = {}
+
+                        job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                            datetime.datetime.now(
+                                datetime.timezone.utc
+                            ).isoformat()
+                        )
+
                 remove_failed_generation_cache(base_filename)
                 return
 
@@ -797,13 +858,24 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     "❌ FFmpeg fallback failed — "
                     f"video not found at {final_video}"
                 )
-                if base_filename in job_status:
-                    job_status[base_filename]["status"] = "failed"
-                    if "meta" not in job_status[base_filename]:
-                        job_status[base_filename]["meta"] = {"timestamps": {}}
-                    if "timestamps" not in job_status[base_filename]["meta"]:
-                        job_status[base_filename]["meta"]["timestamps"] = {}
-                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                if base_filename not in shutdown_failed_jobs:
+                    if base_filename in job_status:
+                        job_status[base_filename]["status"] = "failed"
+
+                        if "meta" not in job_status[base_filename]:
+                            job_status[base_filename]["meta"] = {
+                                "timestamps": {}
+                            }
+
+                        if "timestamps" not in job_status[base_filename]["meta"]:
+                            job_status[base_filename]["meta"]["timestamps"] = {}
+
+                        job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                            datetime.datetime.now(
+                                datetime.timezone.utc
+                            ).isoformat()
+                        )
+
                 remove_failed_generation_cache(base_filename)
                 return
 
@@ -851,6 +923,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         local_vtt_url = f"/video-stream/{base_filename}.vtt" if vtt_path else None
         local_srt_url = f"/video-stream/{base_filename}.srt" if srt_path else None
         vtt_url, srt_url = None, None
+
         if vtt_path and srt_path:
             try:
                 vtt_url = cloudinary.uploader.upload(
@@ -869,25 +942,34 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 ).get("secure_url")
                 print(f"✅ Subtitles uploaded: {vtt_url}, {srt_url}")
             except Exception as sub_up_err:
-                print(f"⚠️ Subtitle upload failed; using local subtitle URLs: {sub_up_err}")
+                print(
+                    "⚠️ Subtitle upload failed; using local subtitle URLs: "
+                    f"{sub_up_err}"
+                )
 
         subtitle_vtt_url = vtt_url or local_vtt_url
         subtitle_srt_url = srt_url or local_srt_url
-        
         duration_ms = int((time.time() - start_time) * 1000)
-        
-        job_status[base_filename]["status"] = "ready"
-        job_status[base_filename]["cloudinary_url"] = cloudinary_url
-        job_status[base_filename]["local_video_url"] = local_video_url
-        job_status[base_filename]["subtitle_url"] = subtitle_vtt_url
-        job_status[base_filename]["subtitle_vtt_url"] = subtitle_vtt_url
-        job_status[base_filename]["subtitle_srt_url"] = subtitle_srt_url
-        job_status[base_filename]["meta"]["provider"] = provider_used
-        job_status[base_filename]["meta"]["model"] = model_used
-        job_status[base_filename]["meta"]["duration_ms"] = duration_ms
-        job_status[base_filename]["meta"]["audio_seconds"] = audio_seconds
-        job_status[base_filename]["meta"]["word_count"] = len(script.split())
-        job_status[base_filename]["meta"]["timestamps"]["completed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+        if base_filename not in shutdown_failed_jobs:
+            if base_filename in job_status:
+                job_status[base_filename]["status"] = "ready"
+                job_status[base_filename]["cloudinary_url"] = cloudinary_url
+                job_status[base_filename]["local_video_url"] = local_video_url
+                job_status[base_filename]["subtitle_url"] = subtitle_vtt_url
+                job_status[base_filename]["subtitle_vtt_url"] = subtitle_vtt_url
+                job_status[base_filename]["subtitle_srt_url"] = subtitle_srt_url
+
+                meta = job_status[base_filename].setdefault("meta", {})
+                timestamps = meta.setdefault("timestamps", {})
+                meta["provider"] = provider_used
+                meta["model"] = model_used
+                meta["duration_ms"] = duration_ms
+                meta["audio_seconds"] = audio_seconds
+                meta["word_count"] = len(script.split())
+                timestamps["completed_at"] = datetime.datetime.now(
+                    datetime.timezone.utc
+                ).isoformat()
         print(f"✅ Lesson ready!")
         print(f"   Video : {final_video}")
 
@@ -913,13 +995,24 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             print("⚠️ Keeping local files on disk as a fallback proxy since Cloudinary upload failed.")
             print("⚠️ Note: These files will remain until the server is restarted or manually cleaned.")
     except Exception as e:
-        if base_filename in job_status:
-            job_status[base_filename]["status"] = "failed"
-            if "meta" not in job_status[base_filename]:
-                job_status[base_filename]["meta"] = {"timestamps": {}}
-            if "timestamps" not in job_status[base_filename]["meta"]:
-                job_status[base_filename]["meta"]["timestamps"] = {}
-            job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        if base_filename not in shutdown_failed_jobs:
+            if base_filename in job_status:
+                job_status[base_filename]["status"] = "failed"
+
+                if "meta" not in job_status[base_filename]:
+                    job_status[base_filename]["meta"] = {
+                        "timestamps": {}
+                    }
+
+                if "timestamps" not in job_status[base_filename]["meta"]:
+                    job_status[base_filename]["meta"]["timestamps"] = {}
+
+                job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                    datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat()
+                )
+
         remove_failed_generation_cache(base_filename)
 
         print(f"❌ Error generating lesson: {e}")
