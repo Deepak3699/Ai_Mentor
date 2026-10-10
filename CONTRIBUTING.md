@@ -50,7 +50,7 @@ Replace `<your-github-username>` with your GitHub username.
 | 2 | frontend | `cd frontend && npm run dev` | http://localhost:5173 |
 | 3 | backendAdmin | `cd backendAdmin && npm run dev` | http://localhost:5001 |
 | 4 | frontendAdmin | `cd frontendAdmin && npm run dev` | http://localhost:5174 |
-| 5 | ai_service | `cd ai_service/backend && uvicorn api:app --reload --port 8000` | http://localhost:8000/docs |
+| 5 | ai_service | `cd ai_service/backend && python graceful_server.py` | http://localhost:8000/docs |
 
 **To create the first admin account:** `cd backendAdmin && npm run seed:superadmin`
 
