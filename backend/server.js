@@ -28,6 +28,7 @@ import reportRoutes from "./routes/reportRoutes.js";
 import docsRoutes from "./routes/docsRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import assistantRoutes from "./routes/assistantRoutes.js";
+import CalendarTaskRoutes from "./routes/CalendarTaskRoutes.js";
 
 // ================= MODELS =================
 import "./models/CommunityPost.js";
@@ -125,6 +126,7 @@ app.use("/api/course-reports", reportRoutes);
 app.use("/api/docs", docsRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/assistant", assistantRoutes);
+app.use("/api/calendar", CalendarTaskRoutes);
 
 // ================= 404 HANDLER =================
 app.use((req, res) => {

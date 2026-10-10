@@ -10,7 +10,7 @@ import {
 import {
     createCalendarTaskSchema,
     updateCalendarTaskSchema,
-} from "../schemas/calendarTaskSchema.js";
+} from "../schemas/CalendarTaskSchema.js";
 const router = express.Router();
 router.route("/")
     .get(protect, getCalendarTasks)
