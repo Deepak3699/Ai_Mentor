@@ -1,4 +1,4 @@
-
+import { Op } from "sequelize";
 import User from "../models/User.js";
 import { createNotification } from "./notificationController.js";
 import AdminNotification from "../models/AdminNotification.js";
@@ -22,7 +22,10 @@ export const createReport = async (req, res) => {
       phone: phone || null,
     });
 
-    const admins = await User.findAll({ where: { role: "admin" } });
+    // Notify every moderator (admins and superadmins), matching communityController
+    const admins = await User.findAll({
+      where: { role: { [Op.in]: ["admin", "superadmin"] } },
+    });
     const reporterName = req.user?.name || "A user";
     const subTypeLabel = subType ? ` (${subType})` : "";
     const courseLabel = courseName ? ` for course "${courseName}"` : "";
