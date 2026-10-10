@@ -28,7 +28,7 @@ def test_config_imports_without_external_credentials(monkeypatch):
     config = import_config(monkeypatch)
     assert not config.GEMINI_API_KEY
     assert not config.GROQ_API_KEY
-    assert config.GEMINI_MODEL == "gemini-3.8-flash"
+    assert config.GEMINI_MODEL == "gemini-2.5-flash"
 
 
 def test_validate_config_reports_missing_gemini_key_first(monkeypatch):

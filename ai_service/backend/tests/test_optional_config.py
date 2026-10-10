@@ -1,10 +1,12 @@
 import importlib
 import sys
 
+import dotenv
 import pytest
 
 
 def load_config(monkeypatch, **env):
+    monkeypatch.setattr(dotenv, "load_dotenv", lambda *args, **kwargs: False)
     for key in [
         "GEMINI_API_KEY",
         "GROQ_API_KEY",
