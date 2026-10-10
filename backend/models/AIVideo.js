@@ -26,9 +26,13 @@ AIVideo.init(
             type: DataTypes.STRING,
             allowNull: false,
         },
+        userId: {
+            type: DataTypes.UUID,
+            allowNull: false,
+        },
         videoUrl: {
             type: DataTypes.STRING,
-            allowNull: false,
+            allowNull: true,
         },
         transcript: {
             type: DataTypes.TEXT,

@@ -102,6 +102,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
       courseId: Number(courseId),
       lessonId: String(lessonId),
       celebrity: String(celebrity).toLowerCase(),
+      userId: req.user.id,
       videoUrl: "",
       transcriptName: "",
       status: "pending",
@@ -186,6 +187,11 @@ router.get("/status/:jobId", protect, async (req, res) => {
     
     if (!videoJob) {
       return res.status(404).json({ status: "not_found" });
+    }
+
+    const isAdmin = req.user.role === "admin" || req.user.role === "superadmin";
+    if (!isAdmin && videoJob.userId !== req.user.id) {
+      return res.status(403).json({ error: "Access denied" });
     }
 
     if (videoJob.status === "failed") {
