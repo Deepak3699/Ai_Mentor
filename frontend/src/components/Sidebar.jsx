@@ -181,9 +181,9 @@ const Sidebar = ({ activePage = "dashboard" }) => {
           h-[100dvh]
           flex
           flex-col
-          bg-[#0b1324]
+          bg-card/70 backdrop-blur-xl
           border-r
-          border-white/5
+          border-border/80
           transition-all
           duration-300
           ease-out
@@ -258,7 +258,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                     ${
                       isActive
                         ? "bg-[#2f5cc4] text-white shadow-md shadow-[#2f5cc4]/20"
-                        : "text-gray-300 hover:bg-white/5 hover:text-white"
+                        : "text-muted-foreground hover:bg-canvas-alt hover:text-foreground"
                     }
                   `}
                 >
@@ -285,7 +285,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                         ${
                           isActive
                             ? "text-white"
-                            : "text-gray-300"
+                            : "text-muted-foreground group-hover:text-foreground"
                         }
                       `}
                     >
@@ -302,8 +302,10 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                         ml-3
                         px-3
                         py-1.5
-                        bg-[#17223a]
-                        text-white
+                        bg-card
+                        border
+                        border-border/50
+                        text-foreground
                         text-[11px]
                         rounded-md
                         opacity-0
@@ -326,129 +328,6 @@ const Sidebar = ({ activePage = "dashboard" }) => {
 
         {/* ================= BOTTOM SECTION ================= */}
         <div className="px-3 pb-5">
-
-          {/* Settings */}
-          <button
-            onClick={() => {
-              navigate("/settings");
-              setSidebarOpen(false);
-            }}
-            className={`
-              group
-              relative
-              w-full
-              flex
-              items-center
-              ${
-                sidebarCollapsed
-                  ? "justify-center"
-                  : "justify-start"
-              }
-              gap-3
-              px-3
-              py-2.5
-              rounded-lg
-              text-gray-300
-              hover:bg-white/5
-              hover:text-white
-              transition-all
-            `}
-          >
-            <Settings className="w-[17px] h-[17px] shrink-0" />
-
-            {!sidebarCollapsed && (
-              <span className="text-[12px] font-medium">
-                Settings
-              </span>
-            )}
-
-            {sidebarCollapsed && (
-              <span
-                className="
-                  absolute
-                  left-full
-                  ml-3
-                  px-3
-                  py-1.5
-                  bg-[#17223a]
-                  text-white
-                  text-[11px]
-                  rounded-md
-                  opacity-0
-                  group-hover:opacity-100
-                  pointer-events-none
-                  whitespace-nowrap
-                  transition-opacity
-                  z-[100]
-                "
-              >
-                Settings
-              </span>
-            )}
-          </button>
-
-          {/* Help & Support */}
-          <button
-            onClick={() => {
-              setSidebarOpen(false);
-              // Keep this action available without assuming a new route.
-              window.dispatchEvent(
-                new CustomEvent("open-help-support")
-              );
-            }}
-            className={`
-              group
-              relative
-              w-full
-              flex
-              items-center
-              ${
-                sidebarCollapsed
-                  ? "justify-center"
-                  : "justify-start"
-              }
-              gap-3
-              px-3
-              py-2.5
-              rounded-lg
-              text-gray-300
-              hover:bg-white/5
-              hover:text-white
-              transition-all
-            `}
-          >
-            <CircleHelp className="w-[17px] h-[17px] shrink-0" />
-
-            {!sidebarCollapsed && (
-              <span className="text-[12px] font-medium">
-                Help & Support
-              </span>
-            )}
-
-            {sidebarCollapsed && (
-              <span
-                className="
-                  absolute
-                  left-full
-                  ml-3
-                  px-3
-                  py-1.5
-                  bg-[#17223a]
-                  text-white
-                  text-[11px]
-                  rounded-md
-                  opacity-0
-                  group-hover:opacity-100
-                  pointer-events-none
-                  whitespace-nowrap
-                  transition-opacity
-                  z-[100]
-                "
-              >
-                Help & Support
-              </span>
-            )}
-          </button>
 
           {/* ================= USER PROFILE ================= */}
           <div

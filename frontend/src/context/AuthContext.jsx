@@ -137,13 +137,38 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
     setUser(null);
 
+    /**
+     * Remove only authentication and user-specific data from localStorage.
+     * Safe device-level preferences (theme, i18nextLng, sidebarCollapsed) are preserved.
+     *
+     * Cleared keys:
+     * - Authentication & Session: "token", "user", "preferencesSkipped"
+     * - User Activity & Cache: "streak", "lastLogin", "calendarTasks"
+     * - Course Progress: Any keys prefixed with "course-progress-"
+     *
+     * Preserved keys:
+     * - Theme: "theme"
+     * - Language: "i18nextLng"
+     * - Sidebar State: "sidebarCollapsed"
+     */
+    const userStorageKeys = [
+      "token",
+      "user",
+      "preferencesSkipped",
+      "streak",
+      "lastLogin",
+      "calendarTasks",
+    ];
+
+    userStorageKeys.forEach((key) => {
+      localStorage.removeItem(key);
+    });
+
     Object.keys(localStorage).forEach((key) => {
       if (key.startsWith("course-progress-")) {
         localStorage.removeItem(key);
       }
     });
-
-    localStorage.clear();
   };
 
   const updateUser = (updatedUserData) => {

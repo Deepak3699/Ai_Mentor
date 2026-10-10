@@ -1,0 +1,52 @@
+# Gitleaks configuration for the "Check for committed secrets" CI job.
+#
+# The maintained default ruleset (cloud/API keys, private keys, tokens,
+# webhooks, generic high-entropy credentials, ...) is always active.
+# This file only adds project-specific rules and a REVIEWED allowlist.
+#
+# Adding to the allowlist needs review from the Team Leads (see CODEOWNERS).
+# Read "Secret scanning" in CONTRIBUTING.md before editing this file.
+
+title = "Ai_Mentor gitleaks config"
+
+[extend]
+useDefault = true
+
+# -----------------------------------------------------------------------------
+# Extra rule: credentials embedded in database / broker connection strings,
+# e.g. postgresql://user:s3cr3t@host/db. Obvious placeholders are ignored.
+# -----------------------------------------------------------------------------
+[[rules]]
+id = "connection-string-credentials"
+description = "Credentials embedded in a database or broker connection string"
+regex = '''(?i)\b(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|redis|rediss|amqps?)://[^\s:/@'"`<>]+:([^\s@'"`<>/]{4,})@[^\s'"`<>]+'''
+secretGroup = 1
+keywords = ["postgres", "mysql", "mariadb", "mongodb", "redis", "amqp"]
+
+  [rules.allowlist]
+  description = "Obvious placeholder passwords"
+  regexTarget = "secret"
+  regexes = [
+    '''(?i)^(?:pass(?:word|wd)?|secret|changeme|change[_-]?me|example|test|dummy)$''',
+    '''(?i)(?:your|my)[_-]''',
+    '''(?i)(?:password|placeholder|dummy|example)''',
+    '''(?i)^(?:x{3,}|\*{3,}|\.{3,})$''',
+    '''^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?$''',
+    '''^%[sd]$''',
+  ]
+
+# -----------------------------------------------------------------------------
+# Reviewed allowlist for CONFIRMED false positives only.
+#
+# Prefer the narrowest option:
+#   1. A single finding  -> add its fingerprint to .gitleaksignore
+#   2. A whole test file -> add its exact path below
+# Never allowlist a real secret. Rotate it instead.
+# -----------------------------------------------------------------------------
+# Uncomment and fill in, one path per line, with a reason and PR/issue link:
+#
+# [allowlist]
+# description = "Reviewed false positives"
+# paths = [
+#   '''^backend/tests/fixtures/fake-credentials\.txt$''',  # reason + link
+# ]

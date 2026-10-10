@@ -5,9 +5,11 @@ import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB, sequelize } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import { securityHeaders } from "./config/securityHeaders.js";
 
 dotenv.config();
 
@@ -23,6 +25,8 @@ const allowedOrigins = [
     : []),
 ];
 
+app.use(securityHeaders());
+
 app.use(
   cors({
     origin: allowedOrigins,
@@ -37,10 +41,12 @@ app.use(express.urlencoded({ extended: true }));
 // ================= ROUTES =================
 app.use("/api/admin", adminRoutes);
 
-// Health check endpoint
+// Health checks
 app.get("/health", (req, res) => {
   res.status(200).json({ message: "Backend Admin Server is running" });
 });
+
+app.use("/health", healthRoutes);
 
 // ================= 404 HANDLER =================
 app.use((req, res) => {

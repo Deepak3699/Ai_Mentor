@@ -1,0 +1,35 @@
+export const recommendedCourses = [
+  {
+    id: 1,
+    title: "React Advanced",
+    category: "Web Development",
+    duration: "12h",
+    level: "Intermediate",
+    icon: "⚛️",
+    isPopular: true,
+  },
+  {
+    id: 2,
+    title: "Node.js Backend",
+    category: "Backend Development",
+    duration: "10h",
+    level: "Intermediate",
+    icon: "🟢",
+  },
+  {
+    id: 3,
+    title: "Python for Data Science",
+    category: "Data Science",
+    duration: "15h",
+    level: "Beginner",
+    icon: "🐍",
+  },
+  {
+    id: 4,
+    title: "System Design Basics",
+    category: "Software Engineering",
+    duration: "8h",
+    level: "Advanced",
+    icon: "🏗️",
+  },
+];

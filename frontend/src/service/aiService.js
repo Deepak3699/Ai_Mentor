@@ -1,5 +1,7 @@
 import { apiFetch as fetch } from "../lib/api";
-export const getAIVideo = async (payload) => {
+import { isAbortError } from "./aiGeneration";
+
+export const getAIVideo = async (payload, { signal } = {}) => {
   const token = localStorage.getItem("token");
 
   const response = await fetch(
@@ -11,6 +13,7 @@ export const getAIVideo = async (payload) => {
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(payload),
+      signal,
     }
   );
 
@@ -19,6 +22,7 @@ export const getAIVideo = async (payload) => {
   try {
     data = await response.json();
   } catch (err) {
+    if (isAbortError(err)) throw err;
     throw new Error("Server returned empty or invalid JSON");
   }
 

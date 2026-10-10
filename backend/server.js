@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB, sequelize } from "./config/db.js";
 
@@ -25,9 +26,9 @@ import preferenceRoutes from "./routes/preferenceRoutes.js";
 import contactUsRoutes from "./routes/contactus.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import docsRoutes from "./routes/docsRoutes.js";
-import helmet from "helmet";
 import chatRoutes from "./routes/chatRoutes.js";
 import assistantRoutes from "./routes/assistantRoutes.js";
+import CalendarTaskRoutes from "./routes/CalendarTaskRoutes.js";
 
 // ================= MODELS =================
 import "./models/CommunityPost.js";
@@ -39,18 +40,14 @@ import "./models/Contactmessage.js";
 dotenv.config();
 
 import { validateEnv } from "./env-validator.js";
+import { securityHeaders } from "./config/securityHeaders.js";
+
 validateEnv();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-  })
-);
 
 // ================= SECURE CORS =================
 const envOrigins = process.env.FRONTEND_URL
@@ -67,6 +64,8 @@ const defaultDevOrigins = [
 ];
 
 const allowedOrigins = Array.from(new Set([...envOrigins, ...defaultDevOrigins]));
+
+app.use(securityHeaders());
 
 app.use(
   cors({
@@ -106,6 +105,8 @@ app.get("/", (req, res) => {
   res.send("✅ API is running...");
 });
 
+app.use("/health", healthRoutes);
+
 // ================= API ROUTES =================
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
@@ -125,6 +126,7 @@ app.use("/api/course-reports", reportRoutes);
 app.use("/api/docs", docsRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/assistant", assistantRoutes);
+app.use("/api/calendar", CalendarTaskRoutes);
 
 // ================= 404 HANDLER =================
 app.use((req, res) => {

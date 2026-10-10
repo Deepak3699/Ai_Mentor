@@ -50,7 +50,7 @@ Replace `<your-github-username>` with your GitHub username.
 | 2 | frontend | `cd frontend && npm run dev` | http://localhost:5173 |
 | 3 | backendAdmin | `cd backendAdmin && npm run dev` | http://localhost:5001 |
 | 4 | frontendAdmin | `cd frontendAdmin && npm run dev` | http://localhost:5174 |
-| 5 | ai_service | `cd ai_service/backend && uvicorn api:app --reload --port 8000` | http://localhost:8000/docs |
+| 5 | ai_service | `cd ai_service/backend && python graceful_server.py` | http://localhost:8000/docs |
 
 **To create the first admin account:** `cd backendAdmin && npm run seed:superadmin`
 
@@ -103,6 +103,31 @@ git push origin fix/short-description
 - Merge someone else's pull request without being asked
 - Leave `console.log` statements behind
 - Bundle five unrelated changes into one pull request
+
+---
+
+## Secret scanning
+
+CI job **Check for committed secrets** does two things:
+
+1. Fails if any file named `.env` is tracked by git.
+2. Runs [gitleaks](https://github.com/gitleaks/gitleaks) over the full commit history and file content, looking for API keys, tokens, private keys, webhook URLs and passwords inside database connection strings, whatever the file is called. Findings are redacted in the logs.
+
+Run it locally before you push (install gitleaks first):
+
+    gitleaks git . --config .gitleaks.toml --redact --no-banner
+    scripts/test-secret-scan.sh        # self-test with fake credentials
+
+### If the scan fails
+
+- **It is a real secret:** rotate it at the provider first. Removing it from the code is not enough, because it stays in git history.
+- **It is a false positive:** keep the exception as narrow as possible.
+  1. Run the scan with `--report-format json --report-path report.json` and copy the `Fingerprint` of the finding.
+  2. Add it to `.gitleaksignore` with a comment line above it saying why it is safe.
+  3. Only for a whole test fixture file, add its exact path to `[allowlist]` in `.gitleaks.toml` instead.
+  4. Open the pull request. Changes to these files need Team Lead review (see `.github/CODEOWNERS`). Never allowlist something you have not confirmed is fake.
+
+Use obvious placeholders in docs and examples (`your_password`, `xxxxx`), which the scanner ignores.
 
 ---
 
