@@ -48,8 +48,7 @@ const Header = () => {
 
     if (diffInSeconds < 60) return "Just now";
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-    if (diffInSeconds < 86400)
-      return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
     return `${Math.floor(diffInSeconds / 86400)}d ago`;
   };
   const loadNotifications = useCallback(async () => {
@@ -115,10 +114,7 @@ const Header = () => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDropdownOpen(false);
       }
-      if (
-        notificationRef.current &&
-        !notificationRef.current.contains(event.target)
-      ) {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setNotifOpen(false);
       }
 
@@ -149,9 +145,7 @@ const Header = () => {
   const markAsRead = async (id) => {
     try {
       await markAsReadApi(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, unread: false } : n)),
-      );
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, unread: false } : n)));
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
     }
@@ -220,9 +214,7 @@ const Header = () => {
                   <div className="fixed md:absolute left-4 right-4 top-16 md:left-auto md:right-0 md:top-auto md:mt-4 md:w-96 bg-card border border-border/50 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] z-[110] overflow-hidden animate-in fade-in zoom-in slide-in-from-top-4 duration-300">
                     <div className="p-6 bg-gradient-to-br from-[#3867D6]/12 via-[#3867D6]/5 to-transparent border-b border-border/50 flex items-center justify-between">
                       <div>
-                        <h4 className="text-sm font-black text-main uppercase">
-                          Notifications
-                        </h4>
+                        <h4 className="text-sm font-black text-main uppercase">Notifications</h4>
                         <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-0.5">
                           {unreadCount > 0
                             ? `You have ${unreadCount} unread messages`
@@ -262,9 +254,7 @@ const Header = () => {
                             label="Updating notifications"
                             className="mb-4"
                           />
-                          <p className="text-xs text-muted">
-                            Updating yours...
-                          </p>
+                          <p className="text-xs text-muted">Updating yours...</p>
                         </div>
                       ) : notifications.length > 0 ? (
                         notifications.map((notif) => (
@@ -281,12 +271,8 @@ const Header = () => {
                           <div className="w-16 h-16 bg-canvas rounded-3xl flex items-center justify-center mx-auto mb-4 border border-border/50">
                             <Bell className="w-8 h-8 text-muted/30" />
                           </div>
-                          <p className="text-sm font-bold text-main">
-                            No Notifications
-                          </p>
-                          <p className="text-xs text-muted mt-1">
-                            Check back later for updates.
-                          </p>
+                          <p className="text-sm font-bold text-main">No Notifications</p>
+                          <p className="text-xs text-muted mt-1">Check back later for updates.</p>
                         </div>
                       )}
                     </div>
@@ -332,9 +318,7 @@ const Header = () => {
 
                   {/* Name + Role */}
                   <div className="hidden lg:flex flex-col text-left">
-                    <span className="text-sm font-bold text-main leading-tight">
-                      {displayName}
-                    </span>
+                    <span className="text-sm font-bold text-main leading-tight">{displayName}</span>
                     <span className="text-xs text-muted leading-tight mt-0.5">
                       {user?.role || "BTech CSE"}
                     </span>
@@ -383,8 +367,7 @@ const Header = () => {
                       </div>
 
                       <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 px-2.5 py-1 text-[10px] font-semibold text-blue-600 dark:text-blue-300">
-                        <ShieldCheck className="w-3 h-3" />{" "}
-                        <span>Verified Profile</span>
+                        <ShieldCheck className="w-3 h-3" /> <span>Verified Profile</span>
                       </div>
                     </div>
 
@@ -431,12 +414,8 @@ const Header = () => {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-card border border-border/50 rounded-[2rem] shadow-2xl p-6 sm:p-8 w-[90%] max-w-sm text-center">
             <LogOut className="w-10 h-10 text-red-500 mx-auto mb-4" />
-            <h3 className="text-sm font-black uppercase tracking-tight text-main mb-2">
-              Logout
-            </h3>
-            <p className="text-xs text-muted mb-6">
-              Are you sure you want to logout?
-            </p>
+            <h3 className="text-sm font-black uppercase tracking-tight text-main mb-2">Logout</h3>
+            <p className="text-xs text-muted mb-6">Are you sure you want to logout?</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowLogoutConfirm(false)}

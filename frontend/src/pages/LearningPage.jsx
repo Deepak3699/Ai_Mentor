@@ -194,6 +194,8 @@ export default function Learning() {
       }
     };
     fetchLearningData();
+    // The initial restore intentionally runs only when the course changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
 
   // Reset restore flag on course change
@@ -274,7 +276,7 @@ export default function Learning() {
           })
           .filter(Boolean);
         setCaptions(cues);
-      } catch (err) {
+      } catch {
         setCaptions([]);
       }
     };
@@ -305,6 +307,8 @@ export default function Learning() {
       video.addEventListener("loadedmetadata", handler, { once: true });
       return () => video.removeEventListener("loadedmetadata", handler);
     }
+    // celebrityVideoMap is a static lookup recreated during render; selected values drive this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCelebrity, generatedTextContent, learningData?.currentLesson?.id]);
 
   const handleRetryGeneration = () => {
@@ -468,6 +472,8 @@ export default function Learning() {
       }
       controller.abort();
     };
+    // This generation transaction is keyed by primitive identifiers; adding helper identities would restart it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, generationAttempt, learningData?.currentLesson?.id, selectedCelebrity]);
 
   // Fullscreen change handler
@@ -578,6 +584,8 @@ export default function Learning() {
     if (currentLessonIndex > 0) {
       handleLessonClick(allLessons[currentLessonIndex - 1]);
     }
+    // Navigation callbacks intentionally follow the derived lesson index/list for this render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentLessonIndex, allLessons]);
 
   const handleNext = useCallback(async () => {
@@ -586,6 +594,8 @@ export default function Learning() {
     if (currentLesson?.id) await completeLesson(currentLesson.id);
     handleLessonClick(allLessons[currentLessonIndex + 1]);
     setIsNavigating(false);
+    // Navigation callbacks intentionally follow derived lesson data; helper identities are render-local.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentLessonIndex, allLessons, currentLesson]);
 
   const togglePlay = useCallback(() => {

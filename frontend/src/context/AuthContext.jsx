@@ -1,12 +1,5 @@
 // frontend/src/context/AuthContext.jsx
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-  useRef,
-} from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase.js";
 import API_BASE_URL, { apiFetch, SESSION_EXPIRED_EVENT } from "../lib/api";
@@ -45,8 +38,7 @@ export const AuthProvider = ({ children }) => {
       navigate("/login", { replace: true });
     };
     window.addEventListener(SESSION_EXPIRED_EVENT, expireSession);
-    return () =>
-      window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession);
   }, [navigate]);
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     const token = localStorage.getItem("token");
@@ -57,9 +49,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem("user");
     try {
-      return storedUser && storedUser !== "undefined"
-        ? JSON.parse(storedUser)
-        : null;
+      return storedUser && storedUser !== "undefined" ? JSON.parse(storedUser) : null;
     } catch {
       return null;
     }

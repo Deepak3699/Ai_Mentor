@@ -1,11 +1,5 @@
-import { useEffect, useState, useRef } from "react";
-import {
-  MoreVertical,
-  Trash2,
-  ShieldAlert,
-  UserX,
-  UserCheck,
-} from "lucide-react";
+import { useCallback, useEffect, useState, useRef } from "react";
+import { MoreVertical, Trash2, ShieldAlert, UserX, UserCheck } from "lucide-react";
 import { callApi } from "../utils/api";
 import { useToast } from "../context/ToastContext";
 
@@ -145,10 +139,7 @@ function ActionMenu({ account, onAction, isSuperAdmin }) {
             <button
               type="button"
               onClick={() => {
-                onAction(
-                  account,
-                  account.isBlocked ? "unblock" : "block"
-                );
+                onAction(account, account.isBlocked ? "unblock" : "block");
                 setIsOpen(false);
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-bold ${
@@ -218,13 +209,13 @@ function UsersPage() {
   const currentAdmin = JSON.parse(localStorage.getItem("user") || "{}");
   const isSuperAdmin = currentAdmin?.role === "superadmin";
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async () => {
     try {
       setLoading(true);
 
       const [usersResult, adminsResult] = await Promise.allSettled([
         callApi(
-          `/admin/users?page=${page}&limit=10&search=${debouncedSearch}&status=${statusFilter}`
+          `/admin/users?page=${page}&limit=10&search=${debouncedSearch}&status=${statusFilter}`,
         ),
         callApi("/admin/admins"),
       ]);
@@ -247,14 +238,9 @@ function UsersPage() {
             : []
           : [];
 
-      if (
-        usersResult.status === "rejected" &&
-        adminsResult.status === "rejected"
-      ) {
+      if (usersResult.status === "rejected" && adminsResult.status === "rejected") {
         throw new Error(
-          usersResult.reason?.message ||
-            adminsResult.reason?.message ||
-            "Unable to load accounts"
+          usersResult.reason?.message || adminsResult.reason?.message || "Unable to load accounts",
         );
       }
 
@@ -281,14 +267,9 @@ function UsersPage() {
         createdAt: admin.createdAt,
       }));
 
-      const merged = [...normalizedAdmins, ...normalizedUsers].sort(
-        (a, b) => {
-          return (
-            new Date(b.createdAt || 0) -
-            new Date(a.createdAt || 0)
-          );
-        }
-      );
+      const merged = [...normalizedAdmins, ...normalizedUsers].sort((a, b) => {
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+      });
 
       setAccounts(merged);
       setError(null);
@@ -297,7 +278,7 @@ function UsersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, debouncedSearch, statusFilter]);
 
   // Debounce search
   useEffect(() => {
@@ -320,7 +301,7 @@ function UsersPage() {
 
   useEffect(() => {
     fetchAccounts();
-  }, [page, debouncedSearch, statusFilter]);
+  }, [fetchAccounts]);
 
   useEffect(() => {
     setPage(1);
@@ -350,10 +331,8 @@ function UsersPage() {
         });
 
         showToast(
-          action === "block"
-            ? "User blocked successfully"
-            : "User unblocked successfully",
-          "success"
+          action === "block" ? "User blocked successfully" : "User unblocked successfully",
+          "success",
         );
 
         await fetchAccounts();
@@ -362,7 +341,7 @@ function UsersPage() {
           action === "block"
             ? "Failed to block user: " + err.message
             : "Failed to unblock user: " + err.message,
-          "error"
+          "error",
         );
       }
 
@@ -373,22 +352,13 @@ function UsersPage() {
     if (action === "active" || action === "on-hold") {
       try {
         if (account.type === "admin") {
-          if (
-            currentAdmin?.id &&
-            account.rawId === currentAdmin.id
-          ) {
-            showToast(
-              "You cannot suspend yourself.",
-              "warning"
-            );
+          if (currentAdmin?.id && account.rawId === currentAdmin.id) {
+            showToast("You cannot suspend yourself.", "warning");
             return;
           }
 
           if (account.role === "superadmin") {
-            showToast(
-              "Super admin status cannot be changed.",
-              "warning"
-            );
+            showToast("Super admin status cannot be changed.", "warning");
             return;
           }
         }
@@ -405,17 +375,11 @@ function UsersPage() {
           }),
         });
 
-        showToast(
-          `Account status updated to ${action}`,
-          "success"
-        );
+        showToast(`Account status updated to ${action}`, "success");
 
         await fetchAccounts();
       } catch (err) {
-        showToast(
-          "Failed to update status: " + err.message,
-          "error"
-        );
+        showToast("Failed to update status: " + err.message, "error");
       }
     }
   };
@@ -427,39 +391,25 @@ function UsersPage() {
 
     try {
       // Prevent self delete
-      if (
-        currentAdmin?.id &&
-        account.rawId === currentAdmin.id
-      ) {
-        showToast(
-          "You cannot delete yourself.",
-          "warning"
-        );
+      if (currentAdmin?.id && account.rawId === currentAdmin.id) {
+        showToast("You cannot delete yourself.", "warning");
         return;
       }
 
       // Prevent deleting superadmin
       if (account.role === "superadmin") {
-        showToast(
-          "Super Admin cannot be deleted.",
-          "warning"
-        );
+        showToast("Super Admin cannot be deleted.", "warning");
         return;
       }
 
       const endpoint =
-        account.type === "admin"
-          ? `/admin/${account.rawId}`
-          : `/admin/users/${account.rawId}`;
+        account.type === "admin" ? `/admin/${account.rawId}` : `/admin/users/${account.rawId}`;
 
       await callApi(endpoint, {
         method: "DELETE",
       });
 
-      showToast(
-        `${account.name} deleted successfully`,
-        "success"
-      );
+      showToast(`${account.name} deleted successfully`, "success");
 
       setDeleteModal({
         open: false,
@@ -468,10 +418,7 @@ function UsersPage() {
 
       await fetchAccounts();
     } catch (err) {
-      showToast(
-        "Failed to delete account: " + err.message,
-        "error"
-      );
+      showToast("Failed to delete account: " + err.message, "error");
     }
   };
 
@@ -573,9 +520,7 @@ function UsersPage() {
     setSubmitError(null);
 
     if (!isSuperAdmin) {
-      setSubmitError(
-        "Only superadmin can add other admins."
-      );
+      setSubmitError("Only superadmin can add other admins.");
       return;
     }
 
@@ -608,9 +553,7 @@ function UsersPage() {
 
       await fetchAccounts();
     } catch (err) {
-      setSubmitError(
-        err.message || "Unable to create admin"
-      );
+      setSubmitError(err.message || "Unable to create admin");
     } finally {
       setIsSubmitting(false);
     }
@@ -623,10 +566,7 @@ function UsersPage() {
     }
 
     // Status filter
-    if (
-      statusFilter === "on-hold" &&
-      item.type === "admin"
-    ) {
+    if (statusFilter === "on-hold" && item.type === "admin") {
       return false;
     }
 
@@ -634,13 +574,9 @@ function UsersPage() {
     if (search && item.type === "admin") {
       const q = search.toLowerCase();
 
-      const nameMatch = item.name
-        ?.toLowerCase()
-        .includes(q);
+      const nameMatch = item.name?.toLowerCase().includes(q);
 
-      const emailMatch = item.email
-        ?.toLowerCase()
-        .includes(q);
+      const emailMatch = item.email?.toLowerCase().includes(q);
 
       if (!nameMatch && !emailMatch) {
         return false;
@@ -651,29 +587,19 @@ function UsersPage() {
   });
 
   if (error && accounts.length === 0) {
-    return (
-      <div className="p-10 text-center text-red-500">
-        Error: {error}
-      </div>
-    );
+    return <div className="p-10 text-center text-red-500">Error: {error}</div>;
   }
 
   return (
     <>
       {/* Page Header */}
       <div className="border-b border-border p-6 md:p-8 flex flex-wrap items-center justify-between gap-3 bg-linear-to-r from-canvas-alt/30 to-transparent">
-        <h2 className="text-3xl font-black uppercase tracking-tight text-main">
-          Manage Users
-        </h2>
+        <h2 className="text-3xl font-black uppercase tracking-tight text-main">Manage Users</h2>
 
         <div className="flex items-center gap-2 p-1 bg-canvas rounded-2xl border border-border">
           <button
             type="button"
-            onClick={() =>
-              setActiveFilter((prev) =>
-                prev === "admin" ? null : "admin"
-              )
-            }
+            onClick={() => setActiveFilter((prev) => (prev === "admin" ? null : "admin"))}
             className={`h-10 px-6 rounded-xl transition-all font-bold uppercase tracking-widest text-[10px] ${
               activeFilter === "admin"
                 ? "bg-teal-500 text-white shadow-lg shadow-teal-500/20"
@@ -685,11 +611,7 @@ function UsersPage() {
 
           <button
             type="button"
-            onClick={() =>
-              setActiveFilter((prev) =>
-                prev === "user" ? null : "user"
-              )
-            }
+            onClick={() => setActiveFilter((prev) => (prev === "user" ? null : "user"))}
             className={`h-10 px-6 rounded-xl transition-all font-bold uppercase tracking-widest text-[10px] ${
               activeFilter === "user"
                 ? "bg-teal-500 text-white shadow-lg shadow-teal-500/20"
@@ -756,10 +678,7 @@ function UsersPage() {
         {/* Count Summary */}
         <div className="flex items-center gap-4 ml-auto text-[11px] font-black uppercase tracking-widest text-muted">
           <span>
-            Total:{" "}
-            <span className="text-main">
-              {visibleAccounts.length}
-            </span>
+            Total: <span className="text-main">{visibleAccounts.length}</span>
           </span>
 
           <span className="text-border">|</span>
@@ -767,11 +686,7 @@ function UsersPage() {
           <span>
             Users:{" "}
             <span className="text-blue-500">
-              {
-                visibleAccounts.filter(
-                  (a) => a.type === "user"
-                ).length
-              }
+              {visibleAccounts.filter((a) => a.type === "user").length}
             </span>
           </span>
 
@@ -780,11 +695,7 @@ function UsersPage() {
           <span>
             Admins:{" "}
             <span className="text-teal-500">
-              {
-                visibleAccounts.filter(
-                  (a) => a.type === "admin"
-                ).length
-              }
+              {visibleAccounts.filter((a) => a.type === "admin").length}
             </span>
           </span>
         </div>
@@ -801,9 +712,7 @@ function UsersPage() {
               <th>Role</th>
               <th>Created</th>
               <th>Status</th>
-              <th className="pr-8 text-right">
-                Actions
-              </th>
+              <th className="pr-8 text-right">Actions</th>
             </tr>
           </thead>
 
@@ -826,15 +735,11 @@ function UsersPage() {
                         {account.name?.charAt(0)}
                       </div>
 
-                      <div className="font-bold text-main tracking-tight">
-                        {account.name}
-                      </div>
+                      <div className="font-bold text-main tracking-tight">{account.name}</div>
                     </div>
                   </td>
 
-                  <td className="text-muted font-medium">
-                    {account.email}
-                  </td>
+                  <td className="text-muted font-medium">{account.email}</td>
 
                   <td>
                     <span
@@ -853,16 +758,11 @@ function UsersPage() {
                   </td>
 
                   <td className="text-muted font-bold text-[11px]">
-                    {account.createdAt
-                      ? new Date(
-                          account.createdAt
-                        ).toLocaleDateString()
-                      : "-"}
+                    {account.createdAt ? new Date(account.createdAt).toLocaleDateString() : "-"}
                   </td>
 
                   <td>
-                    {account.type === "user" &&
-                    account.isBlocked ? (
+                    {account.type === "user" && account.isBlocked ? (
                       <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-red-500" />
                         <span className="text-[10px] font-black uppercase tracking-widest text-red-500">
@@ -873,17 +773,13 @@ function UsersPage() {
                       <div className="flex items-center gap-2">
                         <div
                           className={`w-2 h-2 rounded-full ${
-                            account.status === "on-hold"
-                              ? "bg-orange-500"
-                              : "bg-green-500"
+                            account.status === "on-hold" ? "bg-orange-500" : "bg-green-500"
                           } animate-pulse`}
                         />
 
                         <span
                           className={`text-[10px] font-black uppercase tracking-widest ${
-                            account.status === "on-hold"
-                              ? "text-orange-500"
-                              : "text-green-500"
+                            account.status === "on-hold" ? "text-orange-500" : "text-green-500"
                           }`}
                         >
                           {account.status || "active"}
@@ -903,16 +799,11 @@ function UsersPage() {
               ))
             ) : (
               <tr>
-                <td
-                  colSpan="7"
-                  className="p-20 text-center text-muted italic"
-                >
+                <td colSpan="7" className="p-20 text-center text-muted italic">
                   {loading ? (
                     <div className="flex flex-col items-center gap-4 opacity-50">
                       <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
-                      <p className="text-sm font-black uppercase tracking-widest">
-                        Searching...
-                      </p>
+                      <p className="text-sm font-black uppercase tracking-widest">Searching...</p>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-4 opacity-30">
@@ -959,9 +850,7 @@ function UsersPage() {
         <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-card border border-border w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
             <div className="p-6 border-b border-border flex items-center justify-between bg-linear-to-r from-teal-500/5 to-transparent">
-              <h3 className="text-xl font-bold text-main tracking-tight uppercase">
-                Create Admin
-              </h3>
+              <h3 className="text-xl font-bold text-main tracking-tight uppercase">Create Admin</h3>
 
               <button
                 type="button"
@@ -972,10 +861,7 @@ function UsersPage() {
               </button>
             </div>
 
-            <form
-              className="p-8 space-y-6"
-              onSubmit={onCreateAdmin}
-            >
+            <form className="p-8 space-y-6" onSubmit={onCreateAdmin}>
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-1">
                   Name
@@ -1023,10 +909,7 @@ function UsersPage() {
 
                 {formData.password &&
                   (() => {
-                    const strength =
-                      getPasswordStrength(
-                        formData.password
-                      );
+                    const strength = getPasswordStrength(formData.password);
 
                     return (
                       <div className="space-y-1.5 pt-1">
@@ -1035,9 +918,7 @@ function UsersPage() {
                             <div
                               key={i}
                               className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-                                strength.score >= i
-                                  ? strength.color
-                                  : "bg-border"
+                                strength.score >= i ? strength.color : "bg-border"
                               }`}
                             />
                           ))}
@@ -1069,8 +950,8 @@ function UsersPage() {
                 <ShieldAlert className="w-5 h-5 text-teal-500 shrink-0" />
 
                 <p className="text-[10px] text-muted font-bold leading-relaxed uppercase tracking-tight">
-                  This will create a regular admin account.
-                  Only Super Admins can manage other accounts.
+                  This will create a regular admin account. Only Super Admins can manage other
+                  accounts.
                 </p>
               </div>
 
@@ -1097,9 +978,7 @@ function UsersPage() {
                   disabled={isSubmitting}
                   className="flex-2 h-14 rounded-2xl bg-teal-500 text-white font-bold uppercase tracking-widest text-[11px] hover:bg-teal-600 shadow-xl shadow-teal-500/20 transition-all disabled:opacity-50"
                 >
-                  {isSubmitting
-                    ? "Creating..."
-                    : "Create Admin"}
+                  {isSubmitting ? "Creating..." : "Create Admin"}
                 </button>
               </div>
             </form>
@@ -1118,9 +997,7 @@ function UsersPage() {
                   Delete Account
                 </h2>
 
-                <p className="text-xs text-muted mt-1 font-medium">
-                  This action cannot be undone.
-                </p>
+                <p className="text-xs text-muted mt-1 font-medium">This action cannot be undone.</p>
               </div>
 
               <button
@@ -1147,15 +1024,11 @@ function UsersPage() {
                 <div>
                   <h3 className="font-black text-main tracking-tight">
                     Are you sure you want to delete{" "}
-                    <span className="text-red-500">
-                      {deleteModal.account?.name}
-                    </span>
-                    ?
+                    <span className="text-red-500">{deleteModal.account?.name}</span>?
                   </h3>
 
                   <p className="text-sm text-muted mt-2 leading-relaxed">
-                    Deleting this account will permanently
-                    remove access and related data. This
+                    Deleting this account will permanently remove access and related data. This
                     action cannot be undone.
                   </p>
                 </div>
@@ -1168,9 +1041,7 @@ function UsersPage() {
                     Email
                   </span>
 
-                  <span className="text-main font-semibold">
-                    {deleteModal.account?.email}
-                  </span>
+                  <span className="text-main font-semibold">{deleteModal.account?.email}</span>
                 </div>
 
                 <div className="flex justify-between text-sm">

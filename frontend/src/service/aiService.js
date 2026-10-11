@@ -4,18 +4,15 @@ import { isAbortError } from "./aiGeneration";
 export const getAIVideo = async (payload, { signal } = {}) => {
   const token = localStorage.getItem("token");
 
-  const response = await fetch(
-    "/api/ai/generate-video",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-      signal,
-    }
-  );
+  const response = await fetch("/api/ai/generate-video", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+    signal,
+  });
 
   let data;
 

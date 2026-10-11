@@ -69,9 +69,7 @@ const UpcomingLiveSession = ({
           className="h-5 w-5 shrink-0 text-violet-600 dark:text-violet-300"
           aria-hidden="true"
         />
-        <h3 className="text-base font-extrabold tracking-tight text-main">
-          Upcoming Live Session
-        </h3>
+        <h3 className="text-base font-extrabold tracking-tight text-main">Upcoming Live Session</h3>
       </div>
 
       {/* Sessions Container */}
@@ -96,12 +94,8 @@ const UpcomingLiveSession = ({
 
                 {/* Title & Time */}
                 <div className="min-w-0 flex-1">
-                  <h4 className="truncate text-sm font-bold text-main">
-                    {sessionTitle}
-                  </h4>
-                  <p className="mt-1 truncate text-xs leading-5 text-muted">
-                    {sessionTime}
-                  </p>
+                  <h4 className="truncate text-sm font-bold text-main">{sessionTitle}</h4>
+                  <p className="mt-1 truncate text-xs leading-5 text-muted">{sessionTime}</p>
                 </div>
               </div>
 

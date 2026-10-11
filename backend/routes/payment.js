@@ -16,13 +16,19 @@ const paymentLimiter = rateLimit({
 });
 
 // ✅ CREATE CHECKOUT SESSION — with idempotency protection
-router.post("/create-checkout-session", protect,paymentLimiter, async (req, res) => {
+router.post("/create-checkout-session", protect, paymentLimiter, async (req, res) => {
   try {
     const { course, idempotencyKey } = req.body;
     const userId = req.user.id; // ✅ from JWT token — never trust req.body for userId
 
     // Validate inputs
-    if (!course || !course.id || !course.title || !course.priceValue || Number(course.priceValue) <= 0) {
+    if (
+      !course ||
+      !course.id ||
+      !course.title ||
+      !course.priceValue ||
+      Number(course.priceValue) <= 0
+    ) {
       return res.status(400).json({ error: "Invalid course data" });
     }
 
@@ -80,7 +86,7 @@ router.post("/create-checkout-session", protect,paymentLimiter, async (req, res)
       metadata: {
         courseId: course.id.toString(),
         courseTitle: course.title,
-        userId: userId.toString(),        // ✅ from JWT — secure
+        userId: userId.toString(), // ✅ from JWT — secure
         paymentId: payment.id,
         idempotencyKey,
       },
@@ -100,7 +106,6 @@ router.post("/create-checkout-session", protect,paymentLimiter, async (req, res)
     });
 
     return res.status(200).json(cachedResponse);
-
   } catch (error) {
     console.error("❌ Stripe Error:", error.message);
     return res.status(500).json({ error: "Stripe session failed" });

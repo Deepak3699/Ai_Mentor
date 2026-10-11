@@ -75,14 +75,7 @@ const LessonThumbnail = ({ type }) => {
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <ellipse
-            cx="50"
-            cy="50"
-            rx="38"
-            ry="15"
-            stroke="#61DAFB"
-            strokeWidth="6"
-          />
+          <ellipse cx="50" cy="50" rx="38" ry="15" stroke="#61DAFB" strokeWidth="6" />
           <ellipse
             cx="50"
             cy="50"
@@ -111,12 +104,7 @@ const LessonThumbnail = ({ type }) => {
   if (type === "python") {
     return (
       <div className="w-[58px] h-[40px] shrink-0 rounded-[7px] bg-[#102b4c] flex items-center justify-center overflow-hidden">
-        <svg
-          width="38"
-          height="34"
-          viewBox="0 0 100 90"
-          xmlns="http://www.w3.org/2000/svg"
-        >
+        <svg width="38" height="34" viewBox="0 0 100 90" xmlns="http://www.w3.org/2000/svg">
           <path
             d="M49 7C30 7 30 15 30 15V29H52V34H20C20 34 8 32 8 52C8 72 20 73 20 73H31V61C31 61 30 50 42 50H60C60 50 70 50 70 38V19C70 19 68 7 49 7Z"
             fill="#3776AB"
@@ -196,12 +184,7 @@ const LessonItem = ({ lesson, onPlay }) => {
           cursor-pointer
         "
       >
-        <Play
-          size={11}
-          fill="currentColor"
-          strokeWidth={0}
-          className="ml-[1px]"
-        />
+        <Play size={11} fill="currentColor" strokeWidth={0} className="ml-[1px]" />
       </button>
     </div>
   );
@@ -229,10 +212,7 @@ const Dashboard = () => {
 
   const [data, setData] = useState(null);
   const [learningStreak] = useState(() => {
-    const savedStreak = Number.parseInt(
-      localStorage.getItem("streak") || "0",
-      10,
-    );
+    const savedStreak = Number.parseInt(localStorage.getItem("streak") || "0", 10);
     return Number.isNaN(savedStreak) ? 0 : Math.max(savedStreak, 0);
   });
 
@@ -259,18 +239,15 @@ const Dashboard = () => {
           "Content-Type": "application/json",
         };
 
-        const [coursesResult, statsResult, certResult] =
-          await Promise.allSettled([
-            fetch("/api/courses", { headers }),
-            fetch("/api/courses/stats/cards", { headers }),
-            fetch("/api/certificate/list", { headers }),
-          ]);
+        const [coursesResult, statsResult, certResult] = await Promise.allSettled([
+          fetch("/api/courses", { headers }),
+          fetch("/api/courses/stats/cards", { headers }),
+          fetch("/api/certificate/list", { headers }),
+        ]);
 
-        const coursesRes =
-          coursesResult.status === "fulfilled" ? coursesResult.value : null;
+        const coursesRes = coursesResult.status === "fulfilled" ? coursesResult.value : null;
 
-        const statsRes =
-          statsResult.status === "fulfilled" ? statsResult.value : null;
+        const statsRes = statsResult.status === "fulfilled" ? statsResult.value : null;
 
         const res = certResult.status === "fulfilled" ? certResult.value : null;
 
@@ -321,9 +298,7 @@ const Dashboard = () => {
         iconBg: "bg-blue-100 dark:bg-blue-500/20",
       },
       {
-        icon: (
-          <CheckCircle className="w-5 h-5 text-green-600 dark:text-emerald-300" />
-        ),
+        icon: <CheckCircle className="w-5 h-5 text-green-600 dark:text-emerald-300" />,
         value: data?.stats?.completed ?? 0,
         label: "Completed",
         change: null,
@@ -331,9 +306,7 @@ const Dashboard = () => {
         iconBg: "bg-green-100 dark:bg-emerald-500/20",
       },
       {
-        icon: (
-          <Award className="w-5 h-5 text-purple-600 dark:text-violet-300" />
-        ),
+        icon: <Award className="w-5 h-5 text-purple-600 dark:text-violet-300" />,
         value: data?.stats?.certificatesEarned ?? 0,
         label: "Certificates",
         change: null,
@@ -350,11 +323,7 @@ const Dashboard = () => {
       },
     ];
 
-    if (
-      !user?.purchasedCourses ||
-      !coursesData.statsCards ||
-      coursesData.statsCards.length < 4
-    ) {
+    if (!user?.purchasedCourses || !coursesData.statsCards || coursesData.statsCards.length < 4) {
       return baseCards;
     }
 
@@ -366,9 +335,7 @@ const Dashboard = () => {
     const totalHours = user.analytics?.totalHours || 0;
 
     user.purchasedCourses.forEach((purchasedCourse) => {
-      const courseInfo = coursesData.allCourses.find(
-        (c) => c.id == purchasedCourse.courseId,
-      );
+      const courseInfo = coursesData.allCourses.find((c) => c.id == purchasedCourse.courseId);
 
       if (courseInfo) {
         const totalLessons =
@@ -379,8 +346,7 @@ const Dashboard = () => {
               : parseInt(courseInfo.lessons.split(" ")[0])
             : 0);
 
-        const completedLessons =
-          purchasedCourse.progress?.completedLessons?.length || 0;
+        const completedLessons = purchasedCourse.progress?.completedLessons?.length || 0;
 
         if (completedLessons === totalLessons && totalLessons > 0) {
           completedCourses++;
@@ -418,14 +384,10 @@ const Dashboard = () => {
 
   const myCourses = coursesData.allCourses
     .filter((course) =>
-      user?.purchasedCourses?.some(
-        (purchased) => purchased.courseId == course.id,
-      ),
+      user?.purchasedCourses?.some((purchased) => purchased.courseId == course.id),
     )
     .map((course) => {
-      const purchasedCourse = user?.purchasedCourses?.find(
-        (p) => p.courseId == course.id,
-      );
+      const purchasedCourse = user?.purchasedCourses?.find((p) => p.courseId == course.id);
 
       const totalLessons =
         course.lessonsCount ||
@@ -435,17 +397,13 @@ const Dashboard = () => {
             : parseInt(course.lessons.split(" ")[0])
           : 0);
 
-      const completedLessons =
-        purchasedCourse?.progress?.completedLessons?.length || 0;
+      const completedLessons = purchasedCourse?.progress?.completedLessons?.length || 0;
 
       return {
         id: course.id,
         title: course.title,
         subtitle: course.category,
-        progress:
-          totalLessons > 0
-            ? Math.round((completedLessons / totalLessons) * 100)
-            : 0,
+        progress: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0,
         lessons: `${completedLessons}/${totalLessons}`,
         level: course.level,
 
@@ -468,14 +426,10 @@ const Dashboard = () => {
 
   const continueLearning = coursesData.allCourses
     .filter((course) =>
-      user?.purchasedCourses?.some(
-        (purchased) => purchased.courseId == course.id,
-      ),
+      user?.purchasedCourses?.some((purchased) => purchased.courseId == course.id),
     )
     .filter((course) => {
-      const purchasedCourse = user?.purchasedCourses?.find(
-        (p) => p.courseId == course.id,
-      );
+      const purchasedCourse = user?.purchasedCourses?.find((p) => p.courseId == course.id);
 
       const totalLessons =
         course.lessonsCount ||
@@ -485,16 +439,13 @@ const Dashboard = () => {
             : parseInt(course.lessons.split(" ")[0])
           : 0);
 
-      const completedLessons =
-        purchasedCourse?.progress?.completedLessons?.length || 0;
+      const completedLessons = purchasedCourse?.progress?.completedLessons?.length || 0;
 
       return completedLessons > 0 && completedLessons < totalLessons;
     })
     .slice(0, 3)
     .map((course) => {
-      const purchasedCourse = user?.purchasedCourses?.find(
-        (p) => p.courseId === course.id,
-      );
+      const purchasedCourse = user?.purchasedCourses?.find((p) => p.courseId === course.id);
 
       const totalLessons =
         course.lessonsCount ||
@@ -504,13 +455,9 @@ const Dashboard = () => {
             : parseInt(course.lessons.split(" ")[0])
           : 0);
 
-      const completedLessons =
-        purchasedCourse?.progress?.completedLessons?.length || 0;
+      const completedLessons = purchasedCourse?.progress?.completedLessons?.length || 0;
 
-      const progress =
-        totalLessons > 0
-          ? Math.round((completedLessons / totalLessons) * 100)
-          : 0;
+      const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
       const currentLesson = purchasedCourse?.progress?.currentLesson;
 
@@ -692,12 +639,7 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {dynamicStatsCards.map((card, index) => {
-            const statLabelKeys = [
-              "ongoing_courses",
-              "completed",
-              "certificates",
-              "hours_spent",
-            ];
+            const statLabelKeys = ["ongoing_courses", "completed", "certificates", "hours_spent"];
 
             return (
               <div
@@ -722,9 +664,7 @@ const Dashboard = () => {
                   {card.value}
                 </div>
 
-                <div className="text-sm text-muted">
-                  {t(`dashboard.${statLabelKeys[index]}`)}
-                </div>
+                <div className="text-sm text-muted">{t(`dashboard.${statLabelKeys[index]}`)}</div>
               </div>
             );
           })}
@@ -768,10 +708,7 @@ const Dashboard = () => {
               </div>
             </div>
 
-            <div
-              id="courseSlider"
-              className="course-slider flex gap-5 overflow-x-hidden py-3 pb-5"
-            >
+            <div id="courseSlider" className="course-slider flex gap-5 overflow-x-hidden py-3 pb-5">
               {coursesData.allCourses.slice(0, 10).map((course, index) => (
                 <div
                   key={index}
@@ -790,12 +727,10 @@ const Dashboard = () => {
                                 ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
                                 : course.title === "MongoDB Fundamentals"
                                   ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                                  : course.title ===
-                                        "Machine Learning Fundamentals" ||
+                                  : course.title === "Machine Learning Fundamentals" ||
                                       course.title === "ML Fundamentals"
                                     ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
-                                    : course.title ===
-                                          "Full Stack Web Development" ||
+                                    : course.title === "Full Stack Web Development" ||
                                         course.title === "Full Stack Web Dev"
                                       ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
                                       : "/AI_Tutor_New_UI/Dashboard/logo.png"
@@ -810,9 +745,7 @@ const Dashboard = () => {
                   </div>
 
                   <div className="p-4 space-y-2">
-                    <h3 className="text-sm font-semibold text-main line-clamp-2">
-                      {course.title}
-                    </h3>
+                    <h3 className="text-sm font-semibold text-main line-clamp-2">{course.title}</h3>
 
                     <p className="text-xs text-muted">
                       {course.lessons} • {course.level}
@@ -823,16 +756,13 @@ const Dashboard = () => {
                         Array.isArray(user?.purchasedCourses) &&
                         user.purchasedCourses.some(
                           (c) =>
-                            String(c?.id ?? c?.courseId ?? c?.course?.id) ===
-                            String(course.id),
+                            String(c?.id ?? c?.courseId ?? c?.course?.id) === String(course.id),
                         );
 
                       return (
                         <div className="flex justify-between items-center mt-2">
                           <span className="font-bold text-green-500">
-                            {course.priceValue === 0
-                              ? "Free"
-                              : `₹${course.priceValue}`}
+                            {course.priceValue === 0 ? "Free" : `₹${course.priceValue}`}
                           </span>
 
                           <button
@@ -860,9 +790,7 @@ const Dashboard = () => {
               ================================================= */}
 
           <div className="xl:col-span-2 flex flex-col">
-            <h2 className="text-xl font-bold text-main mb-6">
-              {t("dashboard.my_courses")}
-            </h2>
+            <h2 className="text-xl font-bold text-main mb-6">{t("dashboard.my_courses")}</h2>
 
             <div className="bg-card rounded-xl border border-border overflow-hidden">
               <div className="overflow-x-auto">
@@ -892,10 +820,7 @@ const Dashboard = () => {
                       {filteredMyCourses.map((course, index) => (
                         <tr key={index} className="hover:bg-canvas-alt">
                           <td className="px-4 py-4">
-                            <Link
-                              to={`/learning/${course.id}`}
-                              className="flex items-center"
-                            >
+                            <Link to={`/learning/${course.id}`} className="flex items-center">
                               <img
                                 src={
                                   course.title === "React Fundamentals"
@@ -906,18 +831,13 @@ const Dashboard = () => {
                                         ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
                                         : course.title === "PostgreSQL"
                                           ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
-                                          : course.title ===
-                                              "MongoDB Fundamentals"
+                                          : course.title === "MongoDB Fundamentals"
                                             ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                                            : course.title ===
-                                                  "Machine Learning Fundamentals" ||
-                                                course.title ===
-                                                  "ML Fundamentals"
+                                            : course.title === "Machine Learning Fundamentals" ||
+                                                course.title === "ML Fundamentals"
                                               ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
-                                              : course.title ===
-                                                    "Full Stack Web Development" ||
-                                                  course.title ===
-                                                    "Full Stack Web Dev"
+                                              : course.title === "Full Stack Web Development" ||
+                                                  course.title === "Full Stack Web Dev"
                                                 ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
                                                 : "/AI_Tutor_New_UI/Dashboard/logo.png"
                                 }
@@ -931,9 +851,7 @@ const Dashboard = () => {
                                   {course.title}
                                 </div>
 
-                                <div className="text-sm text-muted">
-                                  {course.subtitle}
-                                </div>
+                                <div className="text-sm text-muted">{course.subtitle}</div>
                               </div>
                             </Link>
                           </td>
@@ -948,14 +866,10 @@ const Dashboard = () => {
                               />
                             </div>
 
-                            <div className="text-sm text-muted">
-                              {course.progress}%
-                            </div>
+                            <div className="text-sm text-muted">{course.progress}%</div>
                           </td>
 
-                          <td className="px-4 py-4 text-muted">
-                            {course.lessons}
-                          </td>
+                          <td className="px-4 py-4 text-muted">{course.lessons}</td>
 
                           <td className="px-4 py-4">
                             <span
@@ -991,17 +905,13 @@ const Dashboard = () => {
                                       ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
                                       : course.title === "PostgreSQL"
                                         ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
-                                        : course.title ===
-                                            "MongoDB Fundamentals"
+                                        : course.title === "MongoDB Fundamentals"
                                           ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                                          : course.title ===
-                                                "Machine Learning Fundamentals" ||
+                                          : course.title === "Machine Learning Fundamentals" ||
                                               course.title === "ML Fundamentals"
                                             ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
-                                            : course.title ===
-                                                  "Full Stack Web Development" ||
-                                                course.title ===
-                                                  "Full Stack Web Dev"
+                                            : course.title === "Full Stack Web Development" ||
+                                                course.title === "Full Stack Web Dev"
                                               ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
                                               : "/AI_Tutor_New_UI/Dashboard/logo.png"
                               }
@@ -1010,9 +920,7 @@ const Dashboard = () => {
                             />
 
                             <div className="min-w-0">
-                              <div className="font-medium text-main truncate">
-                                {course.title}
-                              </div>
+                              <div className="font-medium text-main truncate">{course.title}</div>
 
                               <div className="text-sm text-muted truncate">
                                 {course.category} • {course.level}
@@ -1082,14 +990,11 @@ const Dashboard = () => {
                                       ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
                                       : item.title === "MongoDB Fundamentals"
                                         ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                                        : item.title ===
-                                              "Machine Learning Fundamentals" ||
+                                        : item.title === "Machine Learning Fundamentals" ||
                                             item.title === "ML Fundamentals"
                                           ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
-                                          : item.title ===
-                                                "Full Stack Web Development" ||
-                                              item.title ===
-                                                "Full Stack Web Dev"
+                                          : item.title === "Full Stack Web Development" ||
+                                              item.title === "Full Stack Web Dev"
                                             ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
                                             : "/AI_Tutor_New_UI/Dashboard/logo.png"
                             }
@@ -1103,9 +1008,7 @@ const Dashboard = () => {
                               {item.title}
                             </h3>
 
-                            <p className="text-sm text-muted mb-2">
-                              {item.lesson}
-                            </p>
+                            <p className="text-sm text-muted mb-2">{item.lesson}</p>
 
                             <div className="w-full bg-border rounded-full h-2 mb-2">
                               <div
@@ -1161,9 +1064,7 @@ const Dashboard = () => {
                   <div className="flex items-center gap-[7px]">
                     <span className="text-[15px] leading-none">✨</span>
 
-                    <h2 className="text-[11px] font-bold text-main">
-                      Latest AI Lessons
-                    </h2>
+                    <h2 className="text-[11px] font-bold text-main">Latest AI Lessons</h2>
                   </div>
 
                   <button
@@ -1228,9 +1129,7 @@ const Dashboard = () => {
                 <LessonThumbnail type={selectedLesson.type} />
 
                 <div>
-                  <h2 className="text-lg font-bold text-main">
-                    {selectedLesson.title}
-                  </h2>
+                  <h2 className="text-lg font-bold text-main">{selectedLesson.title}</h2>
 
                   <p className="mt-1 text-sm text-muted">
                     {selectedLesson.category} • {selectedLesson.duration}
@@ -1263,9 +1162,8 @@ const Dashboard = () => {
               </div>
 
               <p className="text-sm leading-6 text-muted">
-                Start learning{" "}
-                <span className="font-semibold">{selectedLesson.title}</span>{" "}
-                from the latest AI-generated lessons.
+                Start learning <span className="font-semibold">{selectedLesson.title}</span> from
+                the latest AI-generated lessons.
               </p>
             </div>
 
@@ -1312,9 +1210,7 @@ const Dashboard = () => {
               <div>
                 <h2 className="text-xl font-bold text-main">All AI Lessons</h2>
 
-                <p className="mt-1 text-sm text-muted">
-                  Recently generated AI lessons
-                </p>
+                <p className="mt-1 text-sm text-muted">Recently generated AI lessons</p>
               </div>
 
               <button
@@ -1334,10 +1230,7 @@ const Dashboard = () => {
                   key={lesson.id}
                   className="rounded-xl border border-border bg-canvas-alt p-3 transition hover:border-[#4388f7]/40 hover:bg-blue-500/5"
                 >
-                  <LessonItem
-                    lesson={lesson}
-                    onPlay={() => handlePlayLesson(lesson)}
-                  />
+                  <LessonItem lesson={lesson} onPlay={() => handlePlayLesson(lesson)} />
                 </div>
               ))}
             </div>

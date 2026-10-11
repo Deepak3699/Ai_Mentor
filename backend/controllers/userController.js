@@ -6,10 +6,7 @@ import jwt from "jsonwebtoken";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 import path from "path";
-import {
-  ensureProfileCompleteness,
-  formatFullName,
-} from "../utils/userUtils.js";
+import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
 import { createNotification } from "./notificationController.js";
 import { sequelize } from "../config/db.js";
 
@@ -118,9 +115,7 @@ const changePassword = async (req, res) => {
     }
 
     if (!user.password) {
-      return res
-        .status(400)
-        .json({ message: "Password is not set for this account" });
+      return res.status(400).json({ message: "Password is not set for this account" });
     }
 
     const isMatch = await user.matchPassword(currentPassword);
@@ -188,9 +183,7 @@ const purchaseCourse = async (req, res) => {
     const purchasedCourses = user.purchasedCourses || [];
 
     // Prevent duplicate enrollment
-    const alreadyPurchased = purchasedCourses.some(
-      (c) => Number(c.courseId) === Number(courseId),
-    );
+    const alreadyPurchased = purchasedCourses.some((c) => Number(c.courseId) === Number(courseId));
 
     if (alreadyPurchased) {
       return res.status(400).json({ message: "Already enrolled" });
@@ -241,9 +234,7 @@ const updateCourseProgress = async (req, res) => {
     const { courseId, lessonData, currentLesson, completedLesson } = req.body;
 
     let courses = [...(user.purchasedCourses || [])];
-    let courseIndex = courses.findIndex(
-      (c) => Number(c.courseId) === Number(courseId),
-    );
+    let courseIndex = courses.findIndex((c) => Number(c.courseId) === Number(courseId));
 
     if (courseIndex !== -1) {
       let progress = courses[courseIndex].progress || {
@@ -267,9 +258,7 @@ const updateCourseProgress = async (req, res) => {
 
       if (
         completedLesson &&
-        !progress.completedLessons.some(
-          (l) => l.lessonId === completedLesson.lessonId,
-        )
+        !progress.completedLessons.some((l) => l.lessonId === completedLesson.lessonId)
       ) {
         progress.completedLessons.push(completedLesson);
       }
@@ -328,9 +317,7 @@ const getWatchedVideos = async (req, res) => {
         const watchHistory = lesson.watchHistory;
 
         const safeProgress = Number(
-          Math.max(0, Math.min(100, watchHistory.progressPercent || 0)).toFixed(
-            1,
-          ),
+          Math.max(0, Math.min(100, watchHistory.progressPercent || 0)).toFixed(1),
         );
         watchedVideos.push({
           lessonId,
@@ -369,8 +356,7 @@ const getWatchedVideos = async (req, res) => {
       }
     });
 
-    const avgSeconds =
-      watchedVideos.length > 0 ? totalSeconds / watchedVideos.length : 0;
+    const avgSeconds = watchedVideos.length > 0 ? totalSeconds / watchedVideos.length : 0;
 
     const avgMinutes = Math.floor(avgSeconds / 60);
     const avgRemainingSeconds = Math.floor(avgSeconds % 60);
@@ -425,9 +411,7 @@ const updateUserSettings = async (req, res) => {
       notifications: notifications
         ? { ...user.settings.notifications, ...notifications }
         : user.settings.notifications,
-      security: security
-        ? { ...user.settings.security, ...security }
-        : user.settings.security,
+      security: security ? { ...user.settings.security, ...security } : user.settings.security,
       appearance: appearance
         ? { ...user.settings.appearance, ...appearance }
         : user.settings.appearance,
@@ -513,10 +497,7 @@ const updateUserProfile = async (req, res) => {
     user.lastName = req.body.lastName ?? user.lastName;
     user.name = formatFullName(user.firstName, user.lastName);
     // Check email change
-    if (
-      req.body.email &&
-      req.body.email.trim().toLowerCase() !== user.email.trim().toLowerCase()
-    ) {
+    if (req.body.email && req.body.email.trim().toLowerCase() !== user.email.trim().toLowerCase()) {
       const emailExists = await User.findOne({
         where: {
           email: req.body.email.trim().toLowerCase(),

@@ -28,20 +28,27 @@ export const classifyGenerationError = (error) => {
   if (error instanceof AIGenerationError) return error;
 
   if (isNetworkError(error)) {
-    return new AIGenerationError("connectivity", "We couldn't connect to the AI service. Please check your connection and try again.", {
-      retryable: true,
-      details: error,
-    });
+    return new AIGenerationError(
+      "connectivity",
+      "We couldn't connect to the AI service. Please check your connection and try again.",
+      {
+        retryable: true,
+        details: error,
+      },
+    );
   }
 
-  return new AIGenerationError("generation", "The AI video could not be generated. Please try again.", {
-    retryable: true,
-    details: error,
-  });
+  return new AIGenerationError(
+    "generation",
+    "The AI video could not be generated. Please try again.",
+    {
+      retryable: true,
+      details: error,
+    },
+  );
 };
 
-export const isAbortError = (error) =>
-  error?.name === "AbortError" || error?.code === "ABORT_ERR";
+export const isAbortError = (error) => error?.name === "AbortError" || error?.code === "ABORT_ERR";
 
 export const createAbortError = () => {
   if (typeof DOMException === "function") {
@@ -80,7 +87,9 @@ export const pollAIVideoStatus = async ({
   signal,
 }) => {
   if (!jobId) {
-    throw new AIGenerationError("invalid_response", "The AI service returned no job ID.", { retryable: true });
+    throw new AIGenerationError("invalid_response", "The AI service returned no job ID.", {
+      retryable: true,
+    });
   }
 
   const timeoutAt = Date.now() + timeoutMs;
@@ -92,17 +101,24 @@ export const pollAIVideoStatus = async ({
     if (signal?.aborted) throw createAbortError();
     if (!statusResponse.ok) {
       const message = await getApiError(statusResponse, "status");
-      throw new AIGenerationError("connectivity", "The AI generation status could not be checked. Please check your connection and try again.", {
-        retryable: true,
-        details: { message, status: statusResponse.status },
-      });
+      throw new AIGenerationError(
+        "connectivity",
+        "The AI generation status could not be checked. Please check your connection and try again.",
+        {
+          retryable: true,
+          details: { message, status: statusResponse.status },
+        },
+      );
     }
 
     const statusData = await statusResponse.json();
     if (statusData?.status === "ready") {
-      const videoUrl = statusData.cloudinary_url || statusData.local_video_url || statusData.videoUrl;
+      const videoUrl =
+        statusData.cloudinary_url || statusData.local_video_url || statusData.videoUrl;
       if (!videoUrl) {
-        throw new AIGenerationError("invalid_response", "The AI service returned no video URL.", { retryable: true });
+        throw new AIGenerationError("invalid_response", "The AI service returned no video URL.", {
+          retryable: true,
+        });
       }
       return {
         videoUrl,
@@ -111,11 +127,19 @@ export const pollAIVideoStatus = async ({
     }
 
     if (statusData?.status === "failed") {
-      throw new AIGenerationError("generation", "The AI video generation failed. Please try again.", { retryable: true });
+      throw new AIGenerationError(
+        "generation",
+        "The AI video generation failed. Please try again.",
+        { retryable: true },
+      );
     }
 
     if (statusData?.status && !["queued", "processing"].includes(statusData.status)) {
-      throw new AIGenerationError("invalid_response", "The AI service returned an invalid generation status.", { retryable: true });
+      throw new AIGenerationError(
+        "invalid_response",
+        "The AI service returned an invalid generation status.",
+        { retryable: true },
+      );
     }
 
     attempts += 1;
@@ -123,19 +147,25 @@ export const pollAIVideoStatus = async ({
     await waitForNextPoll(pollIntervalMs, signal);
   }
 
-  throw new AIGenerationError("timeout", "Video generation took too long. Please try again.", { retryable: true });
+  throw new AIGenerationError("timeout", "Video generation took too long. Please try again.", {
+    retryable: true,
+  });
 };
 
 export const fetchTranscript = async (transcriptName, fetchTranscriptFile) => {
   if (!transcriptName) return null;
   const response = await fetchTranscriptFile(transcriptName);
   if (!response.ok) {
-    throw new AIGenerationError("transcript", "The generated transcript is not available.", { retryable: false });
+    throw new AIGenerationError("transcript", "The generated transcript is not available.", {
+      retryable: false,
+    });
   }
 
   const data = await response.json();
   if (!data?.content) {
-    throw new AIGenerationError("transcript", "The generated transcript is empty.", { retryable: false });
+    throw new AIGenerationError("transcript", "The generated transcript is empty.", {
+      retryable: false,
+    });
   }
 
   return data.content;

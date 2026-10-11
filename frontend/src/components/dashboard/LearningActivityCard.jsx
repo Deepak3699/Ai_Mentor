@@ -1,17 +1,9 @@
 import React from "react";
-import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { BarChart3, Quote } from "lucide-react";
 import { WEEKLY_ACTIVITY, WEEKLY_SUMMARY } from "./learningActivityData";
 
-const formatHours = (value) =>
-  Number.isInteger(value) ? String(value) : value.toFixed(1);
+const formatHours = (value) => (Number.isInteger(value) ? String(value) : value.toFixed(1));
 
 const ActivityTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
@@ -26,20 +18,14 @@ const ActivityTooltip = ({ active, payload, label }) => {
   );
 };
 
-const LearningActivityCard = ({
-  data = WEEKLY_ACTIVITY,
-  summary = WEEKLY_SUMMARY,
-}) => (
+const LearningActivityCard = ({ data = WEEKLY_ACTIVITY, summary = WEEKLY_SUMMARY }) => (
   <section
     aria-labelledby="learning-activity-title"
     className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-6"
   >
     <header className="flex items-center gap-3 mb-4">
       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 ring-1 ring-blue-200/70 dark:bg-blue-500/15 dark:ring-blue-400/20">
-        <BarChart3
-          className="h-5 w-5 text-blue-600 dark:text-blue-300"
-          aria-hidden="true"
-        />
+        <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-300" aria-hidden="true" />
       </div>
       <div>
         <h2
@@ -53,23 +39,11 @@ const LearningActivityCard = ({
     </header>
 
     <div className="flex flex-col gap-4 md:flex-row md:items-stretch">
-      <div
-        className="h-56 w-full min-w-0 md:flex-1"
-        data-testid="learning-activity-chart"
-      >
+      <div className="h-56 w-full min-w-0 md:flex-1" data-testid="learning-activity-chart">
         <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-          <BarChart
-            data={data}
-            margin={{ top: 8, right: 8, left: -24, bottom: 0 }}
-          >
+          <BarChart data={data} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
             <defs>
-              <linearGradient
-                id="learningBarGradient"
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
+              <linearGradient id="learningBarGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#3b82f6" />
                 <stop offset="100%" stopColor="#1d4ed8" />
               </linearGradient>
@@ -87,10 +61,7 @@ const LearningActivityCard = ({
               tickLine={false}
               tick={{ fill: "var(--color-text-muted)", fontSize: 11 }}
             />
-            <Tooltip
-              content={<ActivityTooltip />}
-              cursor={{ fill: "rgba(59, 130, 246, 0.08)" }}
-            />
+            <Tooltip content={<ActivityTooltip />} cursor={{ fill: "rgba(59, 130, 246, 0.08)" }} />
             <Bar
               dataKey="hours"
               fill="url(#learningBarGradient)"
@@ -108,8 +79,7 @@ const LearningActivityCard = ({
             className="mt-1 text-3xl font-extrabold tracking-tight text-main"
             data-testid="weekly-total"
           >
-            {formatHours(summary.hours)}{" "}
-            <span className="text-base font-semibold">hours</span>
+            {formatHours(summary.hours)} <span className="text-base font-semibold">hours</span>
           </div>
           <div className="text-xs text-muted" data-testid="weekly-change">
             <span className="font-bold text-emerald-600 dark:text-emerald-300">
@@ -127,9 +97,7 @@ const LearningActivityCard = ({
             <blockquote className="text-xs italic text-main">
               &ldquo;Small steps every day lead to big results.&rdquo;
             </blockquote>
-            <figcaption className="mt-2 text-right text-[11px] text-muted">
-              — AI Mentor
-            </figcaption>
+            <figcaption className="mt-2 text-right text-[11px] text-muted">— AI Mentor</figcaption>
           </div>
         </figure>
       </div>

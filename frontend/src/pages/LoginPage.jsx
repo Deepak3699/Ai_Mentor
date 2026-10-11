@@ -16,7 +16,9 @@ const loginSchema = z.object({
 const FormInput = ({ label, type, placeholder, value, onChange }) => {
   return (
     <div className="mb-3">
-      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">{label}</label>
+      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+        {label}
+      </label>
       <input
         type={type}
         className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm focus:ring-2 focus:ring-teal-500 outline-none dark:bg-slate-900 dark:border-gray-700 dark:text-white"
@@ -53,7 +55,7 @@ const LoginPage = () => {
       const validationResult = loginSchema.parse({ email, password });
       const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/auth/login`, {
         email: validationResult.email,
-        password: validationResult.password
+        password: validationResult.password,
       });
 
       if (response.data.token) {
@@ -61,9 +63,9 @@ const LoginPage = () => {
         toast.success("Logged in successfully!");
         // Redirect to onboarding if profile is incomplete, otherwise dashboard
         if (!response.data.isProfileComplete) {
-          navigate('/complete-profile');
+          navigate("/complete-profile");
         } else {
-          navigate('/dashboard');
+          navigate("/dashboard");
         }
       }
     } catch (err) {
@@ -81,15 +83,12 @@ const LoginPage = () => {
   };
 
   return (
-    <AuthLayout
-      title="Welcome Back!"
-      subtitle="Access your AI Learning Journey."
-    >
+    <AuthLayout title="Welcome Back!" subtitle="Access your AI Learning Journey.">
       <Helmet>
         <title>Login | UptoSkills</title>
-        <meta 
-          name="description" 
-          content="Login to UptoSkills and continue your AI learning journey." 
+        <meta
+          name="description"
+          content="Login to UptoSkills and continue your AI learning journey."
         />
         <meta property="og:title" content="Login | UptoSkills" />
         <meta property="og:type" content="website" />
@@ -111,7 +110,6 @@ const LoginPage = () => {
           onChange={(e) => setEmail(e.target.value)}
         />
 
-
         <div className="mb-3">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             Password
@@ -121,7 +119,7 @@ const LoginPage = () => {
               type={showPassword ? "text" : "password"}
               className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm focus:ring-2 focus:ring-teal-500 outline-none dark:bg-slate-900 dark:border-gray-700 dark:text-white"
               placeholder="••••••••"
-              value={password} 
+              value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
             <button
