@@ -7,6 +7,7 @@ import Preference from "./Preference.js";
 import AIVideo from "./AIVideo.js";
 import CalendarTask from "./CalendarTask.js";
 import CourseFeedback from "./CourseFeedback.js";
+import FlashcardDeck from "./FlashcardDeck.js";
 
 /* ======================
    COURSE → MODULE
@@ -119,4 +120,28 @@ CourseFeedback.belongsTo(User, {
     foreignKey: "userId",
 });
 
-export { Course, Module, Lesson, LessonContent, User, AIVideo, Preference, CalendarTask, CourseFeedback };
+User.hasMany(FlashcardDeck, {
+    foreignKey: "userId",
+    as: "flashcardDecks",
+    onDelete: "CASCADE",
+});
+
+FlashcardDeck.belongsTo(User, { foreignKey: "userId" });
+
+Course.hasMany(FlashcardDeck, {
+    foreignKey: "courseId",
+    as: "flashcardDecks",
+    onDelete: "CASCADE",
+});
+
+FlashcardDeck.belongsTo(Course, { foreignKey: "courseId" });
+
+Lesson.hasMany(FlashcardDeck, {
+    foreignKey: "lessonId",
+    as: "flashcardDecks",
+    onDelete: "CASCADE",
+});
+
+FlashcardDeck.belongsTo(Lesson, { foreignKey: "lessonId" });
+
+export { Course, Module, Lesson, LessonContent, User, AIVideo, Preference, CalendarTask, CourseFeedback, FlashcardDeck };
