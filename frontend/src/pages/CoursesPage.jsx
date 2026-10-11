@@ -37,7 +37,7 @@ const CoursesPage = () => {
   const [reportText, setReportText] = useState("");
   const [subType, setSubType] = useState("");
   const [reportType, setReportType] = useState("Select Issue Type");
-  const [reportCourse, setReportCourse] = useState("");
+
   const [reportLoading, setReportLoading] = useState(false);
 
   const [filters, setFilters] = useState({
@@ -570,30 +570,7 @@ const CoursesPage = () => {
       </div>
     );
   }
-
-  const filteredExploreCourses = exploreCourses
-    .filter((course) => !myCourses.some((c) => courseIdMatches(c, course.id)))
-    .filter((course) => {
-      if (searchQuery.trim() !== "") {
-        return course.title.toLowerCase().includes(searchQuery.toLowerCase());
-      }
-
-      const cat = course.category === "Databases" ? "Database" : course.category;
-      const matchesCategory = filters.category.length === 0 || filters.category.includes(cat);
-      const matchesLevel = filters.level.length === 0 || filters.level.includes(course.level);
-
-      const isFree =
-        course.priceValue === 0 ||
-        course.price === "₹0" ||
-        course.price === "Free" ||
-        !course.price;
-      const type = isFree ? "Free" : "Paid";
-      const matchesPrice = filters.price.length === 0 || filters.price.includes(type);
-
-      return matchesCategory && matchesLevel && matchesPrice;
-    });
-
-  // Same filters as filteredExploreCourses but WITHOUT the enrollment exclusion,
+  // Apply the active search and filter controls without excluding enrolled courses,
   // so enrolled cards stay visible with the "Enrolled" button state.
   const allFilteredExploreCourses = exploreCourses.filter((course) => {
     if (searchQuery.trim() !== "") {
