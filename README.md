@@ -1,148 +1,93 @@
 # AI Mentor — Learning Platform
 
-An AI-powered learning management system with course management, analytics, community discussions, and AI-generated video lessons.
+An AI-powered learning platform with learner and administrator applications, course management, analytics, community discussions, and AI-generated video lessons.
 
-## Features
+## Applications
 
-- 📚 Course Management & Purchasing
-- 📊 Learning Analytics
-- 💬 Community Discussions
-- 🔐 User Authentication (JWT + Google OAuth)
-- 🤖 AI-Generated Lesson Videos (Gemini + TTS + FFmpeg)
-
-## Tech Stack
-
-- **Frontend**: React 19 + Vite + Tailwind CSS
-- **Backend**: Node.js + Express + Sequelize
-- **Database**: PostgreSQL
-- **AI Service**: Python + FastAPI + Google Gemini
-- **Auth**: Firebase (Google OAuth) + JWT
+| Application | Folder                | Local URL               |
+| ----------- | --------------------- | ----------------------- |
+| User API    | `backend/`            | `http://localhost:5000` |
+| User WEB    | `frontend/`           | `http://localhost:5173` |
+| Admin API   | `backendAdmin/`       | `http://localhost:5001` |
+| Admin WEB   | `frontendAdmin/`      | `http://localhost:5174` |
+| AI service  | `ai_service/backend/` | `http://localhost:8000` |
 
 ## Prerequisites
 
-- Node.js v18+
-- PostgreSQL v14+
-- Python 3.10+
-- FFmpeg
-- Redis (Local or Upstash Cloud)
+- Node.js 18+
 - npm
+- Python 3.10+
+- PostgreSQL or a hosted PostgreSQL service
+- FFmpeg for AI video generation
 
-## Quick Start
+## Environment setup
 
-### 1. Clone the repository
+Create the service `.env` files from their `.env.example` templates and add valid local credentials. Never commit `.env` files or secrets.
+
+See [`initalSetup.md`](./initalSetup.md) for the complete environment-variable and first-time setup guide.
+
+## Root development workflow
+
+Run these commands from the repository root.
+
+### Install project dependencies
+
 ```bash
-git clone <repository-url>
-cd AI-Mentor-Updated
+npm run setup
 ```
 
-### 2. Setup Backend
-```bash
-cd backend
-npm install
-cp .env.example .env
-# Fill in your database credentials and secrets in .env
-npm run dev
-```
-> See [`backend/README.md`](./backend/README.md) for full setup guide.
+This installs dependencies for the root workspace, `backend`, `frontend`, `backendAdmin`, `frontendAdmin`, and the Python AI service. Existing `.env` files and credentials are not created, changed, or printed.
 
-### 3. Setup Frontend
-```bash
-cd frontend
-npm install
-cp .env.example .env
-# Fill in your Firebase credentials in .env
-npm run dev
-```
-> See [`frontend/README.md`](./frontend/README.md) for full setup guide.
+### Start services
 
-### 4. Setup AI Service
+| Command                      | Services                                     |
+| ---------------------------- | -------------------------------------------- |
+| `npm run dev`                | User API, User WEB, Admin API, and Admin WEB |
+| `npm run dev:user`           | User API and User WEB                        |
+| `npm run dev:admin`          | Admin API and Admin WEB                      |
+| `npm run dev:backend`        | User API only                                |
+| `npm run dev:frontend`       | User WEB only; requires a healthy User API   |
+| `npm run dev:backend-admin`  | Admin API only                               |
+| `npm run dev:frontend-admin` | Admin WEB only; requires a healthy Admin API |
+
+| Service    | URL                     |
+| ---------- | ----------------------- |
+| User API   | `http://localhost:5000` |
+| User WEB   | `http://localhost:5173` |
+| Admin API  | `http://localhost:5001` |
+| Admin WEB  | `http://localhost:5174` |
+| AI service | `http://localhost:8000` |
+
+The terminal dashboard waits for backend readiness and a successful health response before starting each matching frontend. It shows independent startup timers, backend phase timings, clickable URLs, and separate User/Admin sections.
+
+If a selected service is already healthy, the runner reuses it instead of starting a duplicate process. `Ctrl+C` stops only processes started by the current runner; reused services remain owned by the terminal that originally launched them.
+
+The four Node/React services are managed by the root runner. The Python AI service remains a separate process:
+
 ```bash
-cd ai_service
-python -m venv venv
-.\venv\Scripts\activate   # Windows
-pip install -r backend/requirements.txt
-cp backend/.env.example backend/.env
-# Fill in Gemini and Cloudinary keys in .env
-cd backend
+cd ai_service/backend
 python graceful_server.py
 ```
-> See [`ai_service/README.md`](./ai_service/README.md) for full setup guide.
 
-### 5. Setup ESLint
+Runtime profile uploads are stored under `backend/uploads/` and are ignored by Git. Only `backend/uploads/.gitkeep` is tracked.
 
-At the frontendAdmin and root directory run:
-```bash
-npm install
-```
+## Validation
 
-At  the root directory run the following command:
 ```bash
 npm run lint
 ```
-This will run ESLint on all three following services:
-```bash
-cd backend
-npm run lint
-cd frontend
-npm run lint
-cd frontendAdmin
-npm run lint
-```
 
-To run ESLint on a specific file:
-```bash
-cd directory_name
-npx eslint path/to/file.js
-```
-For example:
-```bash
-cd backend
-npx eslint server.js
-```
-Some extensions like ESLint and Error Lens are recommended to be installed in code editor for better visibility of errors.
+Run focused tests and builds for the service changed by your work. See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for branch, commit, testing, and pull-request rules.
 
-## Environment Variables
+## Detailed documentation
 
-Each service has its own `.env` file. Copy the `.env.example` in each folder and fill in your values.
-
-| Service | Key variables |
-|---|---|
-| `backend/` | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `AI_SERVICE_URL`, `REDIS_HOST`, `REDIS_PORT` |
-| `frontend/` | `VITE_API_BASE_URL`, `VITE_FIREBASE_*` |
-| `ai_service/backend/` | `GEMINI_API_KEY`, `CLOUDINARY_*` |
-
-## Running the Application
-
-Start all three services in separate terminals:
-
-```bash
-# Terminal 1 — Backend API
-cd backend && npm run dev
-
-# Terminal 2 — Frontend
-cd frontend && npm run dev
-
-# Terminal 3 — AI Service
-
-cd ai_service && .\venv\Scripts\activate && cd backend && python graceful_server.py
-
-OR 
-
-.\start_ai.bat
-
-```
-
-Then open **http://localhost:5173** in your browser.
-
-## Project Structure
-
-```
-AI-Mentor-Updated/
-├── backend/       # Node.js + Express REST API
-├── frontend/      # React + Vite web application
-└── ai_service/    # Python + FastAPI AI lesson generator
-```
+- [`initalSetup.md`](./initalSetup.md) — first-time environment setup
+- [`backend/README.md`](./backend/README.md) — User API
+- [`frontend/README.md`](./frontend/README.md) — User WEB
+- [`backendAdmin/backendAdmin_Documentation.md`](./backendAdmin/backendAdmin_Documentation.md) — Admin API
+- [`frontendAdmin/FRONTEND_ADMIN_DOCUMENTATION.md`](./frontendAdmin/FRONTEND_ADMIN_DOCUMENTATION.md) — Admin WEB
+- [`ai_service/README.md`](./ai_service/README.md) — Python AI service
 
 ## About
 
-This project was developed as part of an internship. All rights reserved by the respective authors and organisation.
+This project was developed as part of an internship. All rights are reserved by the respective authors and organization.
