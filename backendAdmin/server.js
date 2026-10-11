@@ -55,14 +55,13 @@ app.use((req, res) => {
 
 // ================= ERROR HANDLER =================
 app.use((err, req, res, next) => {
-  
-   if (err.type === "entity.too.large") {
-     return res.status(413).json({ message: "Payload Too Large" });
-   }
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({ message: "Payload Too Large" });
+  }
 
-   if (err.type === "entity.parse.failed") {
-     return res.status(400).json({ message: "Invalid JSON" });
-   }
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ message: "Invalid JSON" });
+  }
 
   console.error("ERROR:", err);
   res.status(500).json({ message: "Internal Server Error" });
@@ -73,7 +72,10 @@ const PORT = process.env.PORT || 5001;
 
 const startServer = async () => {
   try {
+    console.log("[STARTING] Admin backend startup");
+    console.log("[CHECK] Connecting to admin database...");
     await connectDB();
+    console.log("[OK] Admin database connected");
     const server = http.createServer(app);
 
     server.requestTimeout = 120_000;
@@ -81,12 +83,10 @@ const startServer = async () => {
     server.keepAliveTimeout = 60_000;
 
     server.listen(PORT, () => {
-      console.log(
-        `✅ Backend Admin Server running on http://localhost:${PORT}`,
-      );
+      console.log(`[READY] Admin backend: http://localhost:${PORT}`);
     });
   } catch (error) {
-    console.error("❌ Failed to start server:", error.message);
+    console.error("[FAILED] Admin backend startup failed:", error.message);
     process.exit(1);
   }
 };
@@ -96,4 +96,3 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 export default app;
-

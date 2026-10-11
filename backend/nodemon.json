@@ -1,0 +1,26 @@
+{
+  "watch": [
+    "server.js",
+    "config",
+    "controllers",
+    "middleware",
+    "models",
+    "routes",
+    "schemas",
+    "services",
+    "utils",
+    "env-validator.js"
+  ],
+  "ext": "js,mjs,cjs,json",
+  "ignore": [
+    "uploads/**",
+    "videos/**",
+    "logs/**",
+    "coverage/**",
+    "temp/**",
+    "tmp/**",
+    "*.log"
+  ],
+  "delay": 500,
+  "verbose": false
+}

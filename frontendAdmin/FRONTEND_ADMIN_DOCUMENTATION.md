@@ -65,18 +65,18 @@ The frontend admin dashboard handles:
 
 # Tech Stack
 
-| Category | Technology |
-|---|---|
-| Framework | React 19 |
-| Build Tool | Vite |
-| Routing | React Router DOM |
-| Styling | Tailwind CSS |
-| Icons | Lucide React |
-| HTTP Client | Axios |
-| Notifications | React Hot Toast |
-| Charts | Recharts |
+| Category         | Technology            |
+| ---------------- | --------------------- |
+| Framework        | React 19              |
+| Build Tool       | Vite                  |
+| Routing          | React Router DOM      |
+| Styling          | Tailwind CSS          |
+| Icons            | Lucide React          |
+| HTTP Client      | Axios                 |
+| Notifications    | React Hot Toast       |
+| Charts           | Recharts              |
 | State Management | React Hooks + Context |
-| Authentication | JWT |
+| Authentication   | JWT                   |
 
 ---
 
@@ -203,17 +203,17 @@ Page Component Rendering
 
 # Main Routes
 
-| Route | Description |
-|---|---|
-| /login | Admin login page |
-| /dashboard | Dashboard analytics |
-| /courses | Course management |
-| /users | User management |
+| Route        | Description         |
+| ------------ | ------------------- |
+| /login       | Admin login page    |
+| /dashboard   | Dashboard analytics |
+| /courses     | Course management   |
+| /users       | User management     |
 | /enrollments | Enrollment tracking |
-| /payments | Payment monitoring |
-| /reports | Report moderation |
-| /profile | Admin profile |
-| /settings | Dashboard settings |
+| /payments    | Payment monitoring  |
+| /reports     | Report moderation   |
+| /profile     | Admin profile       |
+| /settings    | Dashboard settings  |
 
 ---
 
@@ -804,6 +804,8 @@ VITE_API_BASE_URL=
 
 ---
 
+> **Repository-root workflow:** For normal development, use `npm run setup` and `npm run dev:frontend-admin` from the repository root. The runner verifies that the Admin API is healthy before starting Vite.
+
 # Local Development Setup
 
 ## Install Dependencies
@@ -834,7 +836,7 @@ http://localhost:5174
 The frontend admin communicates with:
 
 ```text
-http://localhost:3001
+http://localhost:5001
 ```
 
 ---
