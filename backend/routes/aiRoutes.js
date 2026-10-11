@@ -239,7 +239,7 @@ router.get("/status/:jobId", protect, async (req, res) => {
       try {
         await AIVideo.update(
           { videoUrl: data.cloudinary_url, status: "completed", meta: data.meta },
-          { where: { id: jobId } }
+          { where: updateWhere }
         );
         console.log(`☁️ AIVideo DB updated with Cloudinary URL for DB ID: ${jobId}`);
       } catch (dbErr) {

@@ -53,40 +53,46 @@ const originals = {
 let server;
 let baseUrl;
 
+const mockFindOne = async ({ where }) => {
+  if (where.courseId !== undefined && where.id !== undefined) {
+    return VIDEOS.find((v) => v.courseId === where.courseId && v.id === where.id) ?? null;
+  }
+  if (where.id !== undefined) {
+    return VIDEOS.find((v) => v.id === where.id) ?? null;
+  }
+  if (where.courseId !== undefined && where.jobId !== undefined) {
+    return VIDEOS.find((v) => v.courseId === where.courseId && v.jobId === where.jobId) ?? null;
+  }
+  if (where.jobId !== undefined) {
+    return VIDEOS.find((v) => v.jobId === where.jobId) ?? null;
+  }
+  return null;
+};
+
+const mockUpdate = async (values, options = {}) => {
+  updateCalls.push({ values, options, where: options?.where });
+  const where = options?.where;
+  if (!where || !where.id) {
+    return [0];
+  }
+  const target = VIDEOS.find((v) => {
+    if (v.id !== where.id) return false;
+    if (where.userId !== undefined && v.userId !== where.userId) return false;
+    return true;
+  });
+  if (!target) {
+    return [0];
+  }
+  Object.assign(target, values);
+  return [1];
+};
+
+const mockFindByPk = async (id) => USERS[id] ?? null;
+
 before(async () => {
-  AIVideo.findOne = async ({ where }) => {
-    if (where.courseId !== undefined && where.id !== undefined) {
-      return VIDEOS.find((v) => v.courseId === where.courseId && v.id === where.id) ?? null;
-    }
-    if (where.id !== undefined) {
-      return VIDEOS.find((v) => v.id === where.id) ?? null;
-    }
-    if (where.courseId !== undefined && where.jobId !== undefined) {
-      return VIDEOS.find((v) => v.courseId === where.courseId && v.jobId === where.jobId) ?? null;
-    }
-    if (where.jobId !== undefined) {
-      return VIDEOS.find((v) => v.jobId === where.jobId) ?? null;
-    }
-    return null;
-  };
-  AIVideo.update = async (values, options = {}) => {
-    updateCalls.push({ values, options, where: options?.where });
-    const where = options?.where;
-    if (!where || !where.id) {
-      return [0];
-    }
-    const target = VIDEOS.find((v) => {
-      if (v.id !== where.id) return false;
-      if (where.userId !== undefined && v.userId !== where.userId) return false;
-      return true;
-    });
-    if (!target) {
-      return [0];
-    }
-    Object.assign(target, values);
-    return [1];
-  };
-  User.findByPk = async (id) => USERS[id] ?? null;
+  AIVideo.findOne = mockFindOne;
+  AIVideo.update = mockUpdate;
+  User.findByPk = mockFindByPk;
 
   globalThis.fetch = async (url, opts) => {
     if (String(url).startsWith(process.env.AI_SERVICE_URL)) {
@@ -113,6 +119,9 @@ after(async () => {
 
 beforeEach(() => {
   resetVideos();
+  AIVideo.findOne = mockFindOne;
+  AIVideo.update = mockUpdate;
+  User.findByPk = mockFindByPk;
   upstreamCalls.length = 0;
   updateCalls.length = 0;
 });
