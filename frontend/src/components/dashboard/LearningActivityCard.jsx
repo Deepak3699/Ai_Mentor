@@ -32,14 +32,20 @@ const LearningActivityCard = ({
 }) => (
   <section
     aria-labelledby="learning-activity-title"
-    className="bg-card rounded-2xl border border-border p-5 shadow-sm"
+    className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-6"
   >
     <header className="flex items-center gap-3 mb-4">
-      <div className="p-2 rounded-lg bg-blue-100">
-        <BarChart3 className="w-5 h-5 text-blue-600" aria-hidden="true" />
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 ring-1 ring-blue-200/70 dark:bg-blue-500/15 dark:ring-blue-400/20">
+        <BarChart3
+          className="h-5 w-5 text-blue-600 dark:text-blue-300"
+          aria-hidden="true"
+        />
       </div>
       <div>
-        <h2 id="learning-activity-title" className="text-base font-bold text-main">
+        <h2
+          id="learning-activity-title"
+          className="text-lg font-extrabold tracking-tight text-main"
+        >
           Your Learning Activity
         </h2>
         <p className="text-xs text-muted">Hours spent learning this week</p>
@@ -52,9 +58,18 @@ const LearningActivityCard = ({
         data-testid="learning-activity-chart"
       >
         <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-          <BarChart data={data} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+          <BarChart
+            data={data}
+            margin={{ top: 8, right: 8, left: -24, bottom: 0 }}
+          >
             <defs>
-              <linearGradient id="learningBarGradient" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient
+                id="learningBarGradient"
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
                 <stop offset="0%" stopColor="#3b82f6" />
                 <stop offset="100%" stopColor="#1d4ed8" />
               </linearGradient>
@@ -87,24 +102,24 @@ const LearningActivityCard = ({
       </div>
 
       <div className="flex flex-col gap-3 md:w-56 md:shrink-0">
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="rounded-2xl border border-border bg-canvas-alt p-4">
           <div className="text-xs text-muted">This week</div>
           <div
-            className="text-2xl font-bold text-main"
+            className="mt-1 text-3xl font-extrabold tracking-tight text-main"
             data-testid="weekly-total"
           >
             {formatHours(summary.hours)}{" "}
             <span className="text-base font-semibold">hours</span>
           </div>
           <div className="text-xs text-muted" data-testid="weekly-change">
-            <span className="font-semibold text-green-600">
+            <span className="font-bold text-emerald-600 dark:text-emerald-300">
               ↑ {summary.changePercent}%
             </span>{" "}
             compared to last week
           </div>
         </div>
 
-        <figure className="flex flex-1 items-start gap-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 p-4">
+        <figure className="flex flex-1 items-start gap-3 rounded-2xl border border-rose-100 bg-rose-50 p-4 dark:border-rose-400/10 dark:bg-rose-500/10">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-200">
             <Quote className="h-3.5 w-3.5 text-amber-700" aria-hidden="true" />
           </div>

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ArrowDown, X } from "lucide-react";
+import LoadingSpinner from "./LoadingSpinner";
 
 const ReportModal = ({
   show,
@@ -64,7 +65,7 @@ const ReportModal = ({
       >
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-500"></div>
+            <LoadingSpinner variant="compact" label="Submitting report" />
             <p className="text-sm text-gray-600 dark:text-gray-300">
               Submitting report...
             </p>
