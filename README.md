@@ -1,13 +1,36 @@
-# AI Mentor
+<div align="center">
+  <img src="./docs/images/uptoskills-logo.png" alt="UptoSkills" width="220" />
 
-[![CI](https://github.com/Deepak3699/Ai_Mentor/actions/workflows/ci.yml/badge.svg)](https://github.com/Deepak3699/Ai_Mentor/actions/workflows/ci.yml)
-[![Code Review](https://github.com/Deepak3699/Ai_Mentor/actions/workflows/code-review.yml/badge.svg)](https://github.com/Deepak3699/Ai_Mentor/actions/workflows/code-review.yml)
-[![Node.js](https://img.shields.io/badge/Node.js-20%20CI-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111)](https://react.dev/)
-[![Python](https://img.shields.io/badge/Python-3.11%20CI-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Prettier](https://img.shields.io/badge/code_style-Prettier-F7B93E?logo=prettier&logoColor=111)](https://prettier.io/)
+  <h1>AI Mentor</h1>
 
-AI Mentor is a multi-service learning platform for learners and administrators. It combines course discovery and purchasing, AI-assisted lesson delivery, progress analytics, community discussions, account management, administrative operations, and content moderation in one repository.
+  <p><strong>Learn smarter · Manage better · Build with AI</strong></p>
+
+  <p>
+    A multi-service learning platform for learners and administrators, combining course discovery,
+    AI-assisted lessons, analytics, community discussions, payments, and platform management.
+  </p>
+
+  <p>
+    <a href="#quick-start"><strong>Quick Start</strong></a> ·
+    <a href="#architecture"><strong>Architecture</strong></a> ·
+    <a href="#documentation"><strong>Documentation</strong></a> ·
+    <a href="#contributing"><strong>Contributing</strong></a>
+  </p>
+
+  <p>
+    <a href="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/ci.yml"><img src="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+    <a href="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/code-review.yml"><img src="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/code-review.yml/badge.svg" alt="Code Review" /></a>
+    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-20%20CI-339933?logo=node.js&logoColor=white" alt="Node.js 20 CI" /></a>
+    <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111" alt="React 19" /></a>
+    <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%20CI-3776AB?logo=python&logoColor=white" alt="Python 3.11 CI" /></a>
+    <a href="https://prettier.io/"><img src="https://img.shields.io/badge/code_style-Prettier-F7B93E?logo=prettier&logoColor=111" alt="Prettier" /></a>
+  </p>
+</div>
+
+<p align="center">
+  <img src="./docs/images/learner-dashboard-dark.png" alt="AI Mentor learner dashboard in dark mode" width="49%" />
+  <img src="./docs/images/learner-dashboard-light.png" alt="AI Mentor learner dashboard in light mode" width="49%" />
+</p>
 
 ## Table of contents
 
