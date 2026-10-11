@@ -9,7 +9,13 @@ const DashboardHero = ({ name, streak, onContinue }) => {
 
   const artNote = (
     <>
-      Better<br />Skills<br />Brighter<br />Future
+      Better
+      <br />
+      Skills
+      <br />
+      Brighter
+      <br />
+      Future
       <ArrowUpRight />
     </>
   );
@@ -26,7 +32,9 @@ const DashboardHero = ({ name, streak, onContinue }) => {
   return (
     <PageBanner
       title={
-        <>Good {greeting}, {firstName} <span aria-label="waving hand">👋</span></>
+        <>
+          Good {greeting}, {firstName} <span aria-label="waving hand">👋</span>
+        </>
       }
       subtitle="Keep going! You're closer to your goals than you think."
       streakContent={streakContent}

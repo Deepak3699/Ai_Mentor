@@ -60,16 +60,16 @@ const UpcomingLiveSession = ({
 
   return (
     <div
-      className={`bg-card rounded-2xl border border-border p-5 shadow-sm transition-all duration-200 ${className}`}
+      className={`rounded-2xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:shadow-md  sm:p-6 ${className}`}
       data-testid="upcoming-live-session-card"
     >
       {/* Card Header with Live/Broadcast Icon and Title */}
-      <div className="flex items-center gap-2.5 mb-4">
+      <div className="mb-5 flex items-center gap-3">
         <Radio
-          className="w-4.5 h-4.5 text-purple-600 dark:text-purple-400 shrink-0"
+          className="h-5 w-5 shrink-0 text-violet-600 dark:text-violet-300"
           aria-hidden="true"
         />
-        <h3 className="text-sm font-semibold text-main tracking-tight">
+        <h3 className="text-base font-extrabold tracking-tight text-main">
           Upcoming Live Session
         </h3>
       </div>
@@ -85,10 +85,10 @@ const UpcomingLiveSession = ({
           return (
             <div key={key} className="space-y-4">
               {/* Session Details */}
-              <div className="flex items-center gap-3.5">
+              <div className="flex items-center gap-4 rounded-2xl border border-border/80 bg-canvas-alt p-3.5 ">
                 {/* Calendar Icon inside rounded square */}
                 <div
-                  className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 ring-1 ring-violet-200/70 dark:bg-violet-500/15 dark:text-violet-300 dark:ring-violet-400/20"
                   aria-hidden="true"
                 >
                   <Calendar className="w-5 h-5" />
@@ -96,10 +96,10 @@ const UpcomingLiveSession = ({
 
                 {/* Title & Time */}
                 <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-semibold text-main truncate">
+                  <h4 className="truncate text-sm font-bold text-main">
                     {sessionTitle}
                   </h4>
-                  <p className="text-xs text-muted mt-0.5 truncate">
+                  <p className="mt-1 truncate text-xs leading-5 text-muted">
                     {sessionTime}
                   </p>
                 </div>

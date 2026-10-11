@@ -6,11 +6,11 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import DashboardLayout from "./components/DashboardLayout";
 import LoadingSpinner from "./components/common/LoadingSpinner";
+import Dashboard from "./pages/Dashboard";
 
 // Lazy Loading
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const SignUpPage = lazy(() => import("./pages/SignUpPage"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const CoursesPage = lazy(() => import("./pages/CoursesPage"));
 const DiscussionsPage = lazy(() => import("./pages/DiscussionsPage"));
@@ -24,8 +24,8 @@ const CertificatesPage = lazy(() => import("./pages/CertificatesPage"));
 const ReportPage = lazy(() => import("./pages/ReportPage"));
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const DocumentationPage = lazy(() =>
-  import("./pages/Documentation/DocumentationPage")
+const DocumentationPage = lazy(
+  () => import("./pages/Documentation/DocumentationPage"),
 );
 
 import CompleteProfilePage from "./pages/CompleteProfilePage";
@@ -61,9 +61,10 @@ const PublicRoutes = () => {
 
 const App = () => {
   return (
-    <Suspense fallback={<LoadingSpinner />}>
+    <Suspense
+      fallback={<LoadingSpinner variant="route" label="Loading page..." />}
+    >
       <Routes>
-
         {/* ROOT */}
         <Route path="/" element={<RootRedirect />} />
 
@@ -97,10 +98,7 @@ const App = () => {
             <Route path="/success" element={<Success />} />
           </Route>
 
-          <Route
-            path="/course-preview/:courseId"
-            element={<CoursePreview />}
-          />
+          <Route path="/course-preview/:courseId" element={<CoursePreview />} />
 
           {/* Authorized admins are handed off to the dedicated frontendAdmin app. */}
           <Route element={<AdminRoute />}>
@@ -112,7 +110,6 @@ const App = () => {
 
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
-
       </Routes>
     </Suspense>
   );
