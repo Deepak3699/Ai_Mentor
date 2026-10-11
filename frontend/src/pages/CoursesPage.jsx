@@ -1,14 +1,7 @@
 import { apiFetch as fetch } from "../lib/api";
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
-import {
-  Star,
-  X,
-  BookOpen,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { Star, X, BookOpen, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import API_BASE_URL from "../lib/api";
@@ -18,6 +11,7 @@ import toast from "react-hot-toast";
 import { AlertTriangle } from "lucide-react";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import MyCoursesHeroBanner from "../components/common/MyCoursesHeroBanner";
+import LoadingSpinner from "../components/common/LoadingSpinner";
 
 const CoursesPage = () => {
   const { t } = useTranslation();
@@ -65,9 +59,7 @@ const CoursesPage = () => {
   };
 
   const getActiveFilterCount = () => {
-    return (
-      filters.category.length + filters.level.length + filters.price.length
-    );
+    return filters.category.length + filters.level.length + filters.price.length;
   };
 
   const [showEnrollPopup, setShowEnrollPopup] = useState(false);
@@ -75,10 +67,7 @@ const CoursesPage = () => {
 
   const courseIdMatches = (entry, targetId) => {
     if (!entry) return false;
-    return (
-      String(entry?.id ?? entry?.courseId ?? entry?.course?.id) ===
-      String(targetId)
-    );
+    return String(entry?.id ?? entry?.courseId ?? entry?.course?.id) === String(targetId);
   };
 
   const filterRef = useRef(null);
@@ -102,18 +91,12 @@ const CoursesPage = () => {
         .filter(Boolean),
     ),
   ];
-  const availableLevels = [
-    ...new Set(exploreCourses.map((c) => c.level).filter(Boolean)),
-  ];
+  const availableLevels = [...new Set(exploreCourses.map((c) => c.level).filter(Boolean))];
   const availablePrices = [
     ...new Set(
       exploreCourses
         .map((c) => {
-          const isFree =
-            c.priceValue === 0 ||
-            c.price === "₹0" ||
-            c.price === "Free" ||
-            !c.price;
+          const isFree = c.priceValue === 0 || c.price === "₹0" || c.price === "Free" || !c.price;
           return isFree ? "Free" : "Paid";
         })
         .filter(Boolean),
@@ -252,8 +235,7 @@ const CoursesPage = () => {
 
     // Only intercept if we can scroll horizontally in the target direction
     const canScrollLeft = el.scrollLeft > 0;
-    const canScrollRight =
-      Math.ceil(el.scrollLeft) < el.scrollWidth - el.clientWidth;
+    const canScrollRight = Math.ceil(el.scrollLeft) < el.scrollWidth - el.clientWidth;
 
     if ((delta < 0 && canScrollLeft) || (delta > 0 && canScrollRight)) {
       e.preventDefault();
@@ -308,14 +290,7 @@ const CoursesPage = () => {
         node.style.cursor = "grab";
       }
     },
-    [
-      handleMouseDown,
-      handleMouseLeave,
-      handleMouseUp,
-      handleMouseMove,
-      handleWheel,
-      handleClick,
-    ],
+    [handleMouseDown, handleMouseLeave, handleMouseUp, handleMouseMove, handleWheel, handleClick],
   );
 
   // Global arrow key scroll handler for Explore Courses section
@@ -424,23 +399,20 @@ const CoursesPage = () => {
 
     try {
       setIsPurchasing(true);
-      const res = await fetch(
-        `${API_BASE_URL}/api/payment/create-checkout-session`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            course: {
-              id: selectedCourse.id,
-              title: selectedCourse.title,
-              priceValue,
-            },
-          }),
+      const res = await fetch(`${API_BASE_URL}/api/payment/create-checkout-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-      );
+        body: JSON.stringify({
+          course: {
+            id: selectedCourse.id,
+            title: selectedCourse.title,
+            priceValue,
+          },
+        }),
+      });
       const data = await res.json();
       if (data.url) {
         window.location.href = data.url;
@@ -461,22 +433,19 @@ const CoursesPage = () => {
 
     try {
       setIsPurchasing(true);
-      const res = await fetch(
-        `${API_BASE_URL}/api/payment/razorpay/create-order`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            course: {
-              id: selectedCourse.id,
-              priceValue,
-            },
-          }),
+      const res = await fetch(`${API_BASE_URL}/api/payment/razorpay/create-order`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-      );
+        body: JSON.stringify({
+          course: {
+            id: selectedCourse.id,
+            priceValue,
+          },
+        }),
+      });
       const orderData = await res.json();
 
       if (!orderData.orderId) {
@@ -492,23 +461,20 @@ const CoursesPage = () => {
         order_id: orderData.orderId,
         handler: async function (response) {
           try {
-            const verifyRes = await fetch(
-              `${API_BASE_URL}/api/payment/razorpay/verify`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  courseId: selectedCourse.id,
-                  userId: user?.id,
-                }),
+            const verifyRes = await fetch(`${API_BASE_URL}/api/payment/razorpay/verify`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
               },
-            );
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                courseId: selectedCourse.id,
+                userId: user?.id,
+              }),
+            });
 
             const verifyData = await verifyRes.json();
             if (verifyData.success) {
@@ -528,9 +494,7 @@ const CoursesPage = () => {
               setSelectedCourse(null);
               setActiveTab("my-courses");
             } else {
-              throw new Error(
-                verifyData.error || "Payment verification failed",
-              );
+              throw new Error(verifyData.error || "Payment verification failed");
             }
           } catch (err) {
             console.error("Verification error:", err);
@@ -601,9 +565,7 @@ const CoursesPage = () => {
       <div className="min-h-screen bg-canvas-alt flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-main mb-4">Please Login</h1>
-          <p className="text-muted">
-            You need to be logged in to access the courses page.
-          </p>
+          <p className="text-muted">You need to be logged in to access the courses page.</p>
         </div>
       </div>
     );
@@ -616,12 +578,9 @@ const CoursesPage = () => {
         return course.title.toLowerCase().includes(searchQuery.toLowerCase());
       }
 
-      const cat =
-        course.category === "Databases" ? "Database" : course.category;
-      const matchesCategory =
-        filters.category.length === 0 || filters.category.includes(cat);
-      const matchesLevel =
-        filters.level.length === 0 || filters.level.includes(course.level);
+      const cat = course.category === "Databases" ? "Database" : course.category;
+      const matchesCategory = filters.category.length === 0 || filters.category.includes(cat);
+      const matchesLevel = filters.level.length === 0 || filters.level.includes(course.level);
 
       const isFree =
         course.priceValue === 0 ||
@@ -629,8 +588,7 @@ const CoursesPage = () => {
         course.price === "Free" ||
         !course.price;
       const type = isFree ? "Free" : "Paid";
-      const matchesPrice =
-        filters.price.length === 0 || filters.price.includes(type);
+      const matchesPrice = filters.price.length === 0 || filters.price.includes(type);
 
       return matchesCategory && matchesLevel && matchesPrice;
     });
@@ -643,19 +601,13 @@ const CoursesPage = () => {
     }
 
     const cat = course.category === "Databases" ? "Database" : course.category;
-    const matchesCategory =
-      filters.category.length === 0 || filters.category.includes(cat);
-    const matchesLevel =
-      filters.level.length === 0 || filters.level.includes(course.level);
+    const matchesCategory = filters.category.length === 0 || filters.category.includes(cat);
+    const matchesLevel = filters.level.length === 0 || filters.level.includes(course.level);
 
     const isFree =
-      course.priceValue === 0 ||
-      course.price === "₹0" ||
-      course.price === "Free" ||
-      !course.price;
+      course.priceValue === 0 || course.price === "₹0" || course.price === "Free" || !course.price;
     const type = isFree ? "Free" : "Paid";
-    const matchesPrice =
-      filters.price.length === 0 || filters.price.includes(type);
+    const matchesPrice = filters.price.length === 0 || filters.price.includes(type);
 
     return matchesCategory && matchesLevel && matchesPrice;
   });
@@ -666,32 +618,19 @@ const CoursesPage = () => {
     }
 
     const cat = course.category === "Databases" ? "Database" : course.category;
-    const matchesCategory =
-      filters.category.length === 0 || filters.category.includes(cat);
-    const matchesLevel =
-      filters.level.length === 0 || filters.level.includes(course.level);
+    const matchesCategory = filters.category.length === 0 || filters.category.includes(cat);
+    const matchesLevel = filters.level.length === 0 || filters.level.includes(course.level);
 
     const isFree =
-      course.priceValue === 0 ||
-      course.price === "₹0" ||
-      course.price === "Free" ||
-      !course.price;
+      course.priceValue === 0 || course.price === "₹0" || course.price === "Free" || !course.price;
     const type = isFree ? "Free" : "Paid";
-    const matchesPrice =
-      filters.price.length === 0 || filters.price.includes(type);
+    const matchesPrice = filters.price.length === 0 || filters.price.includes(type);
 
     return matchesCategory && matchesLevel && matchesPrice;
   });
 
   if (loading) {
-    return (
-      <main className="flex-1 p-4 md:p-6 lg:p-8 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-muted">{t("courses.loading")}</p>
-        </div>
-      </main>
-    );
+    return <LoadingSpinner label={t("courses.loading")} />;
   }
   return (
     <>
@@ -710,7 +649,7 @@ const CoursesPage = () => {
       </Helmet>
 
       {/* ══════ HERO ══════ */}
-      <div className="relative bg-gradient-to-br from-teal-700 via-teal-600 to-teal-800 pt-10 sm:pt-12 lg:pt-16 pb-8 sm:pb-10 lg:pb-12 px-4 sm:px-6 lg:px-8">
+      <div className="relative bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 pt-10 sm:pt-12 lg:pt-16 pb-8 sm:pb-10 lg:pb-12 px-4 sm:px-6 lg:px-8">
         <div
           className="absolute inset-0 opacity-10"
           style={{
@@ -746,9 +685,7 @@ const CoursesPage = () => {
                     ? `${user.firstName} ${user.lastName}`
                     : user?.email?.split("@")[0] || "User")}
               </h1>
-              <p className="text-teal-100 text-sm sm:text-base mt-1">
-                {t("courses.subtitle")}
-              </p>
+              <p className="text-blue-100 text-sm sm:text-base mt-1">{t("courses.subtitle")}</p>
             </div>
           </div>
 
@@ -765,33 +702,25 @@ const CoursesPage = () => {
                   onClick={() => setActiveTab("my-courses")}
                   className={`flex-1 basis-0 min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all ${
                     activeTab === "my-courses"
-                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
                       : "bg-black/30 text-white hover:bg-black/40"
                   }`}
                 >
                   <BookOpen className="w-4 h-4 shrink-0 hidden sm:block" />
-                  <span className="hidden sm:inline truncate">
-                    {t("courses.enrolled_courses")}
-                  </span>
-                  <span className="sm:hidden truncate">
-                    {t("courses.enrolled_short")}
-                  </span>
+                  <span className="hidden sm:inline truncate">{t("courses.enrolled_courses")}</span>
+                  <span className="sm:hidden truncate">{t("courses.enrolled_short")}</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("explore")}
                   className={`flex-1 basis-0 min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-6 py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all ${
                     activeTab === "explore"
-                      ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                      ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
                       : "bg-black/30 text-white hover:bg-black/40"
                   }`}
                 >
                   <Search className="w-4 h-4 shrink-0 hidden sm:block" />
-                  <span className="hidden sm:inline truncate">
-                    {t("courses.explore")}
-                  </span>
-                  <span className="sm:hidden truncate">
-                    {t("courses.explore_short")}
-                  </span>
+                  <span className="hidden sm:inline truncate">{t("courses.explore")}</span>
+                  <span className="sm:hidden truncate">{t("courses.explore_short")}</span>
                 </button>
               </div>
 
@@ -821,9 +750,7 @@ const CoursesPage = () => {
                         d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
                       />
                     </svg>
-                    <span className="hidden sm:inline ml-2">
-                      {t("courses.filters")}
-                    </span>
+                    <span className="hidden sm:inline ml-2">{t("courses.filters")}</span>
                     {getActiveFilterCount() > 0 && (
                       <span className="absolute -top-1.5 -right-1.5 sm:static sm:ml-1.5 bg-white text-teal-700 text-[11px] leading-none rounded-full w-5 h-5 flex items-center justify-center font-black shadow-md border-2 border-teal-700 z-10">
                         {getActiveFilterCount()}
@@ -875,13 +802,11 @@ const CoursesPage = () => {
                             </label>
                             <div className="flex flex-wrap gap-3">
                               <button
-                                onClick={() =>
-                                  setFilters({ ...filters, category: [] })
-                                }
+                                onClick={() => setFilters({ ...filters, category: [] })}
                                 className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
                                   filters.category.length === 0
                                     ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
-                                    : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                                    : "bg-teal-900/30 text-blue-100 hover:bg-teal-500/20 border border-teal-500/30"
                                 }`}
                               >
                                 {t("courses.all_categories")}
@@ -891,13 +816,11 @@ const CoursesPage = () => {
                                 .map((cat) => (
                                   <button
                                     key={cat}
-                                    onClick={() =>
-                                      toggleFilter("category", cat)
-                                    }
+                                    onClick={() => toggleFilter("category", cat)}
                                     className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
                                       filters.category.includes(cat)
                                         ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
-                                        : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                                        : "bg-teal-900/30 text-blue-100 hover:bg-teal-500/20 border border-teal-500/30"
                                     }`}
                                   >
                                     {cat}
@@ -913,13 +836,11 @@ const CoursesPage = () => {
                             </label>
                             <div className="flex flex-wrap gap-3">
                               <button
-                                onClick={() =>
-                                  setFilters({ ...filters, level: [] })
-                                }
+                                onClick={() => setFilters({ ...filters, level: [] })}
                                 className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
                                   filters.level.length === 0
                                     ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
-                                    : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                                    : "bg-teal-900/30 text-blue-100 hover:bg-teal-500/20 border border-teal-500/30"
                                 }`}
                               >
                                 {t("courses.any_level")}
@@ -931,7 +852,7 @@ const CoursesPage = () => {
                                   className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
                                     filters.level.includes(lvl)
                                       ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
-                                      : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                                      : "bg-teal-900/30 text-blue-100 hover:bg-teal-500/20 border border-teal-500/30"
                                   }`}
                                 >
                                   {lvl}
@@ -947,13 +868,11 @@ const CoursesPage = () => {
                             </label>
                             <div className="flex gap-3">
                               <button
-                                onClick={() =>
-                                  setFilters({ ...filters, price: [] })
-                                }
+                                onClick={() => setFilters({ ...filters, price: [] })}
                                 className={`flex-1 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
                                   filters.price.length === 0
                                     ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
-                                    : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                                    : "bg-teal-900/30 text-blue-100 hover:bg-teal-500/20 border border-teal-500/30"
                                 }`}
                               >
                                 {t("courses.any_price")}
@@ -965,7 +884,7 @@ const CoursesPage = () => {
                                   className={`flex-1 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
                                     filters.price.includes(p)
                                       ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
-                                      : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                                      : "bg-teal-900/30 text-blue-100 hover:bg-teal-500/20 border border-teal-500/30"
                                   }`}
                                 >
                                   {p}
@@ -1035,10 +954,8 @@ const CoursesPage = () => {
         </div>
       </div>
 
-      <main className="flex-1 p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 p-4 pb-24 sm:p-6 sm:pb-24 lg:p-8 lg:pb-24">
         <div className="max-w-7xl mx-auto space-y-10">
-
-
           {/* Top Hero Banner */}
           <MyCoursesHeroBanner />
 
@@ -1052,9 +969,7 @@ const CoursesPage = () => {
                 <p className="text-slate-500">{t("courses.not_enrolled")}</p>
               )}
               {myCourses.length > 0 && filteredMyCourses.length === 0 && (
-                <p className="text-slate-500 col-span-full">
-                  {t("courses.no_match_filters")}
-                </p>
+                <p className="text-slate-500 col-span-full">{t("courses.no_match_filters")}</p>
               )}
 
               {filteredMyCourses.map((course) => {
@@ -1063,8 +978,7 @@ const CoursesPage = () => {
                 );
                 const progress = purchasedEntry?.progress;
                 const hasStarted =
-                  progress?.completedLessons?.length > 0 ||
-                  progress?.currentLesson != null;
+                  progress?.completedLessons?.length > 0 || progress?.currentLesson != null;
 
                 return (
                   <div
@@ -1079,22 +993,24 @@ const CoursesPage = () => {
                       <img
                         src={
                           course.title === "React Fundamentals"
-                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
-                                      : course.title === "Python For AI"
-                                      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
-                                      : course.title === "AI Ethics & Bias"
-                                      ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
-                                      : course.title === "PostgreSQL"
-                                      ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
-                                      : course.title === "MongoDB Fundamentals"
-                                      ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                                      : course.title === "Machine Learning Fundamentals" || course.title === "ML Fundamentals"
+                            ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
+                            : course.title === "Python For AI"
+                              ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
+                              : course.title === "AI Ethics & Bias"
+                                ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
+                                : course.title === "PostgreSQL"
+                                  ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                                  : course.title === "MongoDB Fundamentals"
+                                    ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                                    : course.title === "Machine Learning Fundamentals" ||
+                                        course.title === "ML Fundamentals"
                                       ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
-                                      : course.title === "Full Stack Web Development" || course.title === "Full Stack Web Dev"
-                                      ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
-                                      : "/AI_Tutor_New_UI/Dashboard/logo.png"
+                                      : course.title === "Full Stack Web Development" ||
+                                          course.title === "Full Stack Web Dev"
+                                        ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
+                                        : "/AI_Tutor_New_UI/Dashboard/logo.png"
                         }
-                        className="w-full h-full object-cover"
+                        className="course-artwork w-full h-full object-cover"
                         alt={course.title}
                         loading="lazy"
                       />
@@ -1116,9 +1032,7 @@ const CoursesPage = () => {
                           onClick={() => navigate(`/learning/${course.id}`)}
                           className="w-full py-2 rounded-lg bg-[#2DD4BF] text-white text-xs font-semibold"
                         >
-                          {hasStarted
-                            ? t("common.continue_learning")
-                            : t("common.start_learning")}
+                          {hasStarted ? t("common.continue_learning") : t("common.start_learning")}
                         </button>
                       </div>
                     </div>
@@ -1163,9 +1077,7 @@ const CoursesPage = () => {
                 {allFilteredExploreCourses.map((course) => {
                   const isEnrolled =
                     myCourses.some((c) => courseIdMatches(c, course.id)) ||
-                    user?.purchasedCourses?.some((c) =>
-                      courseIdMatches(c, course.id),
-                    );
+                    user?.purchasedCourses?.some((c) => courseIdMatches(c, course.id));
                   return (
                     <div
                       key={course.id}
@@ -1180,22 +1092,24 @@ const CoursesPage = () => {
                         <img
                           src={
                             course.title === "React Fundamentals"
-                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
-                                      : course.title === "Python For AI"
-                                      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
-                                      : course.title === "AI Ethics & Bias"
-                                      ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
-                                      : course.title === "PostgreSQL"
-                                      ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
-                                      : course.title === "MongoDB Fundamentals"
+                              ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
+                              : course.title === "Python For AI"
+                                ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
+                                : course.title === "AI Ethics & Bias"
+                                  ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
+                                  : course.title === "PostgreSQL"
+                                    ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                                    : course.title === "MongoDB Fundamentals"
                                       ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                                      : course.title === "Machine Learning Fundamentals" || course.title === "ML Fundamentals"
-                                      ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
-                                      : course.title === "Full Stack Web Development" || course.title === "Full Stack Web Dev"
-                                      ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
-                                      : "/AI_Tutor_New_UI/Dashboard/logo.png"
+                                      : course.title === "Machine Learning Fundamentals" ||
+                                          course.title === "ML Fundamentals"
+                                        ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
+                                        : course.title === "Full Stack Web Development" ||
+                                            course.title === "Full Stack Web Dev"
+                                          ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
+                                          : "/AI_Tutor_New_UI/Dashboard/logo.png"
                           }
-                          className="w-full h-full object-cover"
+                          className="course-artwork w-full h-full object-cover"
                           alt={course.title}
                           loading="lazy"
                         />
@@ -1220,9 +1134,7 @@ const CoursesPage = () => {
                         {/* Bottom content */}
                         <div className="mt-4 flex justify-between items-center">
                           <span className="font-bold text-green-600">
-                            {course?.priceValue === 0
-                              ? "Free"
-                              : `₹${course?.priceValue || 0}`}
+                            {course?.priceValue === 0 ? "Free" : `₹${course?.priceValue || 0}`}
                           </span>
 
                           <button
@@ -1239,9 +1151,7 @@ const CoursesPage = () => {
                                 : "bg-[#2DD4BF] text-white hover:bg-teal-500"
                             }`}
                           >
-                            {isEnrolled
-                              ? t("courses.enrolled_short")
-                              : t("common.enroll")}
+                            {isEnrolled ? t("courses.enrolled_short") : t("common.enroll")}
                           </button>
                         </div>
                       </div>
@@ -1270,18 +1180,20 @@ const CoursesPage = () => {
                 selectedCourse.title === "React Fundamentals"
                   ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
                   : selectedCourse.title === "Python For AI"
-                  ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
-                  : selectedCourse.title === "AI Ethics & Bias"
-                  ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
-                  : selectedCourse.title === "PostgreSQL"
-                  ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
-                  : selectedCourse.title === "MongoDB Fundamentals"
-                  ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                  : selectedCourse.title === "Machine Learning Fundamentals" || selectedCourse.title === "ML Fundamentals"
-                  ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
-                  : selectedCourse.title === "Full Stack Web Development" || selectedCourse.title === "Full Stack Web Dev"
-                  ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
-                  : "/AI_Tutor_New_UI/Dashboard/logo.png"
+                    ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
+                    : selectedCourse.title === "AI Ethics & Bias"
+                      ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
+                      : selectedCourse.title === "PostgreSQL"
+                        ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                        : selectedCourse.title === "MongoDB Fundamentals"
+                          ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                          : selectedCourse.title === "Machine Learning Fundamentals" ||
+                              selectedCourse.title === "ML Fundamentals"
+                            ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
+                            : selectedCourse.title === "Full Stack Web Development" ||
+                                selectedCourse.title === "Full Stack Web Dev"
+                              ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
+                              : "/AI_Tutor_New_UI/Dashboard/logo.png"
               }
               alt={selectedCourse.title}
               className="w-full h-40 object-cover rounded-xl mb-4 bg-slate-100"
@@ -1293,9 +1205,7 @@ const CoursesPage = () => {
             </p>
             <div className="flex justify-between items-center mt-4">
               <span className="text-lg font-bold text-green-600">
-                {selectedCourse.priceValue > 0
-                  ? `₹${selectedCourse.priceValue}`
-                  : "Free"}
+                {selectedCourse.priceValue > 0 ? `₹${selectedCourse.priceValue}` : "Free"}
               </span>
             </div>
             {Number(selectedCourse.priceValue) > 0 ? (
@@ -1321,9 +1231,7 @@ const CoursesPage = () => {
                 disabled={isPurchasing}
                 className="w-full mt-6 py-3 rounded-xl bg-[#2DD4BF] text-white font-semibold disabled:opacity-50"
               >
-                {isPurchasing
-                  ? "Processing..."
-                  : t("courses.confirm_enrollment")}
+                {isPurchasing ? "Processing..." : t("courses.confirm_enrollment")}
               </button>
             )}
           </div>
