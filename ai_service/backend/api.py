@@ -518,28 +518,26 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         print("\n📊 USER PREFERENCES:\n")
         print(data.preferences if data.preferences else "No preferences provided")
-
         script = ""
-
+    
         try:
             print("⚡ Trying Gemini Primary Model...")
-
+    
             response = gemini_client.models.generate_content(
                 model=GEMINI_MODEL,
                 contents=prompt
             )
-
+    
             script = response.text.strip().replace("\n", " ")
-
-            print("✅ Gemini response generated")
-
+    
+            print("🟩 Gemini response generated")
+    
         except Exception as gemini_error:
-
             print(f"❌ Gemini failed: {gemini_error}")
-
-            try:
+    
+                  try:
                 print("⚡ Switching to Groq fallback...")
-
+    
                 groq_response = groq_client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
                     messages=[
@@ -551,20 +549,19 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     temperature=0.7,
                     max_tokens=300,
                 )
-
+    
                 script = groq_response.choices[0].message.content.strip().replace("\n", " ")
-
+    
                 print("✅ Groq fallback response generated")
-
+    
             except Exception as groq_error:
-
-                print(f"❌ Groq also failed: {groq_error}")
-
-                job_status[base_filename] = {
+            print(f"❌ Groq also failed: {groq_error}")
+    
+            job_status[base_filename] = {
                     "status": "failed"
                 }
 
-                return
+         return
 
         print(f"📝 Generated text: {script}")
 
@@ -600,11 +597,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             # Validate voice or fallback
             selected_voice = voices.get_voice(data.voice_id)
-
+            
             rate = data.speech_rate if data.speech_rate else "+0%"
             pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
 
-            await generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch)
+            asyncio.run(generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch))
 
             print(f"✅ Audio saved: {audio_path}")
 
@@ -612,9 +609,6 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"❌ TTS Error: {e}")
 
-            job_status[base_filename] = {
-                "status": "failed"
-            }
             return
 
         # 5️⃣ Try AI Avatar Video
@@ -623,7 +617,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         try:
             print("🤖 Trying D-ID AI Avatar...")
 
-            avatar_video_url = await create_avatar_video(audio_path)
+            avatar_video_url = create_avatar_video(audio_path)
 
             print(f"✅ D-ID avatar video ready: {avatar_video_url}")
 
@@ -656,36 +650,16 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 }
                 return
 
+            ffmpeg_command = (
+                f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
+                f'-i "{audio_path}" '
+                f'-map 0:v:0 -map 1:a:0 '
+                f'-c:v copy -c:a aac -shortest "{final_video}"'
+            )
+
             print("🎥 Running fallback FFmpeg command...")
 
-            ffmpeg_args = [
-                "ffmpeg",
-                "-y",
-                "-stream_loop", "-1",
-                "-i", input_video,
-                "-i", audio_path,
-                "-map", "0:v:0",
-                "-map", "1:a:0",
-                "-c:v", "copy",
-                "-c:a", "aac",
-                "-shortest",
-                final_video,
-            ]
-
-            process = await asyncio.create_subprocess_exec(
-                *ffmpeg_args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await process.communicate()
-
-            if process.returncode != 0:
-                error_msg = stderr.decode(errors="replace")
-                print(f"❌ FFmpeg fallback failed with code {process.returncode}: {error_msg}")
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
-                return
+            os.system(ffmpeg_command)
 
             if not os.path.exists(final_video):
                 print(
@@ -725,12 +699,9 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"⚠️ Cloudinary upload failed (will fall back to local proxy): {cloud_err}")
 
-        local_video_url = f"/video-stream/{base_filename}.mp4"
-
         job_status[base_filename] = {
             "status": "ready",
             "cloudinary_url": cloudinary_url,
-            "local_video_url": local_video_url,
         }
 
         print(f"✅ Lesson ready!")
