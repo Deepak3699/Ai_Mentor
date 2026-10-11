@@ -89,13 +89,15 @@ def test_upload_audio_returns_the_did_url_without_network(monkeypatch, tmp_path)
 
 def test_create_avatar_requires_a_source_url_before_upload(monkeypatch):
     monkeypatch.setattr(avatar_service, "DID_SOURCE_URL", None)
+
     monkeypatch.setattr(
         avatar_service,
         "upload_audio",
         lambda path: pytest.fail("audio must not upload without a source URL"),
     )
+
     with pytest.raises(RuntimeError, match="DID_SOURCE_URL is not configured"):
-        avatar_service.create_avatar_video("voice.mp3")
+        asyncio.run(avatar_service.create_avatar_video("voice.mp3"))
 
 
 def test_create_avatar_validates_creation_response_before_polling(monkeypatch):
@@ -108,8 +110,7 @@ def test_create_avatar_validates_creation_response_before_polling(monkeypatch):
         lambda *args, **kwargs: FakeResponse(201, {}),
     )
     with pytest.raises(RuntimeError, match="did not return a talk ID"):
-        avatar_service.create_avatar_video("voice.mp3")
-
+         asyncio.run(avatar_service.create_avatar_video("voice.mp3"))
 
 def test_poll_returns_completed_video_and_rejects_missing_result(monkeypatch):
     monkeypatch.setattr(avatar_service, "DID_API_KEY", "user:pass")
@@ -132,3 +133,26 @@ def test_poll_returns_completed_video_and_rejects_missing_result(monkeypatch):
     )
     with pytest.raises(RuntimeError, match="returned no video URL"):
         asyncio.run(avatar_service._poll_for_video("talk-2"))
+def test_poll_raises_did_error_immediately(monkeypatch):
+    avatar_service.DID_API_KEY = "user:pass"
+    avatar_service.POLL_INTERVAL = 0
+    avatar_service.MAX_POLL_ATTEMPTS = 5
+
+    polls = []
+
+    def fake_get(*args, **kwargs):
+        polls.append(1)
+        return FakeResponse(
+            200,
+            {
+                "status": "error",
+                "error": {"description": "bad audio"},
+            },
+        )
+
+    monkeypatch.setattr(avatar_service.requests, "get", fake_get)
+
+    with pytest.raises(RuntimeError, match="bad audio"):
+        asyncio.run(avatar_service._poll_for_video("t1"))
+
+    assert len(polls) == 1
