@@ -2,8 +2,20 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import {
-  User, Bell, Shield, Palette, Globe, Camera,
-  Eye, EyeOff, UserX, Sparkles, ArrowLeft, X, ChevronRight,
+  User,
+  Bell,
+  Shield,
+  Palette,
+  Globe,
+  Camera,
+  Trash2,
+  Eye,
+  EyeOff,
+  UserX,
+  Sparkles,
+  ArrowLeft,
+  X,
+  ChevronRight,
 } from "lucide-react";
 import axios from "axios";
 import Preferences from "../components/Preferences";
@@ -12,6 +24,23 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n/index.js";
 import FloatingAssistant from "../components/common/FloatingAssistant.jsx";
+import LoadingSpinner from "../components/common/LoadingSpinner";
+import API_BASE_URL from "../lib/api";
+
+const resolveAvatarUrl = (avatarUrl) => {
+  if (!avatarUrl || typeof avatarUrl !== "string") return null;
+  if (/^(https?:|data:|blob:)/i.test(avatarUrl)) return avatarUrl;
+  return `${API_BASE_URL.replace(/\/$/, "")}/${avatarUrl.replace(/^\//, "")}`;
+};
+
+const verifyImageUrl = (url) =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(url);
+    image.onerror = () =>
+      reject(new Error("The uploaded profile photo could not be loaded."));
+    image.src = url;
+  });
 
 // ── Added Firebase Imports for Issue #390 Fix ───────────────────────────
 import { signOut } from "firebase/auth";
@@ -20,11 +49,19 @@ import { auth } from "../firebase"; // Ensure this matches your project path to 
 const NAV_KEYS = [
   { icon: User, key: "profile", labelKey: "settings.nav.profile" },
   { icon: Bell, key: "notifications", labelKey: "settings.nav.notifications" },
-  { icon: Shield, key: "password_security", labelKey: "settings.nav.password_security" },
+  {
+    icon: Shield,
+    key: "password_security",
+    labelKey: "settings.nav.password_security",
+  },
   { icon: Sparkles, key: "preferences", labelKey: "preferences.nav_title" },
   { icon: Palette, key: "appearance", labelKey: "settings.nav.appearance" },
   { icon: Globe, key: "language", labelKey: "settings.nav.language" },
-  { icon: UserX, key: "delete_account", labelKey: "settings.nav.delete_account" },
+  {
+    icon: UserX,
+    key: "delete_account",
+    labelKey: "settings.nav.delete_account",
+  },
 ];
 
 /* ───────────────────────────────────────────────
@@ -35,11 +72,16 @@ function MobileSettingsDrawer({ open, onClose, onSelect, t }) {
   const currentY = useRef(null);
   const [dragOffset, setDragOffset] = useState(0);
 
-  const handleTouchStart = (e) => { startY.current = e.touches[0].clientY; };
+  const handleTouchStart = (e) => {
+    startY.current = e.touches[0].clientY;
+  };
   const handleTouchMove = (e) => {
     if (startY.current === null) return;
     const diff = e.touches[0].clientY - startY.current;
-    if (diff > 0) { currentY.current = diff; setDragOffset(diff); }
+    if (diff > 0) {
+      currentY.current = diff;
+      setDragOffset(diff);
+    }
   };
   const handleTouchEnd = () => {
     if (currentY.current > 120) onClose();
@@ -50,7 +92,9 @@ function MobileSettingsDrawer({ open, onClose, onSelect, t }) {
 
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   return (
@@ -68,7 +112,11 @@ function MobileSettingsDrawer({ open, onClose, onSelect, t }) {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         className="fixed bottom-0 left-0 right-0 z-[210] bg-card rounded-t-[28px] shadow-[0_-8px_48px_rgba(0,0,0,0.22)] transition-transform duration-300 ease-out"
-        style={{ transform: open ? `translateY(${dragOffset}px)` : "translateY(100%)", maxHeight: "88vh", willChange: "transform" }}
+        style={{
+          transform: open ? `translateY(${dragOffset}px)` : "translateY(100%)",
+          maxHeight: "88vh",
+          willChange: "transform",
+        }}
       >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
@@ -77,14 +125,22 @@ function MobileSettingsDrawer({ open, onClose, onSelect, t }) {
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 className="text-[18px] font-bold text-main font-[Inter]">Settings</h2>
-          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-full bg-canvas-alt hover:bg-border transition-colors">
+          <h2 className="text-[18px] font-bold text-main font-sans">
+            Settings
+          </h2>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center rounded-full bg-canvas-alt hover:bg-border transition-colors"
+          >
             <X className="w-5 h-5 text-muted" />
           </button>
         </div>
 
         {/* List */}
-        <nav className="px-4 py-3 overflow-y-auto" style={{ maxHeight: "calc(88vh - 100px)" }}>
+        <nav
+          className="px-4 py-3 overflow-y-auto"
+          style={{ maxHeight: "calc(88vh - 100px)" }}
+        >
           {NAV_KEYS.map((item) => {
             const Icon = item.icon;
             const isDanger = item.key === "delete_account";
@@ -94,10 +150,16 @@ function MobileSettingsDrawer({ open, onClose, onSelect, t }) {
                 onClick={() => onSelect(item.key)}
                 className={`w-full flex items-center gap-4 px-4 py-4 rounded-2xl text-left transition-all active:scale-[0.98] mb-1 ${isDanger ? "hover:bg-red-50 dark:hover:bg-red-900/20" : "hover:bg-teal-50 dark:hover:bg-teal-900/15"}`}
               >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isDanger ? "bg-red-50 dark:bg-red-900/20" : "bg-teal-50 dark:bg-teal-900/20"}`}>
-                  <Icon className={`w-5 h-5 ${isDanger ? "text-red-500" : "text-[#00BEA5]"}`} />
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isDanger ? "bg-red-50 dark:bg-red-900/20" : "bg-teal-50 dark:bg-teal-900/20"}`}
+                >
+                  <Icon
+                    className={`w-5 h-5 ${isDanger ? "text-red-500" : "text-[#3867D6]"}`}
+                  />
                 </div>
-                <span className={`flex-1 font-semibold text-[15px] font-[Inter] ${isDanger ? "text-red-500" : "text-main"}`}>
+                <span
+                  className={`flex-1 font-semibold text-[15px] font-sans ${isDanger ? "text-red-500" : "text-main"}`}
+                >
                   {t(item.labelKey)}
                 </span>
                 <ChevronRight className="w-4 h-4 text-muted opacity-40" />
@@ -118,7 +180,9 @@ function MobileSettingsDrawer({ open, onClose, onSelect, t }) {
 function MobileModal({ open, onBack, onClose, title, children }) {
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   return (
@@ -127,19 +191,35 @@ function MobileModal({ open, onBack, onClose, title, children }) {
       style={{ willChange: "transform, opacity" }}
     >
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-4 border-b border-border bg-card shadow-sm flex-shrink-0"
-        style={{ paddingTop: "max(14px, env(safe-area-inset-top))", paddingBottom: "14px" }}>
-        <button onClick={onBack} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-canvas-alt transition-colors active:scale-90">
+      <div
+        className="flex items-center gap-3 px-4 border-b border-border bg-card shadow-sm flex-shrink-0"
+        style={{
+          paddingTop: "max(14px, env(safe-area-inset-top))",
+          paddingBottom: "14px",
+        }}
+      >
+        <button
+          onClick={onBack}
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-canvas-alt transition-colors active:scale-90"
+        >
           <ArrowLeft className="w-5 h-5 text-main" />
         </button>
-        <h2 className="text-[17px] font-bold text-main font-[Inter] flex-1 truncate">{title}</h2>
-        <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-canvas-alt transition-colors active:scale-90">
+        <h2 className="text-[17px] font-bold text-main font-sans flex-1 truncate">
+          {title}
+        </h2>
+        <button
+          onClick={onClose}
+          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-canvas-alt transition-colors active:scale-90"
+        >
           <X className="w-5 h-5 text-muted" />
         </button>
       </div>
 
       {/* Scrollable body */}
-      <div className="flex-1 overflow-y-auto px-4 py-5" style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+      <div
+        className="flex-1 overflow-y-auto px-4 py-5"
+        style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}
+      >
         {children}
       </div>
     </div>
@@ -156,6 +236,7 @@ export default function Settings() {
   const [contactForm, setContactForm] = useState({ subject: "", message: "" });
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState(null);
+  const [avatarRemoving, setAvatarRemoving] = useState(false);
   const [activeSetting, setActiveSetting] = useState("profile");
   const { user, updateUser, fetchUserProfile } = useAuth();
 
@@ -164,9 +245,19 @@ export default function Settings() {
   const [mobileModalKey, setMobileModalKey] = useState(null);
   const [mobileModalOpen, setMobileModalOpen] = useState(false);
 
-  const [formData, setFormData] = useState({ firstName: "", lastName: "", email: "", bio: "" });
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    bio: "",
+  });
   const [settingsData, setSettingsData] = useState({
-    notifications: { emailNotifications: true, pushNotifications: true, courseUpdates: true, discussionReplies: true },
+    notifications: {
+      emailNotifications: true,
+      pushNotifications: true,
+      courseUpdates: true,
+      discussionReplies: true,
+    },
     security: { twoFactorAuth: false, loginAlerts: true },
     appearance: { theme: "light", language: "en" },
   });
@@ -180,7 +271,11 @@ export default function Settings() {
   const [showDeletePopup, setshowDeletePopup] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deletePopup, setDeletePopup] = useState(false);
-  const [passwordData, setPasswordData] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
   // eslint-disable-next-line no-unused-vars
   const [passwordError, setPasswordError] = useState("");
   // eslint-disable-next-line no-unused-vars
@@ -193,7 +288,9 @@ export default function Settings() {
       const token = localStorage.getItem("token");
 
       // 1. Delete account from your backend database database
-      await axios.delete("/api/users/delete-account", { headers: { Authorization: `Bearer ${token}` } });
+      await axios.delete("/api/users/delete-account", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       // 2. Clear local browser token storage
       localStorage.removeItem("token");
@@ -207,13 +304,48 @@ export default function Settings() {
       setDeletePopup(true);
     } catch (error) {
       console.error("Delete error", error);
-      toast.error(error.response?.data?.message || "Failed to delete account. Please try again.");
+      toast.error(
+        error.response?.data?.message ||
+          "Failed to delete account. Please try again.",
+      );
     } finally {
       setDeleting(false);
     }
   };
 
-  const handleInputChange = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleInputChange = (field, value) =>
+    setFormData((prev) => ({ ...prev, [field]: value }));
+
+  const handleRemoveAvatar = async () => {
+    if (!user?.avatar_url || avatarRemoving) return;
+    const confirmed = window.confirm(
+      "Remove your profile photo? Your initials will be shown instead.",
+    );
+    if (!confirmed) return;
+
+    setAvatarRemoving(true);
+    try {
+      const token = localStorage.getItem("token");
+      const { data } = await axios.delete("/api/users/profile/avatar", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAvatarFile(null);
+      setAvatarPreviewUrl(null);
+      updateUser({ ...data, avatar_url: null });
+      await fetchUserProfile();
+      toast.success("Profile photo removed.");
+    } catch (error) {
+      console.error(
+        "Error removing profile photo:",
+        error.response?.data || error,
+      );
+      toast.error(
+        error.response?.data?.message || "Failed to remove profile photo.",
+      );
+    } finally {
+      setAvatarRemoving(false);
+    }
+  };
 
   const handleSaveChanges = async () => {
     setLoading(true);
@@ -226,47 +358,95 @@ export default function Settings() {
       form.append("bio", formData.bio);
       if (avatarFile) form.append("avatar", avatarFile);
       const response = await axios.put("/api/users/profile", form, {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
       });
-      updateUser(response.data);
-      setTimeout(async () => { await fetchUserProfile(); }, 500);
+      const returnedAvatarUrl = resolveAvatarUrl(response.data?.avatar_url);
+      if (avatarFile && !returnedAvatarUrl) {
+        throw new Error(
+          "The server did not return the uploaded profile photo.",
+        );
+      }
+      if (avatarFile) {
+        await verifyImageUrl(returnedAvatarUrl);
+      }
+      const updatedProfile = {
+        ...response.data,
+        avatar_url: returnedAvatarUrl,
+      };
+      updateUser(updatedProfile);
+      const refreshedProfile = await fetchUserProfile();
+      if (avatarFile && !refreshedProfile?.avatar_url) {
+        throw new Error(
+          "The profile photo was not preserved after refreshing the profile.",
+        );
+      }
       setAvatarFile(null);
       toast.success("Profile updated successfully!");
       setProfilePopup(true);
     } catch (error) {
       console.error("Error updating profile:", error.response?.data || error);
-      toast.error(error.response?.data?.message ||"Failed to update profile.");
+      toast.error(error.response?.data?.message || "Failed to update profile.");
       setFormData({
-      firstName: user.firstName || "",
-      lastName: user.lastName || "",
-      email: user.email || "",
-      bio: user.bio || "",
-  });
-    } finally { setLoading(false); }
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        bio: user.bio || "",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleContactSubmit = async () => {
-    if (!contactForm.subject.trim() || !contactForm.message.trim()) { toast.error("Please enter subject and message"); return; }
-    if (!user?.email) { toast.error("User email not found. Please login again."); return; }
+    if (!contactForm.subject.trim() || !contactForm.message.trim()) {
+      toast.error("Please enter subject and message");
+      return;
+    }
+    if (!user?.email) {
+      toast.error("User email not found. Please login again.");
+      return;
+    }
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.post("/api/contactus",
-        { email: user.email, subject: contactForm.subject.trim(), message: contactForm.message.trim() },
-        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+      const response = await axios.post(
+        "/api/contactus",
+        {
+          email: user.email,
+          subject: contactForm.subject.trim(),
+          message: contactForm.message.trim(),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
       );
-      if (response.data.success) { toast.success(response.data.message); setContactForm({ subject: "", message: "" }); }
-    } catch (error) { toast.error(error.response?.data?.message || "Failed to send message"); }
-    finally { setLoading(false); }
+      if (response.data.success) {
+        toast.success(response.data.message);
+        setContactForm({ subject: "", message: "" });
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to send message");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    if (user) setFormData({
-      firstName: user.firstName || "",
-      lastName: user.lastName || "",
-      email: user.email || "",
-      bio: user.bio || "Passionate about AI and machine learning. Currently pursuing advanced courses in data science.",
-    });
+    if (user)
+      setFormData({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        bio:
+          user.bio ||
+          "Passionate about AI and machine learning. Currently pursuing advanced courses in data science.",
+      });
   }, [user]);
 
   useEffect(() => {
@@ -277,13 +457,16 @@ export default function Settings() {
       }
       try {
         const token = localStorage.getItem("token");
-        const { data } = await axios.get("/api/users/settings", { headers: { Authorization: `Bearer ${token}` } });
+        const { data } = await axios.get("/api/users/settings", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const notifications = data?.notifications
           ? JSON.parse(JSON.stringify(data.notifications))
           : null;
         setSettingsData(data);
         setOriginalNotifications(notifications);
-        if (data?.appearance?.language) i18n.changeLanguage(data.appearance.language);
+        if (data?.appearance?.language)
+          i18n.changeLanguage(data.appearance.language);
       } catch (err) {
         console.error("Failed to fetch notification settings:", err);
       } finally {
@@ -296,18 +479,18 @@ export default function Settings() {
   }, [user]);
 
   useEffect(() => {
-  if (!avatarFile) {
-    setAvatarPreviewUrl(null);
-    return;
-  }
+    if (!avatarFile) {
+      setAvatarPreviewUrl(null);
+      return;
+    }
 
-  const objectUrl = URL.createObjectURL(avatarFile);
-  setAvatarPreviewUrl(objectUrl);
+    const objectUrl = URL.createObjectURL(avatarFile);
+    setAvatarPreviewUrl(objectUrl);
 
-  return () => {
-    URL.revokeObjectURL(objectUrl);
-  };
-}, [avatarFile]);
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [avatarFile]);
 
   /* mobile navigation helpers */
   const handleMobileSelect = (key) => {
@@ -328,7 +511,10 @@ export default function Settings() {
 
   const backToDrawer = () => {
     setMobileModalOpen(false);
-    setTimeout(() => { setMobileModalKey(null); setMobileDrawerOpen(true); }, 260);
+    setTimeout(() => {
+      setMobileModalKey(null);
+      setMobileDrawerOpen(true);
+    }, 260);
   };
 
   const activeMobileNav = NAV_KEYS.find((n) => n.key === mobileModalKey);
@@ -336,69 +522,144 @@ export default function Settings() {
   /* ── shared panel renderers ── */
   function ProfilePanel() {
     return (
-      <div className="max-w-3xl">
+      <div className="w-full max-w-5xl">
         <div className="hidden lg:block mb-8">
-          <h1 className="text-xl sm:text-2xl md:text-[30px] font-bold text-main font-[Inter] mb-2">{t("settings.profile.title")}</h1>
-          <p className="text-sm sm:text-[16px] text-muted font-[Inter]">{t("settings.profile.subtitle")}</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-main mb-2">
+            {t("settings.profile.title")}
+          </h1>
+          <p className="max-w-2xl text-sm leading-6 text-muted">
+            {t("settings.profile.subtitle")}
+          </p>
         </div>
-        <div className="bg-card rounded-2xl sm:rounded-[24px] shadow-[0_4px_6px_0_rgba(0,0,0,0.10),0_10px_15px_0_rgba(0,0,0,0.10)] p-5 sm:p-6 md:p-8">
-          <div className="flex flex-col md:flex-row gap-6 md:gap-10 mb-6">
-
-            {/* ── Avatar column ── */}
-            <div className="flex flex-col items-center md:items-center md:justify-start pt-1 flex-shrink-0">
-              {/* Avatar + camera button */}
-              <div className="relative mb-4">
-                <img
-                  src={
-                    avatarPreviewUrl ||
-                    user?.avatar_url ||
-                    `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(
-                      `${formData.firstName} ${formData.lastName}`
-                    )}`
-                  }
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.src = `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(`${formData.firstName} ${formData.lastName}`)}`;
-                  }}
-                  alt="Profile"
-                  className="w-24 h-24 rounded-full border-4 border-[rgba(255,135,89,0.65)] shadow-[0_4px_6px_0_rgba(0,0,0,0.10),0_10px_15px_0_rgba(0,0,0,0.10)]"
-                />
-                {/* Camera icon — sits outside the avatar at bottom-right */}
-                <label className="absolute -bottom-1 -right-1 w-8 h-8 bg-[#475569] hover:bg-[#334155] rounded-full flex items-center justify-center cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.25)] border-2 border-card transition-colors">
-                  <Camera className="w-[13px] h-[13px] text-white" />
-                  <input type="file" accept="image/*" hidden onChange={(e) => setAvatarFile(e.target.files[0])} />
-                </label>
-              </div>
-              <h2 className="text-[18px] font-semibold text-main font-[Inter] mb-0.5 text-center">{formData.firstName} {formData.lastName}</h2>
-              <p className="text-[14px] text-muted font-[Inter] text-center">{t("common.premium_member")}</p>
-            </div>
-
-            {/* ── Form column ── */}
-            <div className="flex-1 space-y-5 min-w-0">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div className="relative pt-2">
-                  <label className="absolute top-0 left-4 bg-card px-2 text-[13px] text-muted font-medium font-[Inter]">{t("settings.profile.first_name")}</label>
-                  <input type="text" value={formData.firstName} onChange={(e) => handleInputChange("firstName", e.target.value)} className="w-full h-[46px] px-4 rounded-xl border border-border text-[15px] font-[Inter] focus:ring-2 focus:ring-primary focus:border-primary bg-input text-main transition-colors" />
-                </div>
-                <div className="relative pt-2">
-                  <label className="absolute top-0 left-4 bg-card px-2 text-[13px] text-muted font-medium font-[Inter]">{t("settings.profile.last_name")}</label>
-                  <input type="text" value={formData.lastName} onChange={(e) => handleInputChange("lastName", e.target.value)} className="w-full h-[46px] px-4 rounded-xl border border-border text-[15px] font-[Inter] focus:ring-2 focus:ring-primary focus:border-primary bg-input text-main transition-colors" />
-                </div>
-              </div>
-              <div className="relative pt-2">
-                <label className="absolute top-0 left-4 bg-card px-2 text-[13px] text-muted font-medium font-[Inter]">{t("settings.profile.email")}</label>
-                <input type="email" value={formData.email} onChange={(e) => handleInputChange("email", e.target.value)} className="w-full h-[46px] px-4 rounded-xl border border-border text-[15px] font-[Inter] focus:ring-2 focus:ring-primary focus:border-primary bg-input text-main transition-colors" />
-              </div>
-              <div className="relative pt-2">
-                <label className="absolute top-0 left-4 bg-card px-2 text-[13px] text-muted font-medium font-[Inter]">{t("settings.profile.bio")}</label>
-                <textarea value={formData.bio} onChange={(e) => handleInputChange("bio", e.target.value)} className="w-full min-h-[88px] px-4 py-3 rounded-xl border border-border text-[15px] font-[Inter] resize-none focus:ring-2 focus:ring-primary focus:border-primary bg-input text-main transition-colors" />
-              </div>
-            </div>
-
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <div className="border-b border-border bg-gradient-to-r from-[#3867D6]/10 via-transparent to-violet-500/10 px-5 py-5 sm:px-6 md:px-8">
+            <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#3867D6] dark:text-[#7FA7FF]">
+              Profile identity
+            </p>
+            <h2 className="mt-1 text-xl font-extrabold tracking-tight text-main">
+              Your public account details
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-muted">
+              Keep your name, photo, contact details, and biography accurate.
+            </p>
           </div>
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-5 border-t border-border">
-            <button type="button" className="h-[42px] px-6 rounded-xl border border-border bg-card text-main text-[16px] font-medium font-[Inter] hover:bg-canvas-alt transition-colors">{t("common.cancel")}</button>
-            <button onClick={handleSaveChanges} disabled={loading} className="h-[42px] px-6 rounded-xl bg-[#00BEA5] text-white text-[16px] font-medium font-[Inter] hover:opacity-90 disabled:opacity-50 transition-opacity">
+          <div className="settings-profile-grid grid gap-8 p-5 sm:p-6 md:grid-cols-[220px_minmax(0,1fr)] md:p-8">
+            <div className="contents">
+              {/* ── Avatar column ── */}
+              <div className="flex flex-col items-center md:items-center md:justify-start pt-1 flex-shrink-0">
+                {/* Avatar + camera button */}
+                <div className="relative mb-4">
+                  {avatarPreviewUrl || user?.avatar_url ? (
+                    <img
+                      src={
+                        avatarPreviewUrl || resolveAvatarUrl(user?.avatar_url)
+                      }
+                      alt="Profile"
+                      className="h-28 w-28 rounded-2xl border-4 border-card object-cover shadow-lg ring-1 ring-border"
+                    />
+                  ) : (
+                    <div className="flex h-28 w-28 items-center justify-center rounded-2xl border-4 border-card bg-[#3867D6] text-3xl font-extrabold text-white shadow-lg ring-1 ring-border">
+                      {(formData.firstName?.[0] || "U").toUpperCase()}
+                      {(formData.lastName?.[0] || "").toUpperCase()}
+                    </div>
+                  )}
+                  {/* Camera icon — sits outside the avatar at bottom-right */}
+                  <label className="absolute -bottom-2 -right-2 flex h-10 w-10 items-center justify-center rounded-full border-2 border-card bg-[#475569] text-white shadow-[0_3px_10px_rgba(0,0,0,0.28)] transition-colors hover:bg-[#334155] cursor-pointer">
+                    <Camera className="h-4 w-4" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      hidden
+                      onChange={(e) => setAvatarFile(e.target.files[0])}
+                    />
+                  </label>
+                  {user?.avatar_url && !avatarPreviewUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      disabled={avatarRemoving}
+                      className="absolute -bottom-2 -left-2 flex h-10 w-10 items-center justify-center rounded-full border-2 border-card bg-red-500 text-white shadow-[0_3px_10px_rgba(0,0,0,0.28)] transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                      aria-label="Remove profile photo"
+                      title="Remove profile photo"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <h2 className="text-[18px] font-semibold text-main font-sans mb-0.5 text-center">
+                  {formData.firstName} {formData.lastName}
+                </h2>
+                <p className="text-[14px] text-muted font-sans text-center">
+                  {t("common.premium_member")}
+                </p>
+              </div>
+
+              {/* ── Form column ── */}
+              <div className="flex-1 space-y-5 min-w-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold uppercase tracking-wide text-muted">
+                      {t("settings.profile.first_name")}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.firstName}
+                      onChange={(e) =>
+                        handleInputChange("firstName", e.target.value)
+                      }
+                      className="h-11 w-full rounded-xl border border-border bg-canvas-alt px-4 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold uppercase tracking-wide text-muted">
+                      {t("settings.profile.last_name")}
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.lastName}
+                      onChange={(e) =>
+                        handleInputChange("lastName", e.target.value)
+                      }
+                      className="h-11 w-full rounded-xl border border-border bg-canvas-alt px-4 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold uppercase tracking-wide text-muted">
+                    {t("settings.profile.email")}
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    className="h-11 w-full rounded-xl border border-border bg-canvas-alt px-4 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold uppercase tracking-wide text-muted">
+                    {t("settings.profile.bio")}
+                  </label>
+                  <textarea
+                    value={formData.bio}
+                    onChange={(e) => handleInputChange("bio", e.target.value)}
+                    className="min-h-[120px] w-full resize-none rounded-xl border border-border bg-canvas-alt px-4 py-3 text-sm leading-6 text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="sticky bottom-0 flex flex-col-reverse justify-end gap-3 border-t border-border bg-card/95 px-5 py-4 backdrop-blur sm:flex-row sm:px-6 md:px-8">
+            <button
+              type="button"
+              className="h-[42px] px-6 rounded-xl border border-border bg-card text-main text-[16px] font-medium font-sans hover:bg-canvas-alt transition-colors"
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              onClick={handleSaveChanges}
+              disabled={loading}
+              className="h-[42px] px-6 rounded-xl bg-[#3867D6] hover:bg-[#315BC0] text-white text-[16px] font-medium font-sans hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
               {loading ? t("common.saving") : t("common.save_changes")}
             </button>
           </div>
@@ -410,43 +671,104 @@ export default function Settings() {
   const NotificationsPanel = () => (
     <div className="w-full">
       <div className="hidden lg:block mb-8">
-        <h1 className="text-xl sm:text-2xl md:text-[30px] font-bold text-main font-[Inter] mb-2">{t("settings.notifications.title")}</h1>
-        <p className="text-sm sm:text-[16px] text-muted font-[Inter]">{t("settings.notifications.subtitle")}</p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-main mb-2">
+          {t("settings.notifications.title")}
+        </h1>
+        <p className="max-w-2xl text-sm leading-6 text-muted">
+          {t("settings.notifications.subtitle")}
+        </p>
       </div>
-      <div className="bg-card rounded-2xl sm:rounded-[24px] shadow p-4 sm:p-6 md:p-8">
-        <div className="space-y-6">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="space-y-3 p-5 sm:p-6">
           {[
-            { labelKey: "settings.notifications.email", key: "emailNotifications", descKey: "settings.notifications.email_desc" },
-            { labelKey: "settings.notifications.push", key: "pushNotifications", descKey: "settings.notifications.push_desc" },
-            { labelKey: "settings.notifications.course_updates", key: "courseUpdates", descKey: "settings.notifications.course_updates_desc" },
-            { labelKey: "settings.notifications.discussion_replies", key: "discussionReplies", descKey: "settings.notifications.discussion_replies_desc" },
+            {
+              labelKey: "settings.notifications.email",
+              key: "emailNotifications",
+              descKey: "settings.notifications.email_desc",
+            },
+            {
+              labelKey: "settings.notifications.push",
+              key: "pushNotifications",
+              descKey: "settings.notifications.push_desc",
+            },
+            {
+              labelKey: "settings.notifications.course_updates",
+              key: "courseUpdates",
+              descKey: "settings.notifications.course_updates_desc",
+            },
+            {
+              labelKey: "settings.notifications.discussion_replies",
+              key: "discussionReplies",
+              descKey: "settings.notifications.discussion_replies_desc",
+            },
           ].map((item) => (
-            <div key={item.key} className="flex items-center justify-between gap-4">
+            <div
+              key={item.key}
+              className="settings-notification-row flex items-center justify-between gap-5 rounded-xl border border-border bg-canvas-alt px-4 py-4 transition-colors hover:border-[#3867D6]/35 sm:px-5"
+            >
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm sm:text-[16px] font-semibold text-main">{t(item.labelKey)}</h3>
-                <p className="text-xs sm:text-[14px] text-muted">{t(item.descKey)}</p>
+                <h3 className="text-sm font-extrabold text-main sm:text-[15px]">
+                  {t(item.labelKey)}
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-muted sm:text-[13px]">
+                  {t(item.descKey)}
+                </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" checked={settingsData.notifications[item.key]}
-                  onChange={(e) => setSettingsData((prev) => ({ ...prev, notifications: { ...prev.notifications, [item.key]: e.target.checked } }))}
-                  className="sr-only peer" />
-                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-primary after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                <input
+                  type="checkbox"
+                  checked={settingsData.notifications[item.key]}
+                  onChange={(e) =>
+                    setSettingsData((prev) => ({
+                      ...prev,
+                      notifications: {
+                        ...prev.notifications,
+                        [item.key]: e.target.checked,
+                      },
+                    }))
+                  }
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-[#3867D6] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
               </label>
             </div>
           ))}
         </div>
-        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4 pt-6 border-t border-border mt-6">
-          <button type="button" onClick={() => { if (originalNotifications) setSettingsData((prev) => ({ ...prev, notifications: originalNotifications })); }} className="h-[50px] px-6 rounded-xl border border-border bg-card text-main hover:bg-canvas-alt">{t("common.cancel")}</button>
-          <button onClick={async () => {
-            setLoading(true);
-            try {
-              const token = localStorage.getItem("token");
-              await axios.put("/api/users/settings", { notifications: { ...settingsData.notifications } }, { headers: { Authorization: `Bearer ${token}` } });
-              toast.success("Notification settings updated successfully!");
-              setOriginalNotifications({ ...settingsData.notifications });
-            } catch { toast.error("Failed to update settings. Please try again."); }
-            finally { setLoading(false); }
-          }} disabled={loading} className="h-[50px] px-6 rounded-xl bg-[#00BEA5] text-white hover:opacity-90 disabled:opacity-50">
+        <div className="flex flex-col-reverse justify-end gap-3 border-t border-border bg-card px-5 py-4 sm:flex-row sm:px-6">
+          <button
+            type="button"
+            onClick={() => {
+              if (originalNotifications)
+                setSettingsData((prev) => ({
+                  ...prev,
+                  notifications: originalNotifications,
+                }));
+            }}
+            className="h-11 rounded-xl border border-border bg-card px-5 text-sm font-bold text-main transition hover:bg-canvas-alt"
+          >
+            {t("common.cancel")}
+          </button>
+          <button
+            onClick={async () => {
+              setLoading(true);
+              try {
+                const token = localStorage.getItem("token");
+                await axios.put(
+                  "/api/users/settings",
+                  { notifications: { ...settingsData.notifications } },
+                  { headers: { Authorization: `Bearer ${token}` } },
+                );
+                toast.success("Notification settings updated successfully!");
+                setOriginalNotifications({ ...settingsData.notifications });
+              } catch {
+                toast.error("Failed to update settings. Please try again.");
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            className="h-11 rounded-xl bg-[#3867D6] px-5 hover:bg-[#315BC0] text-white hover:opacity-90 disabled:opacity-50"
+          >
             {loading ? t("common.saving") : t("common.save_changes")}
           </button>
         </div>
@@ -467,68 +789,116 @@ export default function Settings() {
 
   // Single step-by-step hint — first failing rule in priority order
   const pwHint =
-    pw.length === 0 ? null :
-      !pwChecks.minLength ? "Password must be at least 8 characters" :
-        !pwChecks.uppercase ? "Password must contain an uppercase letter" :
-          !pwChecks.lowercase ? "Password must contain a lowercase letter" :
-            !pwChecks.number ? "Password must contain a number" :
-              !pwChecks.symbol ? "Password must contain a special character" :
-                null;
+    pw.length === 0
+      ? null
+      : !pwChecks.minLength
+        ? "Password must be at least 8 characters"
+        : !pwChecks.uppercase
+          ? "Password must contain an uppercase letter"
+          : !pwChecks.lowercase
+            ? "Password must contain a lowercase letter"
+            : !pwChecks.number
+              ? "Password must contain a number"
+              : !pwChecks.symbol
+                ? "Password must contain a special character"
+                : null;
 
   const PasswordSecurityPanel = () => (
     <div className="w-full">
       <div className="hidden lg:block mb-8">
-        <h1 className="text-xl sm:text-2xl md:text-[30px] font-bold text-main font-[Inter] mb-2">{t("settings.security.title")}</h1>
-        <p className="text-sm sm:text-[16px] text-muted font-[Inter]">{t("settings.security.subtitle")}</p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-main mb-2">
+          {t("settings.security.title")}
+        </h1>
+        <p className="max-w-2xl text-sm leading-6 text-muted">
+          {t("settings.security.subtitle")}
+        </p>
       </div>
-      <div className="bg-card rounded-2xl sm:rounded-[24px] shadow-[0_4px_6px_0_rgba(0,0,0,0.10),0_10px_15px_0_rgba(0,0,0,0.10)] p-4 sm:p-6 md:p-8">
-        <div className="space-y-6">
-
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="space-y-3 p-5 sm:p-6">
           {/* ── Security toggles ── */}
           {[
-            { key: "twoFactorAuth", labelKey: "settings.security.two_factor", descKey: "settings.security.two_factor_desc" },
-            { key: "loginAlerts", labelKey: "settings.security.login_alerts", descKey: "settings.security.login_alerts_desc" },
+            {
+              key: "twoFactorAuth",
+              labelKey: "settings.security.two_factor",
+              descKey: "settings.security.two_factor_desc",
+            },
+            {
+              key: "loginAlerts",
+              labelKey: "settings.security.login_alerts",
+              descKey: "settings.security.login_alerts_desc",
+            },
           ].map((item) => (
-            <div key={item.key} className="flex items-center justify-between gap-4">
+            <div
+              key={item.key}
+              className="settings-security-row flex items-center justify-between gap-5 rounded-xl border border-border bg-canvas-alt px-4 py-4 transition-colors hover:border-[#3867D6]/35 sm:px-5"
+            >
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm sm:text-[16px] font-semibold text-main font-[Inter]">{t(item.labelKey)}</h3>
-                <p className="text-xs sm:text-[14px] text-muted font-[Inter]">{t(item.descKey)}</p>
+                <h3 className="text-sm font-extrabold text-main sm:text-[15px]">
+                  {t(item.labelKey)}
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-muted sm:text-[13px]">
+                  {t(item.descKey)}
+                </p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" checked={settingsData.security[item.key]}
-                  onChange={(e) => setSettingsData((prev) => ({ ...prev, security: { ...prev.security, [item.key]: e.target.checked } }))}
-                  className="sr-only peer" />
-                <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                <input
+                  type="checkbox"
+                  checked={settingsData.security[item.key]}
+                  onChange={(e) =>
+                    setSettingsData((prev) => ({
+                      ...prev,
+                      security: {
+                        ...prev.security,
+                        [item.key]: e.target.checked,
+                      },
+                    }))
+                  }
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/25 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#3867D6]"></div>
               </label>
             </div>
           ))}
 
           {/* ── Change Password ── */}
-          <div className="border-t border-border pt-6">
-            <h3 className="text-[18px] font-semibold text-main font-[Inter] mb-4">{t("settings.security.change_password")}</h3>
+          <div className="mt-5 border-t border-border pt-6">
+            <h3 className="mb-5 text-lg font-extrabold tracking-tight text-main">
+              {t("settings.security.change_password")}
+            </h3>
             <div className="space-y-5">
-
               {/* Current Password */}
-              <div className="relative">
-                <label className="absolute -top-2 left-4 bg-card px-2 text-[14px] text-muted font-medium font-[Inter]">
+              <div className="relative space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wide text-muted">
                   {t("settings.security.current_password")}
                 </label>
                 <input
                   type={showCurrentPassword ? "text" : "password"}
                   value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData((prev) => ({ ...prev, currentPassword: e.target.value }))}
-                  className="w-full h-[50px] px-4 pr-12 rounded-xl border border-border text-[16px] font-[Inter] focus:ring-2 focus:ring-primary focus:border-primary bg-input text-main transition-colors"
+                  onChange={(e) =>
+                    setPasswordData((prev) => ({
+                      ...prev,
+                      currentPassword: e.target.value,
+                    }))
+                  }
+                  className="h-11 w-full rounded-xl border border-border bg-canvas-alt px-4 pr-12 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10"
                 />
-                <button type="button" onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-main transition-colors">
-                  {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute bottom-1.5 right-2 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-card hover:text-main"
+                >
+                  {showCurrentPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
               </div>
 
               {/* New Password + single step-by-step hint */}
               <div>
-                <div className="relative">
-                  <label className="absolute -top-2 left-4 bg-card px-2 text-[14px] text-muted font-medium font-[Inter]">
+                <div className="relative space-y-2">
+                  <label className="block text-xs font-bold uppercase tracking-wide text-muted">
                     {t("settings.security.new_password")}
                   </label>
                   <input
@@ -537,33 +907,46 @@ export default function Settings() {
                     onFocus={() => setPwFocused(true)}
                     onBlur={() => setPwFocused(false)}
                     onChange={(e) => {
-                      setPasswordData((prev) => ({ ...prev, newPassword: e.target.value }));
+                      setPasswordData((prev) => ({
+                        ...prev,
+                        newPassword: e.target.value,
+                      }));
                       setPasswordError("");
                     }}
-                    className={`w-full h-[50px] px-4 pr-12 rounded-xl border text-[16px] font-[Inter] focus:ring-2 focus:ring-primary focus:border-primary bg-input text-main transition-colors ${pw.length > 0 && !allPwValid
+                    className={`h-11 w-full rounded-xl border bg-canvas-alt px-4 pr-12 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10 ${
+                      pw.length > 0 && !allPwValid
                         ? "border-orange-400 dark:border-orange-500"
                         : pw.length > 0 && allPwValid
-                          ? "border-[#00BEA5]"
+                          ? "border-[#3867D6]"
                           : "border-border"
-                      }`}
+                    }`}
                   />
-                  <button type="button" onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-main transition-colors">
-                    {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute bottom-1.5 right-2 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-card hover:text-main"
+                  >
+                    {showNewPassword ? (
+                      <EyeOff className="w-5 h-5" />
+                    ) : (
+                      <Eye className="w-5 h-5" />
+                    )}
                   </button>
                 </div>
 
                 {/* ── Single inline hint ── */}
-                <div className={`overflow-hidden transition-all duration-200 ease-in-out ${pwHint ? "max-h-8 opacity-100 mt-1.5" : "max-h-0 opacity-0 mt-0"}`}>
-                  <p className="text-[12px] text-orange-500 dark:text-orange-400 font-[Inter] pl-1">
+                <div
+                  className={`overflow-hidden transition-all duration-200 ease-in-out ${pwHint ? "max-h-8 opacity-100 mt-1.5" : "max-h-0 opacity-0 mt-0"}`}
+                >
+                  <p className="text-[12px] text-orange-500 dark:text-orange-400 font-sans pl-1">
                     {pwHint}
                   </p>
                 </div>
               </div>
 
               {/* Confirm Password */}
-              <div className="relative">
-                <label className="absolute -top-2 left-4 bg-card px-2 text-[14px] text-muted font-medium font-[Inter]">
+              <div className="relative space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wide text-muted">
                   {t("settings.security.confirm_password")}
                 </label>
                 <input
@@ -571,40 +954,51 @@ export default function Settings() {
                   autoComplete="new-password"
                   value={passwordData.confirmPassword}
                   onChange={(e) => {
-                    setPasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }));
+                    setPasswordData((prev) => ({
+                      ...prev,
+                      confirmPassword: e.target.value,
+                    }));
                     setPasswordError("");
                   }}
-                  className={`w-full h-[50px] px-4 pr-12 rounded-xl border text-[16px] font-[Inter] focus:ring-2 focus:ring-primary focus:border-primary bg-input text-main transition-colors ${passwordData.confirmPassword.length > 0
+                  className={`h-11 w-full rounded-xl border bg-canvas-alt px-4 pr-12 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10 ${
+                    passwordData.confirmPassword.length > 0
                       ? passwordData.confirmPassword === pw
-                        ? "border-[#00BEA5]"
+                        ? "border-[#3867D6]"
                         : "border-red-400 dark:border-red-500"
                       : "border-border"
-                    }`}
+                  }`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-main transition-colors"
+                  className="absolute bottom-1.5 right-2 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-card hover:text-main"
                 >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showConfirmPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
               </div>
-
             </div>
           </div>
         </div>
 
         {/* ── Action buttons ── */}
-        <div className="flex flex-col-reverse sm:flex-row justify-end gap-4 pt-6 border-t border-border mt-6">
+        <div className="flex flex-col-reverse justify-end gap-3 border-t border-border bg-card px-5 py-4 sm:flex-row sm:px-6">
           <button
             type="button"
-            className="h-[50px] px-6 rounded-xl border border-border bg-card text-main text-[16px] font-medium font-[Inter] hover:bg-canvas-alt transition-colors"
+            className="h-11 rounded-xl border border-border bg-card px-5 text-sm font-bold text-main transition hover:bg-canvas-alt"
           >
             {t("common.cancel")}
           </button>
           <button
             onClick={async () => {
-              if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
+              if (
+                !passwordData.currentPassword ||
+                !passwordData.newPassword ||
+                !passwordData.confirmPassword
+              ) {
                 toast.error("Please fill all fields!");
                 return;
               }
@@ -619,20 +1013,30 @@ export default function Settings() {
               setLoading(true);
               try {
                 const token = localStorage.getItem("token");
-                await axios.put("/api/users/change-password",
-                  { currentPassword: passwordData.currentPassword, newPassword: passwordData.newPassword },
-                  { headers: { Authorization: `Bearer ${token}` } }
+                await axios.put(
+                  "/api/users/change-password",
+                  {
+                    currentPassword: passwordData.currentPassword,
+                    newPassword: passwordData.newPassword,
+                  },
+                  { headers: { Authorization: `Bearer ${token}` } },
                 );
                 toast.success("Password updated successfully!");
-                setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+                setPasswordData({
+                  currentPassword: "",
+                  newPassword: "",
+                  confirmPassword: "",
+                });
               } catch (error) {
-                toast.error(error.response?.data?.message || "Failed to update password");
+                toast.error(
+                  error.response?.data?.message || "Failed to update password",
+                );
               } finally {
                 setLoading(false);
               }
             }}
             disabled={loading}
-            className="h-[50px] px-6 rounded-xl bg-[#00BEA5] text-white text-[16px] font-medium font-[Inter] hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="h-11 rounded-xl bg-[#3867D6] px-5 hover:bg-[#315BC0] text-white text-[16px] font-medium font-sans hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {loading ? t("common.saving") : t("common.save_changes")}
           </button>
@@ -644,23 +1048,48 @@ export default function Settings() {
   const AppearancePanel = () => (
     <div className="w-full">
       <div className="hidden lg:block mb-8">
-        <h1 className="text-xl sm:text-2xl md:text-[30px] font-bold text-main font-[Inter] mb-2">{t("settings.appearance.title")}</h1>
-        <p className="text-sm sm:text-[16px] text-muted font-[Inter]">{t("settings.appearance.subtitle")}</p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-main mb-2">
+          {t("settings.appearance.title")}
+        </h1>
+        <p className="max-w-2xl text-sm leading-6 text-muted">
+          {t("settings.appearance.subtitle")}
+        </p>
       </div>
-      <div className="bg-card rounded-2xl sm:rounded-[24px] shadow-[0_4px_6_0_rgba(0,0,0,0.10),0_10px_15_0_rgba(0,0,0,0.10)] p-4 sm:p-6 md:p-8">
-        <div className="space-y-6">
+      <div className="max-w-5xl overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+        <div className="p-5 sm:p-6">
           <div>
-            <h3 className="text-[16px] font-semibold text-main font-[Inter] mb-3">{t("settings.appearance.theme")}</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <h3 className="mb-1 text-lg font-extrabold tracking-tight text-main">
+              {t("settings.appearance.theme")}
+            </h3>
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
               {[
-                { value: "light", labelKey: "settings.appearance.light", icon: "☀️" },
-                { value: "dark", labelKey: "settings.appearance.dark", icon: "🌙" },
-                { value: "auto", labelKey: "settings.appearance.auto", icon: "⚙️" },
+                {
+                  value: "light",
+                  labelKey: "settings.appearance.light",
+                  icon: "☀️",
+                },
+                {
+                  value: "dark",
+                  labelKey: "settings.appearance.dark",
+                  icon: "🌙",
+                },
+                {
+                  value: "auto",
+                  labelKey: "settings.appearance.auto",
+                  icon: "⚙️",
+                },
               ].map((themeOption) => (
-                <button key={themeOption.value} onClick={() => setTheme(themeOption.value)}
-                  className={`p-4 rounded-xl border-2 transition-colors ${theme === themeOption.value ? "border-primary bg-teal-50 dark:bg-teal-900/20 text-main" : "border-border hover:border-primary text-muted hover:text-main"}`}>
-                  <div className="text-2xl mb-2">{themeOption.icon}</div>
-                  <div className="text-[14px] font-medium font-[Inter]">{t(themeOption.labelKey)}</div>
+                <button
+                  key={themeOption.value}
+                  onClick={() => setTheme(themeOption.value)}
+                  className={`group relative min-h-[150px] rounded-2xl border p-5 text-left transition-all duration-200 ${theme === themeOption.value ? "border-[#3867D6] bg-[#3867D6]/10 text-main shadow-sm ring-1 ring-[#3867D6]/20" : "border-border bg-canvas-alt text-muted hover:-translate-y-0.5 hover:border-[#3867D6]/60 hover:text-main hover:shadow-md"}`}
+                >
+                  <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-xl shadow-sm transition-transform group-hover:scale-105">
+                    {themeOption.icon}
+                  </div>
+                  <div className="text-sm font-extrabold">
+                    {t(themeOption.labelKey)}
+                  </div>
                 </button>
               ))}
             </div>
@@ -673,16 +1102,29 @@ export default function Settings() {
   const LanguagePanel = () => (
     <div className="w-full">
       <div className="hidden lg:block mb-8">
-        <h1 className="text-xl sm:text-2xl md:text-[30px] font-bold text-main font-[Inter] mb-2">{t("settings.language.title")}</h1>
-        <p className="text-sm sm:text-[16px] text-muted font-[Inter]">{t("settings.language.subtitle")}</p>
+        <h1 className="text-2xl font-extrabold tracking-tight text-main mb-2">
+          {t("settings.language.title")}
+        </h1>
+        <p className="max-w-2xl text-sm leading-6 text-muted">
+          {t("settings.language.subtitle")}
+        </p>
       </div>
-      <div className="bg-card rounded-2xl sm:rounded-[24px] shadow-[0_4px_6px_0_rgba(0,0,0,0.10),0_10px_15px_0_rgba(0,0,0,0.10)] p-4 sm:p-6 md:p-8">
-        <div className="space-y-6">
+      <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6 md:p-8">
+        <div className="p-5 sm:p-6">
           <div>
-            <h3 className="text-[16px] font-semibold text-main font-[Inter] mb-3">{t("settings.language.interface_language")}</h3>
-            <select value={settingsData.appearance.language}
-              onChange={(e) => setSettingsData((prev) => ({ ...prev, appearance: { ...prev.appearance, language: e.target.value } }))}
-              className="w-full h-[50px] px-4 rounded-xl border border-border text-[16px] font-[Inter] focus:ring-2 focus:ring-primary focus:border-primary bg-input text-main">
+            <h3 className="mb-1 text-lg font-extrabold tracking-tight text-main">
+              {t("settings.language.interface_language")}
+            </h3>
+            <select
+              value={settingsData.appearance.language}
+              onChange={(e) =>
+                setSettingsData((prev) => ({
+                  ...prev,
+                  appearance: { ...prev.appearance, language: e.target.value },
+                }))
+              }
+              className="w-full h-[50px] px-4 rounded-xl border border-border text-[16px] font-sans focus:ring-2 focus:ring-primary focus:border-[#3867D6] bg-input text-main"
+            >
               <option value="en">English</option>
               <option value="es">Spanish</option>
               <option value="zh">Chinese (Mandarin)</option>
@@ -697,17 +1139,35 @@ export default function Settings() {
           </div>
         </div>
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 sm:gap-4 pt-6 border-t border-border mt-6">
-          <button type="button" className="h-[50px] px-6 rounded-xl border border-border bg-card text-main text-[16px] font-medium font-[Inter] hover:bg-canvas-alt">{t("common.cancel")}</button>
-          <button onClick={async () => {
-            setLoading(true);
-            try {
-              const token = localStorage.getItem("token");
-              await axios.put("/api/users/settings", { appearance: { language: settingsData.appearance.language } }, { headers: { Authorization: `Bearer ${token}` } });
-              i18n.changeLanguage(settingsData.appearance.language);
-              toast.success("Language settings updated successfully!");
-            } catch { toast.error("Failed to update settings. Please try again."); }
-            finally { setLoading(false); }
-          }} disabled={loading} className="h-[50px] px-6 rounded-xl bg-[#00BEA5] text-white text-[16px] font-medium font-[Inter] hover:opacity-90 disabled:opacity-50">
+          <button
+            type="button"
+            className="h-[50px] px-6 rounded-xl border border-border bg-card text-main text-[16px] font-medium font-sans hover:bg-canvas-alt"
+          >
+            {t("common.cancel")}
+          </button>
+          <button
+            onClick={async () => {
+              setLoading(true);
+              try {
+                const token = localStorage.getItem("token");
+                await axios.put(
+                  "/api/users/settings",
+                  {
+                    appearance: { language: settingsData.appearance.language },
+                  },
+                  { headers: { Authorization: `Bearer ${token}` } },
+                );
+                i18n.changeLanguage(settingsData.appearance.language);
+                toast.success("Language settings updated successfully!");
+              } catch {
+                toast.error("Failed to update settings. Please try again.");
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            className="h-11 rounded-xl bg-[#3867D6] px-5 hover:bg-[#315BC0] text-white text-[16px] font-medium font-sans hover:opacity-90 disabled:opacity-50"
+          >
             {loading ? t("common.saving") : t("common.save_changes")}
           </button>
         </div>
@@ -718,21 +1178,49 @@ export default function Settings() {
   const ContactPanel = () => (
     <div className="max-w-[896px]">
       <div className="hidden lg:block mb-8">
-        <h1 className="text-[30px] font-bold text-main font-[Inter] mb-2">{t("settings.contactus.title")}</h1>
-        <p className="text-[16px] text-muted font-[Inter]">{t("settings.contactus.subtitle")}</p>
+        <h1 className="text-[30px] font-bold text-main font-sans mb-2">
+          {t("settings.contactus.title")}
+        </h1>
+        <p className="text-[16px] text-muted font-sans">
+          {t("settings.contactus.subtitle")}
+        </p>
       </div>
-      <div className="bg-card rounded-[24px] shadow-[0_4px_6px_0_rgba(0,0,0,0.10),0_10px_15px_0_rgba(0,0,0,0.10)] p-6 sm:p-8">
-        <div className="space-y-6">
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
+        <div className="p-5 sm:p-6">
           <div>
-            <label className="block text-sm font-medium text-muted mb-2 font-[Inter]">{t("settings.contactus.subject")}</label>
-            <input type="text" value={contactForm.subject} onChange={(e) => setContactForm((prev) => ({ ...prev, subject: e.target.value }))} placeholder="Enter subject..." className="w-full h-[50px] px-4 rounded-xl border border-border focus:ring-2 focus:ring-primary bg-input text-main" />
+            <label className="block text-sm font-medium text-muted mb-2 font-sans">
+              {t("settings.contactus.subject")}
+            </label>
+            <input
+              type="text"
+              value={contactForm.subject}
+              onChange={(e) =>
+                setContactForm((prev) => ({ ...prev, subject: e.target.value }))
+              }
+              placeholder="Enter subject..."
+              className="w-full h-[50px] px-4 rounded-xl border border-border focus:ring-2 focus:ring-primary bg-input text-main"
+            />
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted mb-2 font-[Inter]">{t("settings.contactus.message")}</label>
-            <textarea value={contactForm.message} onChange={(e) => setContactForm((prev) => ({ ...prev, message: e.target.value }))} rows={6} placeholder="Describe your issue or question..." className="w-full px-4 py-3 rounded-xl border border-border focus:ring-2 focus:ring-primary bg-input text-main resize-vertical" />
+            <label className="block text-sm font-medium text-muted mb-2 font-sans">
+              {t("settings.contactus.message")}
+            </label>
+            <textarea
+              value={contactForm.message}
+              onChange={(e) =>
+                setContactForm((prev) => ({ ...prev, message: e.target.value }))
+              }
+              rows={6}
+              placeholder="Describe your issue or question..."
+              className="w-full px-4 py-3 rounded-xl border border-border focus:ring-2 focus:ring-primary bg-input text-main resize-vertical"
+            />
           </div>
           <div className="flex justify-end">
-            <button onClick={handleContactSubmit} disabled={loading} className="h-[50px] px-8 rounded-xl bg-[#00BEA5] text-white font-medium hover:opacity-90 disabled:opacity-50">
+            <button
+              onClick={handleContactSubmit}
+              disabled={loading}
+              className="h-[50px] px-8 rounded-xl bg-[#3867D6] hover:bg-[#315BC0] text-white font-medium hover:opacity-90 disabled:opacity-50"
+            >
               {loading ? t("common.loading") + "..." : "Send Message"}
             </button>
           </div>
@@ -756,11 +1244,11 @@ export default function Settings() {
         return (
           <div className="w-full">
             <div className="hidden lg:block mb-8">
-              <h1 className="text-xl sm:text-2xl md:text-[30px] font-bold text-main font-[Inter] mb-2">
+              <h1 className="text-2xl font-extrabold tracking-tight text-main mb-2">
                 {t("preferences.nav_title")}
               </h1>
 
-              <p className="text-sm sm:text-[16px] text-muted font-[Inter]">
+              <p className="max-w-2xl text-sm leading-6 text-muted">
                 {t("preferences.settings_modal_subtitle")}
               </p>
             </div>
@@ -787,73 +1275,125 @@ export default function Settings() {
   };
 
   if (pageLoading) {
-    return (
-      <main className="flex-1 p-4 md:p-6 lg:p-8 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-muted">Loading settings...</p>
-        </div>
-      </main>
-    );
+    return <LoadingSpinner label="Loading settings..." />;
   }
 
   return (
     <>
       {/* ── Mobile top bar with "Open Settings" button ── */}
-      <div className="lg:hidden flex items-center justify-between px-4 pt-5 pb-2">
-        <h1 className="text-[22px] font-bold text-main font-[Inter]">Settings</h1>
+      <div className="lg:hidden flex items-center justify-between border-b border-border bg-card px-4 py-4">
+        <h1 className="text-[22px] font-bold text-main font-sans">Settings</h1>
         <button
           onClick={() => setMobileDrawerOpen(true)}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#00BEA5] text-white text-sm font-semibold shadow-lg active:scale-95 transition-transform"
+          className="flex items-center gap-2 rounded-xl bg-[#3867D6] px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#315BC0] active:scale-[0.98]"
         >
           <span>⚙️</span>
           <span>Open Settings</span>
         </button>
       </div>
 
-      <div className="flex flex-col lg:flex-row flex-1">
-        {/* ── Desktop sidebar ── */}
-        <aside className="hidden lg:block w-[280px] flex-shrink-0 bg-card rounded-[24px] shadow-[0_4px_6px_0_rgba(0,0,0,0.10),0_10px_15px_0_rgba(0,0,0,0.10)] m-6 mr-0 self-start">
-          <nav className="p-6">
-            <div className="space-y-2">
-              {NAV_KEYS.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.key}
-                    onClick={() => { item.key === "delete_account" ? setshowDeletePopup(true) : setActiveSetting(item.key); }}
-                    className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-left transition-colors ${activeSetting === item.key ? "bg-teal-50 dark:bg-teal-900/20 text-main" : "text-muted hover:bg-canvas-alt"}`}
-                  >
-                    <Icon className="w-4 h-4 text-[#00BEA5]" />
-                    <span className="font-medium text-[16px] font-[Inter]">{t(item.labelKey)}</span>
-                  </button>
-                );
-              })}
+      <div className="settings-page min-h-full bg-canvas-alt px-4 pb-24 pt-5 sm:px-6 lg:px-8 lg:pt-8">
+        <div className="mx-auto max-w-[1500px]">
+          <header className="mb-7 hidden items-end justify-between gap-6 lg:flex">
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-[#3867D6] dark:text-[#7FA7FF]">
+                Settings workspace
+              </p>
+              <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-main">
+                Manage your account
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+                Update your identity, privacy, notifications, appearance, and
+                learning preferences.
+              </p>
             </div>
-          </nav>
-        </aside>
+            <div className="rounded-xl border border-border bg-card px-4 py-3 text-right shadow-sm">
+              <p className="text-xs font-bold uppercase tracking-wide text-muted">
+                Active section
+              </p>
+              <p className="mt-1 text-sm font-extrabold text-main">
+                {t(
+                  NAV_KEYS.find((item) => item.key === activeSetting)
+                    ?.labelKey || "settings.profile.title",
+                )}
+              </p>
+            </div>
+          </header>
+          <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
+            {/* ── Desktop sidebar ── */}
+            <aside className="sticky top-6 hidden overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:block">
+              <div className="border-b border-border bg-gradient-to-br from-[#3867D6]/10 via-transparent to-violet-500/10 p-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#3867D6] text-sm font-extrabold text-white shadow-sm">
+                    {(formData.firstName?.[0] || "U").toUpperCase()}
+                    {(formData.lastName?.[0] || "").toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-extrabold text-main">
+                      {[formData.firstName, formData.lastName]
+                        .filter(Boolean)
+                        .join(" ") || "Your account"}
+                    </p>
+                    <p className="truncate text-xs text-muted">
+                      {formData.email || "Account settings"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <nav className="p-3">
+                <div className="space-y-2">
+                  {NAV_KEYS.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.key}
+                        onClick={() => {
+                          item.key === "delete_account"
+                            ? setshowDeletePopup(true)
+                            : setActiveSetting(item.key);
+                        }}
+                        className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-all ${activeSetting === item.key ? "bg-[#3867D6]/10 text-[#3867D6] ring-1 ring-[#3867D6]/20 dark:text-[#7FA7FF]" : item.key === "delete_account" ? "text-red-500 hover:bg-red-500/10" : "text-muted hover:bg-canvas-alt hover:text-main"}`}
+                      >
+                        <Icon
+                          className={`h-4 w-4 ${activeSetting === item.key ? "text-[#3867D6] dark:text-[#7FA7FF]" : item.key === "delete_account" ? "text-red-500" : "text-[#3867D6]"}`}
+                        />
+                        <span className="text-sm font-bold">
+                          {t(item.labelKey)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </nav>
+            </aside>
 
-        {/* ── Desktop main content ── */}
-        <main className="hidden lg:block flex-1 p-3 sm:p-4 md:p-6 lg:p-8 lg:mt-5 min-w-0">
-          {renderPanel(activeSetting)}
-          <FloatingAssistant
-            page="settings"
-            onNavigateSetting={(settingKey) => {
-              if (settingKey === "delete_account") {
-                setshowDeletePopup(true);
-              } else {
-                setActiveSetting(settingKey);
-              }
-            }}
-          />
-        </main>
+            {/* ── Desktop main content ── */}
+            <main className="hidden min-w-0 flex-1 lg:block">
+              {renderPanel(activeSetting)}
+              <FloatingAssistant
+                page="settings"
+                onNavigateSetting={(settingKey) => {
+                  if (settingKey === "delete_account") {
+                    setshowDeletePopup(true);
+                  } else {
+                    setActiveSetting(settingKey);
+                  }
+                }}
+              />
+            </main>
 
-        {/* ── Mobile placeholder card ── */}
-        <div className="lg:hidden flex-1 px-4 pb-8 mt-4">
-          <div className="bg-card rounded-2xl p-8 shadow-sm border border-border/40 text-center">
-            <div className="text-4xl mb-3">⚙️</div>
-            <p className="font-semibold text-main mb-1">Manage Your Settings</p>
-            <p className="text-xs text-muted">Tap "Open Settings" above to browse and edit your preferences.</p>
+            {/* ── Mobile placeholder card ── */}
+            <div className="mt-4 flex-1 pb-8 lg:hidden">
+              <div className="bg-card rounded-2xl p-8 shadow-sm border border-border/40 text-center">
+                <div className="text-4xl mb-3">⚙️</div>
+                <p className="font-semibold text-main mb-1">
+                  Manage Your Settings
+                </p>
+                <p className="text-xs text-muted">
+                  Tap "Open Settings" above to browse and edit your preferences.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -881,15 +1421,39 @@ export default function Settings() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[230] p-4">
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 sm:p-8 w-full max-w-[520px] text-center shadow-xl">
             <div className="mb-4 text-red-500 text-5xl">⚠</div>
-            <h2 className="text-xl font-bold mb-2 text-main">Delete Account?</h2>
-            <p className="text-muted mb-6 text-sm">This action will permanently delete your profile, courses and progress. This cannot be undone.</p>
-            <p className="text-sm text-muted mb-6">Please type <span className="font-bold text-red-500">DELETE</span> to confirm.</p>
-            <input type="text" placeholder="Type DELETE here..." value={confirmText} onChange={(e) => setConfirmText(e.target.value)}
-              className="w-full h-[50px] px-4 rounded-xl border border-border text-[16px] font-[Inter] focus:ring-2 focus:ring-primary focus:border-primary bg-input text-main mb-6" />
+            <h2 className="text-xl font-bold mb-2 text-main">
+              Delete Account?
+            </h2>
+            <p className="text-muted mb-6 text-sm">
+              This action will permanently delete your profile, courses and
+              progress. This cannot be undone.
+            </p>
+            <p className="text-sm text-muted mb-6">
+              Please type <span className="font-bold text-red-500">DELETE</span>{" "}
+              to confirm.
+            </p>
+            <input
+              type="text"
+              placeholder="Type DELETE here..."
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              className="w-full h-[50px] px-4 rounded-xl border border-border text-[16px] font-sans focus:ring-2 focus:ring-primary focus:border-[#3867D6] bg-input text-main mb-6"
+            />
             <div className="flex justify-center gap-4">
-              <button onClick={() => { setConfirmText(""); setshowDeletePopup(false); }} className="px-6 py-2 border rounded-lg text-main hover:bg-canvas-alt">Cancel</button>
-              <button onClick={handleDeleteAccount} disabled={confirmText !== "DELETE" || deleting}
-                className="h-[50px] px-6 rounded-xl text-white bg-red-500 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+              <button
+                onClick={() => {
+                  setConfirmText("");
+                  setshowDeletePopup(false);
+                }}
+                className="px-6 py-2 border rounded-lg text-main hover:bg-canvas-alt"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={confirmText !== "DELETE" || deleting}
+                className="h-[50px] px-6 rounded-xl text-white bg-red-500 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
                 {deleting ? "Deleting..." : "Delete Account"}
               </button>
             </div>
@@ -899,13 +1463,23 @@ export default function Settings() {
 
       {/* ── PROFILE UPDATED POPUP ── */}
       {profilepopup && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[240] animate-fadeIn p-4">
-          <div className="relative bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-3xl p-6 sm:p-10 w-[90vw] max-w-[420px] text-center shadow-2xl border border-slate-200 dark:border-slate-700">
-            <div className="mx-auto mb-6 w-20 h-20 flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-400 to-green-500 shadow-lg animate-bounce">
-              <span className="text-4xl text-white">✓</span>
+        <div className="fixed inset-0 z-[240] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-center shadow-2xl sm:p-7">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#3867D6]/15 text-[#3867D6] ring-1 ring-[#3867D6]/25 dark:text-[#7FA7FF]">
+              <span className="text-2xl font-extrabold">✓</span>
             </div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent mb-3">Profile Updated Successfully!</h2>
-            <button onClick={() => setProfilePopup(false)} className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl font-semibold shadow-lg hover:scale-105 transition-all duration-300">Ok</button>
+            <h2 className="mt-5 text-xl font-extrabold tracking-tight text-main">
+              Profile saved
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-muted">
+              Your account details and profile photo are now up to date.
+            </p>
+            <button
+              onClick={() => setProfilePopup(false)}
+              className="mt-6 h-11 w-full rounded-xl bg-[#3867D6] px-5 text-sm font-bold text-white transition hover:bg-[#315BC0] focus:outline-none focus:ring-4 focus:ring-[#3867D6]/20"
+            >
+              Done
+            </button>
           </div>
         </div>
       )}
@@ -917,8 +1491,13 @@ export default function Settings() {
             <div className="mx-auto mb-6 w-20 h-20 flex items-center justify-center rounded-full bg-gradient-to-r from-red-400 to-rose-500 shadow-lg animate-bounce">
               <span className="text-4xl text-white">✓</span>
             </div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent mb-3">Account Deleted Successfully!</h2>
-            <p className="text-muted mb-6 text-sm font-[Inter]">Your account and all associated data have been permanently removed.</p>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent mb-3">
+              Account Deleted Successfully!
+            </h2>
+            <p className="text-muted mb-6 text-sm font-sans">
+              Your account and all associated data have been permanently
+              removed.
+            </p>
             <button
               onClick={() => {
                 setDeletePopup(false);
