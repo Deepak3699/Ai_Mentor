@@ -49,6 +49,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
           videoUrl: cachedVideo.videoUrl,
           transcriptName: cachedVideo.transcriptName,
           jobId: cachedVideo.jobId,
+          meta: cachedVideo.meta,
           cached: true,
         });
       }
@@ -72,6 +73,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
           videoUrl: cachedVideo.videoUrl,
           transcriptName: cachedVideo.transcriptName,
           jobId: cachedVideo.jobId,
+          meta: cachedVideo.meta,
           cached: true,
         });
       }
@@ -201,7 +203,8 @@ router.get("/status/:jobId", protect, async (req, res) => {
         status: "ready",
         cloudinary_url: videoJob.videoUrl,
         transcriptName: videoJob.transcriptName,
-        jobId: jobId // return same ID to frontend
+        jobId: jobId, // return same ID to frontend
+        meta: videoJob.meta
       });
     }
 
@@ -235,8 +238,8 @@ router.get("/status/:jobId", protect, async (req, res) => {
     if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
       try {
         await AIVideo.update(
-          { videoUrl: data.cloudinary_url, status: "completed" },
-          { where: updateWhere }
+          { videoUrl: data.cloudinary_url, status: "completed", meta: data.meta },
+          { where: { id: jobId } }
         );
         console.log(`☁️ AIVideo DB updated with Cloudinary URL for DB ID: ${jobId}`);
       } catch (dbErr) {

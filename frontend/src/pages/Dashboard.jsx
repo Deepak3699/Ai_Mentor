@@ -20,6 +20,7 @@ import CourseCardMeta from "../components/common/CourseCardMeta";
 import LearningActivityCard from "../components/dashboard/LearningActivityCard";
 import DashboardHero from "../components/DashboardHero";
 import UpcomingLiveSession from "../components/UpcomingLiveSession";
+import RecommendedForYou from "../components/RecommendedForYou";
 import { Helmet } from "react-helmet-async";
 
 /* =========================================================
@@ -155,7 +156,7 @@ const LessonItem = ({ lesson, onPlay }) => {
 
       {/* Text */}
       <div className="min-w-0 flex-1">
-        <h3 className="text-[11px] leading-[14px] font-semibold text-[#24324a] truncate">
+        <h3 className="text-[11px] leading-[14px] font-semibold text-main truncate">
           {lesson.title}
         </h3>
 
@@ -167,11 +168,11 @@ const LessonItem = ({ lesson, onPlay }) => {
             {lesson.category}
           </span>
 
-          <span className="flex items-center gap-1 whitespace-nowrap text-[9px] text-[#7b8798]">
+          <span className="flex items-center gap-1 whitespace-nowrap text-[9px] text-muted">
             <Clock
               size={11}
               strokeWidth={2}
-              className="text-[#8a94a5]"
+              className="text-muted"
             />
             {lesson.duration}
           </span>
@@ -939,22 +940,21 @@ const Dashboard = () => {
                     <div className="relative h-40">
                       <img
                         src={
-                          course.title ===
-                            "React Fundamentals"
-                            ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
-                            : course.title ===
-                              "Python For AI"
-                              ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
-                              : course.title ===
-                                "AI Ethics & Bias"
-                                ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
-                                : course.title ===
-                                  "MongoDB Fundamentals"
-                                  ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                                  : course.title ===
-                                    "PostgreSQL"
-                                    ? "/AI_Tutor_New_UI/Dashboard/logo.png"
-                                    : "/AI_Tutor_New_UI/Dashboard/logo.png"
+                          course.title === "React Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
+                                      : course.title === "Python For AI"
+                                      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
+                                      : course.title === "AI Ethics & Bias"
+                                      ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
+                                      : course.title === "PostgreSQL"
+                                      ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                                      : course.title === "MongoDB Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                                      : course.title === "Machine Learning Fundamentals" || course.title === "ML Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
+                                      : course.title === "Full Stack Web Development" || course.title === "Full Stack Web Dev"
+                                      ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
+                                      : "/AI_Tutor_New_UI/Dashboard/logo.png"
                         }
                         alt={course.title}
                         className="w-full h-full object-cover rounded-t-xl"
@@ -1012,7 +1012,7 @@ const Dashboard = () => {
                               }
                               className={`px-3 py-1.5 text-xs rounded-lg ${isEnrolled
                                   ? "bg-emerald-100 text-emerald-700 cursor-default"
-                                  : "bg-teal-500 text-white hover:bg-teal-600"
+                                  : "bg-blue-600 text-white hover:bg-blue-700"
                                 }`}
                             >
                               {isEnrolled
@@ -1091,22 +1091,21 @@ const Dashboard = () => {
                               >
                                 <img
                                   src={
-                                    course.title ===
-                                      "React Fundamentals"
-                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
-                                      : course.title ===
-                                        "Python For AI"
-                                        ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
-                                        : course.title ===
-                                          "AI Ethics & Bias"
-                                          ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
-                                          : course.title ===
-                                            "PostgreSQL"
-                                            ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
-                                            : course.title ===
-                                              "MongoDB Fundamentals"
-                                              ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                                              : "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                                    course.title === "React Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
+                                      : course.title === "Python For AI"
+                                      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
+                                      : course.title === "AI Ethics & Bias"
+                                      ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
+                                      : course.title === "PostgreSQL"
+                                      ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                                      : course.title === "MongoDB Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                                      : course.title === "Machine Learning Fundamentals" || course.title === "ML Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
+                                      : course.title === "Full Stack Web Development" || course.title === "Full Stack Web Dev"
+                                      ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
+                                      : "/AI_Tutor_New_UI/Dashboard/logo.png"
                                   }
                                   alt={
                                     course.title
@@ -1193,19 +1192,21 @@ const Dashboard = () => {
                               <div className="flex items-center min-w-0">
                                 <img
                                   src={
-                                    course.title ===
-                                      "React Fundamentals"
-                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
-                                      : course.title ===
-                                        "Python For AI"
-                                        ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
-                                        : course.title ===
-                                          "AI Ethics & Bias"
-                                          ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
-                                          : course.title ===
-                                            "MongoDB Fundamentals"
-                                            ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                                            : "/AI_Tutor_New_UI/Dashboard/logo.png"
+                                    course.title === "React Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
+                                      : course.title === "Python For AI"
+                                      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
+                                      : course.title === "AI Ethics & Bias"
+                                      ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
+                                      : course.title === "PostgreSQL"
+                                      ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                                      : course.title === "MongoDB Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                                      : course.title === "Machine Learning Fundamentals" || course.title === "ML Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
+                                      : course.title === "Full Stack Web Development" || course.title === "Full Stack Web Dev"
+                                      ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
+                                      : "/AI_Tutor_New_UI/Dashboard/logo.png"
                                   }
                                   alt={
                                     course.title
@@ -1238,7 +1239,7 @@ const Dashboard = () => {
                                     course
                                   )
                                 }
-                                className="ml-3 px-3 py-2 bg-teal-500 text-white text-xs font-medium rounded-lg hover:bg-teal-600"
+                                className="ml-3 px-3 py-2 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700"
                               >
                                 {t(
                                   "dashboard.view"
@@ -1262,7 +1263,7 @@ const Dashboard = () => {
                     </p>
 
                     <button
-                      className="mt-4 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600"
+                      className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
                       onClick={
                         handleBrowseCourses
                       }
@@ -1306,22 +1307,21 @@ const Dashboard = () => {
                             >
                               <img
                                 src={
-                                  item.title ===
-                                    "React Fundamentals"
-                                    ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
-                                    : item.title ===
-                                      "Python For AI"
-                                      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
-                                      : item.title ===
-                                        "AI Ethics & Bias"
-                                        ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
-                                        : item.title ===
-                                          "PostgreSQL"
-                                          ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
-                                          : item.title ===
-                                            "MongoDB Fundamentals"
-                                            ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                                            : "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                                  item.title === "React Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
+                                      : item.title === "Python For AI"
+                                      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
+                                      : item.title === "AI Ethics & Bias"
+                                      ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
+                                      : item.title === "PostgreSQL"
+                                      ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                                      : item.title === "MongoDB Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                                      : item.title === "Machine Learning Fundamentals" || item.title === "ML Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
+                                      : item.title === "Full Stack Web Development" || item.title === "Full Stack Web Dev"
+                                      ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
+                                      : "/AI_Tutor_New_UI/Dashboard/logo.png"
                                 }
                                 alt={
                                   item.title
@@ -1370,20 +1370,27 @@ const Dashboard = () => {
                 </div>
               )}
 
-            {/* =================================================
-                LATEST AI LESSONS
-                EXACT DESIGN + WORKING BUTTONS
-                ================================================= */}
+          </div>
 
-            <div className="mt-8 flex justify-end">
+          {/* =================================================
+              LEARNING ACTIVITY & LATEST AI LESSONS
+              ================================================= */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-2">
+            {/* Learning Activity (bottom-left) */}
+            <div className="lg:col-span-3 min-w-0">
+              <LearningActivityCard />
+            </div>
+
+            {/* LATEST AI LESSONS */}
+            <div className="lg:col-span-2 min-w-0 flex lg:justify-end">
               <div
                 className="
                   w-full
                   max-w-[390px]
-                  bg-white
+                  bg-card
                   rounded-[16px]
                   border
-                  border-[#dce5f1]
+                  border-border
                   px-[14px]
                   py-[13px]
                   shadow-[0_2px_10px_rgba(34,80,130,0.08)]
@@ -1396,7 +1403,7 @@ const Dashboard = () => {
                       ✨
                     </span>
 
-                    <h2 className="text-[11px] font-bold text-[#1f2d43]">
+                    <h2 className="text-[11px] font-bold text-main">
                       Latest AI Lessons
                     </h2>
                   </div>
@@ -1436,13 +1443,6 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-
-          {/* Learning Activity (bottom-left) */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <div className="lg:col-span-3 min-w-0">
-              <LearningActivityCard />
-            </div>
-          </div>
         </div>
 
         {/* Right Sidebar */}
@@ -1456,6 +1456,7 @@ const Dashboard = () => {
         </aside>
       </div>
 
+       <RecommendedForYou />
       {/* =====================================================
           PLAY LESSON MODAL
           ===================================================== */}

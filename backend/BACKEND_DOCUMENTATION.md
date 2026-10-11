@@ -608,6 +608,36 @@ Backend only allows configured frontend origins.
 
 ---
 
+## Security Headers
+
+The backend sends security headers using Helmet. The policy is defined in
+`config/securityHeaders.js` and applied as the first middleware in `server.js`,
+before CORS and routes, so every response (including 404s and errors) carries
+the headers.
+
+```js
+app.use(securityHeaders());   // must stay above cors() and routes
+```
+
+| Header | Value |
+| ------ | ----- |
+| Content-Security-Policy | `default-src 'self'`; `img-src 'self' data:`; `media-src 'self'`; `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`; `frame-ancestors 'none'` |
+| Strict-Transport-Security | `max-age=15552000; includeSubDomains` (production only) |
+| X-Frame-Options | `DENY` |
+| X-Content-Type-Options | `nosniff` |
+| Referrer-Policy | `no-referrer` |
+| Cross-Origin-Resource-Policy | `cross-origin` |
+
+* CSP was previously disabled (`helmet({ contentSecurityPolicy: false })`). It is now enabled.
+* CORP is `cross-origin` because the frontend runs on a different origin and must load `/videos` and `/uploads`.
+* HSTS is sent only when `NODE_ENV=production`, so `http://localhost` keeps working. All other headers are the same in every environment.
+* Do not add `unsafe-inline` or `unsafe-eval`. New image or media origins go in the matching directive in `config/securityHeaders.js`.
+
+Verify with `curl -i http://localhost:5000/health`, and run `npm test`
+(`tests/securityHeaders.test.js`) to check the headers automatically.
+
+---
+
 # Environment Variables
 
 ## Required Variables

@@ -54,6 +54,10 @@ AIVideo.init(
             type: DataTypes.TEXT,
             allowNull: true,
         },
+        meta: {
+            type: DataTypes.JSON,
+            allowNull: true,
+        },
     },
     {
         sequelize,

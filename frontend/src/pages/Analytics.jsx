@@ -437,14 +437,20 @@ const Analytics = () => {
                                   <img
   src={
     course.title === "React Fundamentals"
-      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
-      : course.title === "Python For AI"
-      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
-      : course.title === "AI Ethics & Bias"
-      ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
-      : course.title === "MongoDB Fundamentals"
-      ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-      : "/AI_Tutor_New_UI/Dashboard/logo.png"
+                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
+                                      : course.title === "Python For AI"
+                                      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
+                                      : course.title === "AI Ethics & Bias"
+                                      ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
+                                      : course.title === "PostgreSQL"
+                                      ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                                      : course.title === "MongoDB Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                                      : course.title === "Machine Learning Fundamentals" || course.title === "ML Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
+                                      : course.title === "Full Stack Web Development" || course.title === "Full Stack Web Dev"
+                                      ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
+                                      : "/AI_Tutor_New_UI/Dashboard/logo.png"
   }
   alt={course.title}
   className="w-12 h-12 rounded-xl object-cover group-hover:scale-105 transition-transform duration-300"
