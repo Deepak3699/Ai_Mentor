@@ -22,8 +22,7 @@ const MAX_WIDTH = 520;
 const MIN_HEIGHT = 360;
 const MOBILE_BREAKPOINT = 640;
 
-const clamp = (value, minimum, maximum) =>
-  Math.min(Math.max(value, minimum), maximum);
+const clamp = (value, minimum, maximum) => Math.min(Math.max(value, minimum), maximum);
 
 const defaultAnchor = () => ({
   x: window.innerWidth - 28,
@@ -137,8 +136,7 @@ const FloatingAssistant = () => {
         ...previous,
         {
           sender: "assistant",
-          text:
-            error?.response?.data?.message || "Sorry, something went wrong.",
+          text: error?.response?.data?.message || "Sorry, something went wrong.",
         },
       ]);
     } finally {
@@ -206,14 +204,12 @@ const FloatingAssistant = () => {
 
       if (isResizing) {
         const width = clamp(
-          resizeState.current.startWidth -
-            (event.clientX - resizeState.current.startX),
+          resizeState.current.startWidth - (event.clientX - resizeState.current.startX),
           MIN_WIDTH,
           Math.min(MAX_WIDTH, window.innerWidth - EDGE_GAP * 2),
         );
         const height = clamp(
-          resizeState.current.startHeight -
-            (event.clientY - resizeState.current.startY),
+          resizeState.current.startHeight - (event.clientY - resizeState.current.startY),
           MIN_HEIGHT,
           window.innerHeight - EDGE_GAP * 2,
         );
@@ -238,15 +234,7 @@ const FloatingAssistant = () => {
       window.removeEventListener("mousemove", handleMove);
       window.removeEventListener("mouseup", handleUp);
     };
-  }, [
-    anchor.x,
-    anchor.y,
-    dimensions,
-    displayedHeight,
-    isDragging,
-    isOpen,
-    isResizing,
-  ]);
+  }, [anchor.x, anchor.y, dimensions, displayedHeight, isDragging, isOpen, isResizing]);
 
   useEffect(() => {
     const handleViewportResize = () => {
@@ -312,9 +300,7 @@ const FloatingAssistant = () => {
                 <Sparkles className="absolute -right-1 -top-1 h-3.5 w-3.5 text-blue-100" />
               </div>
               <div className="min-w-0">
-                <h2 className="truncate text-sm font-extrabold">
-                  AI Mentor Assistant
-                </h2>
+                <h2 className="truncate text-sm font-extrabold">AI Mentor Assistant</h2>
                 <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-blue-100">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
                   Ready to help
@@ -337,9 +323,7 @@ const FloatingAssistant = () => {
                 type="button"
                 onClick={() => setIsMinimized((previous) => !previous)}
                 className="hidden h-8 w-8 items-center justify-center rounded-lg text-white/75 transition hover:bg-white/15 hover:text-white sm:flex"
-                aria-label={
-                  isMinimized ? "Restore assistant" : "Minimize assistant"
-                }
+                aria-label={isMinimized ? "Restore assistant" : "Minimize assistant"}
               >
                 {isMinimized ? (
                   <Maximize2 className="h-4 w-4" />
@@ -402,9 +386,7 @@ const FloatingAssistant = () => {
                           style={{ animationDelay: `${dot * 120}ms` }}
                         />
                       ))}
-                      <span className="ml-1 text-xs text-muted">
-                        Assistant is typing
-                      </span>
+                      <span className="ml-1 text-xs text-muted">Assistant is typing</span>
                     </div>
                   </div>
                 )}

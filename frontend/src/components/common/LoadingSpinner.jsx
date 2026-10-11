@@ -36,9 +36,7 @@ const LoadingSpinner = ({
         <div
           className={`mx-auto h-10 w-10 animate-spin rounded-full border-[3px] ${spinnerClass} motion-reduce:animate-none`}
         />
-        {label && (
-          <p className="mt-4 text-sm font-semibold text-muted">{label}</p>
-        )}
+        {label && <p className="mt-4 text-sm font-semibold text-muted">{label}</p>}
       </div>
     </div>
   );

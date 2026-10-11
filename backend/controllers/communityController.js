@@ -5,7 +5,7 @@ import Report from "../models/Report.js";
 import crypto from "crypto";
 import { createNotification } from "./notificationController.js";
 import AdminNotification from "../models/AdminNotification.js";
-import{sequelize} from "../config/db.js"; 
+import { sequelize } from "../config/db.js";
 
 // @desc    Get course community stats (list of courses with post counts)
 // @route   GET /api/community/courses
@@ -20,7 +20,7 @@ const getCourseCommunityStats = async (req, res) => {
     // Get user's enrolled courses
     const user = await User.findByPk(req.user.id);
     const purchasedCourses = user?.purchasedCourses || [];
-    const enrolledCourseIds = purchasedCourses.map(c => c.id || c.courseId);
+    const enrolledCourseIds = purchasedCourses.map((c) => c.id || c.courseId);
 
     // Aggregate by courseId
     const courseMap = {};
@@ -55,12 +55,14 @@ const getCourseDiscussions = async (req, res) => {
     // Check if user is enrolled in the course
     const user = await User.findByPk(req.user.id);
     const purchasedCourses = user?.purchasedCourses || [];
-    const isEnrolled = purchasedCourses.some(c => c.id === parseInt(courseId) || c.courseId === parseInt(courseId));
+    const isEnrolled = purchasedCourses.some(
+      (c) => c.id === parseInt(courseId) || c.courseId === parseInt(courseId),
+    );
 
     if (!isEnrolled) {
       return res.status(403).json({
         message: "You must be enrolled in this course to view its community discussions",
-        requiresEnrollment: true
+        requiresEnrollment: true,
       });
     }
 
@@ -74,9 +76,16 @@ const getCourseDiscussions = async (req, res) => {
     const { count, rows: posts } = await CommunityPost.findAndCountAll({
       where: { type: "course", courseId: parseInt(courseId), hiddenAt: null },
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "email", "avatar_url", "googleId"],
+        },
       ],
-      order: sort === "popular" ? [[sequelize.literal("jsonb_array_length(likes)"), "DESC"]] : [["createdAt", "DESC"]],
+      order:
+        sort === "popular"
+          ? [[sequelize.literal("jsonb_array_length(likes)"), "DESC"]]
+          : [["createdAt", "DESC"]],
       limit: sanitizedLimit,
       offset: offset,
     });
@@ -114,7 +123,11 @@ const getGlobalDiscussions = async (req, res) => {
     const { count, rows: posts } = await CommunityPost.findAndCountAll({
       where,
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "email", "avatar_url", "googleId"],
+        },
       ],
       order: [["createdAt", "DESC"]],
       limit: sanitizedLimit,
@@ -122,9 +135,7 @@ const getGlobalDiscussions = async (req, res) => {
     });
 
     if (sort === "popular") {
-      posts.sort(
-        (a, b) => (b.likes?.length || 0) - (a.likes?.length || 0)
-      );
+      posts.sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0));
     }
 
     // Return posts array with pagination metadata in headers for backward compatibility
@@ -154,10 +165,12 @@ const createCommunityPost = async (req, res) => {
     if (type === "course") {
       const user = await User.findByPk(req.user.id);
       const purchasedCourses = user?.purchasedCourses || [];
-      const isEnrolled = purchasedCourses.some(c => c.id === courseId || c.courseId === courseId);
+      const isEnrolled = purchasedCourses.some((c) => c.id === courseId || c.courseId === courseId);
 
       if (!isEnrolled) {
-        return res.status(403).json({ message: "You must be enrolled in this course to create posts in its community" });
+        return res.status(403).json({
+          message: "You must be enrolled in this course to create posts in its community",
+        });
       }
     }
 
@@ -175,7 +188,11 @@ const createCommunityPost = async (req, res) => {
 
     const populated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "email", "avatar_url", "googleId"],
+        },
       ],
     });
 
@@ -200,22 +217,21 @@ const editCommunityPost = async (req, res) => {
     const post = await CommunityPost.findByPk(req.params.id);
     if (!post) return res.status(404).json({ message: "Post not found" });
     // Check enrollment for course posts
-if (post.type === "course") {
-  const user = await User.findByPk(req.user.id);
+    if (post.type === "course") {
+      const user = await User.findByPk(req.user.id);
 
-  const purchasedCourses = user?.purchasedCourses || [];
+      const purchasedCourses = user?.purchasedCourses || [];
 
-  const isEnrolled = purchasedCourses.some(
-    c => c.id === post.courseId || c.courseId === post.courseId
-  );
+      const isEnrolled = purchasedCourses.some(
+        (c) => c.id === post.courseId || c.courseId === post.courseId,
+      );
 
-  if (!isEnrolled) {
-    return res.status(403).json({
-      message:
-        "You must be enrolled in this course to interact with its community posts",
-    });
-  }
-}
+      if (!isEnrolled) {
+        return res.status(403).json({
+          message: "You must be enrolled in this course to interact with its community posts",
+        });
+      }
+    }
 
     if (post.userId !== req.user.id) {
       return res.status(403).json({ message: "You can only edit your own posts" });
@@ -226,7 +242,11 @@ if (post.type === "course") {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "email", "avatar_url", "googleId"],
+        },
       ],
     });
 
@@ -249,22 +269,21 @@ const deleteCommunityPost = async (req, res) => {
     const post = await CommunityPost.findByPk(req.params.id);
     if (!post) return res.status(404).json({ message: "Post not found" });
     // Check enrollment for course posts
-if (post.type === "course") {
-  const user = await User.findByPk(req.user.id);
+    if (post.type === "course") {
+      const user = await User.findByPk(req.user.id);
 
-  const purchasedCourses = user?.purchasedCourses || [];
+      const purchasedCourses = user?.purchasedCourses || [];
 
-  const isEnrolled = purchasedCourses.some(
-    c => c.id === post.courseId || c.courseId === post.courseId
-  );
+      const isEnrolled = purchasedCourses.some(
+        (c) => c.id === post.courseId || c.courseId === post.courseId,
+      );
 
-  if (!isEnrolled) {
-    return res.status(403).json({
-      message:
-        "You must be enrolled in this course to interact with its community posts",
-    });
-  }
-}
+      if (!isEnrolled) {
+        return res.status(403).json({
+          message: "You must be enrolled in this course to interact with its community posts",
+        });
+      }
+    }
 
     if (post.userId !== req.user.id) {
       return res.status(403).json({ message: "You can only delete your own posts" });
@@ -272,13 +291,13 @@ if (post.type === "course") {
 
     // Remove related report rows first to satisfy Reports.postId FK constraint.
     // Remove related report rows first to satisfy Reports.postId FK constraint.
-await sequelize.transaction(async (transaction) => {
-  await Report.destroy({
-    where: { postId: post.id },
-    transaction,
-  });
-  await post.destroy({ transaction });
-});
+    await sequelize.transaction(async (transaction) => {
+      await Report.destroy({
+        where: { postId: post.id },
+        transaction,
+      });
+      await post.destroy({ transaction });
+    });
     res.json({ message: "Post deleted successfully" });
   } catch (error) {
     console.error("DELETE COMMUNITY POST ERROR:", error);
@@ -317,7 +336,11 @@ const likeCommunityPost = async (req, res) => {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "email", "avatar_url", "googleId"],
+        },
       ],
     });
 
@@ -359,7 +382,11 @@ const dislikeCommunityPost = async (req, res) => {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "email", "avatar_url", "googleId"],
+        },
       ],
     });
 
@@ -388,10 +415,14 @@ const replyCommunityPost = async (req, res) => {
     if (post.type === "course") {
       const user = await User.findByPk(req.user.id);
       const purchasedCourses = user?.purchasedCourses || [];
-      const isEnrolled = purchasedCourses.some(c => c.id === post.courseId || c.courseId === post.courseId);
+      const isEnrolled = purchasedCourses.some(
+        (c) => c.id === post.courseId || c.courseId === post.courseId,
+      );
 
       if (!isEnrolled) {
-        return res.status(403).json({ message: "You must be enrolled in this course to comment in its discussion" });
+        return res
+          .status(403)
+          .json({ message: "You must be enrolled in this course to comment in its discussion" });
       }
     }
 
@@ -418,14 +449,18 @@ const replyCommunityPost = async (req, res) => {
     if (post.userId !== req.user.id) {
       createNotification(post.userId, {
         title: "New Reply on your post",
-        message: `${req.user.name} replied: "${text.substring(0, 30)}${text.length > 30 ? '...' : ''}"`,
+        message: `${req.user.name} replied: "${text.substring(0, 30)}${text.length > 30 ? "..." : ""}"`,
         type: "social",
       });
     }
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "email", "avatar_url", "googleId"],
+        },
       ],
     });
 
@@ -453,7 +488,11 @@ const getAllCoursePosts = async (req, res) => {
     const { count, rows: posts } = await CommunityPost.findAndCountAll({
       where: { type: "course", hiddenAt: null },
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "email", "avatar_url", "googleId"],
+        },
       ],
       order: [["createdAt", "DESC"]],
       limit: sanitizedLimit,
@@ -461,9 +500,7 @@ const getAllCoursePosts = async (req, res) => {
     });
 
     if (sort === "popular") {
-      posts.sort(
-        (a, b) => (b.likes?.length || 0) - (a.likes?.length || 0)
-      );
+      posts.sort((a, b) => (b.likes?.length || 0) - (a.likes?.length || 0));
     }
 
     // Return posts array with pagination metadata in headers for backward compatibility
@@ -559,13 +596,13 @@ const reportContent = async (req, res) => {
         },
       });
     }
-    
+
     // Also notify the admin dashboard
-await AdminNotification.create({
-  title: isCommentReport ? "Comment Reported" : "Discussion Post Reported",
-  message: `${reporterName} reported a ${contentLabel}. ${reasonOrDescription}`,
-  type: "report",
-});
+    await AdminNotification.create({
+      title: isCommentReport ? "Comment Reported" : "Discussion Post Reported",
+      message: `${reporterName} reported a ${contentLabel}. ${reasonOrDescription}`,
+      type: "report",
+    });
 
     res.status(201).json({ message: "Report submitted successfully", report });
   } catch (error) {
@@ -587,9 +624,7 @@ const getReports = async (_req, res) => {
           model: CommunityPost,
           as: "post",
           attributes: ["id", "content", "replies", "userId"],
-          include: [
-            { model: User, as: "author", attributes: ["id", "name"] },
-          ],
+          include: [{ model: User, as: "author", attributes: ["id", "name"] }],
         },
       ],
       order: [["createdAt", "DESC"]],
@@ -648,9 +683,7 @@ const moderateReport = async (req, res) => {
       if (action === "hidden") {
         if (report.replyId) {
           const replies = (post.replies || []).map((r) =>
-            String(r.id) === String(report.replyId)
-              ? { ...r, hidden: true }
-              : r
+            String(r.id) === String(report.replyId) ? { ...r, hidden: true } : r,
           );
           post.replies = replies;
           post.changed("replies", true);
@@ -676,14 +709,14 @@ const moderateReport = async (req, res) => {
           {
             where: { id: resolvedReportIds },
             transaction,
-          }
+          },
         );
       }
 
       if (action === "deleted") {
         if (report.replyId) {
           const replies = (post.replies || []).filter(
-            (r) => String(r.id) !== String(report.replyId)
+            (r) => String(r.id) !== String(report.replyId),
           );
           post.replies = replies;
           post.changed("replies", true);
@@ -719,7 +752,7 @@ const moderateReport = async (req, res) => {
           message: actionMessages[action],
           type: "report",
         },
-        { transaction }
+        { transaction },
       );
 
       return {
@@ -779,7 +812,11 @@ const editReply = async (req, res) => {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "email", "avatar_url", "googleId"],
+        },
       ],
     });
 
@@ -823,7 +860,11 @@ const deleteReply = async (req, res) => {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "email", "avatar_url", "googleId"],
+        },
       ],
     });
 
@@ -868,7 +909,11 @@ const unhideContent = async (req, res) => {
 
     const updated = await CommunityPost.findByPk(post.id, {
       include: [
-        { model: User, as: "author", attributes: ["id", "name", "email", "avatar_url", "googleId"] },
+        {
+          model: User,
+          as: "author",
+          attributes: ["id", "name", "email", "avatar_url", "googleId"],
+        },
       ],
     });
 
@@ -900,4 +945,3 @@ export {
   editReply,
   deleteReply,
 };
-

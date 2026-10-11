@@ -12,15 +12,7 @@
     "env-validator.js"
   ],
   "ext": "js,mjs,cjs,json",
-  "ignore": [
-    "uploads/**",
-    "videos/**",
-    "logs/**",
-    "coverage/**",
-    "temp/**",
-    "tmp/**",
-    "*.log"
-  ],
+  "ignore": ["uploads/**", "videos/**", "logs/**", "coverage/**", "temp/**", "tmp/**", "*.log"],
   "delay": 500,
   "verbose": false
 }

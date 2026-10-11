@@ -54,10 +54,7 @@ const ReportModal = ({
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center px-4">
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       <div
         onClick={(e) => e.stopPropagation()}
@@ -66,9 +63,7 @@ const ReportModal = ({
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <LoadingSpinner variant="compact" label="Submitting report" />
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Submitting report...
-            </p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Submitting report...</p>
           </div>
         ) : (
           <>
@@ -140,9 +135,7 @@ const ReportModal = ({
                 {openCourseDropdown && (
                   <div className="absolute mt-2 w-full bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-lg shadow-lg overflow-hidden z-50 max-h-48 overflow-y-auto">
                     {enrolledCourses.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-gray-400">
-                        No enrolled courses
-                      </div>
+                      <div className="px-4 py-3 text-sm text-gray-400">No enrolled courses</div>
                     ) : (
                       enrolledCourses.map((course) => (
                         <div

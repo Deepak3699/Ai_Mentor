@@ -1,13 +1,13 @@
 import React from "react";
 import { ArrowUpRight } from "lucide-react";
 
-const PageBanner = ({ 
-  title, 
-  subtitle, 
+const PageBanner = ({
+  title,
+  subtitle,
   children,
   streakContent,
   artNote,
-  robotImage = "/AI_Tutor_New_UI/Courses_Page/ai_robot_banner.png"
+  robotImage = "/AI_Tutor_New_UI/Courses_Page/ai_robot_banner.png",
 }) => {
   return (
     <section className="dashboard-hero" aria-labelledby="dashboard-hero-title">
@@ -15,33 +15,21 @@ const PageBanner = ({
       <div className="dashboard-hero__ridge dashboard-hero__ridge--near" aria-hidden="true" />
 
       <div className="dashboard-hero__content">
-        {typeof title === 'string' ? (
+        {typeof title === "string" ? (
           <h1 id="dashboard-hero-title">{title}</h1>
         ) : (
           <h1 id="dashboard-hero-title">{title}</h1>
         )}
-        
-        {subtitle && (
-          <div className="dashboard-hero__subtitle">
-            {subtitle}
-          </div>
-        )}
-        
-        {streakContent && (
-          <div className="dashboard-hero__streak">
-            {streakContent}
-          </div>
-        )}
-        
+
+        {subtitle && <div className="dashboard-hero__subtitle">{subtitle}</div>}
+
+        {streakContent && <div className="dashboard-hero__streak">{streakContent}</div>}
+
         {children}
       </div>
 
       <div className="dashboard-hero__art" aria-hidden="true">
-        {artNote && (
-          <p className="dashboard-hero__note">
-            {artNote}
-          </p>
-        )}
+        {artNote && <p className="dashboard-hero__note">{artNote}</p>}
         {robotImage && (
           <div className="dashboard-hero__robot">
             <div className="absolute inset-0 bg-blue-300/30 dark:bg-blue-500/20 rounded-full blur-lg pointer-events-none" />

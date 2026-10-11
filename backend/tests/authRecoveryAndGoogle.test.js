@@ -9,7 +9,8 @@ process.env.FRONTEND_URL = "http://frontend.test";
 const { default: User } = await import("../models/User.js");
 const { default: Notification } = await import("../models/Notification.js");
 const { authServices } = await import("../services/authExternalServices.js");
-const { forgotPassword, googleLogin, resetPassword } = await import("../controllers/authController.js");
+const { forgotPassword, googleLogin, resetPassword } =
+  await import("../controllers/authController.js");
 
 const originals = {
   findOne: User.findOne,
@@ -25,8 +26,14 @@ const response = () => {
   return {
     state,
     res: {
-      status(code) { state.statusCode = code; return this; },
-      json(body) { state.body = body; return this; },
+      status(code) {
+        state.statusCode = code;
+        return this;
+      },
+      json(body) {
+        state.body = body;
+        return this;
+      },
     },
   };
 };
@@ -34,15 +41,25 @@ const response = () => {
 const quietErrors = async (callback) => {
   const original = console.error;
   console.error = () => {};
-  try { return await callback(); } finally { console.error = original; }
+  try {
+    return await callback();
+  } finally {
+    console.error = original;
+  }
 };
 
 beforeEach(() => {
   User.findOne = async () => null;
-  User.create = async () => { throw new Error("unexpected User.create"); };
+  User.create = async () => {
+    throw new Error("unexpected User.create");
+  };
   Notification.create = async (data) => ({ id: "notification", ...data });
-  authServices.verifyGoogleIdToken = async () => { throw new Error("invalid token"); };
-  authServices.uploadAvatar = async () => { throw new Error("unexpected avatar upload"); };
+  authServices.verifyGoogleIdToken = async () => {
+    throw new Error("invalid token");
+  };
+  authServices.uploadAvatar = async () => {
+    throw new Error("unexpected avatar upload");
+  };
   authServices.sendEmail = async () => ({ messageId: "test-message" });
 });
 
@@ -67,9 +84,17 @@ test("forgot password returns the same response for an unknown account", async (
 test("forgot password stores a hashed token and sends a reset link", async () => {
   let saves = 0;
   let emailOptions;
-  const user = { email: "user@example.com", async save() { saves += 1; } };
+  const user = {
+    email: "user@example.com",
+    async save() {
+      saves += 1;
+    },
+  };
   User.findOne = async () => user;
-  authServices.sendEmail = async (options) => { emailOptions = options; return { messageId: "sent" }; };
+  authServices.sendEmail = async (options) => {
+    emailOptions = options;
+    return { messageId: "sent" };
+  };
   const { state, res } = response();
   await forgotPassword({ body: { email: user.email } }, res);
   assert.equal(state.statusCode, 200);
@@ -83,9 +108,16 @@ test("forgot password stores a hashed token and sends a reset link", async () =>
 
 test("forgot password clears reset fields when email delivery fails", async () => {
   let saves = 0;
-  const user = { email: "user@example.com", async save() { saves += 1; } };
+  const user = {
+    email: "user@example.com",
+    async save() {
+      saves += 1;
+    },
+  };
   User.findOne = async () => user;
-  authServices.sendEmail = async () => { throw new Error("SMTP unavailable"); };
+  authServices.sendEmail = async () => {
+    throw new Error("SMTP unavailable");
+  };
   const { state, res } = response();
   await quietErrors(() => forgotPassword({ body: { email: user.email } }, res));
   assert.equal(state.statusCode, 500);
@@ -107,7 +139,15 @@ test("reset password updates credentials, clears reset fields, and timestamps th
   const expectedHash = crypto.createHash("sha256").update(rawToken).digest("hex");
   let setCall;
   let saves = 0;
-  const user = { id: "user-1", set(field, value) { setCall = [field, value]; }, async save() { saves += 1; } };
+  const user = {
+    id: "user-1",
+    set(field, value) {
+      setCall = [field, value];
+    },
+    async save() {
+      saves += 1;
+    },
+  };
   User.findOne = async ({ where }) => {
     assert.equal(where.resetPasswordToken, expectedHash);
     assert.ok(where.resetPasswordExpires);
@@ -170,9 +210,15 @@ test("Google login creates a new user and rehosts the avatar through the isolate
     id: "new-user",
     role: "user",
     purchasedCourses: [],
-    async save() { saves += 1; },
+    async save() {
+      saves += 1;
+    },
   };
-  User.create = async (data) => { createdData = data; Object.assign(user, data); return user; };
+  User.create = async (data) => {
+    createdData = data;
+    Object.assign(user, data);
+    return user;
+  };
   authServices.uploadAvatar = async (url, options) => {
     assert.equal(url, "https://images.test/avatar.png");
     uploadOptions = options;

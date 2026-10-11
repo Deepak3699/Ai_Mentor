@@ -3,8 +3,6 @@ import express from "express";
 import http from "node:http";
 import dotenv from "dotenv";
 import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
 import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB } from "./config/db.js";
@@ -12,9 +10,6 @@ import adminRoutes from "./routes/adminRoutes.js";
 import { securityHeaders } from "./config/securityHeaders.js";
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -54,7 +49,7 @@ app.use((req, res) => {
 });
 
 // ================= ERROR HANDLER =================
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   if (err.type === "entity.too.large") {
     return res.status(413).json({ message: "Payload Too Large" });
   }

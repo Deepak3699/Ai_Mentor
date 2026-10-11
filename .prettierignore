@@ -26,3 +26,6 @@ video
 # Temporary system files
 .DS_Store
 Thumbs.db
+
+# Python test caches
+**/.pytest_cache

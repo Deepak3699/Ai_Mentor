@@ -8,8 +8,7 @@ function adminStartupStatusPlugin() {
     configureServer(server) {
       server.httpServer?.once("listening", () => {
         const address = server.httpServer.address();
-        const port =
-          typeof address === "object" && address ? address.port : 5174;
+        const port = typeof address === "object" && address ? address.port : 5174;
         console.log(`[READY] Admin frontend: http://localhost:${port}`);
       });
     },

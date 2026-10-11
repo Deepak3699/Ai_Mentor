@@ -77,11 +77,7 @@ const state = Object.fromEntries(
   Object.keys(services).map((key) => [
     key,
     {
-      status: selected.includes(key)
-        ? services[key].backend
-          ? "waiting"
-          : "starting"
-        : "idle",
+      status: selected.includes(key) ? (services[key].backend ? "waiting" : "starting") : "idle",
       detail: services[key].backend
         ? `Waiting for ${services[services[key].backend].group.replace(" APPLICATION", "")} API`
         : "Starting process",
@@ -109,8 +105,7 @@ const orbit = [0, 1, 2, 5, 8, 7, 6, 3];
 function lattice(status) {
   if (status === "ready") return `${C.green}✓${C.reset}       `;
   if (status === "failed") return `${C.red}✕${C.reset}       `;
-  if (status === "waiting" || status === "idle")
-    return `${C.gray}○○○ ○·○ ○○○${C.reset}`;
+  if (status === "waiting" || status === "idle") return `${C.gray}○○○ ○·○ ○○○${C.reset}`;
   const cells = Array(9).fill(`${C.gray}○${C.reset}`);
   cells[4] = `${C.gray}·${C.reset}`;
   cells[orbit[frame % orbit.length]] = `${C.bold}●${C.reset}`;
@@ -144,8 +139,7 @@ function markPhase(key, name, event = "start") {
   const phases = state[key].phases;
   const now = Date.now();
   phases[name] ??= {};
-  if (event === "start" && phases[name].startedAt == null)
-    phases[name].startedAt = now;
+  if (event === "start" && phases[name].startedAt == null) phases[name].startedAt = now;
   if (event === "end" && phases[name].endedAt == null) {
     phases[name].startedAt ??= state[key].runStartedAt ?? now;
     phases[name].endedAt = now;
@@ -157,8 +151,7 @@ function phaseDuration(key, name) {
   return `${((phase.endedAt - phase.startedAt) / 1000).toFixed(1)}s`;
 }
 function phaseSummary(key) {
-  if (services[key].label !== "API" || state[key].status !== "ready")
-    return null;
+  if (services[key].label !== "API" || state[key].status !== "ready") return null;
   const parts = [
     ["DB Connect", phaseDuration(key, "database")],
     ["Schema", phaseDuration(key, "schema")],
@@ -222,9 +215,7 @@ function dashboardLines() {
   const groups = [...new Set(selected.map((key) => services[key].group))];
   for (const group of groups) {
     lines.push(`${C.bold}${group}${C.reset}`);
-    for (const key of selected.filter(
-      (item) => services[item].group === group,
-    )) {
+    for (const key of selected.filter((item) => services[item].group === group)) {
       const service = services[key];
       const data = state[key];
       const statusColor =
@@ -251,8 +242,7 @@ function dashboardLines() {
 function clearDashboard() {
   if (!interactive || renderedLines === 0) return;
   process.stdout.write(`\x1b[${renderedLines}A`);
-  for (let i = 0; i < renderedLines; i += 1)
-    process.stdout.write("\x1b[2K\x1b[1B");
+  for (let i = 0; i < renderedLines; i += 1) process.stdout.write("\x1b[2K\x1b[1B");
   process.stdout.write(`\x1b[${renderedLines}A`);
   renderedLines = 0;
 }
@@ -273,11 +263,7 @@ function log(key, text, target = process.stdout) {
     )
   )
     return;
-  if (
-    /^\[INFO\] (Allowed frontend origins|Keep this terminal open|HMR update means)/.test(
-      clean,
-    )
-  )
+  if (/^\[INFO\] (Allowed frontend origins|Keep this terminal open|HMR update means)/.test(clean))
     return;
   if (clean.includes(services[key].ready)) return;
   clearDashboard();
@@ -291,8 +277,7 @@ function setState(key, status, detail) {
   current.status = status;
   current.detail = detail;
   if (status === "ready" || status === "failed") {
-    current.elapsed =
-      current.runStartedAt == null ? 0 : Date.now() - current.runStartedAt;
+    current.elapsed = current.runStartedAt == null ? 0 : Date.now() - current.runStartedAt;
   }
   render();
 }
@@ -330,9 +315,7 @@ function stream(streamValue, key, target, onLine) {
     const lines = pending.split(/\r?\n/);
     pending = lines.pop() || "";
     for (const raw of lines) {
-      Promise.resolve(onLine(stripAnsi(raw))).catch((error) =>
-        failService(key, error.message),
-      );
+      Promise.resolve(onLine(stripAnsi(raw))).catch((error) => failService(key, error.message));
       log(key, raw, target);
     }
   });
@@ -344,11 +327,7 @@ function spawnService(key) {
   state[key].elapsed = null;
   state[key].phases = {};
   markPhase(key, "process", "start");
-  setState(
-    key,
-    "starting",
-    service.label === "API" ? "Launching backend" : "Launching Vite",
-  );
+  setState(key, "starting", service.label === "API" ? "Launching backend" : "Launching Vite");
   const child = spawn(process.execPath, [npmCli, "run", "dev"], {
     cwd: service.folder,
     env: process.env,
@@ -363,10 +342,7 @@ function spawnService(key) {
       markPhase(key, "database", "start");
       setState(key, "starting", "Connecting to database");
     }
-    if (
-      text.includes("Database connected") ||
-      text.includes("database connected")
-    ) {
+    if (text.includes("Database connected") || text.includes("database connected")) {
       markPhase(key, "database", "end");
       markPhase(key, "schema", "start");
     }
@@ -384,8 +360,7 @@ function spawnService(key) {
       }
       markPhase(key, "process", "end");
       setState(key, "ready", serviceUrl(key));
-      const dependent =
-        key === "userApi" ? "userWeb" : key === "adminApi" ? "adminWeb" : null;
+      const dependent = key === "userApi" ? "userWeb" : key === "adminApi" ? "adminWeb" : null;
       if (dependent && selected.includes(dependent)) spawnService(dependent);
       finishIfReady();
     }
@@ -396,15 +371,11 @@ function spawnService(key) {
   child.on("exit", (code, signal) => {
     children.delete(key);
     if (!stopping && code !== 0)
-      failService(
-        key,
-        `Exited with code ${code ?? "unknown"}${signal ? ` (${signal})` : ""}`,
-      );
+      failService(key, `Exited with code ${code ?? "unknown"}${signal ? ` (${signal})` : ""}`);
     if (children.size === 0 && stopping) process.exit(process.exitCode || 0);
   });
   setTimeout(() => {
-    if (!["ready", "failed"].includes(state[key].status))
-      failService(key, "Readiness timed out");
+    if (!["ready", "failed"].includes(state[key].status)) failService(key, "Readiness timed out");
   }, READY_TIMEOUT_MS);
 }
 async function standaloneFrontend(key) {
@@ -420,8 +391,7 @@ async function standaloneFrontend(key) {
   spawnService(key);
 }
 function finishIfReady() {
-  if (finalShown || !selected.every((key) => state[key].status === "ready"))
-    return;
+  if (finalShown || !selected.every((key) => state[key].status === "ready")) return;
   finalShown = true;
   if (animation) {
     clearInterval(animation);
@@ -513,8 +483,7 @@ async function main() {
   for (const apiKey of ["userApi", "adminApi"]) {
     if (!selected.includes(apiKey) || !externallyRunning.has(apiKey)) continue;
     const webKey = apiKey === "userApi" ? "userWeb" : "adminWeb";
-    if (selected.includes(webKey) && !externallyRunning.has(webKey))
-      spawnService(webKey);
+    if (selected.includes(webKey) && !externallyRunning.has(webKey)) spawnService(webKey);
   }
 
   finishIfReady();

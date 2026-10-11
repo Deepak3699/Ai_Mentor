@@ -6,13 +6,12 @@ The AI Mentor backend is a Node.js and Express.js REST API responsible for authe
 
 The backend acts as the central communication layer between:
 
-  * Frontend applications
-  * PostgreSQL database
-  * Python AI microservice
-  * Cloudinary media storage
-  * Email services
-  * Authentication providers
-
+- Frontend applications
+- PostgreSQL database
+- Python AI microservice
+- Cloudinary media storage
+- Email services
+- Authentication providers
 
 The project follows a modular architecture where routes handle API endpoints, controllers contain business logic, models manage database entities, and middleware handles authentication and validation.
 
@@ -99,19 +98,19 @@ backend/
 
 Responsible for:
 
-* Creating Sequelize connection
-* Connecting to PostgreSQL database
-* Handling SSL configuration
-* Exporting database instance
+- Creating Sequelize connection
+- Connecting to PostgreSQL database
+- Handling SSL configuration
+- Exporting database instance
 
 The backend uses a single PostgreSQL connection string from environment variables.
 
 Example responsibilities:
 
-* Initialize Sequelize
-* Authenticate database connection
-* Sync models
-* Handle connection errors
+- Initialize Sequelize
+- Authenticate database connection
+- Sync models
+- Handle connection errors
 
 ---
 
@@ -172,8 +171,8 @@ Authorization: Bearer jwt_token
 
 If verification fails:
 
-* Return 401 Unauthorized
-* Prevent controller execution
+- Return 401 Unauthorized
+- Prevent controller execution
 
 ---
 
@@ -183,9 +182,9 @@ Used for protected admin routes.
 
 Responsibilities:
 
-* Verify admin token
-* Check admin role
-* Restrict super admin routes
+- Verify admin token
+- Check admin role
+- Restrict super admin routes
 
 ---
 
@@ -197,11 +196,11 @@ The backend uses Zod validation schemas.
 
 Validation checks include:
 
-* Required fields
-* Email format
-* Password length
-* Object structure
-* Enum validation
+- Required fields
+- Email format
+- Password length
+- Object structure
+- Enum validation
 
 ---
 
@@ -211,11 +210,11 @@ Controllers contain business logic.
 
 Responsibilities include:
 
-* Database queries
-* Authentication logic
-* Data transformation
-* Error handling
-* External API communication
+- Database queries
+- Authentication logic
+- Data transformation
+- Error handling
+- External API communication
 
 Controllers should not directly handle routing logic.
 
@@ -280,20 +279,20 @@ Controllers should not directly handle routing logic.
 
 Stores:
 
-* Name
-* Email
-* Password hash
-* Avatar URL
-* Purchased courses
-* Preferences
-* Notification settings
-* Analytics data
+- Name
+- Email
+- Password hash
+- Avatar URL
+- Purchased courses
+- Preferences
+- Notification settings
+- Analytics data
 
 Important features:
 
-* Password hashing hooks
-* JWT integration
-* User profile management
+- Password hashing hooks
+- JWT integration
+- User profile management
 
 ---
 
@@ -301,18 +300,18 @@ Important features:
 
 Stores:
 
-* Course title
-* Description
-* Thumbnail
-* Lessons
-* Category
-* Instructor
-* Pricing
+- Course title
+- Description
+- Thumbnail
+- Lessons
+- Category
+- Instructor
+- Pricing
 
 Relationships:
 
-* Users can purchase courses
-* Courses contain lessons
+- Users can purchase courses
+- Courses contain lessons
 
 ---
 
@@ -320,19 +319,19 @@ Relationships:
 
 Stores:
 
-* Post content
-* Author
-* Replies
-* Likes/dislikes
-* Report status
-* Visibility state
+- Post content
+- Author
+- Replies
+- Likes/dislikes
+- Report status
+- Visibility state
 
 Features:
 
-* Reporting system
-* Moderation support
-* Reply editing
-* Soft hide/unhide support
+- Reporting system
+- Moderation support
+- Reply editing
+- Soft hide/unhide support
 
 ---
 
@@ -342,13 +341,13 @@ Stores cached AI generated videos.
 
 Fields include:
 
-* Course ID
-* Lesson ID
-* Celebrity voice
-* Video URL
-* Transcript
-* Cloudinary URL
-* Generation status
+- Course ID
+- Lesson ID
+- Celebrity voice
+- Video URL
+- Transcript
+- Cloudinary URL
+- Generation status
 
 Purpose:
 
@@ -383,14 +382,15 @@ Generated Video
 2. Backend checks AIVideo cache
 3. If cached:
 
-   * Return existing video
+   - Return existing video
+
 4. If not cached:
 
-   * Call AI service
-   * Generate video
-   * Upload to Cloudinary
-   * Save metadata in database
-   * Return response
+   - Call AI service
+   - Generate video
+   - Upload to Cloudinary
+   - Save metadata in database
+   - Return response
 
 ---
 
@@ -398,9 +398,9 @@ Generated Video
 
 The backend can:
 
-* Fetch transcript from AI service
-* Cache transcript in database
-* Reuse cached transcript
+- Fetch transcript from AI service
+- Cache transcript in database
+- Reuse cached transcript
 
 ---
 
@@ -408,13 +408,13 @@ The backend can:
 
 The community system supports:
 
-* Global discussions
-* Course discussions
-* Replies
-* Likes/dislikes
-* Reporting
-* Moderation
-* Hidden content
+- Global discussions
+- Course discussions
+- Replies
+- Likes/dislikes
+- Reporting
+- Moderation
+- Hidden content
 
 ---
 
@@ -425,10 +425,10 @@ The community system supports:
 3. Admin dashboard fetches reports
 4. Admin can:
 
-   * Resolve report
-   * Hide content
-   * Unhide content
-   * Delete content
+   - Resolve report
+   - Hide content
+   - Unhide content
+   - Delete content
 
 ---
 
@@ -436,17 +436,17 @@ The community system supports:
 
 The analytics module tracks:
 
-* User activity
-* Course progress
-* Learning time
-* Enrollments
-* Engagement metrics
+- User activity
+- Course progress
+- Learning time
+- Enrollments
+- Engagement metrics
 
 Used for:
 
-* Dashboard visualizations
-* User insights
-* Admin analytics
+- Dashboard visualizations
+- User insights
+- Admin analytics
 
 ---
 
@@ -454,16 +454,16 @@ Used for:
 
 The notification system supports:
 
-* Admin notifications
-* User notifications
-* Read/unread tracking
-* Clear all notifications
+- Admin notifications
+- User notifications
+- Read/unread tracking
+- Clear all notifications
 
 Features:
 
-* Mark as read
-* Notification persistence
-* Real time ready architecture
+- Mark as read
+- Notification persistence
+- Real time ready architecture
 
 ---
 
@@ -488,9 +488,9 @@ Database URL Storage
 
 Uploaded assets include:
 
-* Profile images
-* Course thumbnails
-* AI generated videos
+- Profile images
+- Course thumbnails
+- AI generated videos
 
 ---
 
@@ -498,16 +498,16 @@ Uploaded assets include:
 
 Cloudinary is used for:
 
-* Image hosting
-* Video hosting
-* CDN delivery
-* Media optimization
+- Image hosting
+- Video hosting
+- CDN delivery
+- Media optimization
 
 Advantages:
 
-* Reduced backend storage usage
-* Faster media delivery
-* Global CDN support
+- Reduced backend storage usage
+- Faster media delivery
+- Global CDN support
 
 ---
 
@@ -517,9 +517,9 @@ The backend uses Nodemailer.
 
 Used for:
 
-* Password reset emails
-* Verification emails
-* Notification emails
+- Password reset emails
+- Verification emails
+- Notification emails
 
 SMTP credentials are stored in environment variables.
 
@@ -571,16 +571,16 @@ Common status codes:
 
 ## Password Security
 
-* Passwords hashed using bcrypt
-* Plain passwords never stored
+- Passwords hashed using bcrypt
+- Plain passwords never stored
 
 ---
 
 ## JWT Security
 
-* Protected routes require tokens
-* Tokens verified server-side
-* Expiration supported
+- Protected routes require tokens
+- Tokens verified server-side
+- Expiration supported
 
 ---
 
@@ -590,15 +590,15 @@ Sensitive credentials are stored in `.env`.
 
 Includes:
 
-* Database URL
-* JWT secret
-* Cloudinary credentials
-* SMTP credentials
-* AI service URL
-* Firebase Admin SDK Credentials (for Google OAuth validation)
-* Stripe Integration keys & Webhook Secrets (for billing verification)
-* Razorpay Integration API keys (for merchant processing)
-* Super Admin Configuration Seed Parameters
+- Database URL
+- JWT secret
+- Cloudinary credentials
+- SMTP credentials
+- AI service URL
+- Firebase Admin SDK Credentials (for Google OAuth validation)
+- Stripe Integration keys & Webhook Secrets (for billing verification)
+- Razorpay Integration API keys (for merchant processing)
+- Super Admin Configuration Seed Parameters
 
 ---
 
@@ -616,22 +616,22 @@ before CORS and routes, so every response (including 404s and errors) carries
 the headers.
 
 ```js
-app.use(securityHeaders());   // must stay above cors() and routes
+app.use(securityHeaders()); // must stay above cors() and routes
 ```
 
-| Header | Value |
-| ------ | ----- |
-| Content-Security-Policy | `default-src 'self'`; `img-src 'self' data:`; `media-src 'self'`; `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`; `frame-ancestors 'none'` |
-| Strict-Transport-Security | `max-age=15552000; includeSubDomains` (production only) |
-| X-Frame-Options | `DENY` |
-| X-Content-Type-Options | `nosniff` |
-| Referrer-Policy | `no-referrer` |
-| Cross-Origin-Resource-Policy | `cross-origin` |
+| Header                       | Value                                                                                                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Content-Security-Policy      | `default-src 'self'`; `img-src 'self' data:`; `media-src 'self'`; `object-src 'none'`; `base-uri 'self'`; `form-action 'self'`; `frame-ancestors 'none'` |
+| Strict-Transport-Security    | `max-age=15552000; includeSubDomains` (production only)                                                                                                  |
+| X-Frame-Options              | `DENY`                                                                                                                                                   |
+| X-Content-Type-Options       | `nosniff`                                                                                                                                                |
+| Referrer-Policy              | `no-referrer`                                                                                                                                            |
+| Cross-Origin-Resource-Policy | `cross-origin`                                                                                                                                           |
 
-* CSP was previously disabled (`helmet({ contentSecurityPolicy: false })`). It is now enabled.
-* CORP is `cross-origin` because the frontend runs on a different origin and must load `/videos` and `/uploads`.
-* HSTS is sent only when `NODE_ENV=production`, so `http://localhost` keeps working. All other headers are the same in every environment.
-* Do not add `unsafe-inline` or `unsafe-eval`. New image or media origins go in the matching directive in `config/securityHeaders.js`.
+- CSP was previously disabled (`helmet({ contentSecurityPolicy: false })`). It is now enabled.
+- CORP is `cross-origin` because the frontend runs on a different origin and must load `/videos` and `/uploads`.
+- HSTS is sent only when `NODE_ENV=production`, so `http://localhost` keeps working. All other headers are the same in every environment.
+- Do not add `unsafe-inline` or `unsafe-eval`. New image or media origins go in the matching directive in `config/securityHeaders.js`.
 
 Verify with `curl -i http://localhost:5000/health`, and run `npm test`
 (`tests/securityHeaders.test.js`) to check the headers automatically.
@@ -708,9 +708,9 @@ Sequelize synchronizes models during startup.
 
 Responsibilities:
 
-* Create missing tables
-* Alter schema
-* Maintain relationships
+- Create missing tables
+- Alter schema
+- Maintain relationships
 
 ---
 
@@ -720,11 +720,11 @@ Responsibilities:
 
 Can be deployed on:
 
-* Render
-* Railway
-* VPS
-* AWS
-* DigitalOcean
+- Render
+- Railway
+- VPS
+- AWS
+- DigitalOcean
 
 ---
 
@@ -764,16 +764,16 @@ Cloudinary CDN improves loading speed.
 
 Potential future enhancements:
 
-* Redis caching
-* WebSockets
-* Swagger API documentation
-* Rate limiting
-* Refresh token authentication
-* Microservice separation
-* Queue based AI processing
-* Real time notifications
-* Docker deployment
-* Automated testing
+- Redis caching
+- WebSockets
+- Swagger API documentation
+- Rate limiting
+- Refresh token authentication
+- Microservice separation
+- Queue based AI processing
+- Real time notifications
+- Docker deployment
+- Automated testing
 
 ---
 
@@ -781,10 +781,10 @@ Potential future enhancements:
 
 The AI Mentor backend is a modular and scalable Node.js API designed to support:
 
-* AI powered learning
-* Course management
-* Community interaction
-* Analytics
-* Authentication
-* Media processing
-* Admin management
+- AI powered learning
+- Course management
+- Community interaction
+- Analytics
+- Authentication
+- Media processing
+- Admin management

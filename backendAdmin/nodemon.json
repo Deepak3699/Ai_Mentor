@@ -1,13 +1,5 @@
 {
-  "watch": [
-    "server.js",
-    "config",
-    "controllers",
-    "middleware",
-    "models",
-    "routes",
-    "schemas"
-  ],
+  "watch": ["server.js", "config", "controllers", "middleware", "models", "routes", "schemas"],
   "ext": "js,mjs,cjs,json",
   "ignore": ["logs/**", "coverage/**", "temp/**", "tmp/**", "*.log"],
   "delay": 500,

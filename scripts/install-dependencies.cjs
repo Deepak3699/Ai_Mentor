@@ -9,13 +9,7 @@ if (!npmCli) {
   process.exit(1);
 }
 
-const npmProjects = [
-  ".",
-  "backend",
-  "frontend",
-  "backendAdmin",
-  "frontendAdmin",
-];
+const npmProjects = [".", "backend", "frontend", "backendAdmin", "frontendAdmin"];
 
 function run(command, args, cwd, label) {
   console.log(`\n[INSTALLING] ${label}`);
@@ -35,22 +29,13 @@ function run(command, args, cwd, label) {
 
 console.log("AI MENTOR · DEPENDENCY SETUP");
 console.log("────────────────────────────────────────────────────────");
-console.log(
-  "Installs Node dependencies for every application and Python AI-service requirements.",
-);
+console.log("Installs Node dependencies for every application and Python AI-service requirements.");
 
 for (const relative of npmProjects) {
   const cwd = join(root, relative);
   if (!existsSync(join(cwd, "package.json"))) continue;
-  const npmArgs = existsSync(join(cwd, "package-lock.json"))
-    ? [npmCli, "ci"]
-    : [npmCli, "install"];
-  run(
-    process.execPath,
-    npmArgs,
-    cwd,
-    `Node packages · ${relative === "." ? "root" : relative}`,
-  );
+  const npmArgs = existsSync(join(cwd, "package-lock.json")) ? [npmCli, "ci"] : [npmCli, "install"];
+  run(process.execPath, npmArgs, cwd, `Node packages · ${relative === "." ? "root" : relative}`);
 }
 
 const requirements = join(root, "ai_service", "backend", "requirements.txt");

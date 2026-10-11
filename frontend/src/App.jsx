@@ -24,9 +24,7 @@ const CertificatesPage = lazy(() => import("./pages/CertificatesPage"));
 const ReportPage = lazy(() => import("./pages/ReportPage"));
 const Success = lazy(() => import("./pages/Success"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const DocumentationPage = lazy(
-  () => import("./pages/Documentation/DocumentationPage"),
-);
+const DocumentationPage = lazy(() => import("./pages/Documentation/DocumentationPage"));
 
 import CompleteProfilePage from "./pages/CompleteProfilePage";
 import "./App.css";
@@ -37,12 +35,7 @@ const RootRedirect = () => {
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  return (
-    <Navigate
-      to={user?.isProfileComplete ? "/dashboard" : "/complete-profile"}
-      replace
-    />
-  );
+  return <Navigate to={user?.isProfileComplete ? "/dashboard" : "/complete-profile"} replace />;
 };
 
 // Public routes (block logged-in users)
@@ -51,19 +44,12 @@ const PublicRoutes = () => {
 
   if (!isAuthenticated) return <Outlet />;
 
-  return (
-    <Navigate
-      to={user?.isProfileComplete ? "/dashboard" : "/complete-profile"}
-      replace
-    />
-  );
+  return <Navigate to={user?.isProfileComplete ? "/dashboard" : "/complete-profile"} replace />;
 };
 
 const App = () => {
   return (
-    <Suspense
-      fallback={<LoadingSpinner variant="route" label="Loading page..." />}
-    >
+    <Suspense fallback={<LoadingSpinner variant="route" label="Loading page..." />}>
       <Routes>
         {/* ROOT */}
         <Route path="/" element={<RootRedirect />} />
