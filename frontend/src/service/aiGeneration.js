@@ -27,6 +27,17 @@ const getApiError = async (response, endpoint) => {
 export const classifyGenerationError = (error) => {
   if (error instanceof AIGenerationError) return error;
 
+  if (error?.status === 429 || /rate limit|too many requests/i.test(error?.message || "")) {
+    return new AIGenerationError(
+      "rate_limit",
+      error.message || "Too many AI generation requests. Please try again later.",
+      {
+        retryable: true,
+        details: error,
+      }
+    );
+  }
+
   if (isNetworkError(error)) {
     return new AIGenerationError("connectivity", "We couldn't connect to the AI service. Please check your connection and try again.", {
       retryable: true,

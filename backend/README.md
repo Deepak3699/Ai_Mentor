@@ -240,3 +240,29 @@ The AI route (`/api/ai/generate-video`) implements a **cache-first** strategy:
 3. If the cache is valid → return immediately (no generation cost).
 4. If cache is stale/missing → call the Python AI service, then save the result to the DB.
 5. When the job completes and a Cloudinary URL is available, it is persisted to the `AIVideo` record for CDN serving.
+
+---
+
+## ⏱️ AI Generation Rate Limiting
+
+Expensive AI generation endpoints (`/api/ai/generate-video` and `/api/courses/:id/generate-syllabus`) enforce server-side, per-user rate limits to prevent provider quota exhaustion and protect server resources.
+
+### Configuration
+Limits are configured via environment variables with safe defaults:
+- `AI_RATE_LIMIT_WINDOW_MS`: Rate limit time window in milliseconds (default: `900000` = 15 minutes). Alternatively, specify `AI_RATE_LIMIT_WINDOW_MINUTES`.
+- `AI_RATE_LIMIT_MAX_REQUESTS`: Maximum requests allowed per user within the window (default: `5`).
+
+### Local Development & Testing
+- In local development, defaults allow 5 generation requests per 15 minutes per authenticated user.
+- In automated test suites, tests can customize `AI_RATE_LIMIT_WINDOW_MS` and `AI_RATE_LIMIT_MAX_REQUESTS` (or use `createAIRateLimiter({ windowMs, max })`) to verify limit enforcement and window resets without long sleeps.
+
+### Response Format
+When a user exceeds the limit, the server responds with HTTP `429 Too Many Requests` including standard `Retry-After: <seconds>` headers and a clear user-facing retry hint:
+```json
+{
+  "message": "Too many AI generation requests. Please try again in 15 minute(s).",
+  "error": "Too Many Requests",
+  "retryAfter": 900
+}
+```
+Rejected requests are intercepted before enqueueing BullMQ jobs or calling third-party AI providers. Unauthenticated requests are rejected with `401 Unauthorized` and cannot bypass rate limiting.

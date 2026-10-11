@@ -6,12 +6,13 @@ import { generateVideoSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
 import { getVideoQueue } from "../queues/videoQueue.js";
+import { aiGenerationLimiter } from "../middleware/aiRateLimiter.js";
 import dotenv from "dotenv";
 dotenv.config();
 
 const router = express.Router();
 
-router.post("/generate-video", protect, validate(generateVideoSchema), async (req, res) => {
+router.post("/generate-video", protect, aiGenerationLimiter, validate(generateVideoSchema), async (req, res) => {
   try {
     const { courseId, lessonId, celebrity, voice_id, speech_rate, speech_pitch } = req.body;
 

@@ -24,3 +24,5 @@ export const forgotLimiter = createLimiter(
   60,
   "Too many reset requests. Try later."
 );
+
+export { aiGenerationLimiter, createAIRateLimiter } from "./aiRateLimiter.js";
