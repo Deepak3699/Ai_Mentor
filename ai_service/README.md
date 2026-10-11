@@ -145,7 +145,7 @@ The video is looped silently and merged with the TTS audio.
 
 # From the ai_service/ directory:
 cd backend
-uvicorn api:app --reload --port 8000
+python graceful_server.py
 ```
 
 The service will be available at **http://localhost:8000**.
@@ -312,3 +312,17 @@ FastAPI auto-generates interactive API documentation:
 | `Cloudinary credentials missing` | All three Cloudinary vars (`CLOUD_NAME`, `API_KEY`, `API_SECRET`) must be set in `backend/.env`. |
 | PowerShell activation error | Run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` then try `.\venv\Scripts\Activate.ps1` again. |
 | Video status stays `processing` | Check the terminal for FFmpeg or TTS errors. Ensure the input celebrity video exists in `backend/input/`. |
+
+## Configuration Modes
+
+- **Required:** `GEMINI_API_KEY` — the primary AI provider.
+- **Optional:** `GROQ_API_KEY` — enables Groq fallback when configured. If omitted, Gemini remains the only AI provider.
+- **Optional:** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` — enables Cloudinary video hosting when all three are configured.
+- If Cloudinary is unavailable, generated videos remain available through the local-storage path.
+- The service can run in reduced mode without Groq and/or Cloudinary credentials. Startup configuration reports which optional integrations are enabled.
+
+### Development and Production Behavior
+
+For development, only `GEMINI_API_KEY` is required to start the AI service. Groq and Cloudinary can be omitted when their features are not needed.
+
+For production, configure Groq and Cloudinary when their fallback and cloud-hosting features are required. Missing optional credentials do not prevent the service from starting; the corresponding integration is disabled.

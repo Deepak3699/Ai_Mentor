@@ -1,9 +1,11 @@
 // backend/server.js
 import express from "express";
+import http from "node:http";
 import dotenv from "dotenv";
 import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
+import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB, sequelize } from "./config/db.js";
 
@@ -24,9 +26,9 @@ import preferenceRoutes from "./routes/preferenceRoutes.js";
 import contactUsRoutes from "./routes/contactus.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import docsRoutes from "./routes/docsRoutes.js";
-import helmet from "helmet";
 import chatRoutes from "./routes/chatRoutes.js";
 import assistantRoutes from "./routes/assistantRoutes.js";
+import CalendarTaskRoutes from "./routes/CalendarTaskRoutes.js";
 
 // ================= MODELS =================
 import "./models/CommunityPost.js";
@@ -38,6 +40,8 @@ import "./models/Contactmessage.js";
 dotenv.config();
 
 import { validateEnv } from "./env-validator.js";
+import { securityHeaders } from "./config/securityHeaders.js";
+
 validateEnv();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -45,19 +49,23 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// ================= MIDDLEWARE =================
-app.use(express.json());
-
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-  })
-);
-
 // ================= SECURE CORS =================
-const allowedOrigins = process.env.FRONTEND_URL
+const envOrigins = process.env.FRONTEND_URL
   ? process.env.FRONTEND_URL.split(",").map((origin) => origin.trim())
   : [];
+
+const defaultDevOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
+
+const allowedOrigins = Array.from(new Set([...envOrigins, ...defaultDevOrigins]));
+
+app.use(securityHeaders());
 
 app.use(
   cors({
@@ -71,12 +79,22 @@ app.use(
         return callback(null, true);
       }
 
+      // Allow any localhost/127.0.0.1 origin in development
+      if (process.env.NODE_ENV !== "production") {
+        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+          return callback(null, true);
+        }
+      }
+
       console.error(`❌ Blocked by CORS: ${origin}`);
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
   })
 );
+
+// ================= MIDDLEWARE =================
+app.use(express.json({ limit: "100kb" }));
 
 // ================= STATIC FILES =================
 app.use("/videos", express.static(path.join(__dirname, "videos")));
@@ -86,6 +104,8 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.get("/", (req, res) => {
   res.send("✅ API is running...");
 });
+
+app.use("/health", healthRoutes);
 
 // ================= API ROUTES =================
 app.use("/api/auth", authRoutes);
@@ -106,6 +126,7 @@ app.use("/api/course-reports", reportRoutes);
 app.use("/api/docs", docsRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/assistant", assistantRoutes);
+app.use("/api/calendar", CalendarTaskRoutes);
 
 // ================= 404 HANDLER =================
 app.use((req, res) => {
@@ -117,6 +138,20 @@ app.use((req, res) => {
 
 // ================= GLOBAL ERROR HANDLER =================
 app.use((err, req, res, next) => {
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({
+      success: false,
+      message: "Payload Too Large",
+    });
+  }
+
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid JSON",
+    });
+  }
+
   console.error("🔥 Global Error:", err);
 
   res.status(err.status || 500).json({
@@ -143,7 +178,13 @@ const startServer = async () => {
         : "✅ Database models synced"
     );
 
-    app.listen(PORT, () => {
+    const server = http.createServer(app);
+
+    server.requestTimeout = 120_000;
+    server.headersTimeout = 65_000;
+    server.keepAliveTimeout = 60_000;
+
+    server.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log("✅ Allowed Origins:", allowedOrigins);
     });
@@ -153,4 +194,8 @@ const startServer = async () => {
   }
 };
 
-startServer();
+if (process.env.NODE_ENV !== "test") {
+  startServer();
+}
+
+export default app;

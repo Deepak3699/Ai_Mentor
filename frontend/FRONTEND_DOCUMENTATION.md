@@ -55,6 +55,8 @@ API communication currently uses multiple request patterns rather than a single 
                     ┌──────────────────────┐
                     │    Backend API       │
                     └──────────────────────┘
+
+Administrators and super administrators do not use learner-frontend admin pages. When an authorized admin visits a learner `/admin` entry point, the learner app redirects the browser to the supported `frontendAdmin` application.
 ```
 
 ---
@@ -70,6 +72,7 @@ Frontend Application
  ├── Cloudinary Media URLs
  ├── FastAPI AI Video Service
  ├── PostgreSQL Data via Backend
+ ├── Frontend Admin application for admin workflows
  └── i18next Translation Engine
 ```
 
@@ -159,7 +162,7 @@ Responsibilities:
 
 * Configure frontend routes
 * Handle protected routes
-* Handle admin routes
+* Guard admin handoff routes
 * Render layouts
 * Redirect unauthorized users
 
@@ -175,7 +178,7 @@ The frontend uses React Router DOM.
 | ---------------- | --------------------------------- |
 | Public Routes    | Accessible without authentication |
 | Protected Routes | Require logged in user            |
-| Admin Routes     | Require admin privileges          |
+| Admin Handoff Routes | Require admin or superadmin privileges and redirect to `frontendAdmin` |
 
 ---
 
@@ -191,7 +194,7 @@ React Router
 ProtectedRoute / AdminRoute
        │
        ▼
-Page Component
+Page Component or frontendAdmin redirect
        │
        ▼
 API Requests + UI Rendering
