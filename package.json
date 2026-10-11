@@ -17,12 +17,15 @@
     "dev:user": "node scripts/dev-runner.cjs user",
     "dev:admin": "node scripts/dev-runner.cjs admin",
     "dev:backend-admin": "node scripts/dev-runner.cjs backend-admin",
-    "dev:frontend-admin": "node scripts/dev-runner.cjs frontend-admin"
+    "dev:frontend-admin": "node scripts/dev-runner.cjs frontend-admin",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "type": "commonjs",
   "devDependencies": {
     "cross-env": "^10.1.0",
     "husky": "^9.1.7",
-    "lint-staged": "^17.6.0"
+    "lint-staged": "^17.6.0",
+    "prettier": "3.9.10"
   }
 }

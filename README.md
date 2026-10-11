@@ -71,6 +71,17 @@ python graceful_server.py
 
 Runtime profile uploads are stored under `backend/uploads/` and are ignored by Git. Only `backend/uploads/.gitkeep` is tracked.
 
+## Code formatting
+
+The repository uses a project-local, exact version of Prettier so every developer and CI environment applies the same formatting rules.
+
+```bash
+npm run format
+npm run format:check
+```
+
+`npm run format` rewrites supported files. `npm run format:check` validates formatting without changing files. Generated output, dependencies, environment files, runtime uploads, and media artifacts are excluded through `.prettierignore`.
+
 ## Validation
 
 ```bash

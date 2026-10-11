@@ -52,6 +52,17 @@ python graceful_server.py
 
 `Ctrl+C` stops only processes started by the current runner. Reused services remain running in their original terminal.
 
+### Formatting
+
+Use the project-local Prettier installation before committing frontend, JavaScript, JSON, Markdown, CSS, or HTML changes:
+
+```bash
+npm run format
+npm run format:check
+```
+
+Do not use an unpinned global or temporary Prettier version. Keep functional changes separate from repository-wide formatting changes so pull-request diffs remain reviewable.
+
 ## How to work on a task
 
 ```bash
