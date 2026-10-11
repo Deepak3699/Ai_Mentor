@@ -907,11 +907,92 @@ const CoursesPage = () => {
 
 
 
-                            {myCourses.length === 0 && (
-                                <p className="text-slate-500">
-                                    {t("courses.not_enrolled")}
-                                </p>
-                            )}
+                          
+
+{myCourses.length === 0 && (
+  <div className="col-span-full flex w-full items-center justify-center px-3 py-10 sm:px-6 sm:py-14">
+    <div className="flex w-full max-w-2xl flex-col items-center rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center shadow-sm sm:px-10 sm:py-10">
+      {/* 3D-style books, graduation cap and sparkles */}
+      <div className="mb-5 flex w-full items-center justify-center">
+        <svg
+          viewBox="0 0 240 180"
+          className="h-36 w-48 max-w-full sm:h-44 sm:w-56"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <defs>
+            <linearGradient id="bookBlue" x1="45" y1="90" x2="115" y2="145" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#60A5FA" />
+              <stop offset="1" stopColor="#2563EB" />
+            </linearGradient>
+            <linearGradient id="bookPurple" x1="125" y1="105" x2="190" y2="145" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#C4B5FD" />
+              <stop offset="1" stopColor="#7C3AED" />
+            </linearGradient>
+            <linearGradient id="bookGold" x1="65" y1="125" x2="165" y2="160" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#FDE68A" />
+              <stop offset="1" stopColor="#F59E0B" />
+            </linearGradient>
+            <linearGradient id="capTop" x1="80" y1="35" x2="165" y2="75" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#475569" />
+              <stop offset="1" stopColor="#0F172A" />
+            </linearGradient>
+          </defs>
+
+          <circle cx="120" cy="95" r="65" fill="#EFF6FF" />
+          <path d="M30 48L34 38L38 48L48 52L38 56L34 66L30 56L20 52L30 48Z" fill="#FBBF24" />
+          <path d="M193 37L196 30L199 37L206 40L199 43L196 50L193 43L186 40L193 37Z" fill="#FBBF24" />
+          <path d="M199 99L201 94L203 99L208 101L203 103L201 108L199 103L194 101L199 99Z" fill="#F59E0B" />
+          <path d="M51 81L54 75L57 81L63 84L57 87L54 93L51 87L45 84L51 81Z" fill="#93C5FD" />
+
+          {/* Bottom book */}
+          <path d="M48 126L117 108L188 129L117 151L48 132Z" fill="url(#bookGold)" />
+          <path d="M48 126L117 144L117 151L48 132Z" fill="#D97706" />
+          <path d="M117 144L188 129L188 136L117 151Z" fill="#FBBF24" />
+          <path d="M59 129L117 144L177 131" stroke="#FFF7ED" strokeWidth="2" />
+
+          {/* Middle book */}
+          <path d="M57 108L121 91L181 109L117 129Z" fill="url(#bookPurple)" />
+          <path d="M57 108L117 122L117 129L57 115Z" fill="#6D28D9" />
+          <path d="M117 122L181 109L181 116L117 129Z" fill="#8B5CF6" />
+          <path d="M69 109L117 122L168 110" stroke="#EDE9FE" strokeWidth="2" />
+
+          {/* Top book */}
+          <path d="M66 91L122 76L172 92L116 109Z" fill="url(#bookBlue)" />
+          <path d="M66 91L116 102L116 109L66 98Z" fill="#1D4ED8" />
+          <path d="M116 102L172 92L172 99L116 109Z" fill="#3B82F6" />
+          <path d="M76 92L116 102L161 93" stroke="#DBEAFE" strokeWidth="2" />
+
+          {/* Graduation cap */}
+          <path d="M76 52L121 34L166 52L121 70Z" fill="url(#capTop)" />
+          <path d="M94 59L94 70C110 81 132 81 148 70V59L121 70Z" fill="#334155" />
+          <path d="M166 52V69" stroke="#FBBF24" strokeWidth="3" strokeLinecap="round" />
+          <circle cx="166" cy="71" r="4" fill="#FBBF24" />
+          <path d="M121 34L166 52L121 70L76 52Z" stroke="#64748B" strokeWidth="1" />
+        </svg>
+      </div>
+
+      <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">
+        You haven't enrolled in any courses yet.
+      </h2>
+
+      <p className="mt-3 max-w-md text-sm leading-6 text-slate-500 sm:text-base">
+        Explore our wide range of courses and start your learning journey today.
+      </p>
+
+      <button
+        type="button"
+        onClick={() => setActiveTab("explore")}
+        className="mt-6 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      >
+        Browse Courses <span aria-hidden="true">→</span>
+      </button>
+    </div>
+  </div>
+)}
+
+
                             {myCourses.length > 0 && filteredMyCourses.length === 0 && (
                                 <p className="text-slate-500 col-span-full">
                                     {t("courses.no_match_filters")}
