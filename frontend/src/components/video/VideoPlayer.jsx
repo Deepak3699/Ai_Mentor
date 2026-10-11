@@ -79,7 +79,7 @@ const VideoPlayer = ({
     } else {
       v.pause();
     }
-  }, [isPlaying, aiVideoUrl]);
+  }, [isPlaying, aiVideoUrl, videoRef]);
 
   // Unified loading state
   const showLoading = isAIVideoLoading || isBuffering;
