@@ -8,8 +8,14 @@ import React, {
   useRef,
 } from "react";
 import { signOut } from "firebase/auth";
-import { auth } from "../firebase.js"; 
-import { apiFetch, SESSION_EXPIRED_EVENT } from "../lib/api";
+import { auth } from "../firebase.js";
+import API_BASE_URL, { apiFetch, SESSION_EXPIRED_EVENT } from "../lib/api";
+
+const normalizeAvatarUrl = (avatarUrl) => {
+  if (!avatarUrl || typeof avatarUrl !== "string") return null;
+  if (/^(https?:|data:|blob:)/i.test(avatarUrl)) return avatarUrl;
+  return `${API_BASE_URL.replace(/\/$/, "")}/${avatarUrl.replace(/^\//, "")}`;
+};
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -33,11 +39,14 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       hasFetchedProfile.current = false;
       if (auth) signOut(auth).catch(console.error);
-      toast.error("Session expired. Please log in again.", { id: "session-expired" });
+      toast.error("Session expired. Please log in again.", {
+        id: "session-expired",
+      });
       navigate("/login", { replace: true });
     };
     window.addEventListener(SESSION_EXPIRED_EVENT, expireSession);
-    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession);
+    return () =>
+      window.removeEventListener(SESSION_EXPIRED_EVENT, expireSession);
   }, [navigate]);
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     const token = localStorage.getItem("token");
@@ -73,7 +82,7 @@ export const AuthProvider = ({ children }) => {
     const newUser = {
       ...userData,
       token: userData.token || localStorage.getItem("token"),
-      avatar_url: userData.avatar_url || null,
+      avatar_url: normalizeAvatarUrl(userData.avatar_url),
       isProfileComplete: userData.isProfileComplete ?? false,
       isGoogleUser: (userData.isGoogleUser || !!userData.googleId) ?? false,
       googleId: userData.googleId ?? null,
@@ -100,18 +109,19 @@ export const AuthProvider = ({ children }) => {
       const newUser = {
         ...userData,
         token: localStorage.getItem("token"),
-        avatar_url: userData.avatar_url || null,
+        avatar_url: normalizeAvatarUrl(userData.avatar_url),
         isProfileComplete: userData.isProfileComplete ?? false,
         isGoogleUser: userData.isGoogleUser ?? false,
         googleId: userData.googleId ?? null,
         hasPassword: userData.hasPassword ?? false,
       };
 
-      setUser(prev => {
+      setUser((prev) => {
         if (JSON.stringify(prev) === JSON.stringify(newUser)) return prev;
         localStorage.setItem("user", JSON.stringify(newUser));
         return newUser;
       });
+      return newUser;
     } catch (error) {
       console.error("Error fetching user profile:", error);
     }
@@ -176,6 +186,10 @@ export const AuthProvider = ({ children }) => {
       const newUser = {
         ...prevUser,
         ...updatedUserData,
+        avatar_url:
+          updatedUserData?.avatar_url !== undefined
+            ? normalizeAvatarUrl(updatedUserData.avatar_url)
+            : prevUser?.avatar_url || null,
         settings: {
           ...prevUser?.settings,
           ...updatedUserData?.settings,

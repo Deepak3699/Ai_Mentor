@@ -5,10 +5,13 @@ import Notifications from "../models/Notification.js";
 import jwt from "jsonwebtoken";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
-import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
+import path from "path";
+import {
+  ensureProfileCompleteness,
+  formatFullName,
+} from "../utils/userUtils.js";
 import { createNotification } from "./notificationController.js";
 import { sequelize } from "../config/db.js";
-
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -186,7 +189,7 @@ const purchaseCourse = async (req, res) => {
 
     // Prevent duplicate enrollment
     const alreadyPurchased = purchasedCourses.some(
-      (c) => Number(c.courseId) === Number(courseId)
+      (c) => Number(c.courseId) === Number(courseId),
     );
 
     if (alreadyPurchased) {
@@ -239,7 +242,7 @@ const updateCourseProgress = async (req, res) => {
 
     let courses = [...(user.purchasedCourses || [])];
     let courseIndex = courses.findIndex(
-      (c) => Number(c.courseId) === Number(courseId)
+      (c) => Number(c.courseId) === Number(courseId),
     );
 
     if (courseIndex !== -1) {
@@ -265,7 +268,7 @@ const updateCourseProgress = async (req, res) => {
       if (
         completedLesson &&
         !progress.completedLessons.some(
-          (l) => l.lessonId === completedLesson.lessonId
+          (l) => l.lessonId === completedLesson.lessonId,
         )
       ) {
         progress.completedLessons.push(completedLesson);
@@ -324,28 +327,26 @@ const getWatchedVideos = async (req, res) => {
 
         const watchHistory = lesson.watchHistory;
 
-       const safeProgress = Number(
-           Math.max(
-                    0,
-                     Math.min(100, watchHistory.progressPercent || 0)
-                  ).toFixed(1)
-          );
-watchedVideos.push({
-  lessonId,
-  courseId: course.courseId,
-  course: course.courseTitle || "Course",
-  title: watchHistory.title || "Untitled Lesson",
-  thumbnail: watchHistory.thumbnail,
-  progress: Number(safeProgress.toFixed(1)),
-  currentTime: watchHistory.currentTime || 0,
-  duration: watchHistory.duration || 0,
-  formattedDuration:
-    watchHistory.formattedDuration || "0:00",
-  lastWatched: watchHistory.lastWatched,
-  status: watchHistory.status || "in-progress",
-});
+        const safeProgress = Number(
+          Math.max(0, Math.min(100, watchHistory.progressPercent || 0)).toFixed(
+            1,
+          ),
+        );
+        watchedVideos.push({
+          lessonId,
+          courseId: course.courseId,
+          course: course.courseTitle || "Course",
+          title: watchHistory.title || "Untitled Lesson",
+          thumbnail: watchHistory.thumbnail,
+          progress: Number(safeProgress.toFixed(1)),
+          currentTime: watchHistory.currentTime || 0,
+          duration: watchHistory.duration || 0,
+          formattedDuration: watchHistory.formattedDuration || "0:00",
+          lastWatched: watchHistory.lastWatched,
+          status: watchHistory.status || "in-progress",
+        });
 
-       if (!uniqueCourses.includes(course.courseId)) {
+        if (!uniqueCourses.includes(course.courseId)) {
           uniqueCourses.push(course.courseId);
         }
 
@@ -353,11 +354,8 @@ watchedVideos.push({
           totalSeconds += watchHistory.currentTime;
         }
 
-        if (
-             watchHistory.status === "completed" ||
-            safeProgress >= 80
-          ) {
-         completedCount++;
+        if (watchHistory.status === "completed" || safeProgress >= 80) {
+          completedCount++;
         }
       });
     });
@@ -372,9 +370,7 @@ watchedVideos.push({
     });
 
     const avgSeconds =
-      watchedVideos.length > 0
-        ? totalSeconds / watchedVideos.length
-        : 0;
+      watchedVideos.length > 0 ? totalSeconds / watchedVideos.length : 0;
 
     const avgMinutes = Math.floor(avgSeconds / 60);
     const avgRemainingSeconds = Math.floor(avgSeconds % 60);
@@ -449,6 +445,53 @@ const updateUserSettings = async (req, res) => {
   }
 };
 
+const removeProfileAvatar = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const previousAvatar = user.avatar_url;
+    if (previousAvatar?.startsWith("/uploads/")) {
+      const filename = path.basename(previousAvatar);
+      const uploadRoot = path.resolve("uploads");
+      const avatarPath = path.resolve(uploadRoot, filename);
+      if (path.dirname(avatarPath) !== uploadRoot) {
+        return res.status(400).json({ message: "Invalid avatar path" });
+      }
+      try {
+        await fs.promises.unlink(avatarPath);
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+    }
+
+    user.avatar_url = null;
+    await user.save();
+    return res.status(200).json({
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      bio: user.bio,
+      avatar_url: null,
+      isProfileComplete: user.isProfileComplete,
+      isGoogleUser: !!user.googleId,
+      hasPassword: !!user.password,
+      purchasedCourses: user.purchasedCourses,
+    });
+  } catch (error) {
+    console.error("REMOVE PROFILE AVATAR ERROR:", error);
+    return res.status(500).json({ message: "Failed to remove profile photo" });
+  }
+};
+
 const updateUserProfile = async (req, res) => {
   try {
     if (!req.user) {
@@ -462,7 +505,7 @@ const updateUserProfile = async (req, res) => {
 
     // Avatar Upload Handling
     if (req.file) {
-  user.avatar_url = `/uploads/${req.file.filename}`;
+      user.avatar_url = `/uploads/${req.file.filename}`;
     }
 
     // Update text fields
@@ -470,23 +513,22 @@ const updateUserProfile = async (req, res) => {
     user.lastName = req.body.lastName ?? user.lastName;
     user.name = formatFullName(user.firstName, user.lastName);
     // Check email change
-if (
-  req.body.email &&
-  req.body.email.trim().toLowerCase() !==
-    user.email.trim().toLowerCase()
-) {
-  const emailExists = await User.findOne({
-    where: {
-      email: req.body.email.trim().toLowerCase(),
-    },
-  });
-  if (emailExists) {
-    return res.status(400).json({
-      message: "Email already in use",
-    });
-  }
-  user.email = req.body.email.trim().toLowerCase();
-}
+    if (
+      req.body.email &&
+      req.body.email.trim().toLowerCase() !== user.email.trim().toLowerCase()
+    ) {
+      const emailExists = await User.findOne({
+        where: {
+          email: req.body.email.trim().toLowerCase(),
+        },
+      });
+      if (emailExists) {
+        return res.status(400).json({
+          message: "Email already in use",
+        });
+      }
+      user.email = req.body.email.trim().toLowerCase();
+    }
     user.bio = req.body.bio ?? user.bio;
 
     await user.save();
@@ -520,7 +562,7 @@ const removePurchasedCourse = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     user.purchasedCourses = user.purchasedCourses.filter(
-      (c) => Number(c.courseId) !== Number(courseId)
+      (c) => Number(c.courseId) !== Number(courseId),
     );
 
     await user.save();
@@ -598,10 +640,10 @@ const completeProfile = async (req, res) => {
     const { firstName, lastName, password, bio } = req.body;
 
     // Apply missing fields if provided
-    if (firstName && firstName.trim() !== '') {
+    if (firstName && firstName.trim() !== "") {
       user.firstName = firstName;
     }
-    if (lastName && lastName.trim() !== '') {
+    if (lastName && lastName.trim() !== "") {
       user.lastName = lastName;
     }
     if (user.firstName || user.lastName) {
@@ -620,13 +662,13 @@ const completeProfile = async (req, res) => {
 
     // Avatar upload via Cloudinary (required if not already set)
     // Store image locally instead of Cloudinary
-if (req.file) {
-  user.avatar_url = `/uploads/${req.file.filename}`;
-} else if (!user.avatar_url) {
-  return res.status(400).json({
-    message: "Profile photo is required",
-  });
-}
+    if (req.file) {
+      user.avatar_url = `/uploads/${req.file.filename}`;
+    } else if (!user.avatar_url) {
+      return res.status(400).json({
+        message: "Profile photo is required",
+      });
+    }
 
     user.isProfileComplete = true; // Temporary flag to trigger save check
     await user.save();
@@ -642,7 +684,7 @@ if (req.file) {
 
       return res.status(400).json({
         message: `Profile is still incomplete. Missing: ${missingFields.join(", ")}`,
-        missingFields
+        missingFields,
       });
     }
 
@@ -664,13 +706,13 @@ if (req.file) {
   } catch (error) {
     console.error("COMPLETE PROFILE ERROR:", error);
 
-  res.status(500).json({
-    success: false,
-    message: error.message,
-    error: error,
-  });
-}
-}
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      error: error,
+    });
+  }
+};
 
 // EXPORTS
 export {
@@ -683,6 +725,7 @@ export {
   getWatchedVideos,
   updateUserSettings,
   updateUserProfile,
+  removeProfileAvatar,
   removePurchasedCourse,
   deleteAccount,
   changePassword,
