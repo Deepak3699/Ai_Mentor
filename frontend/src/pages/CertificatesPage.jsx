@@ -431,7 +431,11 @@ const CertificatesPage = () => {
                         >
                           {downloadingId === course.courseId ? (
                             <>
-                              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              <LoadingSpinner
+                                variant="compact"
+                                light
+                                label="Generating certificate"
+                              />
                               {t("certificates.generating")}
                             </>
                           ) : (
@@ -467,7 +471,7 @@ const CertificatesPage = () => {
       {/* ── Full-Screen Certificate Preview Modal ── */}
       {showPreview && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 ui-overlay-motion"
           style={{ background: "rgba(10,10,30,0.85)", backdropFilter: "blur(12px)" }}
           onClick={() => setShowPreview(false)}
         >
@@ -707,7 +711,7 @@ const CertificatesPage = () => {
       )}
 
       {showNameModal && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-[#1f2937] shadow-2xl border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -752,7 +756,7 @@ const CertificatesPage = () => {
             >
               {downloadingId === selectedCourse?.courseId ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <LoadingSpinner variant="compact" light label="Generating certificate" />
                   Generating PDF...
                 </>
               ) : (

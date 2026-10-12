@@ -847,3 +847,193 @@ body,
 .settings-page button {
   min-height: 40px;
 }
+
+/* MODERN COURSES EXPERIENCE */
+.courses-modern-page {
+  container-type: inline-size;
+}
+
+.courses-modern-page [role="dialog"],
+.courses-modern-page aside[aria-label="Course filters"] {
+  animation: courses-surface-in 180ms ease-out;
+}
+
+@keyframes courses-surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 1023px) {
+  .courses-modern-page aside[aria-label="Course filters"] {
+    animation-name: courses-sheet-in;
+  }
+}
+
+@keyframes courses-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* SHARED OVERLAY MOTION */
+.ui-overlay-motion {
+  animation: ui-overlay-in 180ms ease-out both;
+}
+.ui-overlay {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.ui-overlay.is-open {
+  opacity: 1;
+}
+.ui-overlay.is-closing {
+  opacity: 0;
+  pointer-events: none;
+}
+.ui-modal-surface,
+[data-motion-surface],
+.ui-popover-surface {
+  transform-origin: top center;
+  animation: ui-surface-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.ui-overlay.is-closing .ui-modal-surface {
+  animation: ui-surface-out 180ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+@keyframes ui-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ui-surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes ui-surface-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-overlay-motion,
+  .ui-overlay,
+  .ui-modal-surface,
+  [data-motion-surface],
+  .ui-popover-surface,
+  .ui-overlay.is-closing .ui-modal-surface {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* MODERN LEARNER DASHBOARD */
+.dashboard-summary-card,
+.dashboard-course-card {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+.dashboard-summary-card:hover,
+.dashboard-course-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, #3867d6 38%, var(--color-border));
+  box-shadow: 0 16px 34px rgb(15 23 42 / 0.11);
+}
+.dashboard-summary-icon {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 0.9rem;
+}
+.dashboard-summary-icon--blue {
+  background: rgb(59 130 246 / 0.13);
+  color: #3867d6;
+}
+.dashboard-summary-icon--emerald {
+  background: rgb(16 185 129 / 0.13);
+  color: #10b981;
+}
+.dashboard-summary-icon--violet {
+  background: rgb(139 92 246 / 0.13);
+  color: #8b5cf6;
+}
+.dashboard-summary-icon--amber {
+  background: rgb(245 158 11 / 0.15);
+  color: #f59e0b;
+}
+.dashboard-icon-button {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 0.8rem;
+  background: var(--color-card);
+  color: var(--color-text-main);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+.dashboard-icon-button:hover {
+  border-color: #3867d6;
+  background: rgb(56 103 214 / 0.1);
+  color: #3867d6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-summary-card,
+  .dashboard-course-card {
+    transition: none;
+  }
+}
+
+/* DASHBOARD FINAL POLISH */
+@media (min-width: 1024px) {
+  .app-route-scroll .dashboard-content-scroll {
+    padding-right: 1.5rem;
+  }
+
+  .dashboard-course-slider {
+    padding-right: 4.25rem;
+    scroll-padding-right: 4.25rem;
+  }
+}
+
+/* DASHBOARD ASSISTANT SAFE ZONE */
+.dashboard-empty-chart__plot::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 1.35rem;
+  background: repeating-linear-gradient(
+    to top,
+    transparent 0 27px,
+    color-mix(in srgb, var(--color-border) 48%, transparent) 28px 29px
+  );
+  pointer-events: none;
+}

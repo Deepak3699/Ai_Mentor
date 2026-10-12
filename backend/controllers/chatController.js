@@ -106,14 +106,20 @@ export const chatWithAssistant = async (req, res) => {
 
       return res.json({
         reply: `
-        Learning Goal: ${preferences.learning_goal}
+        Learning Goal: ${preferences.learning_goal || "Unknown"}
 
-        Experience Level: ${preferences.experience_level}
+        Experience Level: ${preferences.experience_level || "Unknown"}
+        
+        Explanation Type: ${preferences.explanation_type || "Unknown"}
 
-        Learning Style: ${preferences.learning_style}
+        Learning Style: ${preferences.learning_style || "Unknown"}
 
-        Weekly Commitment: ${preferences.weekly_commitment}
-                `,
+        Teaching Pace: ${preferences.teaching_pace || "Unknown"}
+
+        Example Type: ${preferences.example_type || "Unknown"}
+
+        Focus Area: ${preferences.focus_area || "Unknown"}
+        `,
       });
     }
 
