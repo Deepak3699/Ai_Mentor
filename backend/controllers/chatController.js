@@ -177,9 +177,7 @@ export const chatWithAssistant = async (req, res) => {
 
         completedLessons += completed;
 
-        courseProgress.push(
-          `${course.courseTitle}: ${completed} completed lessons`,
-        );
+        courseProgress.push(`${course.courseTitle}: ${completed} completed lessons`);
       });
 
       return res.json({
@@ -227,4 +225,3 @@ export const chatWithAssistant = async (req, res) => {
     });
   }
 };
-
