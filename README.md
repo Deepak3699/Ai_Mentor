@@ -1,148 +1,325 @@
-# AI Mentor — Learning Platform
+<div align="center">
+  <img src="./docs/images/uptoskills-logo.png" alt="UptoSkills" width="220" />
 
-An AI-powered learning management system with course management, analytics, community discussions, and AI-generated video lessons.
+  <h1>AI Mentor</h1>
 
-## Features
+  <p><strong>Learn smarter · Manage better · Build with AI</strong></p>
 
-- 📚 Course Management & Purchasing
-- 📊 Learning Analytics
-- 💬 Community Discussions
-- 🔐 User Authentication (JWT + Google OAuth)
-- 🤖 AI-Generated Lesson Videos (Gemini + TTS + FFmpeg)
+  <p>
+    A multi-service learning platform for learners and administrators, combining course discovery,
+    AI-assisted lessons, analytics, community discussions, payments, and platform management.
+  </p>
 
-## Tech Stack
+  <p>
+    <a href="#quick-start"><strong>Quick Start</strong></a> ·
+    <a href="#architecture"><strong>Architecture</strong></a> ·
+    <a href="#documentation"><strong>Documentation</strong></a> ·
+    <a href="#contributing"><strong>Contributing</strong></a>
+  </p>
 
-- **Frontend**: React 19 + Vite + Tailwind CSS
-- **Backend**: Node.js + Express + Sequelize
-- **Database**: PostgreSQL
-- **AI Service**: Python + FastAPI + Google Gemini
-- **Auth**: Firebase (Google OAuth) + JWT
+  <p>
+    <a href="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/ci.yml"><img src="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+    <a href="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/code-review.yml"><img src="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/code-review.yml/badge.svg" alt="Code Review" /></a>
+    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-20%20CI-339933?logo=node.js&logoColor=white" alt="Node.js 20 CI" /></a>
+    <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111" alt="React 19" /></a>
+    <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%20CI-3776AB?logo=python&logoColor=white" alt="Python 3.11 CI" /></a>
+    <a href="https://prettier.io/"><img src="https://img.shields.io/badge/code_style-Prettier-F7B93E?logo=prettier&logoColor=111" alt="Prettier" /></a>
+  </p>
+</div>
+
+<p align="center">
+  <img src="./docs/images/learner-dashboard-dark.png" alt="AI Mentor learner dashboard in dark mode" width="49%" />
+  <img src="./docs/images/learner-dashboard-light.png" alt="AI Mentor learner dashboard in light mode" width="49%" />
+</p>
+
+## Table of contents
+
+- [Platform overview](#platform-overview)
+- [Key capabilities](#key-capabilities)
+- [Architecture](#architecture)
+- [Applications and local ports](#applications-and-local-ports)
+- [Technology stack](#technology-stack)
+- [Repository structure](#repository-structure)
+- [Prerequisites](#prerequisites)
+- [Quick start](#quick-start)
+- [Environment configuration](#environment-configuration)
+- [Development commands](#development-commands)
+- [Quality and validation](#quality-and-validation)
+- [Continuous integration](#continuous-integration)
+- [Security](#security)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [Project context](#project-context)
+
+## Platform overview
+
+AI Mentor is organized as five cooperating services:
+
+1. The learner web application provides authentication, courses, AI lessons, analytics, discussions, settings, and purchasing workflows.
+2. The user API manages authentication, user data, courses, payments, community features, analytics, notifications, and communication with the AI service.
+3. The administrator web application provides management interfaces for courses, users, enrollments, payments, reports, notifications, and platform analytics.
+4. The administrator API provides protected administrative and super-administrator operations over the shared platform data.
+5. The Python AI service generates lesson content, audio, video, transcripts, and AI-generated course syllabi.
+
+The user and administrator APIs share the same PostgreSQL database. The Node.js user API acts as the application-facing bridge to the Python AI service.
+
+## Key capabilities
+
+### Learner experience
+
+- Email/password authentication and Firebase Google sign-in
+- Password recovery and account management
+- Course catalog, previews, purchases, and enrolled-course access
+- AI-generated lesson videos with job-status polling and transcript access
+- Learning analytics and watched-video history
+- Community discussions, reports, and notifications
+- Theme preferences and multilingual interface support
+- Stripe and Razorpay integration points for course payments
+
+### Administration
+
+- Administrator and super-administrator authentication
+- Course creation, publication state management, enrollment views, and AI syllabus generation
+- User account status, blocking, and deletion controls
+- Enrollment and payment reporting
+- Community moderation and report handling
+- Administrative notifications, profile settings, and dashboard analytics
+- Export-oriented frontend dependencies for spreadsheet, CSV, and PDF workflows
+
+### AI lesson service
+
+- Gemini-based lesson and syllabus generation
+- Optional Groq fallback for syllabus generation
+- Text-to-speech generation
+- FFmpeg video composition
+- Optional Cloudinary delivery with local-storage fallback
+- FastAPI endpoints for generation, status, transcripts, streaming, and syllabus creation
+
+## Architecture
+
+```text
+Learner browser (:5173) ──> User API (:5000) ───────┐
+                                                     ├──> PostgreSQL
+Admin browser (:5174) ───> Admin API (:5001) ───────┘
+                                  │
+User API / Admin API ─────────────┴──> AI service (:8000)
+                                          │
+                         Gemini / Groq / TTS / FFmpeg
+                                          │
+                              Cloudinary or local output
+```
+
+The root development runner coordinates the four Node.js and React services. It starts frontends only after their matching APIs are healthy, reuses services already running, and stops only processes started by the current terminal. The Python AI service runs separately.
+
+## Applications and local ports
+
+| Application | Directory             | Local URL               | Purpose                                |
+| ----------- | --------------------- | ----------------------- | -------------------------------------- |
+| Learner web | `frontend/`           | `http://localhost:5173` | Learner-facing React application       |
+| User API    | `backend/`            | `http://localhost:5000` | Main Express API and AI-service proxy  |
+| Admin web   | `frontendAdmin/`      | `http://localhost:5174` | Administrative React application       |
+| Admin API   | `backendAdmin/`       | `http://localhost:5001` | Protected management API               |
+| AI service  | `ai_service/backend/` | `http://localhost:8000` | FastAPI AI lesson and syllabus service |
+
+## Technology stack
+
+| Area                      | Technologies                                                                            |
+| ------------------------- | --------------------------------------------------------------------------------------- |
+| Learner frontend          | React 19, Vite 7, Tailwind CSS 4, React Router, Axios, Firebase, i18next, Recharts      |
+| Admin frontend            | React 19, Vite 7, Tailwind CSS 4, React Router, Axios, Vitest                           |
+| User API                  | Node.js, Express 5, Sequelize 6, PostgreSQL, JWT, Firebase Admin, Zod                   |
+| Admin API                 | Node.js, Express 5, Sequelize 6, PostgreSQL, JWT, Zod                                   |
+| AI service                | Python, FastAPI, Uvicorn, Gemini, Groq, text-to-speech, FFmpeg, Cloudinary              |
+| Payments                  | Stripe and Razorpay integrations                                                        |
+| Queues and infrastructure | BullMQ, Redis, Cloudinary, Neon-compatible PostgreSQL                                   |
+| Quality tooling           | ESLint, Prettier 3.9.10, Husky, lint-staged, Vitest, Node test runner, pytest, gitleaks |
+
+## Repository structure
+
+```text
+Ai_Mentor/
+├── .github/                 GitHub templates and CI workflows
+├── ai_service/              Python FastAPI AI generation service
+├── backend/                 Learner-facing Node.js API
+├── backendAdmin/            Administrative Node.js API
+├── frontend/                Learner React application
+├── frontendAdmin/           Administrator React application
+├── scripts/                 Root dependency installer and development runner
+├── CONTRIBUTING.md          Contribution and security workflow
+├── initalSetup.md           First-time environment setup
+├── package.json             Root commands and development tooling
+└── README.md                Repository overview
+```
 
 ## Prerequisites
 
-- Node.js v18+
-- PostgreSQL v14+
-- Python 3.10+
-- FFmpeg
-- Redis (Local or Upstash Cloud)
-- npm
+Install the following before setting up the repository:
 
-## Quick Start
+- Node.js 18 or newer. GitHub CI currently uses Node.js 20.
+- npm
+- Python 3.10 or newer. GitHub CI currently uses Python 3.11.
+- PostgreSQL, or a hosted PostgreSQL provider such as Neon
+- Redis for queue-backed backend functionality
+- FFmpeg for AI video generation
+- Git
+
+## Quick start
 
 ### 1. Clone the repository
+
 ```bash
-git clone <repository-url>
-cd AI-Mentor-Updated
+git clone https://github.com/Deepak3699/Ai_Mentor.git
+cd Ai_Mentor
 ```
 
-### 2. Setup Backend
+Contributors should clone their own fork and follow [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+### 2. Configure environment files
+
+Create local `.env` files from the templates for each service that you intend to run:
+
+```text
+backend/.env.example                  -> backend/.env
+backendAdmin/.env.example             -> backendAdmin/.env
+frontend/.env.example                 -> frontend/.env
+frontendAdmin/.env.example            -> frontendAdmin/.env
+ai_service/backend/.env.example       -> ai_service/backend/.env
+```
+
+Use [`initalSetup.md`](./initalSetup.md) for the complete first-time setup. Never commit `.env` files or credentials.
+
+### 3. Install dependencies
+
+From the repository root:
+
 ```bash
-cd backend
-npm install
-cp .env.example .env
-# Fill in your database credentials and secrets in .env
+npm run setup
+```
+
+The setup command installs root, backend, frontend, backend-admin, and frontend-admin Node dependencies. It also installs the Python AI-service requirements. Existing environment files are not created, changed, or printed.
+
+### 4. Start the Node.js and React applications
+
+```bash
 npm run dev
 ```
-> See [`backend/README.md`](./backend/README.md) for full setup guide.
 
-### 3. Setup Frontend
-```bash
-cd frontend
-npm install
-cp .env.example .env
-# Fill in your Firebase credentials in .env
-npm run dev
-```
-> See [`frontend/README.md`](./frontend/README.md) for full setup guide.
+This starts the user API, learner web application, admin API, and admin web application through the root development runner.
 
-### 4. Setup AI Service
-```bash
-cd ai_service
-python -m venv venv
-.\venv\Scripts\activate   # Windows
-pip install -r backend/requirements.txt
-cp backend/.env.example backend/.env
-# Fill in Gemini and Cloudinary keys in .env
-cd backend
-uvicorn api:app --reload --port 8000
-```
-> See [`ai_service/README.md`](./ai_service/README.md) for full setup guide.
-
-### 5. Setup ESLint
-
-At the frontendAdmin and root directory run:
-```bash
-npm install
-```
-
-At  the root directory run the following command:
-```bash
-npm run lint
-```
-This will run ESLint on all three following services:
-```bash
-cd backend
-npm run lint
-cd frontend
-npm run lint
-cd frontendAdmin
-npm run lint
-```
-
-To run ESLint on a specific file:
-```bash
-cd directory_name
-npx eslint path/to/file.js
-```
-For example:
-```bash
-cd backend
-npx eslint server.js
-```
-Some extensions like ESLint and Error Lens are recommended to be installed in code editor for better visibility of errors.
-
-## Environment Variables
-
-Each service has its own `.env` file. Copy the `.env.example` in each folder and fill in your values.
-
-| Service | Key variables |
-|---|---|
-| `backend/` | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `AI_SERVICE_URL`, `REDIS_HOST`, `REDIS_PORT` |
-| `frontend/` | `VITE_API_BASE_URL`, `VITE_FIREBASE_*` |
-| `ai_service/backend/` | `GEMINI_API_KEY`, `CLOUDINARY_*` |
-
-## Running the Application
-
-Start all three services in separate terminals:
+### 5. Start the AI service separately
 
 ```bash
-# Terminal 1 — Backend API
-cd backend && npm run dev
-
-# Terminal 2 — Frontend
-cd frontend && npm run dev
-
-# Terminal 3 — AI Service
-
-cd ai_service && .\venv\Scripts\activate && cd backend && uvicorn api:app --reload --port 8000
-
-OR 
-
-.\start_ai.bat
-
+cd ai_service/backend
+python graceful_server.py
 ```
 
-Then open **http://localhost:5173** in your browser.
+The AI service is available on `http://localhost:8000`. Interactive FastAPI documentation is available at `http://localhost:8000/docs` while the service is running.
 
-## Project Structure
+## Environment configuration
 
+The following table summarizes the main variable groups. Use the committed `.env.example` files as the source of truth.
+
+| Service               | Main configuration groups                                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend/`            | Server port, JWT, PostgreSQL TLS/pool, AI service, frontend URL, SMTP, Firebase Admin, Cloudinary, Stripe, Razorpay, super-admin seed values |
+| `backendAdmin/`       | Server port, admin frontend URL, JWT, shared PostgreSQL connection, TLS, optional local database values, super-admin seed values             |
+| `frontend/`           | User API URL, Firebase web configuration, Stripe publishable key, Razorpay key ID                                                            |
+| `frontendAdmin/`      | Admin API base URL                                                                                                                           |
+| `ai_service/backend/` | Gemini and model, optional Groq fallback, optional Cloudinary storage, D-ID configuration                                                    |
+
+Both Node.js APIs must point to the same PostgreSQL database. For production database connections, follow the TLS requirements documented in the environment templates.
+
+## Development commands
+
+Run root commands from the repository root.
+
+| Command                      | Purpose                                                            |
+| ---------------------------- | ------------------------------------------------------------------ |
+| `npm run setup`              | Install dependencies for all detected services                     |
+| `npm run dev`                | Start user and admin API/web applications                          |
+| `npm run dev:user`           | Start the user API and learner web application                     |
+| `npm run dev:admin`          | Start the admin API and admin web application                      |
+| `npm run dev:backend`        | Start only the user API                                            |
+| `npm run dev:frontend`       | Start only the learner web application after checking the user API |
+| `npm run dev:backend-admin`  | Start only the admin API                                           |
+| `npm run dev:frontend-admin` | Start only the admin web application after checking the admin API  |
+| `npm run lint`               | Run ESLint across all four JavaScript services                     |
+| `npm test`                   | Run the repository's service test commands                         |
+| `npm run format`             | Format supported repository files with the pinned Prettier version |
+| `npm run format:check`       | Check formatting without modifying files                           |
+
+Useful service-level commands include:
+
+```bash
+npm run lint --prefix backend
+npm run test --prefix backend
+npm run build --prefix frontend
+npm run lint --prefix backendAdmin
+npm run test --prefix backendAdmin
+npm run build --prefix frontendAdmin
 ```
-AI-Mentor-Updated/
-├── backend/       # Node.js + Express REST API
-├── frontend/      # React + Vite web application
-└── ai_service/    # Python + FastAPI AI lesson generator
+
+From `ai_service/`, run Python tests with:
+
+```bash
+python -m pytest
 ```
 
-## About
+## Quality and validation
 
-This project was developed as part of an internship. All rights reserved by the respective authors and organisation.
+Before opening a pull request:
+
+1. Format changed supported files with `npm run format`.
+2. Verify formatting with `npm run format:check`.
+3. Run `npm run lint`.
+4. Run focused tests for the services and behavior changed.
+5. Build a changed frontend with its service-level build command.
+6. Confirm no environment files, credentials, generated media, uploads, or build output are staged.
+
+Prettier is pinned in the root package and uses the repository configuration in `.prettierrc.json`. Dependencies, builds, coverage, runtime uploads, environment files, caches, and generated media are excluded through `.prettierignore`.
+
+## Continuous integration
+
+GitHub Actions runs on pull requests targeting `main` or `dev`, and on pushes to `main`. The CI workflow includes:
+
+- Repository-wide Prettier formatting verification
+- User API linting and tests
+- Learner frontend linting, tests, and production build
+- Admin API linting and tests
+- Admin frontend linting, tests, and production build
+- Python AI-service syntax, dependency, and pytest checks
+- Full-history and content secret scanning with gitleaks
+- A separate Reviewdog ESLint workflow for pull requests
+
+CI uses dummy frontend and AI-service values where configuration is required only to validate builds or tests. Real credentials must not be committed.
+
+## Security
+
+- Never commit `.env` files, API keys, tokens, passwords, private keys, or webhook secrets.
+- GitHub CI rejects tracked `.env` files and scans repository history and content with gitleaks.
+- If a real secret is exposed, rotate it at the provider before removing it from Git history.
+- Use narrowly scoped, reviewed exceptions only for confirmed false positives.
+- Keep production PostgreSQL certificate verification enabled.
+- Use long, random JWT secrets and protect super-administrator credentials.
+- Review [`CONTRIBUTING.md`](./CONTRIBUTING.md) before changing secret-scanning configuration.
+
+## Documentation
+
+- [`initalSetup.md`](./initalSetup.md): first-time environment and database setup
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md): branch, commit, validation, review, and security workflow
+- [`backend/README.md`](./backend/README.md): user API setup and endpoints
+- [`backend/BACKEND_DOCUMENTATION.md`](./backend/BACKEND_DOCUMENTATION.md): detailed backend reference
+- [`frontend/README.md`](./frontend/README.md): learner application setup and routes
+- [`backendAdmin/backendAdmin_Documentation.md`](./backendAdmin/backendAdmin_Documentation.md): admin API architecture and endpoints
+- [`frontendAdmin/FRONTEND_ADMIN_DOCUMENTATION.md`](./frontendAdmin/FRONTEND_ADMIN_DOCUMENTATION.md): admin interface architecture
+- [`ai_service/README.md`](./ai_service/README.md): AI pipeline, configuration, endpoints, and troubleshooting
+
+## Contributing
+
+Contributions should use a focused branch and pull request. Run the relevant formatter, linter, tests, and builds before pushing. Do not push directly to `main`, bundle unrelated changes, or merge another contributor's pull request without authorization.
+
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the complete workflow, commit-message convention, secret-scanning process, and review requirements.
+
+## Project context
+
+AI Mentor was developed as part of an internship project. Rights remain with the respective authors and organization.

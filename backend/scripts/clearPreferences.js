@@ -19,7 +19,7 @@ async function clearPreferences() {
     await Preference.destroy({
       where: {},
       truncate: true,
-      cascade: false
+      cascade: false,
     });
 
     console.log("SUCCESS: Preferences table cleared.");

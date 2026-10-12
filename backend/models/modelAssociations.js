@@ -7,36 +7,19 @@ import Preference from "./Preference.js";
 import AIVideo from "./AIVideo.js";
 import CalendarTask from "./CalendarTask.js";
 import CourseFeedback from "./CourseFeedback.js";
-import QuizSession from "./QuizSession.js";
-
-/* ======================
-   USER → QUIZ SESSION
-====================== */
-
-User.hasMany(QuizSession, {
-    foreignKey: "userId",
-    as: "quizSessions",
-    onDelete: "CASCADE",
-});
-
-QuizSession.belongsTo(User, {
-    foreignKey: "userId",
-});
 
 /* ======================
    COURSE → MODULE
 ====================== */
 
-
-
 Course.hasMany(Module, {
-    foreignKey: "courseId",
-    as: "modules",
-    onDelete: "CASCADE",
+  foreignKey: "courseId",
+  as: "modules",
+  onDelete: "CASCADE",
 });
 
 Module.belongsTo(Course, {
-    foreignKey: "courseId",
+  foreignKey: "courseId",
 });
 
 /* ======================
@@ -44,13 +27,13 @@ Module.belongsTo(Course, {
 ====================== */
 
 Module.hasMany(Lesson, {
-    foreignKey: "moduleId",
-    as: "lessons",
-    onDelete: "CASCADE",
+  foreignKey: "moduleId",
+  as: "lessons",
+  onDelete: "CASCADE",
 });
 
 Lesson.belongsTo(Module, {
-    foreignKey: "moduleId",
+  foreignKey: "moduleId",
 });
 
 /* ======================
@@ -58,13 +41,13 @@ Lesson.belongsTo(Module, {
 ====================== */
 
 Lesson.hasOne(LessonContent, {
-    foreignKey: "lessonId",
-    as: "content",
-    onDelete: "CASCADE",
+  foreignKey: "lessonId",
+  as: "content",
+  onDelete: "CASCADE",
 });
 
 LessonContent.belongsTo(Lesson, {
-    foreignKey: "lessonId",
+  foreignKey: "lessonId",
 });
 
 /* ======================
@@ -72,13 +55,13 @@ LessonContent.belongsTo(Lesson, {
 ====================== */
 
 User.hasOne(Preference, {
-    foreignKey: "user_id",
-    as: "preferences",
-    onDelete: "CASCADE",
+  foreignKey: "user_id",
+  as: "preferences",
+  onDelete: "CASCADE",
 });
 
 Preference.belongsTo(User, {
-    foreignKey: "user_id",
+  foreignKey: "user_id",
 });
 
 /* ======================
@@ -86,26 +69,26 @@ Preference.belongsTo(User, {
 ====================== */
 
 Lesson.hasMany(AIVideo, {
-    foreignKey: "lessonId",
-    as: "aiVideos",
-    onDelete: "CASCADE",
+  foreignKey: "lessonId",
+  as: "aiVideos",
+  onDelete: "CASCADE",
 });
 
 AIVideo.belongsTo(Lesson, {
-    foreignKey: "lessonId",
+  foreignKey: "lessonId",
 });
 /* ======================
    USER → CALENDAR TASK
 ====================== */
 
 User.hasMany(CalendarTask, {
-    foreignKey: "userId",
-    as: "calendarTasks",
-    onDelete: "CASCADE",
+  foreignKey: "userId",
+  as: "calendarTasks",
+  onDelete: "CASCADE",
 });
 
 CalendarTask.belongsTo(User, {
-    foreignKey: "userId",
+  foreignKey: "userId",
 });
 
 /* ======================
@@ -113,13 +96,13 @@ CalendarTask.belongsTo(User, {
 ====================== */
 
 Course.hasMany(CourseFeedback, {
-    foreignKey: "courseId",
-    as: "feedbacks",
-    onDelete: "CASCADE",
+  foreignKey: "courseId",
+  as: "feedbacks",
+  onDelete: "CASCADE",
 });
 
 CourseFeedback.belongsTo(Course, {
-    foreignKey: "courseId",
+  foreignKey: "courseId",
 });
 
 /* ======================
@@ -127,13 +110,23 @@ CourseFeedback.belongsTo(Course, {
 ====================== */
 
 User.hasMany(CourseFeedback, {
-    foreignKey: "userId",
-    as: "feedbacks",
-    onDelete: "CASCADE",
+  foreignKey: "userId",
+  as: "feedbacks",
+  onDelete: "CASCADE",
 });
 
 CourseFeedback.belongsTo(User, {
-    foreignKey: "userId",
+  foreignKey: "userId",
 });
 
-export { Course, Module, Lesson, LessonContent, User, AIVideo, Preference, CalendarTask, CourseFeedback, QuizSession };
+export {
+  Course,
+  Module,
+  Lesson,
+  LessonContent,
+  User,
+  AIVideo,
+  Preference,
+  CalendarTask,
+  CourseFeedback,
+};

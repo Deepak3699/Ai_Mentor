@@ -7,13 +7,11 @@ dotenv.config();
 const isProduction = process.env.NODE_ENV === "production";
 const connectionString = process.env.NEON_DATABASE_URL;
 
-const allowInsecureDbSsl =
-  !isProduction &&
-  process.env.ALLOW_INSECURE_DB_SSL === "true";
+const allowInsecureDbSsl = !isProduction && process.env.ALLOW_INSECURE_DB_SSL === "true";
 
 if (isProduction && process.env.ALLOW_INSECURE_DB_SSL === "true") {
   throw new Error(
-    "Invalid database TLS configuration: ALLOW_INSECURE_DB_SSL cannot be enabled in production."
+    "Invalid database TLS configuration: ALLOW_INSECURE_DB_SSL cannot be enabled in production.",
   );
 }
 
@@ -26,11 +24,11 @@ const getCaCertificate = () => {
     try {
       return fs.readFileSync(process.env.DB_SSL_CA_FILE, "utf8");
     } catch (error) {
-  throw new Error(
-    `Invalid database TLS configuration: unable to read DB_SSL_CA_FILE (${error.message})`,
-    { cause: error }
-  );
-}
+      throw new Error(
+        `Invalid database TLS configuration: unable to read DB_SSL_CA_FILE (${error.message})`,
+        { cause: error },
+      );
+    }
   }
 
   return undefined;
@@ -44,18 +42,13 @@ const prepareConnectionString = (urlString) => {
 
   if (isProduction && sslMode !== "verify-full") {
     throw new Error(
-      'Invalid production database TLS configuration: NEON_DATABASE_URL must use sslmode=verify-full.'
+      "Invalid production database TLS configuration: NEON_DATABASE_URL must use sslmode=verify-full.",
     );
   }
 
-  if (
-    !isProduction &&
-    !allowInsecureDbSsl &&
-    sslMode &&
-    sslMode !== "verify-full"
-  ) {
+  if (!isProduction && !allowInsecureDbSsl && sslMode && sslMode !== "verify-full") {
     throw new Error(
-      'Invalid database TLS configuration: use sslmode=verify-full, or explicitly set ALLOW_INSECURE_DB_SSL=true for development only.'
+      "Invalid database TLS configuration: use sslmode=verify-full, or explicitly set ALLOW_INSECURE_DB_SSL=true for development only.",
     );
   }
 
@@ -96,7 +89,7 @@ if (connectionString) {
       port: process.env.DB_PORT || 5432,
       dialect: "postgres",
       logging: false,
-    }
+    },
   );
 }
 

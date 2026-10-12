@@ -4,7 +4,6 @@ import { Sparkles } from "lucide-react";
 const MyCoursesHeroBanner = () => {
   return (
     <div className="relative w-full overflow-hidden rounded-2xl sm:rounded-[22px] bg-gradient-to-r from-[#eef7ff] via-[#f5f9ff] to-[#e4f1fd] dark:from-slate-800 dark:via-slate-800/90 dark:to-slate-900 border border-[#d2e7fc] dark:border-slate-700/60 px-5 py-4 sm:px-8 sm:py-5 shadow-[0_4px_20px_-4px_rgba(186,215,255,0.45)] dark:shadow-none transition-all mb-6">
-      
       {/* Background Soft Glow & Blur Accents */}
       <div
         className="pointer-events-none absolute -top-12 -right-12 h-52 w-52 rounded-full bg-blue-200/40 dark:bg-blue-600/15 blur-3xl"
@@ -14,9 +13,9 @@ const MyCoursesHeroBanner = () => {
         className="pointer-events-none absolute bottom-0 right-36 h-36 w-36 rounded-full bg-sky-200/40 dark:bg-teal-500/10 blur-2xl"
         aria-hidden="true"
       />
-      
+
       {/* Subtle Right Background Platform/Blob */}
-      <div 
+      <div
         className="pointer-events-none absolute -right-4 -bottom-6 w-32 h-24 bg-sky-200/50 dark:bg-sky-500/10 rounded-full blur-sm"
         aria-hidden="true"
       />
@@ -29,7 +28,6 @@ const MyCoursesHeroBanner = () => {
 
       {/* Main Flexbox Container */}
       <div className="relative z-10 flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6">
-        
         {/* Left Content: Badge + Titles (Horizontal Row) */}
         <div className="flex items-center gap-3.5 sm:gap-5 w-full sm:w-auto">
           {/* Circular Badge with 3D Graduation Cap */}
@@ -54,7 +52,6 @@ const MyCoursesHeroBanner = () => {
 
         {/* Right Content: Stepped Handwritten Text + 3D AI Robot */}
         <div className="flex items-center justify-end shrink-0 relative mt-2 sm:mt-0 w-full sm:w-auto">
-          
           {/* Stepped Handwritten Text: "Better Skills Brighter Future" with the exact curved arrow doodle */}
           <div className="hidden md:flex flex-col items-start select-none transform -rotate-6 mr-3 lg:mr-6 text-sky-700 dark:text-sky-300 font-caveat text-xl lg:text-2xl font-bold leading-tight">
             <span className=" caveat-uniquifier">Better</span>
@@ -89,9 +86,7 @@ const MyCoursesHeroBanner = () => {
               className="relative z-10 w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal drop-shadow-md transform hover:scale-105 transition-transform duration-300"
             />
           </div>
-
         </div>
-
       </div>
     </div>
   );

@@ -4,13 +4,18 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { ThemeProvider, useTheme } from "../context/ThemeContext.jsx";
 import ThemeToggle from "../components/common/ThemeToggle.jsx";
 
-const ThemeValue = () => { const { theme, isDark } = useTheme(); return React.createElement("output", { "data-testid": "theme-value" }, `${theme}:${isDark}`); };
+const ThemeValue = () => {
+  const { theme, isDark } = useTheme();
+  return React.createElement("output", { "data-testid": "theme-value" }, `${theme}:${isDark}`);
+};
 
 describe("learner theme behavior", () => {
   beforeEach(() => {
     localStorage.clear();
     document.documentElement.className = "";
-    window.matchMedia = vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    window.matchMedia = vi
+      .fn()
+      .mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() });
   });
   afterEach(() => cleanup());
 
