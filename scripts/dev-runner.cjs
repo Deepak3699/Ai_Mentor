@@ -112,11 +112,22 @@ function lattice(status) {
   cells[orbit[(frame + 7) % orbit.length]] = "•";
   return `${cells.slice(0, 3).join("")} ${cells.slice(3, 6).join("")} ${cells.slice(6).join("")}`;
 }
-function elapsed(key) {
-  const data = state[key];
-  if (data.runStartedAt == null) return "   --";
-  const ms = data.elapsed ?? Date.now() - data.runStartedAt;
+function formatDuration(ms) {
   return `${(Math.max(0, ms) / 1000).toFixed(1)}s`;
+}
+function timingLabel(key) {
+  const data = state[key];
+  if (externallyRunning.has(key)) return "Already running";
+  if (data.runStartedAt == null) return "Not started";
+  const duration = data.elapsed ?? Date.now() - data.runStartedAt;
+  if (data.status === "ready") return `Ready in ${formatDuration(duration)}`;
+  if (data.status === "failed") return `Failed after ${formatDuration(duration)}`;
+  return `${formatDuration(duration)} elapsed`;
+}
+function beginStartupCycle(key) {
+  state[key].runStartedAt = Date.now();
+  state[key].elapsed = null;
+  state[key].phases = {};
 }
 function title() {
   if (mode === "all") return "AI MENTOR · ALL SERVICES";
@@ -193,7 +204,7 @@ function readyFooter(allReady) {
 
   return [
     `${C.green}${C.bold}ALL SELECTED SERVICES ARE READY${C.reset}`,
-    "Startup times are shown above. Press Ctrl+C to stop.",
+    "Per-cycle readiness times are shown above. Press Ctrl+C to stop.",
   ];
 }
 
@@ -204,7 +215,7 @@ function serviceRow(key, statusColor) {
   const role = service.label.padEnd(4);
   const status = statusWord(data.status).padEnd(11);
   const detail = data.detail.padEnd(36);
-  return `  ${mark} ${service.color}${role}${C.reset} ${statusColor}${status}${C.reset}${detail}${C.dim}${elapsed(key).padStart(7)}${C.reset}`;
+  return `  ${mark} ${service.color}${role}${C.reset} ${statusColor}${status}${C.reset}${detail}${C.dim}${timingLabel(key).padStart(20)}${C.reset}`;
 }
 
 function dashboardLines() {
@@ -276,7 +287,7 @@ function setState(key, status, detail) {
   const current = state[key];
   current.status = status;
   current.detail = detail;
-  if (status === "ready" || status === "failed") {
+  if ((status === "ready" || status === "failed") && current.elapsed == null) {
     current.elapsed = current.runStartedAt == null ? 0 : Date.now() - current.runStartedAt;
   }
   render();
@@ -323,9 +334,7 @@ function stream(streamValue, key, target, onLine) {
 function spawnService(key) {
   if (children.has(key) || state[key].status === "ready") return;
   const service = services[key];
-  state[key].runStartedAt = Date.now();
-  state[key].elapsed = null;
-  state[key].phases = {};
+  beginStartupCycle(key);
   markPhase(key, "process", "start");
   setState(key, "starting", service.label === "API" ? "Launching backend" : "Launching Vite");
   const child = spawn(process.execPath, [npmCli, "run", "dev"], {
@@ -336,8 +345,11 @@ function spawnService(key) {
   });
   children.set(key, child);
   const onLine = async (text) => {
-    if (text.includes("[nodemon] restarting due to changes"))
+    if (text.includes("[nodemon] restarting due to changes")) {
+      beginStartupCycle(key);
+      markPhase(key, "process", "start");
       setState(key, "restarting", "Source changed");
+    }
     if (text.includes("[CHECK] Connecting")) {
       markPhase(key, "database", "start");
       setState(key, "starting", "Connecting to database");
@@ -351,6 +363,7 @@ function spawnService(key) {
       state[key].detail = "Database synchronized";
     }
     if (text.includes(service.ready)) {
+      if (state[key].status === "ready") return;
       if (service.label === "API") {
         markPhase(key, "schema", "end");
         markPhase(key, "health", "start");
