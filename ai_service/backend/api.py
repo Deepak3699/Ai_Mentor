@@ -595,11 +595,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         if data.preferences:
             preferences_text = f"""
         User Preferences:
-        - Learning Goal: {data.preferences.get("learning_goal", "Not specified")}
-        - Interested Topics: {", ".join(data.preferences.get("interested_topics", [])) if isinstance(data.preferences.get("interested_topics"), list) else data.preferences.get("interested_topics", "Not specified")}
-        - Experience Level: {data.preferences.get("experience_level", "Not specified")}
-        - Weekly Commitment: {data.preferences.get("weekly_commitment", "Not specified")}
+        - Explanation Type: {data.preferences.get("explanation_type", "Not specified")}
         - Learning Style: {data.preferences.get("learning_style", "Not specified")}
+        - Teaching Pace: {data.preferences.get("teaching_pace", "Not specified")}
+        - Example Type: {data.preferences.get("example_type", "Not specified")}
+        - Focus Area: {data.preferences.get("focus_area", "Not specified")}
         """
         else:
             preferences_text = "User Preferences: Not provided"
@@ -617,9 +617,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         {preferences_text}
 
         Instructions:
-        - Adapt explanation based on user's experience level
-        - Adjust depth based on learning goal
-        - Match explanation style with preferred learning style
+        - Adapt the explanation to the user's preferred explanation type.
+        - Adjust the teaching speed and depth to match the user's preferred teaching pace.
+        - Use examples that match the user's preferred example type.
+        - Focus the explanation on the user's selected focus area.
+        - Match the explanation style with the user's preferred learning style.
         """
 
         print("\n📊 USER PREFERENCES:\n")
