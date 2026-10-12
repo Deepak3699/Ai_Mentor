@@ -9,8 +9,8 @@ export default defineConfig([
   {
     files: ["**/*.{js,jsx}"],
     plugins: {
-      'react-hooks': reactHooks,
-      'react-refresh': reactRefresh,
+      "react-hooks": reactHooks,
+      "react-refresh": reactRefresh,
     },
     languageOptions: {
       ecmaVersion: 2020,
@@ -28,10 +28,10 @@ export default defineConfig([
       ...js.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       ...reactRefresh.configs.vite.rules,
-      'no-unused-vars': ['warn', { varsIgnorePattern: '^[A-Z_]' }],
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
+      "no-unused-vars": ["warn", { varsIgnorePattern: "^[A-Z_]" }],
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true, allowExportNames: ["useTheme", "useToast"] },
       ],
     },
   },
