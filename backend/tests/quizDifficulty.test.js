@@ -1,9 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  getQuizDifficulty,
-  getWeakTopics,
-} from "../utils/quizDifficulty.js";
+import { getQuizDifficulty, getWeakTopics } from "../utils/quizDifficulty.js";
 
 test("score below 50 selects beginner", () => {
   assert.equal(getQuizDifficulty([{ score: 49 }]), "beginner");

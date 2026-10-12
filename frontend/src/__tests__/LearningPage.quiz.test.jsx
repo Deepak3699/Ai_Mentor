@@ -1,19 +1,6 @@
 import React from "react";
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 const { fetchMock, toastErrorMock } = vi.hoisted(() => ({
@@ -149,10 +136,7 @@ function renderLearningPage() {
   return render(
     <MemoryRouter initialEntries={["/courses/1/learning"]}>
       <Routes>
-        <Route
-          path="/courses/:id/learning"
-          element={<LearningPage />}
-        />
+        <Route path="/courses/:id/learning" element={<LearningPage />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -166,9 +150,7 @@ async function openLessonTwo() {
 
   fireEvent.click(screen.getAllByText("Lesson One")[1]);
 
-  fireEvent.click(
-    await screen.findByRole("button", { name: /Lesson Two/ }),
-  );
+  fireEvent.click(await screen.findByRole("button", { name: /Lesson Two/ }));
 
   await waitFor(() => {
     expect(screen.getAllByText("Lesson Two").length).toBeGreaterThan(0);
@@ -177,16 +159,12 @@ async function openLessonTwo() {
 
 async function answerAllQuestions() {
   for (let questionIndex = 1; questionIndex <= 4; questionIndex += 1) {
-    const question = await screen.findByText(
-      new RegExp(`question ${questionIndex}$`, "i"),
-    );
+    const question = await screen.findByText(new RegExp(`question ${questionIndex}$`, "i"));
 
     const questionCard = question.closest(".rounded-xl");
     expect(questionCard).not.toBeNull();
 
-    fireEvent.click(
-      questionCard.querySelectorAll("button")[questionIndex - 1],
-    );
+    fireEvent.click(questionCard.querySelectorAll("button")[questionIndex - 1]);
   }
 }
 
@@ -237,9 +215,7 @@ describe("LearningPage adaptive quiz", () => {
 
     renderLearningPage();
 
-    expect(
-      await screen.findByText("Generating your adaptive quiz..."),
-    ).toBeTruthy();
+    expect(await screen.findByText("Generating your adaptive quiz...")).toBeTruthy();
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -259,9 +235,7 @@ describe("LearningPage adaptive quiz", () => {
 
   it("shows a generation error and retries successfully", async () => {
     fetchMock
-      .mockImplementationOnce(async () =>
-        makeResponse(structuredClone(courseData)),
-      )
+      .mockImplementationOnce(async () => makeResponse(structuredClone(courseData)))
       .mockImplementationOnce(async () =>
         makeResponse({ message: "Quiz service unavailable" }, false, 503),
       )
@@ -280,16 +254,12 @@ describe("LearningPage adaptive quiz", () => {
 
     renderLearningPage();
 
-    expect(
-      await screen.findByText("Quiz service unavailable"),
-    ).toBeTruthy();
+    expect(await screen.findByText("Quiz service unavailable")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     expect(await screen.findByText("Retry question 1")).toBeTruthy();
-    expect(
-      screen.queryByText("Quiz service unavailable"),
-    ).toBeNull();
+    expect(screen.queryByText("Quiz service unavailable")).toBeNull();
   });
 
   it("allows answer selection, submits all answers, and displays feedback", async () => {
@@ -313,9 +283,7 @@ describe("LearningPage adaptive quiz", () => {
     expect(screen.getByText("Areas to improve: Topic 4")).toBeTruthy();
     expect(screen.getByText("Review this topic again")).toBeTruthy();
 
-    const submitCall = fetchMock.mock.calls.find(
-      ([url]) => url === "/api/ai/submit-quiz",
-    );
+    const submitCall = fetchMock.mock.calls.find(([url]) => url === "/api/ai/submit-quiz");
 
     expect(submitCall).toBeTruthy();
 
@@ -368,9 +336,7 @@ describe("LearningPage adaptive quiz", () => {
     // The new lesson's request finishes first.
     resolveSecondQuiz(makeResponse(makeQuiz(102, "Current lesson")));
 
-    expect(
-      await screen.findByText("Current lesson question 1"),
-    ).toBeTruthy();
+    expect(await screen.findByText("Current lesson question 1")).toBeTruthy();
 
     // A late response from the old lesson must be ignored.
     resolveFirstQuiz(makeResponse(makeQuiz(101, "Stale lesson")));

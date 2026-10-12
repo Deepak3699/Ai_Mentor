@@ -7,6 +7,7 @@ import Preference from "./Preference.js";
 import AIVideo from "./AIVideo.js";
 import CalendarTask from "./CalendarTask.js";
 import CourseFeedback from "./CourseFeedback.js";
+import QuizSession from "./QuizSession.js";
 
 /* ======================
    COURSE → MODULE
@@ -129,4 +130,5 @@ export {
   Preference,
   CalendarTask,
   CourseFeedback,
+  QuizSession,
 };

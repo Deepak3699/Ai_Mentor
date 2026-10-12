@@ -16,8 +16,8 @@ export const getWeakTopics = (quizHistory = []) => {
     ...new Set(
       quizHistory
         .slice(-3)
-        .flatMap((attempt) => Array.isArray(attempt.weakTopics) ? attempt.weakTopics : [])
-        .filter(Boolean)
+        .flatMap((attempt) => (Array.isArray(attempt.weakTopics) ? attempt.weakTopics : []))
+        .filter(Boolean),
     ),
   ].slice(0, 10);
 };

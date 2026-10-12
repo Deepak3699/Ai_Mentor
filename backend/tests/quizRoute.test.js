@@ -16,10 +16,11 @@ const { default: QuizSession } = await import("../models/QuizSession.js");
 const { mock } = await import("node:test");
 
 mock.module("../queues/videoQueue.js", {
-  exports: {
-    videoQueue: {
+  namedExports: {
+    getVideoQueue: () => ({
       add: async () => ({ id: "mock-video-job" }),
-    },
+    }),
+    closeVideoQueue: async () => {},
   },
 });
 
@@ -30,7 +31,9 @@ const USERS = {
     id: 2,
     role: "user",
     purchasedCourses: [],
-    set(key, value) { this[key] = value; },
+    set(key, value) {
+      this[key] = value;
+    },
     changed() {},
     async save() {},
   },
@@ -199,10 +202,7 @@ after(async () => {
 });
 
 const authHeaders = (userId = 1) => ({
-  Authorization: `Bearer ${jwt.sign(
-    { id: userId },
-    process.env.JWT_SECRET
-  )}`,
+  Authorization: `Bearer ${jwt.sign({ id: userId }, process.env.JWT_SECRET)}`,
   "Content-Type": "application/json",
 });
 
@@ -289,8 +289,7 @@ test("submit-quiz calculates score and records weak topics", async () => {
   assert.deepEqual(data.weakTopics, ["functions", "loops"]);
   assert.equal(createdSession.saved, true);
 
-  const history =
-    USERS[1].purchasedCourses[0].progress.quizHistory;
+  const history = USERS[1].purchasedCourses[0].progress.quizHistory;
 
   assert.equal(history.length, 1);
   assert.equal(history[0].score, 50);
@@ -341,7 +340,6 @@ test("submit-quiz rejects an already submitted session", async () => {
   assert.equal(response.status, 404);
 });
 
-
 test("submit-quiz scopes session lookup to owner, course, lesson, and unused status", async () => {
   createdSession = {
     id: "ownership-session",
@@ -389,24 +387,22 @@ test("submit-quiz prevents concurrent submissions of the same session", async ()
   };
   USERS[1].purchasedCourses[0].progress.quizHistory = [];
 
-  const submit = () => realFetch(`${baseUrl}/api/ai/submit-quiz`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify({
-      courseId: 1,
-      lessonId: 10,
-      quizSessionId: "concurrent-session",
-      answers: [0, 1, 2, 0],
-    }),
-  });
+  const submit = () =>
+    realFetch(`${baseUrl}/api/ai/submit-quiz`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        courseId: 1,
+        lessonId: 10,
+        quizSessionId: "concurrent-session",
+        answers: [0, 1, 2, 0],
+      }),
+    });
 
   const responses = await Promise.all([submit(), submit()]);
   const statuses = responses.map((response) => response.status).sort();
 
   assert.deepEqual(statuses, [200, 404]);
   assert.ok(createdSession.submittedAt instanceof Date);
-  assert.equal(
-    USERS[1].purchasedCourses[0].progress.quizHistory.length,
-    1
-  );
+  assert.equal(USERS[1].purchasedCourses[0].progress.quizHistory.length, 1);
 });

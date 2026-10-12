@@ -561,46 +561,49 @@ export default function Learning() {
     }
   };
 
-  const generateAdaptiveQuiz = useCallback(async (lessonId) => {
-    if (!lessonId) return;
-    const requestId = ++quizRequestIdRef.current;
+  const generateAdaptiveQuiz = useCallback(
+    async (lessonId) => {
+      if (!lessonId) return;
+      const requestId = ++quizRequestIdRef.current;
 
-    setIsQuizLoading(true);
-    setQuizError(null);
-    setQuiz(null);
-    setQuizAnswers({});
-    setQuizResult(null);
+      setIsQuizLoading(true);
+      setQuizError(null);
+      setQuiz(null);
+      setQuizAnswers({});
+      setQuizResult(null);
 
-    try {
-      const token = localStorage.getItem("token");
-      const response = await fetch("/api/ai/generate-quiz", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          courseId: Number(courseId),
-          lessonId: Number(lessonId),
-        }),
-      });
+      try {
+        const token = localStorage.getItem("token");
+        const response = await fetch("/api/ai/generate-quiz", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            courseId: Number(courseId),
+            lessonId: Number(lessonId),
+          }),
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data?.message || "Failed to generate quiz");
+        if (!response.ok) {
+          throw new Error(data?.message || "Failed to generate quiz");
+        }
+
+        if (requestId === quizRequestIdRef.current) setQuiz(data);
+      } catch (error) {
+        console.error("Quiz generation failed:", error);
+        if (requestId === quizRequestIdRef.current) {
+          setQuizError(error.message || "Failed to generate quiz");
+        }
+      } finally {
+        if (requestId === quizRequestIdRef.current) setIsQuizLoading(false);
       }
-
-      if (requestId === quizRequestIdRef.current) setQuiz(data);
-    } catch (error) {
-      console.error("Quiz generation failed:", error);
-      if (requestId === quizRequestIdRef.current) {
-        setQuizError(error.message || "Failed to generate quiz");
-      }
-    } finally {
-      if (requestId === quizRequestIdRef.current) setIsQuizLoading(false);
-    }
-  }, [courseId]);
+    },
+    [courseId],
+  );
 
   // Generate an adaptive quiz whenever the active lesson changes.
   useEffect(() => {
@@ -665,7 +668,6 @@ export default function Learning() {
   };
 
   const completeLesson = async (lessonId) => {
-
     const courseProgress = user?.purchasedCourses?.find(
       (course) => course.courseId === parseInt(courseId),
     )?.progress;
@@ -1299,7 +1301,8 @@ export default function Learning() {
                     <h2 className="text-xl font-bold text-main">Adaptive Quiz</h2>
                   </div>
                   <p className="text-sm text-muted mt-1">
-                    Test your understanding of this lesson. The next quiz adapts to your performance.
+                    Test your understanding of this lesson. The next quiz adapts to your
+                    performance.
                   </p>
                 </div>
 
@@ -1350,13 +1353,9 @@ export default function Learning() {
                             {questionIndex + 1}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-main">
-                              {question.question}
-                            </p>
+                            <p className="font-semibold text-main">{question.question}</p>
                             {question.topic && (
-                              <p className="mt-1 text-xs text-muted">
-                                Topic: {question.topic}
-                              </p>
+                              <p className="mt-1 text-xs text-muted">Topic: {question.topic}</p>
                             )}
                           </div>
                         </div>
@@ -1364,29 +1363,23 @@ export default function Learning() {
                         <div className="space-y-2">
                           {question.options.map((option, optionIndex) => {
                             const selected = quizAnswers[questionIndex] === optionIndex;
-                            const correct =
-                              result && result.correctAnswer === optionIndex;
+                            const correct = result && result.correctAnswer === optionIndex;
                             const incorrectSelected =
-                              result &&
-                              selected &&
-                              result.correctAnswer !== optionIndex;
+                              result && selected && result.correctAnswer !== optionIndex;
 
                             let optionClass =
                               "border-border bg-card hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950";
 
                             if (selected && !result) {
-                              optionClass =
-                                "border-blue-600 bg-blue-50 dark:bg-blue-950";
+                              optionClass = "border-blue-600 bg-blue-50 dark:bg-blue-950";
                             }
 
                             if (correct) {
-                              optionClass =
-                                "border-green-500 bg-green-50 dark:bg-green-950/40";
+                              optionClass = "border-green-500 bg-green-50 dark:bg-green-950/40";
                             }
 
                             if (incorrectSelected) {
-                              optionClass =
-                                "border-red-500 bg-red-50 dark:bg-red-950/40";
+                              optionClass = "border-red-500 bg-red-50 dark:bg-red-950/40";
                             }
 
                             return (
@@ -1394,13 +1387,9 @@ export default function Learning() {
                                 key={optionIndex}
                                 type="button"
                                 disabled={Boolean(quizResult)}
-                                onClick={() =>
-                                  handleQuizAnswer(questionIndex, optionIndex)
-                                }
+                                onClick={() => handleQuizAnswer(questionIndex, optionIndex)}
                                 className={`w-full rounded-xl border p-3 text-left text-sm transition-all ${optionClass} ${
-                                  quizResult
-                                    ? "cursor-default"
-                                    : "cursor-pointer"
+                                  quizResult ? "cursor-default" : "cursor-pointer"
                                 }`}
                               >
                                 <span className="mr-3 font-semibold">
@@ -1434,22 +1423,15 @@ export default function Learning() {
                     <button
                       type="button"
                       onClick={submitAdaptiveQuiz}
-                      disabled={
-                        isQuizLoading ||
-                        Object.keys(quizAnswers).length !== 4
-                      }
+                      disabled={isQuizLoading || Object.keys(quizAnswers).length !== 4}
                       className="w-full rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {isQuizLoading ? "Submitting..." : "Submit Quiz"}
                     </button>
                   ) : (
                     <div className="rounded-xl border border-blue-200 bg-blue-50 p-5 text-center dark:border-blue-900 dark:bg-blue-950/40">
-                      <p className="text-sm font-medium text-muted">
-                        Quiz completed
-                      </p>
-                      <p className="mt-1 text-3xl font-bold text-main">
-                        {quizResult.score}%
-                      </p>
+                      <p className="text-sm font-medium text-muted">Quiz completed</p>
+                      <p className="mt-1 text-3xl font-bold text-main">{quizResult.score}%</p>
                       <p className="mt-1 text-sm text-muted">
                         {quizResult.correctAnswers} of {quizResult.totalQuestions} correct
                       </p>

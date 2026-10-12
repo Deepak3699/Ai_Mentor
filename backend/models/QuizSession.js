@@ -60,7 +60,7 @@ QuizSession.init(
       { fields: ["courseId", "lessonId"] },
       { fields: ["expiresAt"] },
     ],
-  }
+  },
 );
 
 export default QuizSession;

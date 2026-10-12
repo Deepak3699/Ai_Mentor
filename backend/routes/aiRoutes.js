@@ -3,19 +3,9 @@ import AIVideo from "../models/AIVideo.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
-import {
-  generateVideoSchema,
-  generateQuizSchema,
-  submitQuizSchema,
-} from "../schemas/aiSchema.js";
+import { generateVideoSchema, generateQuizSchema, submitQuizSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
-import {
-  Course,
-  Module,
-  Lesson,
-  LessonContent,
-  QuizSession,
-} from "../models/modelAssociations.js";
+import { Course, Module, Lesson, LessonContent, QuizSession } from "../models/modelAssociations.js";
 import Preferences from "../models/Preference.js";
 import { getVideoQueue } from "../queues/videoQueue.js";
 import dotenv from "dotenv";
@@ -23,10 +13,9 @@ dotenv.config();
 
 const router = express.Router();
 
-
 const getPurchasedCourse = (user, courseId) => {
   return (user.purchasedCourses || []).find(
-    (course) => Number(course.courseId) === Number(courseId)
+    (course) => Number(course.courseId) === Number(courseId),
   );
 };
 
@@ -88,9 +77,7 @@ router.post("/generate-quiz", protect, validate(generateQuizSchema), async (req,
 
     const lessonContent = [
       lesson.title ? `Lesson title: ${lesson.title}` : "",
-      lesson.content?.introduction
-        ? `Introduction: ${lesson.content.introduction}`
-        : "",
+      lesson.content?.introduction ? `Introduction: ${lesson.content.introduction}` : "",
       lesson.content?.keyConcepts
         ? `Key concepts: ${JSON.stringify(lesson.content.keyConcepts)}`
         : "",
@@ -104,20 +91,17 @@ router.post("/generate-quiz", protect, validate(generateQuizSchema), async (req,
       });
     }
 
-    const aiResponse = await fetch(
-      `${process.env.AI_SERVICE_URL}/generate-quiz`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          lesson: lessonContent,
-          difficulty,
-          weak_topics: weakTopics,
-        }),
-      }
-    );
+    const aiResponse = await fetch(`${process.env.AI_SERVICE_URL}/generate-quiz`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        lesson: lessonContent,
+        difficulty,
+        weak_topics: weakTopics,
+      }),
+    });
 
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
@@ -130,11 +114,7 @@ router.post("/generate-quiz", protect, validate(generateQuizSchema), async (req,
 
     const quiz = await aiResponse.json();
 
-    if (
-      !quiz ||
-      !Array.isArray(quiz.questions) ||
-      quiz.questions.length !== 4
-    ) {
+    if (!quiz || !Array.isArray(quiz.questions) || quiz.questions.length !== 4) {
       return res.status(502).json({
         message: "AI service returned an invalid quiz.",
       });
@@ -239,18 +219,13 @@ router.post("/submit-quiz", protect, validate(submitQuizSchema), async (req, res
 
       if (selectedAnswer === question.correct_index) {
         correctAnswers += 1;
-      } else if (
-        question.topic &&
-        !weakTopics.includes(question.topic)
-      ) {
+      } else if (question.topic && !weakTopics.includes(question.topic)) {
         weakTopics.push(question.topic);
       }
     });
 
     const totalQuestions = questions.length;
-    const score = Math.round(
-      (correctAnswers / totalQuestions) * 100
-    );
+    const score = Math.round((correctAnswers / totalQuestions) * 100);
 
     const attempt = {
       lessonId: Number(lessonId),
@@ -273,7 +248,7 @@ router.post("/submit-quiz", protect, validate(submitQuizSchema), async (req, res
           lessonId: Number(lessonId),
           submittedAt: null,
         },
-      }
+      },
     );
 
     if (claimedCount !== 1) {
@@ -292,8 +267,7 @@ router.post("/submit-quiz", protect, validate(submitQuizSchema), async (req, res
     if (purchasedCourse) {
       const courses = req.user.purchasedCourses || [];
       const courseIndex = courses.findIndex(
-        (courseItem) =>
-          Number(courseItem.courseId) === Number(courseId)
+        (courseItem) => Number(courseItem.courseId) === Number(courseId),
       );
 
       if (courseIndex !== -1) {
@@ -316,7 +290,6 @@ router.post("/submit-quiz", protect, validate(submitQuizSchema), async (req, res
         await req.user.save();
       }
     }
-
 
     return res.json({
       success: true,
