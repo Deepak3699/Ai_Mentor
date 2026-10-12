@@ -1359,7 +1359,7 @@ export default function Settings() {
 
       {/* ── DELETE ACCOUNT POPUP ── */}
       {showDeletePopup && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[230] p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[230] p-4 ui-overlay-motion">
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 sm:p-8 w-full max-w-[520px] text-center shadow-xl">
             <div className="mb-4 text-red-500 text-5xl">⚠</div>
             <h2 className="text-xl font-bold mb-2 text-main">Delete Account?</h2>
@@ -1401,7 +1401,7 @@ export default function Settings() {
 
       {/* ── PROFILE UPDATED POPUP ── */}
       {profilepopup && (
-        <div className="fixed inset-0 z-[240] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[240] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm ui-overlay-motion">
           <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-center shadow-2xl sm:p-7">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#3867D6]/15 text-[#3867D6] ring-1 ring-[#3867D6]/25 dark:text-[#7FA7FF]">
               <span className="text-2xl font-extrabold">✓</span>
@@ -1422,7 +1422,7 @@ export default function Settings() {
 
       {/* ── ACCOUNT DELETED POPUP ── */}
       {deletePopup && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[240] animate-fadeIn p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[240] animate-fadeIn p-4 ui-overlay-motion">
           <div className="relative bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-3xl p-6 sm:p-10 w-[90vw] max-w-[420px] text-center shadow-2xl border border-slate-200 dark:border-slate-700">
             <div className="mx-auto mb-6 w-20 h-20 flex items-center justify-center rounded-full bg-gradient-to-r from-red-400 to-rose-500 shadow-lg animate-bounce">
               <span className="text-4xl text-white">✓</span>

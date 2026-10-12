@@ -422,7 +422,7 @@ export default function Preferences({ mode = "modal", onSuccess }) {
   if (isModal) {
     return (
       <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm p-4 sm:p-6"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm p-4 sm:p-6 ui-overlay-motion"
         style={{ overscrollBehavior: "contain" }}
       >
         <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[24px] shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">

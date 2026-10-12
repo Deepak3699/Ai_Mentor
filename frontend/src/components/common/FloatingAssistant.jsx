@@ -14,7 +14,7 @@ import axios from "axios";
 
 const ANCHOR_KEY = "floatingAssistantAnchor";
 const EDGE_GAP = 16;
-const LAUNCHER_SIZE = 60;
+const LAUNCHER_SIZE = 52;
 const PANEL_WIDTH = 380;
 const PANEL_HEIGHT = 500;
 const MIN_WIDTH = 320;
@@ -144,8 +144,8 @@ const FloatingAssistant = () => {
     }
   };
 
-  const beginDrag = (event, left, top) => {
-    if (event.button !== 0 || event.target.closest("button")) return;
+  const beginDrag = (event, left, top, { allowButton = false } = {}) => {
+    if (event.button !== 0 || (!allowButton && event.target.closest("button"))) return;
     event.preventDefault();
     dragState.current = {
       offsetX: event.clientX - left,
@@ -157,7 +157,7 @@ const FloatingAssistant = () => {
   };
 
   const beginLauncherDrag = (event) => {
-    beginDrag(event, anchor.x - LAUNCHER_SIZE, anchor.y - LAUNCHER_SIZE);
+    beginDrag(event, anchor.x - LAUNCHER_SIZE, anchor.y - LAUNCHER_SIZE, { allowButton: true });
   };
 
   const beginPanelDrag = (event) => {
@@ -227,12 +227,14 @@ const FloatingAssistant = () => {
     };
 
     if (isDragging || isResizing) {
-      window.addEventListener("mousemove", handleMove);
-      window.addEventListener("mouseup", handleUp);
+      window.addEventListener("pointermove", handleMove);
+      window.addEventListener("pointerup", handleUp);
+      window.addEventListener("pointercancel", handleUp);
     }
     return () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
     };
   }, [anchor.x, anchor.y, dimensions, displayedHeight, isDragging, isOpen, isResizing]);
 
@@ -268,19 +270,19 @@ const FloatingAssistant = () => {
       {!isOpen ? (
         <button
           type="button"
-          onMouseDown={beginLauncherDrag}
+          onPointerDown={beginLauncherDrag}
           onClick={handleToggle}
           style={launcherStyle}
-          className={`group fixed z-[141] flex h-[60px] w-[60px] touch-none items-center justify-center rounded-2xl border border-white/20 bg-gradient-to-br from-[#4B79E8] via-[#3867D6] to-[#254FB4] text-white shadow-2xl shadow-[#3867D6]/30 ring-4 ring-canvas transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[#3867D6]/45 focus:outline-none focus:ring-[#3867D6]/25 ${
+          className={`group fixed z-[141] flex h-[52px] w-[52px] touch-none items-center justify-center rounded-xl border border-white/20 bg-gradient-to-br from-[#4B79E8] via-[#3867D6] to-[#254FB4] text-white shadow-xl shadow-[#3867D6]/25 ring-2 ring-canvas transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-[#3867D6]/45 focus:outline-none focus:ring-[#3867D6]/25 ${
             isDragging ? "cursor-grabbing scale-105" : "cursor-grab"
           }`}
           aria-label="Drag or open AI Mentor Assistant"
           title="Drag to move · Click to open"
         >
-          <span className="absolute inset-1 rounded-xl bg-white/[0.06]" />
-          <Bot className="relative h-7 w-7 transition-transform group-hover:scale-105" />
-          <Sparkles className="absolute right-1.5 top-1.5 h-3.5 w-3.5 text-blue-100" />
-          <span className="absolute bottom-1.5 right-1.5 h-2.5 w-2.5 rounded-full border-2 border-[#3867D6] bg-emerald-400" />
+          <span className="absolute inset-1 rounded-lg bg-white/[0.06]" />
+          <Bot className="relative h-6 w-6 transition-transform group-hover:scale-105" />
+          <Sparkles className="absolute right-1 top-1 h-3 w-3 text-blue-100" />
+          <span className="absolute bottom-1 right-1 h-2 w-2 rounded-full border border-[#3867D6] bg-emerald-400" />
         </button>
       ) : (
         <section
@@ -291,7 +293,7 @@ const FloatingAssistant = () => {
           aria-label="AI Mentor Assistant"
         >
           <header
-            onMouseDown={beginPanelDrag}
+            onPointerDown={beginPanelDrag}
             className="flex h-16 shrink-0 cursor-grab items-center justify-between gap-3 border-b border-white/10 bg-gradient-to-r from-[#315BC0] to-[#3867D6] px-4 text-white active:cursor-grabbing max-sm:cursor-default"
           >
             <div className="flex min-w-0 items-center gap-3">
@@ -425,7 +427,7 @@ const FloatingAssistant = () => {
 
               <button
                 type="button"
-                onMouseDown={beginResize}
+                onPointerDown={beginResize}
                 className="absolute left-0 top-0 hidden h-5 w-5 cursor-nwse-resize sm:block"
                 aria-label="Resize assistant"
                 title="Drag to resize"

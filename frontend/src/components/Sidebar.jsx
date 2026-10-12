@@ -119,14 +119,14 @@ const Sidebar = ({ activePage = "dashboard" }) => {
       {/* ================= MOBILE OVERLAY ================= */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden ui-overlay-motion"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* ================= LOGOUT CONFIRMATION ================= */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 ui-overlay-motion">
           <div className="bg-card border border-border/50 rounded-2xl shadow-2xl p-6 w-full max-w-xs text-center">
             <LogOut className="w-9 h-9 text-red-500 mx-auto mb-3" />
 
