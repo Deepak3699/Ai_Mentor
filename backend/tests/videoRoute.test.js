@@ -21,8 +21,20 @@ const adminId = "33333333-3333-3333-3333-333333333333";
 const superAdminId = "44444444-4444-4444-4444-444444444444";
 
 const INITIAL_VIDEOS = [
-  { id: "test-ai-id", courseId: 1, jobId: "Intro_20260101_120000", userId: ownerId, status: "processing" },
-  { id: "ownerless-ai-id", courseId: 1, jobId: "Ownerless_20260101_120000", userId: null, status: "processing" }
+  {
+    id: "test-ai-id",
+    courseId: 1,
+    jobId: "Intro_20260101_120000",
+    userId: ownerId,
+    status: "processing",
+  },
+  {
+    id: "ownerless-ai-id",
+    courseId: 1,
+    jobId: "Ownerless_20260101_120000",
+    userId: null,
+    status: "processing",
+  },
 ];
 const VIDEOS = [];
 const resetVideos = () => {
@@ -265,7 +277,7 @@ test("status route updates completed status with owner boundary for normal user"
           status: "ready",
           cloudinary_url: "https://res.cloudinary.com/demo/video/upload/sample.mp4",
         }),
-        { status: 200 }
+        { status: 200 },
       );
     }
     return realFetch(url);
@@ -280,7 +292,7 @@ test("status route updates completed status with owner boundary for normal user"
   assert.equal(updateCalls[0].values.status, "completed");
   assert.equal(
     updateCalls[0].values.videoUrl,
-    "https://res.cloudinary.com/demo/video/upload/sample.mp4"
+    "https://res.cloudinary.com/demo/video/upload/sample.mp4",
   );
 });
 
@@ -310,7 +322,7 @@ test("status route allows admin update via administrative path without constrain
           status: "ready",
           cloudinary_url: "https://res.cloudinary.com/demo/video/upload/admin_sample.mp4",
         }),
-        { status: 200 }
+        { status: 200 },
       );
     }
     return realFetch(url);
@@ -331,7 +343,7 @@ test("status route allows admin update on ownerless job via administrative path"
           status: "ready",
           cloudinary_url: "https://res.cloudinary.com/demo/video/upload/ownerless_sample.mp4",
         }),
-        { status: 200 }
+        { status: 200 },
       );
     }
     return realFetch(url);
@@ -352,7 +364,7 @@ test("status route formats local_video_url using loaded videoJob record", async 
           status: "ready",
           local_video_url: "http://ai-service.test/video-stream/Intro_20260101_120000.mp4",
         }),
-        { status: 200 }
+        { status: 200 },
       );
     }
     return realFetch(url);
@@ -369,13 +381,13 @@ test("status route formats local_video_url using loaded videoJob record", async 
 test("update mock validates where clause and returns 0 when record or owner does not match", async () => {
   const mismatchedOwnerResult = await AIVideo.update(
     { status: "completed" },
-    { where: { id: "test-ai-id", userId: otherId } }
+    { where: { id: "test-ai-id", userId: otherId } },
   );
   assert.deepEqual(mismatchedOwnerResult, [0]);
 
   const nonExistentIdResult = await AIVideo.update(
     { status: "completed" },
-    { where: { id: "non-existent-id" } }
+    { where: { id: "non-existent-id" } },
   );
   assert.deepEqual(nonExistentIdResult, [0]);
 });

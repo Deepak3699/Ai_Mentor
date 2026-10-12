@@ -10,6 +10,10 @@ AIVideo.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    userId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
     courseId: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -28,7 +32,7 @@ AIVideo.init(
     },
     videoUrl: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     transcript: {
       type: DataTypes.TEXT,
@@ -50,43 +54,9 @@ AIVideo.init(
       type: DataTypes.TEXT,
       allowNull: true,
     },
-        },
-        celebrity: {
-            type: DataTypes.STRING,
-            allowNull: false,
-        },
-        userId: {
-            type: DataTypes.UUID,
-            allowNull: false,
-        },
-        videoUrl: {
-            type: DataTypes.STRING,
-            allowNull: true,
-        },
-        transcript: {
-            type: DataTypes.TEXT,
-            allowNull: true,
-        },
-        transcriptName: {
-            type: DataTypes.STRING,
-            allowNull: true,
-        },
-        jobId: {
-            type: DataTypes.STRING,
-            allowNull: true,
-        },
-        status: {
-            type: DataTypes.ENUM("pending", "processing", "completed", "failed"),
-            defaultValue: "pending",
-        },
-        error: {
-            type: DataTypes.TEXT,
-            allowNull: true,
-        },
-        meta: {
-            type: DataTypes.JSON,
-            allowNull: true,
-        },
+    meta: {
+      type: DataTypes.JSON,
+      allowNull: true,
     },
   },
   {

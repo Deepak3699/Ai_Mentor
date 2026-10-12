@@ -225,15 +225,13 @@ router.get("/status/:jobId", protect, async (req, res) => {
       data.local_video_url = "/api/ai/video/" + videoJob.courseId + "/" + filename;
     }
 
-    const updateWhere = isAdmin
-      ? { id: jobId }
-      : { id: jobId, userId: req.user.id };
+    const updateWhere = isAdmin ? { id: jobId } : { id: jobId, userId: req.user.id };
 
     if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
       try {
         await AIVideo.update(
           { videoUrl: data.cloudinary_url, status: "completed", meta: data.meta },
-          { where: updateWhere }
+          { where: updateWhere },
         );
         console.log(`☁️ AIVideo DB updated with Cloudinary URL for DB ID: ${jobId}`);
       } catch (dbErr) {
@@ -243,7 +241,7 @@ router.get("/status/:jobId", protect, async (req, res) => {
       try {
         await AIVideo.update(
           { status: "failed", error: "Failed in AI service" },
-          { where: updateWhere }
+          { where: updateWhere },
         );
       } catch (dbErr) {
         console.error("⚠️ Failed to update AIVideo with failure status:", dbErr.message);
