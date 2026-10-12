@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { ArrowDown, X } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { ChevronDown, X } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
 
 const ReportModal = ({
@@ -20,6 +21,42 @@ const ReportModal = ({
   const [openDropdown, setOpenDropdown] = useState(false);
   const [openCourseDropdown, setOpenCourseDropdown] = useState(false);
   const [openSubDropdown, setOpenSubDropdown] = useState(false);
+  const [shouldRender, setShouldRender] = useState(show);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    let frame;
+    let timer;
+    if (show) {
+      setShouldRender(true);
+      frame = requestAnimationFrame(() => setVisible(true));
+    } else {
+      setVisible(false);
+      timer = window.setTimeout(() => setShouldRender(false), 180);
+    }
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [show]);
+  useEffect(() => {
+    const handleOutsideDropdownClick = (event) => {
+      if (event.target.closest("[data-report-dropdown]")) return;
+
+      setOpenDropdown(false);
+      setOpenCourseDropdown(false);
+      setOpenSubDropdown(false);
+    };
+
+    document.addEventListener("pointerdown", handleOutsideDropdownClick);
+
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsideDropdownClick);
+    };
+  }, []);
+  const requestClose = () => {
+    setVisible(false);
+    window.setTimeout(onClose, 180);
+  };
 
   const reportOptions = ["Bug / Error", "Course", "Payment Issue", "Other"];
 
@@ -50,15 +87,20 @@ const ReportModal = ({
     ],
   };
 
-  if (!show) return null;
+  if (!shouldRender) return null;
 
-  return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+  return createPortal(
+    <div
+      className={`fixed inset-0 z-[200] flex items-center justify-center px-4 ui-overlay ${visible ? "is-open" : "is-closing"}`}
+    >
+      <div
+        className="absolute inset-0 bg-black/45 backdrop-blur-[4px] dark:bg-black/55"
+        onClick={requestClose}
+      />
 
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md bg-white/90 dark:bg-black/50 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl"
+        className="relative w-full max-w-md rounded-2xl border border-border bg-card p-6 text-main shadow-2xl ui-modal-surface"
       >
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -78,7 +120,7 @@ const ReportModal = ({
               </div>
 
               <button
-                onClick={onClose}
+                onClick={requestClose}
                 className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 transition"
               >
                 <X className="w-4 h-4 text-gray-700 dark:text-white" />
@@ -91,15 +133,25 @@ const ReportModal = ({
               </label>
 
               <button
-                onClick={() => setOpenDropdown(!openDropdown)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-teal-400 transition"
+                onClick={() => {
+                  setOpenDropdown(!openDropdown);
+                  setOpenCourseDropdown(false);
+                  setOpenSubDropdown(false);
+                }}
+                data-report-dropdown
+                className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-[#3867D6] focus:border-[#3867D6] transition"
               >
                 {reportType}
-                <ArrowDown className="w-4 h-4 opacity-70" />
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 ${openDropdown ? "rotate-180" : ""}`}
+                />
               </button>
 
               {openDropdown && (
-                <div className="absolute mt-2 w-full bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-lg shadow-lg overflow-hidden z-50">
+                <div
+                  className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-border bg-card text-main shadow-xl ui-popover-surface"
+                  data-report-dropdown
+                >
                   {reportOptions.map((option) => (
                     <div
                       key={option}
@@ -109,7 +161,7 @@ const ReportModal = ({
                         setSubType("");
                         setOpenDropdown(false);
                       }}
-                      className="px-4 py-3 text-sm cursor-pointer hover:bg-teal-50 dark:hover:bg-white/10 transition"
+                      className="cursor-pointer px-4 py-2.5 text-sm text-main transition-colors hover:bg-canvas-alt"
                     >
                       {option}
                     </div>
@@ -125,15 +177,25 @@ const ReportModal = ({
                 </label>
 
                 <button
-                  onClick={() => setOpenCourseDropdown(!openCourseDropdown)}
-                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-teal-400 transition"
+                  onClick={() => {
+                    setOpenCourseDropdown(!openCourseDropdown);
+                    setOpenDropdown(false);
+                    setOpenSubDropdown(false);
+                  }}
+                  data-report-dropdown
+                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-[#3867D6] focus:border-[#3867D6] transition"
                 >
                   {selectedCourse || "Select your course"}
-                  <ArrowDown className="w-4 h-4 opacity-70" />
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 ${openCourseDropdown ? "rotate-180" : ""}`}
+                  />
                 </button>
 
                 {openCourseDropdown && (
-                  <div className="absolute mt-2 w-full bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-lg shadow-lg overflow-hidden z-50 max-h-48 overflow-y-auto">
+                  <div
+                    className="absolute z-50 mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-border bg-card text-main shadow-xl ui-popover-surface"
+                    data-report-dropdown
+                  >
                     {enrolledCourses.length === 0 ? (
                       <div className="px-4 py-3 text-sm text-gray-400">No enrolled courses</div>
                     ) : (
@@ -145,7 +207,7 @@ const ReportModal = ({
                             setSubType("");
                             setOpenCourseDropdown(false);
                           }}
-                          className="px-4 py-3 text-sm cursor-pointer hover:bg-teal-50 dark:hover:bg-white/10 transition"
+                          className="cursor-pointer px-4 py-2.5 text-sm text-main transition-colors hover:bg-canvas-alt"
                         >
                           {course.title}
                         </div>
@@ -165,15 +227,25 @@ const ReportModal = ({
                   </label>
 
                   <button
-                    onClick={() => setOpenSubDropdown(!openSubDropdown)}
-                    className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-teal-400 transition"
+                    onClick={() => {
+                      setOpenSubDropdown(!openSubDropdown);
+                      setOpenDropdown(false);
+                      setOpenCourseDropdown(false);
+                    }}
+                    data-report-dropdown
+                    className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-[#3867D6] focus:border-[#3867D6] transition"
                   >
                     {subType || "Select reason"}
-                    <ArrowDown className="w-4 h-4 opacity-70" />
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 opacity-70 transition-transform duration-200 ${openSubDropdown ? "rotate-180" : ""}`}
+                    />
                   </button>
 
                   {openSubDropdown && (
-                    <div className="absolute mt-2 w-full bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-lg shadow-lg overflow-hidden z-50">
+                    <div
+                      className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-border bg-card text-main shadow-xl ui-popover-surface"
+                      data-report-dropdown
+                    >
                       {(subOptionsMap[reportType] || []).map((item) => (
                         <div
                           key={item}
@@ -181,7 +253,7 @@ const ReportModal = ({
                             setSubType(item);
                             setOpenSubDropdown(false);
                           }}
-                          className="px-4 py-3 text-sm cursor-pointer hover:bg-teal-50 dark:hover:bg-white/10 transition"
+                          className="cursor-pointer px-4 py-2.5 text-sm text-main transition-colors hover:bg-canvas-alt"
                         >
                           {item}
                         </div>
@@ -201,7 +273,7 @@ const ReportModal = ({
                 onChange={(e) => setReportText(e.target.value)}
                 rows={4}
                 placeholder="Describe the issue..."
-                className="w-full px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                className="w-full rounded-lg border border-gray-200 bg-gray-100 px-4 py-3 pb-12 pr-20 text-sm transition-colors dark:border-white/10 dark:bg-white/5 focus:border-[#3867D6] focus:outline-none focus:ring-1 focus:ring-[#3867D6]/60"
               />
             </div>
 
@@ -228,7 +300,7 @@ const ReportModal = ({
                     subType,
                   })
                 }
-                className="flex-1 py-3 rounded-lg bg-teal-500 text-white font-medium hover:bg-teal-600 transition disabled:opacity-40 flex items-center justify-center"
+                className="flex-1 py-3 rounded-lg bg-[#3867D6] text-white font-medium hover:bg-[#315BC0] transition disabled:opacity-40 flex items-center justify-center"
               >
                 {loading ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
@@ -240,7 +312,8 @@ const ReportModal = ({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
