@@ -110,6 +110,10 @@ export const chatWithAssistant = async (req, res) => {
 
       return res.json({
         reply: `
+        Learning Goal: ${user.learningGoal || "Unknown"}
+
+        Experience Level: ${user.experienceLevel || "Unknown"}
+        
         Explanation Type: ${preferences.explanation_type || "Unknown"}
 
         Learning Style: ${preferences.learning_style || "Unknown"}
