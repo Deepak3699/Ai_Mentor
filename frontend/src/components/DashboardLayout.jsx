@@ -25,12 +25,12 @@ const DashboardLayout = () => {
     (location.pathname.startsWith("/learning") ? "courses" : "dashboard");
 
   return (
-    <div className="min-h-dvh bg-canvas-alt flex flex-col">
+    <div className="h-dvh min-h-0 overflow-hidden w-full rounded-none bg-canvas-alt flex flex-col">
       <Header />
       <Sidebar activePage={activePage} />
       <div
-        className={`flex-1 flex flex-col transition-[margin-left] duration-300 mt-[4.5rem] ${
-          isDesktop ? (sidebarCollapsed ? "ml-20" : "ml-80") : ""
+        className={`app-route-scroll h-[calc(100dvh-5rem)] min-h-0 flex-none overflow-x-hidden overflow-y-auto bg-canvas-alt transition-[margin-left] duration-300 mt-[5rem] ${
+          isDesktop ? (sidebarCollapsed ? "ml-[72px]" : "ml-[245px]") : ""
         }`}
       >
         <Outlet />
