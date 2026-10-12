@@ -22,20 +22,20 @@ User Information
 Name:
 ${user.name}
 
-Experience Level:
-${preferences?.experience_level || "Unknown"}
-
-Learning Goal:
-${preferences?.learning_goal || "Unknown"}
+Explanation Type:
+${preferences?.explanation_type || "Unknown"}
 
 Learning Style:
 ${preferences?.learning_style || "Unknown"}
 
-Weekly Commitment:
-${preferences?.weekly_commitment || "Unknown"}
+Teaching Pace:
+${preferences?.teaching_pace || "Unknown"}
 
-Interested Topics:
-${preferences?.interested_topics?.join(", ") || "None"}
+Example Type:
+${preferences?.example_type || "Unknown"}
+
+Focus Area:
+${preferences?.focus_area || "Unknown"}
 
 Enrolled Courses:
 ${enrolledCourses.join(", ") || "None"}
