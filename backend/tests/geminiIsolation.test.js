@@ -8,5 +8,8 @@ test("Gemini service imports without requiring an API key", () => {
 });
 test("Gemini service returns an offline message when its key is absent", async () => {
   const result = await askGemini("context", "message");
-  assert.equal(result, "The AI Assistant is currently offline due to missing API configuration. Please try again later.");
+  assert.equal(
+    result,
+    "The AI Assistant is currently offline due to missing API configuration. Please try again later.",
+  );
 });

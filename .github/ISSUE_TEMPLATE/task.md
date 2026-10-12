@@ -2,8 +2,8 @@
 name: Task
 about: New work, feature, or improvement
 title: "[TASK] "
-labels: ''
-assignees: ''
+labels: ""
+assignees: ""
 ---
 
 ## What needs to be done?
