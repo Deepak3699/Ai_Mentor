@@ -21,9 +21,7 @@ test("main backend liveness returns 200 without checking the database", async ()
   const server = await startTestServer();
 
   try {
-    const response = await fetch(
-      `http://localhost:${server.address().port}/health/live`,
-    );
+    const response = await fetch(`http://localhost:${server.address().port}/health/live`);
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { status: "alive" });
@@ -40,9 +38,7 @@ test("main backend readiness returns 200 when the database is available", async 
   const server = await startTestServer();
 
   try {
-    const response = await fetch(
-      `http://localhost:${server.address().port}/health/ready`,
-    );
+    const response = await fetch(`http://localhost:${server.address().port}/health/ready`);
 
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { status: "ready" });
@@ -54,20 +50,14 @@ test("main backend readiness returns 200 when the database is available", async 
 });
 
 test("main backend readiness returns 503 without exposing database errors", async () => {
-  const authenticate = mock.method(
-    sequelize,
-    "authenticate",
-    async () => {
-      throw new Error("secret database credentials or connection details");
-    },
-  );
+  const authenticate = mock.method(sequelize, "authenticate", async () => {
+    throw new Error("secret database credentials or connection details");
+  });
 
   const server = await startTestServer();
 
   try {
-    const response = await fetch(
-      `http://localhost:${server.address().port}/health/ready`,
-    );
+    const response = await fetch(`http://localhost:${server.address().port}/health/ready`);
     const body = await response.text();
 
     assert.equal(response.status, 503);

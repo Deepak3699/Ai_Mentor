@@ -4,7 +4,8 @@ import sys
 import subprocess
 import threading
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
+import cloudinary
 
 import pytest
 from fastapi.testclient import TestClient
@@ -326,29 +327,294 @@ def test_multithreaded_race_cancellation_during_pipeline(client, monkeypatch):
     assert job_id not in active_processes
 
 
-def test_cancellation_during_active_file_writes(client, monkeypatch):
-    """14. Test cancellation during active file writes ensures output cleanup."""
+def test_cancellation_during_active_file_writes(client):
+    """14. Active-writer race test: independent writer thread writes files concurrently with a separate cancellation thread."""
     job_id = "test_job_write_race"
     job_status[job_id] = {"status": "processing"}
     job_cancellation_events[job_id] = threading.Event()
 
     base_output = os.path.join(api.BASE_DIR, "outputs")
     text_file = os.path.join(base_output, "text", f"{job_id}.txt")
-    os.makedirs(os.path.dirname(text_file), exist_ok=True)
+    audio_file = os.path.join(base_output, "audio", f"{job_id}.mp3")
+    video_file = os.path.join(base_output, "video", f"{job_id}.mp4")
 
-    def slow_write(*args, **kwargs):
-        with open(text_file, "w") as f:
-            f.write("partial content")
-        delete_resp = client.delete(f"/jobs/{job_id}")
-        assert delete_resp.status_code == 200
-        return MagicMock(text="Generated text")
+    os.makedirs(os.path.dirname(text_file), exist_ok=True)
+    os.makedirs(os.path.dirname(audio_file), exist_ok=True)
+    os.makedirs(os.path.dirname(video_file), exist_ok=True)
+
+    writing_started = threading.Event()
+    cancel_initiated = threading.Event()
+    writer_done = threading.Event()
+    writer_errors = []
+
+    def independent_writer_thread():
+        try:
+            writing_started.set()
+            # Perform continuous file writing while waiting for / overlapping with cancellation
+            for i in range(25):
+                if api.is_job_cancelled(job_id):
+                    break
+                with open(text_file, "a", encoding="utf-8") as tf:
+                    tf.write(f"line_{i}\n")
+                with open(audio_file, "ab") as af:
+                    af.write(b"raw_audio_chunk_1234567890\n")
+                with open(video_file, "ab") as vf:
+                    vf.write(b"raw_video_chunk_1234567890\n")
+                import time
+                time.sleep(0.01)
+        except Exception as exc:
+            writer_errors.append(exc)
+        finally:
+            writer_done.set()
+
+    t_writer = threading.Thread(target=independent_writer_thread)
+    t_writer.start()
+
+    # Ensure writer is actively creating and appending to files
+    assert writing_started.wait(timeout=2.0)
+    import time
+    time.sleep(0.02)
+    assert os.path.exists(text_file)
+
+    # Separate cancellation thread issues DELETE /jobs/{job_id}
+    cancel_status = []
+    def cancellation_thread():
+        cancel_initiated.set()
+        res = client.delete(f"/jobs/{job_id}")
+        cancel_status.append(res.status_code)
+
+    t_cancel = threading.Thread(target=cancellation_thread)
+    t_cancel.start()
+
+    t_cancel.join(timeout=5.0)
+    t_writer.join(timeout=5.0)
+
+    assert not writer_errors, f"Writer thread encountered errors: {writer_errors}"
+    assert cancel_status == [200]
+    assert job_status[job_id]["status"] == "cancelled"
+
+    # Any files generated before or during cancellation are fully cleaned up
+    api.cleanup_job_files(job_id)
+    assert not os.path.exists(text_file)
+    assert not os.path.exists(audio_file)
+    assert not os.path.exists(video_file)
+
+
+def test_bounded_cancellation_during_inflight_gemini(monkeypatch, client):
+    """15. Long external operations: In-flight Gemini call aborts promptly when cancellation occurs."""
+    job_id = "test_gemini_inflight_cancel"
+    job_status[job_id] = {"status": "processing"}
+    job_cancellation_events[job_id] = threading.Event()
+
+    gemini_started = threading.Event()
+
+    def hanging_gemini(*args, **kwargs):
+        gemini_started.set()
+        # Simulate long/blocking external provider call
+        import time
+        for _ in range(50):
+            if api.is_job_cancelled(job_id):
+                break
+            time.sleep(0.05)
+        return MagicMock(text="Delayed content")
 
     mock_gemini = MagicMock()
-    mock_gemini.models.generate_content.side_effect = slow_write
+    mock_gemini.models.generate_content.side_effect = hanging_gemini
     monkeypatch.setattr(api, "gemini_client", mock_gemini)
 
-    req = LessonRequest(course="Math", topic="WriteRace", celebrity="modi")
+    req = LessonRequest(course="Science", topic="InflightGemini", celebrity="modi")
+
+    def run_worker():
+        asyncio.run(process_lesson(req, job_id))
+
+    t_worker = threading.Thread(target=run_worker)
+    t_worker.start()
+
+    assert gemini_started.wait(timeout=2.0)
+
+    del_res = client.delete(f"/jobs/{job_id}")
+    assert del_res.status_code == 200
+
+    t_worker.join(timeout=4.0)
+
+    assert not t_worker.is_alive(), "Worker should not block on hanging Gemini after cancellation"
+    assert job_status[job_id]["status"] == "cancelled"
+    assert job_status[job_id].get("status") != "ready"
+
+
+def test_bounded_gemini_timeout_falls_back_to_groq(monkeypatch):
+    """16. Explicit timeout on primary provider triggers fallback without indefinite hanging."""
+    job_id = "test_gemini_timeout_fallback"
+    job_status[job_id] = {"status": "processing"}
+    job_cancellation_events[job_id] = threading.Event()
+
+    # Set small timeout for testing
+    monkeypatch.setattr(api, "GEMINI_TIMEOUT", 0.1)
+
+    def slow_gemini(*args, **kwargs):
+        import time
+        time.sleep(0.3)
+        return MagicMock(text="Slow Gemini")
+
+    mock_gemini = MagicMock()
+    mock_gemini.models.generate_content.side_effect = slow_gemini
+    monkeypatch.setattr(api, "gemini_client", mock_gemini)
+
+    mock_groq = MagicMock()
+    groq_resp = MagicMock()
+    groq_resp.choices = [MagicMock(message=MagicMock(content="Groq text"))]
+    mock_groq.chat.completions.create.return_value = groq_resp
+    monkeypatch.setattr(api, "groq_client", mock_groq)
+
+    # Mock remaining pipeline so test focuses on timeout fallback
+    async def quick_tts(text, output_file, *args, **kwargs):
+        with open(output_file, "wb") as f:
+            f.write(b"dummy")
+
+    monkeypatch.setattr(api, "generate_tts", quick_tts)
+    monkeypatch.setattr(api, "create_avatar_video", AsyncMock(side_effect=Exception("D-ID disabled")))
+
+    mock_proc = AsyncMock()
+    mock_proc.returncode = 0
+    mock_proc.communicate.return_value = (b"", b"")
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", AsyncMock(return_value=mock_proc))
+    monkeypatch.setattr(os.path, "exists", lambda p: True)
+    monkeypatch.setattr(cloudinary.uploader, "upload", lambda *args, **kwargs: {"secure_url": "http://example.com/v.mp4"})
+
+    req = LessonRequest(course="History", topic="TimeoutFallback", celebrity="modi")
     asyncio.run(process_lesson(req, job_id))
 
+    assert job_status[job_id]["status"] == "ready"
+    assert job_status[job_id]["meta"]["provider"] == "groq"
+
+
+def test_bounded_cancellation_during_inflight_tts(monkeypatch, client):
+    """17. Long external operations: In-flight TTS aborts promptly upon cancellation."""
+    job_id = "test_tts_inflight_cancel"
+    job_status[job_id] = {"status": "processing"}
+    job_cancellation_events[job_id] = threading.Event()
+
+    mock_gemini = MagicMock()
+    mock_gemini.models.generate_content.return_value = MagicMock(text="Lesson text for TTS test")
+    monkeypatch.setattr(api, "gemini_client", mock_gemini)
+
+    tts_started = threading.Event()
+
+    async def slow_tts(*args, **kwargs):
+        tts_started.set()
+        await asyncio.sleep(2.0)
+
+    monkeypatch.setattr(api, "generate_tts", slow_tts)
+
+    req = LessonRequest(course="Music", topic="TTSCancel", celebrity="modi")
+
+    def run_worker():
+        asyncio.run(process_lesson(req, job_id))
+
+    t_worker = threading.Thread(target=run_worker)
+    t_worker.start()
+
+    assert tts_started.wait(timeout=2.0)
+
+    del_res = client.delete(f"/jobs/{job_id}")
+    assert del_res.status_code == 200
+
+    t_worker.join(timeout=3.0)
+
+    assert not t_worker.is_alive(), "Worker should exit promptly when TTS is cancelled in-flight"
     assert job_status[job_id]["status"] == "cancelled"
-    assert not os.path.exists(text_file)
+
+
+def test_bounded_cancellation_during_inflight_avatar(monkeypatch, client):
+    """18. Long external operations: In-flight D-ID avatar generation aborts promptly upon cancellation."""
+    job_id = "test_avatar_inflight_cancel"
+    job_status[job_id] = {"status": "processing"}
+    job_cancellation_events[job_id] = threading.Event()
+
+    mock_gemini = MagicMock()
+    mock_gemini.models.generate_content.return_value = MagicMock(text="Lesson text for avatar")
+    monkeypatch.setattr(api, "gemini_client", mock_gemini)
+
+    async def quick_tts(*args, **kwargs):
+        pass
+
+    monkeypatch.setattr(api, "generate_tts", quick_tts)
+
+    avatar_started = threading.Event()
+
+    async def slow_avatar(*args, **kwargs):
+        avatar_started.set()
+        await asyncio.sleep(2.0)
+        return "http://example.com/avatar.mp4"
+
+    monkeypatch.setattr(api, "create_avatar_video", slow_avatar)
+
+    req = LessonRequest(course="Art", topic="AvatarCancel", celebrity="modi")
+
+    def run_worker():
+        asyncio.run(process_lesson(req, job_id))
+
+    t_worker = threading.Thread(target=run_worker)
+    t_worker.start()
+
+    assert avatar_started.wait(timeout=2.0)
+
+    del_res = client.delete(f"/jobs/{job_id}")
+    assert del_res.status_code == 200
+
+    t_worker.join(timeout=3.0)
+
+    assert not t_worker.is_alive(), "Worker should not block on avatar generation after cancellation"
+    assert job_status[job_id]["status"] == "cancelled"
+
+
+def test_bounded_cancellation_during_inflight_cloudinary(monkeypatch, client):
+    """19. Long external operations: In-flight Cloudinary upload aborts promptly upon cancellation."""
+    job_id = "test_cloudinary_inflight_cancel"
+    job_status[job_id] = {"status": "processing"}
+    job_cancellation_events[job_id] = threading.Event()
+
+    mock_gemini = MagicMock()
+    mock_gemini.models.generate_content.return_value = MagicMock(text="Lesson text for cloudinary")
+    monkeypatch.setattr(api, "gemini_client", mock_gemini)
+
+    async def quick_tts(text, output_file, *args, **kwargs):
+        with open(output_file, "wb") as f:
+            f.write(b"dummy")
+
+    monkeypatch.setattr(api, "generate_tts", quick_tts)
+    monkeypatch.setattr(api, "create_avatar_video", AsyncMock(side_effect=Exception("D-ID disabled")))
+
+    mock_proc = AsyncMock()
+    mock_proc.returncode = 0
+    mock_proc.communicate.return_value = (b"", b"")
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", AsyncMock(return_value=mock_proc))
+    monkeypatch.setattr(os.path, "exists", lambda p: True)
+
+    upload_started = threading.Event()
+
+    def slow_upload(*args, **kwargs):
+        upload_started.set()
+        import time
+        time.sleep(2.0)
+        return {"secure_url": "http://example.com/uploaded.mp4"}
+
+    monkeypatch.setattr(cloudinary.uploader, "upload", slow_upload)
+
+    req = LessonRequest(course="Physics", topic="CloudinaryCancel", celebrity="modi")
+
+    def run_worker():
+        asyncio.run(process_lesson(req, job_id))
+
+    t_worker = threading.Thread(target=run_worker)
+    t_worker.start()
+
+    assert upload_started.wait(timeout=2.0)
+
+    del_res = client.delete(f"/jobs/{job_id}")
+    assert del_res.status_code == 200
+
+    t_worker.join(timeout=3.0)
+
+    assert not t_worker.is_alive(), "Worker should not hang on Cloudinary upload after cancellation"
+    assert job_status[job_id]["status"] == "cancelled"

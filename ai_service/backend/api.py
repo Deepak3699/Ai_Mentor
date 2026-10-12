@@ -6,11 +6,16 @@ import asyncio
 import logging
 import subprocess
 import threading
+import time
 from contextlib import asynccontextmanager
 import edge_tts
 import cloudinary
 import cloudinary.uploader
 import requests
+try:
+    from mutagen.mp3 import MP3
+except ImportError:
+    MP3 = None
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +27,7 @@ from google import genai
 from groq import Groq
 from cachetools import TTLCache
 from subtitles import write_subtitles
+from job_shutdown import wait_for_jobs_to_finish
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
@@ -29,12 +35,23 @@ from config import (
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
-GROQ_ENABLED,
+    GROQ_ENABLED,
     CLOUDINARY_ENABLED,
     validate_config,
 )
 import voices
 from avatar_service import create_avatar_video
+
+# --------------------------
+# Operation Timeouts (seconds)
+# --------------------------
+GEMINI_TIMEOUT = float(os.getenv("GEMINI_TIMEOUT", "30.0"))
+GROQ_TIMEOUT = float(os.getenv("GROQ_TIMEOUT", "30.0"))
+TTS_TIMEOUT = float(os.getenv("TTS_TIMEOUT", "30.0"))
+DID_TIMEOUT = float(os.getenv("DID_TIMEOUT", "60.0"))
+DOWNLOAD_TIMEOUT = float(os.getenv("DOWNLOAD_TIMEOUT", "30.0"))
+CLOUDINARY_TIMEOUT = float(os.getenv("CLOUDINARY_TIMEOUT", "60.0"))
+
 # --------------------------
 # Cloudinary Config
 # --------------------------
@@ -47,7 +64,7 @@ if CLOUDINARY_ENABLED:
     )
 
 # --------------------------
-# FastAPI App
+# Logging & Process Verification
 # --------------------------
 logger = logging.getLogger(__name__)
 
@@ -81,10 +98,35 @@ def check_ffmpeg() -> None:
         ) from exc
 
 
+# --------------------------
+# Job Management State & Threading Locks
+# --------------------------
+# Entries expire automatically after 1 hour, max 1000 items
+job_status: TTLCache = TTLCache(maxsize=1000, ttl=3600)
+generation_cache: TTLCache = TTLCache(maxsize=1000, ttl=3600)
+job_cancellation_events: dict[str, threading.Event] = {}
+active_processes: dict[str, subprocess.Popen | asyncio.subprocess.Process] = {}
+active_jobs: set[str] = set()
+shutdown_failed_jobs: set[str] = set()
+shutting_down: bool = False
+job_state_lock: threading.Lock = threading.Lock()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global shutting_down
+
     check_ffmpeg()
+    shutting_down = False
     yield
+
+    shutting_down = True
+    await wait_for_jobs_to_finish(
+        active_jobs=active_jobs,
+        job_status=job_status,
+        shutdown_failed_jobs=shutdown_failed_jobs,
+        timeout_seconds=0,
+    )
 
 
 app = FastAPI(
@@ -101,17 +143,14 @@ app.add_middleware(
 )
 
 # --------------------------
-# GEMINI Client (Primary)
+# External AI Clients
 # --------------------------
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
-
-# --------------------------
-# GROQ Client (Fallback)
-# --------------------------
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_ENABLED else None
 
+
 # --------------------------
-# Request Model
+# Request Models
 # --------------------------
 class LessonRequest(BaseModel):
     course: str = Field(..., min_length=1, max_length=100)
@@ -124,9 +163,11 @@ class LessonRequest(BaseModel):
     speech_rate: str | None = "+0%"
     speech_pitch: str | None = "+0Hz"
 
+
 class SyllabusRequest(BaseModel):
     course_title: str
     category: str | None = None
+
 
 class QuizRequest(BaseModel):
     lesson: str
@@ -142,24 +183,33 @@ class QuizQuestion(BaseModel):
 class QuizResponse(BaseModel):
     questions: list[QuizQuestion]
 
+
 # --------------------------
-# Helpers
+# Helpers & File Management
 # --------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-async def generate_tts(text: str, output_file: str, voice_id: str = "en-US-GuyNeural", rate: str = "+0%", pitch: str = "+0Hz"):
+
+async def generate_tts(
+    text: str,
+    output_file: str,
+    voice_id: str = "en-US-GuyNeural",
+    rate: str = "+0%",
+    pitch: str = "+0Hz",
+):
     communicate = edge_tts.Communicate(
         text=text,
         voice=voice_id,
         rate=rate,
-        pitch=pitch
+        pitch=pitch,
     )
     await communicate.save(output_file)
+
 
 def get_celebrity_video(celebrity_name: str):
     input_video_dir = os.path.join(BASE_DIR, "backend", "input")
     celebrity_video = os.path.join(input_video_dir, f"{celebrity_name.lower()}.mp4")
-    
+
     if os.path.exists(celebrity_video):
         print(f"🎬 Using celebrity video: {celebrity_video}")
         return celebrity_video
@@ -167,45 +217,6 @@ def get_celebrity_video(celebrity_name: str):
         input_video = os.path.join(input_video_dir, "modi.mp4")
         print(f"🎬 Using default video: {input_video}")
         return input_video
-
-# --------------------------
-# Serve Files
-# --------------------------
-
-base_output_path = os.path.join(BASE_DIR, "outputs")
-video_output_path = os.path.join(base_output_path, "video")
-text_output_path = os.path.join(base_output_path, "text")
-
-os.makedirs(video_output_path, exist_ok=True)
-os.makedirs(text_output_path, exist_ok=True)
-
-app.mount("/video-stream", StaticFiles(directory=video_output_path), name="video-stream")
-app.mount("/transcript-stream", StaticFiles(directory=text_output_path), name="transcript-stream")
-
-# --------------------------
-# Root Route
-# --------------------------
-@app.get("/")
-def home():
-    return {"message": "AI Lesson Generator Backend Running"}
-
-@app.get("/transcript/{filename}")
-def get_transcript(filename: str):
-    file_path = os.path.join(BASE_DIR, "outputs", "text", filename)
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        return {"content": content}
-    return {"error": "Transcript not found"}
-
-# --------------------------
-# Job Management State & Helpers
-# --------------------------
-job_status: dict[str, dict] = {}
-generation_cache: dict[str, str] = {}
-job_cancellation_events: dict[str, threading.Event] = {}
-active_processes: dict[str, subprocess.Popen] = {}
-job_state_lock = threading.Lock()
 
 
 def cleanup_job_files(base_filename: str) -> None:
@@ -231,16 +242,112 @@ def cleanup_job_files(base_filename: str) -> None:
             print(f"❌ Failed to delete {file_path}: {cleanup_err}")
 
 
+def _is_job_cancelled_locked(base_filename: str) -> bool:
+    """Check cancellation status while job_state_lock is already held by caller."""
+    event = job_cancellation_events.get(base_filename)
+    if event and event.is_set():
+        return True
+    current = job_status.get(base_filename)
+    if isinstance(current, dict) and current.get("status") == "cancelled":
+        return True
+    return False
+
+
 def is_job_cancelled(base_filename: str) -> bool:
     """Check if a cancellation has been requested for the given job under thread lock."""
     with job_state_lock:
-        event = job_cancellation_events.get(base_filename)
-        if event and event.is_set():
-            return True
-        current = job_status.get(base_filename)
-        if isinstance(current, dict) and current.get("status") == "cancelled":
-            return True
-        return False
+        return _is_job_cancelled_locked(base_filename)
+
+
+def remove_failed_generation_cache(base_filename: str) -> None:
+    """Remove cache entries that still point to this failed job."""
+    for key, cached_filename in list(generation_cache.items()):
+        if cached_filename == base_filename:
+            generation_cache.pop(key, None)
+
+
+async def run_bounded_operation(operation, base_filename: str, timeout: float = 30.0):
+    """
+    Execute a callable or coroutine with bounded timeout and active cancellation monitoring.
+    If the job is cancelled while the operation is in flight, the operation is abandoned early.
+    """
+    if is_job_cancelled(base_filename):
+        raise asyncio.CancelledError(f"Job {base_filename} was cancelled before operation started.")
+
+    if asyncio.iscoroutine(operation):
+        op_task = asyncio.create_task(operation)
+    elif callable(operation):
+        op_task = asyncio.create_task(asyncio.to_thread(operation))
+    else:
+        return operation
+
+    event = job_cancellation_events.get(base_filename)
+    if not event:
+        return await asyncio.wait_for(op_task, timeout=timeout)
+
+    async def _wait_for_cancel():
+        while not event.is_set():
+            await asyncio.sleep(0.05)
+        return True
+
+    cancel_task = asyncio.create_task(_wait_for_cancel())
+
+    done, pending = await asyncio.wait(
+        [op_task, cancel_task],
+        timeout=timeout,
+        return_when=asyncio.FIRST_COMPLETED,
+    )
+
+    for t in pending:
+        t.cancel()
+        try:
+            await t
+        except (asyncio.CancelledError, Exception):
+            pass
+
+    if op_task in done:
+        return op_task.result()
+    elif cancel_task in done:
+        raise asyncio.CancelledError(f"Job {base_filename} was cancelled during operation.")
+    else:
+        raise asyncio.TimeoutError(f"Operation timed out after {timeout} seconds.")
+
+
+# --------------------------
+# Serve Static Files
+# --------------------------
+base_output_path = os.path.join(BASE_DIR, "outputs")
+video_output_path = os.path.join(base_output_path, "video")
+text_output_path = os.path.join(base_output_path, "text")
+
+os.makedirs(video_output_path, exist_ok=True)
+os.makedirs(text_output_path, exist_ok=True)
+
+app.mount("/video-stream", StaticFiles(directory=video_output_path), name="video-stream")
+app.mount("/transcript-stream", StaticFiles(directory=text_output_path), name="transcript-stream")
+
+
+# --------------------------
+# Public API Endpoints
+# --------------------------
+@app.get("/")
+def home():
+    return {"message": "AI Lesson Generator Backend Running"}
+
+
+@app.get("/voices")
+def get_voices():
+    return {"voices": voices.get_all_voices()}
+
+
+@app.get("/transcript/{filename}")
+def get_transcript(filename: str):
+    file_path = os.path.join(BASE_DIR, "outputs", "text", filename)
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return {"content": content}
+    return {"error": "Transcript not found"}
 
 
 @app.get("/status/{job_id}")
@@ -280,25 +387,34 @@ def cancel_job(job_id: str):
         if event:
             event.set()
 
-        # Atomically retrieve active subprocess handle
+        # Atomically pop process handle
         proc = active_processes.pop(job_id, None)
 
         # Update job status
-        job_status[job_id] = {"status": "cancelled"}
+        if isinstance(status_data, dict):
+            status_data["status"] = "cancelled"
+        else:
+            job_status[job_id] = {"status": "cancelled"}
+
+        active_jobs.discard(job_id)
 
         # Remove matching hash keys from generation_cache
-        keys_to_remove = [k for k, v in generation_cache.items() if v == job_id]
-        for k in keys_to_remove:
-            generation_cache.pop(k, None)
+        for k, v in list(generation_cache.items()):
+            if v == job_id:
+                generation_cache.pop(k, None)
 
     # Perform blocking subprocess termination OUTSIDE critical lock section
     if proc:
         try:
             proc.terminate()
             try:
-                proc.wait(timeout=2)
+                if isinstance(proc, subprocess.Popen):
+                    proc.wait(timeout=2)
+                elif hasattr(proc, "kill"):
+                    proc.kill()
             except Exception:
-                proc.kill()
+                if hasattr(proc, "kill"):
+                    proc.kill()
         except Exception as exc:
             print(f"⚠️ Error terminating process for job {job_id}: {exc}")
 
@@ -311,27 +427,19 @@ def cancel_job(job_id: str):
         "status": "cancelled",
     }
 
-# --------------------------
-# Generate Syllabus Endpoint
-# --------------------------
+
 @app.post("/generate-syllabus")
 def generate_syllabus(data: SyllabusRequest):
     """
     Generate a structured course syllabus using AI.
-
     Tries Gemini first and falls back to Groq if Gemini fails.
-    This endpoint is synchronous and may take several seconds to complete.
-
-    Returns:
-        A JSON object containing generated modules and lessons,
-        or an error message if both AI providers fail.
     """
     prompt = f"""
     Create a highly structured course syllabus for a course titled '{data.course_title}'.
     Category: {data.category or 'General Education'}
-    
+
     You MUST respond with ONLY a valid JSON object. Do not include markdown formatting like ```json.
-    
+
     The JSON structure must match this exactly:
     {{
       "modules": [
@@ -347,7 +455,7 @@ def generate_syllabus(data: SyllabusRequest):
         }}
       ]
     }}
-    
+
     Requirements:
     - Create exactly 3 modules.
     - Each module should have exactly 2 lessons.
@@ -358,11 +466,10 @@ def generate_syllabus(data: SyllabusRequest):
         print("⚡ Trying Gemini Primary Model for Syllabus...")
         response = gemini_client.models.generate_content(
             model=GEMINI_MODEL,
-            contents=prompt
+            contents=prompt,
         )
 
         text = response.text.strip()
-
         if text.startswith("```json"):
             text = text[7:]
         elif text.startswith("```"):
@@ -386,10 +493,10 @@ def generate_syllabus(data: SyllabusRequest):
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=1000,
+                timeout=GROQ_TIMEOUT,
             )
 
             text = groq_response.choices[0].message.content.strip()
-
             if text.startswith("```json"):
                 text = text[7:]
             elif text.startswith("```"):
@@ -406,22 +513,11 @@ def generate_syllabus(data: SyllabusRequest):
 
         except Exception as e2:
             print(f"❌ Groq failed: {e2}")
-
             raise HTTPException(
                 status_code=503,
-                detail="Failed to generate syllabus"
+                detail="Failed to generate syllabus",
             )
-# --------------------------
-# Voices Endpoint
-# --------------------------
 
-@app.get("/voices")
-def get_voices():
-    return {"voices": voices.get_all_voices()}
-
-# --------------------------
-# Generate Quiz Endpoint
-# --------------------------
 
 @app.post("/generate-quiz", response_model=QuizResponse)
 def generate_quiz(data: QuizRequest):
@@ -466,23 +562,20 @@ def generate_quiz(data: QuizRequest):
                 print("⚡ Trying Gemini...")
                 response = gemini_client.models.generate_content(
                     model=GEMINI_MODEL,
-                    contents=prompt
+                    contents=prompt,
                 )
                 text = response.text.strip()
-
             except Exception as gemini_error:
                 print(f"❌ Gemini failed: {gemini_error}")
                 print("⚡ Trying Groq fallback...")
 
                 groq_response = groq_client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
-                    messages=[
-                        {"role": "user", "content": prompt}
-                    ],
+                    messages=[{"role": "user", "content": prompt}],
                     temperature=0.7,
                     max_tokens=2000,
+                    timeout=GROQ_TIMEOUT,
                 )
-
                 text = groq_response.choices[0].message.content.strip()
 
             if text.startswith("```json"):
@@ -494,7 +587,6 @@ def generate_quiz(data: QuizRequest):
                 text = text[:-3]
 
             quiz_data = json.loads(text.strip())
-
             validated_quiz = QuizResponse.model_validate(quiz_data)
 
             if len(validated_quiz.questions) != 4:
@@ -502,39 +594,20 @@ def generate_quiz(data: QuizRequest):
 
             for question in validated_quiz.questions:
                 if len(question.options) != 4:
-                    raise ValueError(
-                        "Each question must contain exactly 4 options."
-                    )
-
+                    raise ValueError("Each question must contain exactly 4 options.")
                 if not 0 <= question.correct_index < 4:
-                    raise ValueError(
-                        "correct_index must be between 0 and 3."
-                    )
+                    raise ValueError("correct_index must be between 0 and 3.")
 
             print("✅ Quiz generated and validated successfully.")
             return validated_quiz
 
         except Exception as e:
             print(f"❌ Quiz generation attempt {attempt + 1} failed: {e}")
-
             if attempt == 1:
                 return {"questions": []}
 
     return {"questions": []}
 
-# --------------------------
-# --------------------------
-# Generate Lesson Endpoint
-# --------------------------
-
-# Job status cache:
-# - Entries expire automatically after 1 hour.
-# - Cache is limited to 1000 jobs.
-# - This prevents the dictionary from growing indefinitely.
-job_status = TTLCache(
-    maxsize=1000,
-    ttl=3600
-)
 
 @app.post("/generate")
 def generate_lesson(
@@ -542,20 +615,31 @@ def generate_lesson(
     background_tasks: BackgroundTasks,
     force: bool = False,
 ):
+    if shutting_down:
+        raise HTTPException(
+            status_code=503,
+            detail="Service is shutting down; new jobs are not accepted.",
+        )
 
-    cache_data = "|".join([
-        data.course,
-        data.topic,
-        data.celebrity,
-        data.language if data.language else "English",
-    ])
-    cache_key = hashlib.sha256(
-        cache_data.encode("utf-8")
-    ).hexdigest()
+    cache_data = json.dumps(
+        {
+            "course": data.course,
+            "topic": data.topic,
+            "celebrity": data.celebrity,
+            "language": data.language,
+            "voice_id": data.voice_id,
+            "gender": data.gender,
+            "speech_rate": data.speech_rate,
+            "speech_pitch": data.speech_pitch,
+            "preferences": data.preferences,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    cache_key = hashlib.sha256(cache_data.encode("utf-8")).hexdigest()
 
-    topic_clean = re.sub(
-        r'[^\w\s-]', '', data.topic
-    ).strip().replace(" ", "_")
+    topic_clean = re.sub(r'[^\w\s-]', '', data.topic).strip().replace(" ", "_")
     topic_clean = topic_clean[:81]
     if force:
         base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
@@ -568,9 +652,13 @@ def generate_lesson(
             cached_job_id = generation_cache[cache_key]
             existing_status = job_status.get(
                 cached_job_id,
-                {"status": "processing"}
+                {"status": "processing"},
             )
-            cached_status_str = existing_status.get("status", "processing") if isinstance(existing_status, dict) else existing_status
+            cached_status_str = (
+                existing_status.get("status", "processing")
+                if isinstance(existing_status, dict)
+                else existing_status
+            )
 
             if cached_status_str != "cancelled":
                 return {
@@ -582,11 +670,21 @@ def generate_lesson(
                     "cached": True,
                 }
 
-        generation_cache[cache_key] = base_filename
-        job_status[base_filename] = {"status": "processing"}
-        job_cancellation_events[base_filename] = threading.Event()
+        if not force:
+            generation_cache[cache_key] = base_filename
 
-    background_tasks.add_task(process_lesson, data, base_filename)
+        job_status[base_filename] = {
+            "status": "queued",
+            "meta": {
+                "timestamps": {
+                    "queued_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                }
+            },
+        }
+        job_cancellation_events[base_filename] = threading.Event()
+        active_jobs.add(base_filename)
+
+    background_tasks.add_task(run_tracked_lesson, data, base_filename)
 
     return {
         "status": "Processing",
@@ -601,8 +699,17 @@ def generate_lesson(
 # --------------------------
 # Background Task Logic
 # --------------------------
-async def process_lesson(data: LessonRequest, base_filename: str):
+async def run_tracked_lesson(data: LessonRequest, base_filename: str):
+    try:
+        res = process_lesson(data, base_filename)
+        if asyncio.iscoroutine(res) or hasattr(res, "__await__"):
+            await res
+    finally:
+        with job_state_lock:
+            active_jobs.discard(base_filename)
 
+
+async def process_lesson(data: LessonRequest, base_filename: str):
     print("\n📥 RAW REQUEST DATA:")
     print(data.dict())
 
@@ -611,11 +718,43 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         cleanup_job_files(base_filename)
         return
 
+    start_time = time.time()
+    provider_used = "unknown"
+    model_used = "unknown"
+    audio_seconds = 0.0
+
+    should_abort = False
+    with job_state_lock:
+        if _is_job_cancelled_locked(base_filename):
+            should_abort = True
+        else:
+            if base_filename not in job_status:
+                job_status[base_filename] = {
+                    "status": "processing",
+                    "meta": {
+                        "timestamps": {
+                            "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                        }
+                    },
+                }
+            else:
+                job_status[base_filename]["status"] = "processing"
+                if "meta" not in job_status[base_filename]:
+                    job_status[base_filename]["meta"] = {"timestamps": {}}
+                if "timestamps" not in job_status[base_filename]["meta"]:
+                    job_status[base_filename]["meta"]["timestamps"] = {}
+                job_status[base_filename]["meta"]["timestamps"]["started_at"] = (
+                    datetime.datetime.now(datetime.timezone.utc).isoformat()
+                )
+
+    if should_abort:
+        cleanup_job_files(base_filename)
+        return
+
     try:
         print(f"\n🚀 Starting generation for: {data.topic} ({data.celebrity})")
 
         preferences_text = ""
-
         if data.preferences:
             preferences_text = f"""
         User Preferences:
@@ -658,18 +797,26 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         try:
             print("⚡ Trying Gemini Primary Model...")
-
-            response = gemini_client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=prompt
+            response = await run_bounded_operation(
+                lambda: gemini_client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=prompt,
+                ),
+                base_filename,
+                timeout=GEMINI_TIMEOUT,
             )
 
             script = response.text.strip().replace("\n", " ")
-
+            provider_used = "gemini"
+            model_used = GEMINI_MODEL
             print("✅ Gemini response generated")
 
-        except Exception as gemini_error:
+        except asyncio.CancelledError:
+            print(f"🛑 Job {base_filename} was cancelled during Gemini call.")
+            cleanup_job_files(base_filename)
+            return
 
+        except Exception as gemini_error:
             print(f"❌ Gemini failed: {gemini_error}")
 
             if is_job_cancelled(base_filename):
@@ -679,35 +826,48 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             try:
                 print("⚡ Switching to Groq fallback...")
-
-                groq_response = groq_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    temperature=0.7,
-                    max_tokens=300,
+                groq_response = await run_bounded_operation(
+                    lambda: groq_client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=[{"role": "user", "content": prompt}],
+                        temperature=0.7,
+                        max_tokens=300,
+                        timeout=GROQ_TIMEOUT,
+                    ),
+                    base_filename,
+                    timeout=GROQ_TIMEOUT,
                 )
 
                 script = groq_response.choices[0].message.content.strip().replace("\n", " ")
-
+                provider_used = "groq"
+                model_used = "llama-3.3-70b-versatile"
                 print("✅ Groq fallback response generated")
 
+            except asyncio.CancelledError:
+                print(f"🛑 Job {base_filename} was cancelled during Groq call.")
+                cleanup_job_files(base_filename)
+                return
+
             except Exception as groq_error:
-
                 print(f"❌ Groq also failed: {groq_error}")
-
+                should_cleanup = False
                 with job_state_lock:
-                    if not is_job_cancelled(base_filename):
-                        job_status[base_filename] = {
-                            "status": "failed"
-                        }
+                    if _is_job_cancelled_locked(base_filename):
+                        should_cleanup = True
                     else:
-                        cleanup_job_files(base_filename)
+                        if base_filename not in shutdown_failed_jobs and base_filename in job_status:
+                            job_status[base_filename]["status"] = "failed"
+                            if "meta" not in job_status[base_filename]:
+                                job_status[base_filename]["meta"] = {"timestamps": {}}
+                            if "timestamps" not in job_status[base_filename]["meta"]:
+                                job_status[base_filename]["meta"]["timestamps"] = {}
+                            job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                                datetime.datetime.now(datetime.timezone.utc).isoformat()
+                            )
+                        remove_failed_generation_cache(base_filename)
 
+                if should_cleanup:
+                    cleanup_job_files(base_filename)
                 return
 
         if is_job_cancelled(base_filename):
@@ -718,7 +878,6 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         print(f"📝 Generated text: {script}")
 
         # 2️⃣ Create Output Folders
-
         base_output_dir = os.path.join(BASE_DIR, "outputs")
         text_dir = os.path.join(base_output_dir, "text")
         audio_dir = os.path.join(base_output_dir, "audio")
@@ -733,7 +892,6 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         final_video = os.path.join(video_dir, f"{base_filename}.mp4")
 
         # 3️⃣ Save Text to File
-
         with open(text_path, "w", encoding="utf-8") as f:
             f.write(script)
 
@@ -745,34 +903,60 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             return
 
         # 4️⃣ Convert Text to Speech (edge-tts)
-
         print("🎵 Starting TTS generation...")
 
         try:
-            if os.path.exists(audio_path):
-                os.remove(audio_path)
+            try:
+                if os.path.exists(audio_path):
+                    os.remove(audio_path)
+            except OSError:
+                pass
 
-            # Validate voice or fallback
             selected_voice = voices.get_voice(data.voice_id)
-
             rate = data.speech_rate if data.speech_rate else "+0%"
             pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
 
-            await generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch)
+            await run_bounded_operation(
+                generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch),
+                base_filename,
+                timeout=TTS_TIMEOUT,
+            )
 
-            print(f"✅ Audio saved: {audio_path}")
+            try:
+                if MP3 and os.path.exists(audio_path):
+                    audio = MP3(audio_path)
+                    audio_seconds = audio.info.length
+            except Exception as e:
+                print(f"⚠️ Could not calculate audio duration: {e}")
+
+            print(f"✅ Audio saved: {audio_path} ({audio_seconds:.2f}s)")
+
+        except asyncio.CancelledError:
+            print(f"🛑 Job {base_filename} was cancelled during TTS generation.")
+            cleanup_job_files(base_filename)
+            return
 
         except Exception as e:
-
             print(f"❌ TTS Error: {e}")
-
+            should_cleanup = False
             with job_state_lock:
-                if not is_job_cancelled(base_filename):
-                    job_status[base_filename] = {
-                        "status": "failed"
-                    }
+                if _is_job_cancelled_locked(base_filename):
+                    should_cleanup = True
                 else:
-                    cleanup_job_files(base_filename)
+                    if base_filename not in shutdown_failed_jobs:
+                        if base_filename in job_status:
+                            job_status[base_filename]["status"] = "failed"
+                        if "meta" not in job_status[base_filename]:
+                            job_status[base_filename]["meta"] = {"timestamps": {}}
+                        if "timestamps" not in job_status[base_filename]["meta"]:
+                            job_status[base_filename]["meta"]["timestamps"] = {}
+                        job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                            datetime.datetime.now(datetime.timezone.utc).isoformat()
+                        )
+                    remove_failed_generation_cache(base_filename)
+
+            if should_cleanup:
+                cleanup_job_files(base_filename)
             return
 
         if is_job_cancelled(base_filename):
@@ -785,8 +969,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         try:
             print("🤖 Trying D-ID AI Avatar...")
-
-            avatar_video_url = await create_avatar_video(audio_path)
+            avatar_video_url = await run_bounded_operation(
+                create_avatar_video(audio_path),
+                base_filename,
+                timeout=DID_TIMEOUT,
+            )
 
             if is_job_cancelled(base_filename):
                 print(f"🛑 Job {base_filename} was cancelled after D-ID generation.")
@@ -795,21 +982,34 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             print(f"✅ D-ID avatar video ready: {avatar_video_url}")
 
-            video_response = requests.get(
-                avatar_video_url,
-                timeout=120,
-            )
-            video_response.raise_for_status()
+            def _download_avatar_video():
+                with requests.get(avatar_video_url, stream=True, timeout=DOWNLOAD_TIMEOUT) as resp:
+                    resp.raise_for_status()
+                    with open(final_video, "wb") as vf:
+                        for chunk in resp.iter_content(chunk_size=65536):
+                            if is_job_cancelled(base_filename):
+                                return False
+                            if chunk:
+                                vf.write(chunk)
+                return True
 
-            if is_job_cancelled(base_filename):
-                print(f"🛑 Job {base_filename} was cancelled before writing avatar video.")
+            downloaded = await run_bounded_operation(
+                _download_avatar_video,
+                base_filename,
+                timeout=DOWNLOAD_TIMEOUT,
+            )
+
+            if is_job_cancelled(base_filename) or not downloaded:
+                print(f"🛑 Job {base_filename} was cancelled during avatar video write.")
                 cleanup_job_files(base_filename)
                 return
 
-            with open(final_video, "wb") as video_file:
-                video_file.write(video_response.content)
-
             print(f"✅ Avatar video downloaded: {final_video}")
+
+        except asyncio.CancelledError:
+            print(f"🛑 Job {base_filename} was cancelled during avatar processing.")
+            cleanup_job_files(base_filename)
+            return
 
         except Exception as avatar_error:
             if is_job_cancelled(base_filename):
@@ -817,25 +1017,32 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 cleanup_job_files(base_filename)
                 return
 
-            print(
-                f"⚠️ D-ID avatar generation failed: {avatar_error}"
-            )
+            print(f"⚠️ D-ID avatar generation failed: {avatar_error}")
             print("🔄 Falling back to local FFmpeg renderer...")
 
             # 6️⃣ Fallback: Merge Stock Video + Audio (FFmpeg)
             input_video = get_celebrity_video(data.celebrity)
 
             if not os.path.exists(input_video):
-                print(
-                    f"❌ Fallback video not found at {input_video}"
-                )
+                print(f"❌ Fallback video not found at {input_video}")
+                should_cleanup = False
                 with job_state_lock:
-                    if not is_job_cancelled(base_filename):
-                        job_status[base_filename] = {
-                            "status": "failed"
-                        }
+                    if _is_job_cancelled_locked(base_filename):
+                        should_cleanup = True
                     else:
-                        cleanup_job_files(base_filename)
+                        if base_filename not in shutdown_failed_jobs and base_filename in job_status:
+                            job_status[base_filename]["status"] = "failed"
+                            if "meta" not in job_status[base_filename]:
+                                job_status[base_filename]["meta"] = {"timestamps": {}}
+                            if "timestamps" not in job_status[base_filename]["meta"]:
+                                job_status[base_filename]["meta"]["timestamps"] = {}
+                            job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                                datetime.datetime.now(datetime.timezone.utc).isoformat()
+                            )
+                        remove_failed_generation_cache(base_filename)
+
+                if should_cleanup:
+                    cleanup_job_files(base_filename)
                 return
 
             print("🎥 Running fallback FFmpeg command...")
@@ -855,29 +1062,43 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             ]
 
             cancelled_before_proc = False
-            proc = None
+            process = None
             with job_state_lock:
-                if is_job_cancelled(base_filename):
+                if _is_job_cancelled_locked(base_filename):
                     cancelled_before_proc = True
-                else:
-                    try:
-                        proc = subprocess.Popen(
-                            ffmpeg_args,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
-                        )
-                        active_processes[base_filename] = proc
-                    except Exception as ffmpeg_launch_err:
-                        print(f"❌ Failed to launch FFmpeg: {ffmpeg_launch_err}")
-                        proc = None
 
             if cancelled_before_proc:
                 print(f"🛑 Job {base_filename} was cancelled before FFmpeg execution.")
                 cleanup_job_files(base_filename)
                 return
 
-            if proc:
-                stdout, stderr = proc.communicate()
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    *ffmpeg_args,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                with job_state_lock:
+                    if _is_job_cancelled_locked(base_filename):
+                        cancelled_before_proc = True
+                    else:
+                        active_processes[base_filename] = process
+            except Exception as ffmpeg_launch_err:
+                print(f"❌ Failed to launch FFmpeg: {ffmpeg_launch_err}")
+                process = None
+
+            if cancelled_before_proc:
+                if process:
+                    try:
+                        process.terminate()
+                    except Exception:
+                        pass
+                print(f"🛑 Job {base_filename} was cancelled during FFmpeg launch.")
+                cleanup_job_files(base_filename)
+                return
+
+            if process:
+                stdout, stderr = await process.communicate()
                 with job_state_lock:
                     active_processes.pop(base_filename, None)
 
@@ -886,26 +1107,49 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     cleanup_job_files(base_filename)
                     return
 
-                if proc.returncode != 0:
+                if process.returncode != 0:
                     error_msg = stderr.decode(errors="replace")
-                    print(f"❌ FFmpeg fallback failed with code {proc.returncode}: {error_msg}")
+                    print(f"❌ FFmpeg fallback failed with code {process.returncode}: {error_msg}")
+                    should_cleanup = False
                     with job_state_lock:
-                        if not is_job_cancelled(base_filename):
-                            job_status[base_filename] = {"status": "failed"}
+                        if _is_job_cancelled_locked(base_filename):
+                            should_cleanup = True
+                        else:
+                            if base_filename not in shutdown_failed_jobs and base_filename in job_status:
+                                job_status[base_filename]["status"] = "failed"
+                                if "meta" not in job_status[base_filename]:
+                                    job_status[base_filename]["meta"] = {"timestamps": {}}
+                                if "timestamps" not in job_status[base_filename]["meta"]:
+                                    job_status[base_filename]["meta"]["timestamps"] = {}
+                                job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                                    datetime.datetime.now(datetime.timezone.utc).isoformat()
+                                )
+                            remove_failed_generation_cache(base_filename)
+
+                    if should_cleanup:
+                        cleanup_job_files(base_filename)
                     return
 
             if not os.path.exists(final_video):
-                print(
-                    "❌ FFmpeg fallback failed — "
-                    f"video not found at {final_video}"
-                )
+                print(f"❌ FFmpeg fallback failed — video not found at {final_video}")
+                should_cleanup = False
                 with job_state_lock:
-                    if not is_job_cancelled(base_filename):
-                        job_status[base_filename] = {
-                            "status": "failed"
-                        }
+                    if _is_job_cancelled_locked(base_filename):
+                        should_cleanup = True
                     else:
-                        cleanup_job_files(base_filename)
+                        if base_filename not in shutdown_failed_jobs and base_filename in job_status:
+                            job_status[base_filename]["status"] = "failed"
+                            if "meta" not in job_status[base_filename]:
+                                job_status[base_filename]["meta"] = {"timestamps": {}}
+                            if "timestamps" not in job_status[base_filename]["meta"]:
+                                job_status[base_filename]["meta"]["timestamps"] = {}
+                            job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                                datetime.datetime.now(datetime.timezone.utc).isoformat()
+                            )
+                        remove_failed_generation_cache(base_filename)
+
+                if should_cleanup:
+                    cleanup_job_files(base_filename)
                 return
 
             print("✅ FFmpeg fallback video created.")
@@ -926,27 +1170,33 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             print(f"⚠️ Subtitle generation failed (video will still work): {sub_err}")
 
         # 7️⃣ Upload to Cloudinary
-
         cloudinary_url = None
 
         try:
-            print(f"☁️ Uploading video to Cloudinary...")
-
-            upload_result = cloudinary.uploader.upload(
-                final_video,
-                resource_type="video",
-                folder="ai_mentor/videos",
-                public_id=base_filename,
-                overwrite=True,
-                chunk_size=6000000,
+            print("☁️ Uploading video to Cloudinary...")
+            upload_result = await run_bounded_operation(
+                lambda: cloudinary.uploader.upload(
+                    final_video,
+                    resource_type="video",
+                    folder="ai_mentor/videos",
+                    public_id=base_filename,
+                    overwrite=True,
+                    chunk_size=6000000,
+                    timeout=CLOUDINARY_TIMEOUT,
+                ),
+                base_filename,
+                timeout=CLOUDINARY_TIMEOUT,
             )
 
             cloudinary_url = upload_result.get("secure_url")
-
             print(f"✅ Cloudinary upload success: {cloudinary_url}")
 
-        except Exception as cloud_err:
+        except asyncio.CancelledError:
+            print(f"🛑 Job {base_filename} was cancelled during Cloudinary upload.")
+            cleanup_job_files(base_filename)
+            return
 
+        except Exception as cloud_err:
             print(f"⚠️ Cloudinary upload failed (will fall back to local proxy): {cloud_err}")
 
         if is_job_cancelled(base_filename):
@@ -954,50 +1204,85 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             cleanup_job_files(base_filename)
             return
 
-        # Upload subtitles to Cloudinary when available. Local static URLs remain
-        # available as a fallback when video or subtitle upload fails.
+        # Upload subtitles to Cloudinary when available
         local_video_url = f"/video-stream/{base_filename}.mp4"
         local_vtt_url = f"/video-stream/{base_filename}.vtt" if vtt_path else None
         local_srt_url = f"/video-stream/{base_filename}.srt" if srt_path else None
         vtt_url, srt_url = None, None
+
         if vtt_path and srt_path:
             try:
-                vtt_url = cloudinary.uploader.upload(
-                    vtt_path,
-                    resource_type="raw",
-                    folder="ai_mentor/subtitles",
-                    public_id=f"{base_filename}.vtt",
-                    overwrite=True,
-                ).get("secure_url")
-                srt_url = cloudinary.uploader.upload(
-                    srt_path,
-                    resource_type="raw",
-                    folder="ai_mentor/subtitles",
-                    public_id=f"{base_filename}.srt",
-                    overwrite=True,
-                ).get("secure_url")
+                vtt_upload = await run_bounded_operation(
+                    lambda: cloudinary.uploader.upload(
+                        vtt_path,
+                        resource_type="raw",
+                        folder="ai_mentor/subtitles",
+                        public_id=f"{base_filename}.vtt",
+                        overwrite=True,
+                        timeout=CLOUDINARY_TIMEOUT,
+                    ),
+                    base_filename,
+                    timeout=CLOUDINARY_TIMEOUT,
+                )
+                vtt_url = vtt_upload.get("secure_url")
+
+                srt_upload = await run_bounded_operation(
+                    lambda: cloudinary.uploader.upload(
+                        srt_path,
+                        resource_type="raw",
+                        folder="ai_mentor/subtitles",
+                        public_id=f"{base_filename}.srt",
+                        overwrite=True,
+                        timeout=CLOUDINARY_TIMEOUT,
+                    ),
+                    base_filename,
+                    timeout=CLOUDINARY_TIMEOUT,
+                )
+                srt_url = srt_upload.get("secure_url")
                 print(f"✅ Subtitles uploaded: {vtt_url}, {srt_url}")
+
+            except asyncio.CancelledError:
+                cleanup_job_files(base_filename)
+                return
+
             except Exception as sub_up_err:
                 print(f"⚠️ Subtitle upload failed; using local subtitle URLs: {sub_up_err}")
 
         subtitle_vtt_url = vtt_url or local_vtt_url
         subtitle_srt_url = srt_url or local_srt_url
+        duration_ms = int((time.time() - start_time) * 1000)
 
+        should_cleanup = False
         with job_state_lock:
-            if is_job_cancelled(base_filename):
-                print(f"🛑 Job {base_filename} was cancelled before marking ready.")
-                cleanup_job_files(base_filename)
-                return
+            if _is_job_cancelled_locked(base_filename):
+                should_cleanup = True
+            else:
+                if base_filename not in shutdown_failed_jobs:
+                    if base_filename in job_status:
+                        job_status[base_filename]["status"] = "ready"
+                    job_status[base_filename]["cloudinary_url"] = cloudinary_url
+                    job_status[base_filename]["local_video_url"] = local_video_url
+                    job_status[base_filename]["subtitle_url"] = subtitle_vtt_url
+                    job_status[base_filename]["subtitle_vtt_url"] = subtitle_vtt_url
+                    job_status[base_filename]["subtitle_srt_url"] = subtitle_srt_url
 
-            job_status[base_filename] = {
-                "status": "ready",
-                "cloudinary_url": cloudinary_url,
-                "local_video_url": local_video_url,
-                "subtitle_url": subtitle_vtt_url,
-                "subtitle_vtt_url": subtitle_vtt_url,
-                "subtitle_srt_url": subtitle_srt_url,
-            }
-        print(f"✅ Lesson ready!")
+                    meta = job_status[base_filename].setdefault("meta", {})
+                    timestamps = meta.setdefault("timestamps", {})
+                    meta["provider"] = provider_used
+                    meta["model"] = model_used
+                    meta["duration_ms"] = duration_ms
+                    meta["audio_seconds"] = audio_seconds
+                    meta["word_count"] = len(script.split())
+                    timestamps["completed_at"] = datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat()
+
+        if should_cleanup:
+            print(f"🛑 Job {base_filename} was cancelled before marking ready.")
+            cleanup_job_files(base_filename)
+            return
+
+        print("✅ Lesson ready!")
         print(f"   Video : {final_video}")
 
         if cloudinary_url:
@@ -1021,24 +1306,38 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         else:
             print("⚠️ Keeping local files on disk as a fallback proxy since Cloudinary upload failed.")
             print("⚠️ Note: These files will remain until the server is restarted or manually cleaned.")
-    except Exception as e:
-        with job_state_lock:
-            if is_job_cancelled(base_filename):
-                print(f"🛑 Job {base_filename} was cancelled: {e}")
-                cleanup_job_files(base_filename)
-                return
 
-            job_status[base_filename] = {
-                "status": "failed"
-            }
+    except Exception as e:
+        should_cleanup = False
+        with job_state_lock:
+            if _is_job_cancelled_locked(base_filename):
+                should_cleanup = True
+            else:
+                if base_filename not in shutdown_failed_jobs and base_filename in job_status:
+                    job_status[base_filename]["status"] = "failed"
+                    if "meta" not in job_status[base_filename]:
+                        job_status[base_filename]["meta"] = {"timestamps": {}}
+                    if "timestamps" not in job_status[base_filename]["meta"]:
+                        job_status[base_filename]["meta"]["timestamps"] = {}
+                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                        datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    )
+                remove_failed_generation_cache(base_filename)
+
+        if should_cleanup:
+            print(f"🛑 Job {base_filename} was cancelled: {e}")
+            cleanup_job_files(base_filename)
+            return
 
         print(f"❌ Error generating lesson: {e}")
-
         traceback.print_exc()
+
     finally:
+        is_cancelled = False
         with job_state_lock:
+            is_cancelled = _is_job_cancelled_locked(base_filename)
             active_processes.pop(base_filename, None)
             job_cancellation_events.pop(base_filename, None)
-            is_cancelled = is_job_cancelled(base_filename)
+
         if is_cancelled:
             cleanup_job_files(base_filename)

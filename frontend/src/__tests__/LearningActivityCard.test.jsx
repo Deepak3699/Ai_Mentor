@@ -17,7 +17,13 @@ afterEach(cleanup);
 describe("LearningActivityCard", () => {
   it("mock data covers Mon-Sun and stays within the 0-8h axis", () => {
     expect(WEEKLY_ACTIVITY.map((d) => d.day)).toEqual([
-      "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun",
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun",
     ]);
     WEEKLY_ACTIVITY.forEach((d) => {
       expect(d.hours).toBeGreaterThanOrEqual(0);
@@ -55,8 +61,6 @@ describe("LearningActivityCard", () => {
       />,
     );
     expect(screen.getByTestId("weekly-total").textContent).toBe("5 hours");
-    expect(screen.getByTestId("weekly-change").textContent).toBe(
-      "↑ 10% compared to last week",
-    );
+    expect(screen.getByTestId("weekly-change").textContent).toBe("↑ 10% compared to last week");
   });
 });
