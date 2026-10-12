@@ -10,6 +10,10 @@ import { detectNavigation } from "../services/navigationService.js";
 //   apiKey: process.env.GEMINI_API_KEY,
 // });
 
+export const extractRoute = (reply) => {
+  const routeMatch = reply.match(/ROUTE:\s*(\/[a-zA-Z0-9\-_?=&]+)/i);
+  return routeMatch ? routeMatch[1].replace(/[.,!?;:]+$/, "") : null;
+};
 
 export const getChatContext = async (req, res) => {
   try {
@@ -213,13 +217,7 @@ export const chatWithAssistant = async (req, res) => {
     // Check if Gemini returned a route
     let route = null;
 
-    const routeMatch = geminiReply.match(
-      /ROUTE:(.+)/i
-    );
-
-    if (routeMatch) {
-      route = routeMatch[1].trim();
-    }
+    route = extractRoute(geminiReply);
 
     // Remove ROUTE from visible message
     const cleanedReply = geminiReply.replace(
