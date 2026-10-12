@@ -1200,7 +1200,11 @@ export default function Learning() {
                 <button
                   disabled={!generatedTextContent?.trim() || isAIVideoLoading}
                   onClick={() => setIsFlashcardStudyOpen(true)}
-                  title={generatedTextContent?.trim() ? "Study this lesson's flashcards" : "Lesson transcript is not available"}
+                  title={
+                    generatedTextContent?.trim()
+                      ? "Study this lesson's flashcards"
+                      : "Lesson transcript is not available"
+                  }
                   className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-main transition-colors hover:bg-canvas-alt disabled:cursor-not-allowed disabled:opacity-50"
                   type="button"
                 >
@@ -1229,14 +1233,14 @@ export default function Learning() {
           formatTime={formatTime}
         />
       </div>
-        <FlashcardStudy
-          open={isFlashcardStudyOpen}
-          onClose={() => setIsFlashcardStudyOpen(false)}
-          courseId={courseId}
-          lessonId={currentLesson?.id}
-          lessonTitle={currentLesson?.title}
-          transcript={generatedTextContent}
-        />
+      <FlashcardStudy
+        open={isFlashcardStudyOpen}
+        onClose={() => setIsFlashcardStudyOpen(false)}
+        courseId={courseId}
+        lessonId={currentLesson?.id}
+        lessonTitle={currentLesson?.title}
+        transcript={generatedTextContent}
+      />
     </>
   );
 }

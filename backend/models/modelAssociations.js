@@ -117,31 +117,42 @@ User.hasMany(CourseFeedback, {
 });
 
 CourseFeedback.belongsTo(User, {
-    foreignKey: "userId",
+  foreignKey: "userId",
 });
 
 User.hasMany(FlashcardDeck, {
-    foreignKey: "userId",
-    as: "flashcardDecks",
-    onDelete: "CASCADE",
+  foreignKey: "userId",
+  as: "flashcardDecks",
+  onDelete: "CASCADE",
 });
 
 FlashcardDeck.belongsTo(User, { foreignKey: "userId" });
 
 Course.hasMany(FlashcardDeck, {
-    foreignKey: "courseId",
-    as: "flashcardDecks",
-    onDelete: "CASCADE",
+  foreignKey: "courseId",
+  as: "flashcardDecks",
+  onDelete: "CASCADE",
 });
 
 FlashcardDeck.belongsTo(Course, { foreignKey: "courseId" });
 
 Lesson.hasMany(FlashcardDeck, {
-    foreignKey: "lessonId",
-    as: "flashcardDecks",
-    onDelete: "CASCADE",
+  foreignKey: "lessonId",
+  as: "flashcardDecks",
+  onDelete: "CASCADE",
 });
 
 FlashcardDeck.belongsTo(Lesson, { foreignKey: "lessonId" });
 
-export { Course, Module, Lesson, LessonContent, User, AIVideo, Preference, CalendarTask, CourseFeedback, FlashcardDeck };
+export {
+  Course,
+  Module,
+  Lesson,
+  LessonContent,
+  User,
+  AIVideo,
+  Preference,
+  CalendarTask,
+  CourseFeedback,
+  FlashcardDeck,
+};

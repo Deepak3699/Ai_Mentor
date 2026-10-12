@@ -6,7 +6,14 @@ import {
   updateFlashcardMastery,
 } from "../../service/flashcards";
 
-export default function FlashcardStudy({ open, onClose, courseId, lessonId, lessonTitle, transcript }) {
+export default function FlashcardStudy({
+  open,
+  onClose,
+  courseId,
+  lessonId,
+  lessonTitle,
+  transcript,
+}) {
   const [deck, setDeck] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [count, setCount] = useState(5);
@@ -116,17 +123,24 @@ export default function FlashcardStudy({ open, onClose, courseId, lessonId, less
 
         <div className="space-y-5 px-5 py-5 sm:px-7 sm:py-6">
           {error && (
-            <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+            <p
+              className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800"
+              role="alert"
+            >
               {error}
             </p>
           )}
 
           {isLoading && !deck ? (
-            <p className="py-16 text-center text-sm text-muted" role="status">Loading flashcards...</p>
+            <p className="py-16 text-center text-sm text-muted" role="status">
+              Loading flashcards...
+            </p>
           ) : currentCard ? (
             <>
               <div className="flex items-center justify-between gap-4 text-sm">
-                <span className="font-medium">Card {activeIndex + 1} of {cards.length}</span>
+                <span className="font-medium">
+                  Card {activeIndex + 1} of {cards.length}
+                </span>
                 <span className="text-muted">{masteredCount} mastered</span>
               </div>
               <div
@@ -159,16 +173,26 @@ export default function FlashcardStudy({ open, onClose, courseId, lessonId, less
                     className="absolute inset-0 flex flex-col justify-center p-6 sm:p-9"
                     style={{ backfaceVisibility: "hidden" }}
                   >
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted">Question</span>
-                    <span className="mt-4 text-lg font-semibold leading-relaxed sm:text-xl">{currentCard.front}</span>
-                    {currentCard.hint && <span className="mt-5 text-sm text-muted">Hint: {currentCard.hint}</span>}
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+                      Question
+                    </span>
+                    <span className="mt-4 text-lg font-semibold leading-relaxed sm:text-xl">
+                      {currentCard.front}
+                    </span>
+                    {currentCard.hint && (
+                      <span className="mt-5 text-sm text-muted">Hint: {currentCard.hint}</span>
+                    )}
                   </span>
                   <span
                     className="absolute inset-0 flex flex-col justify-center p-6 sm:p-9"
                     style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
                   >
-                    <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Answer</span>
-                    <span className="mt-4 text-base leading-relaxed sm:text-lg">{currentCard.back}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                      Answer
+                    </span>
+                    <span className="mt-4 text-base leading-relaxed sm:text-lg">
+                      {currentCard.back}
+                    </span>
                   </span>
                 </button>
               </div>
@@ -218,7 +242,9 @@ export default function FlashcardStudy({ open, onClose, courseId, lessonId, less
                   value={count}
                 >
                   {[5, 6, 7, 8, 9, 10].map((amount) => (
-                    <option key={amount} value={amount}>{amount}</option>
+                    <option key={amount} value={amount}>
+                      {amount}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -231,7 +257,9 @@ export default function FlashcardStudy({ open, onClose, courseId, lessonId, less
                 <RotateCw className="h-4 w-4" />
                 {isLoading ? "Generating..." : "Generate flashcards"}
               </button>
-              {!transcript?.trim() && <p className="text-xs text-muted">The lesson transcript is not available yet.</p>}
+              {!transcript?.trim() && (
+                <p className="text-xs text-muted">The lesson transcript is not available yet.</p>
+              )}
             </div>
           )}
         </div>

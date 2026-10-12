@@ -4,10 +4,7 @@ import Lesson from "../models/Lesson.js";
 import Module from "../models/Module.js";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
-import {
-  generateFlashcardsSchema,
-  updateFlashcardMasterySchema,
-} from "../schemas/aiSchema.js";
+import { generateFlashcardsSchema, updateFlashcardMasterySchema } from "../schemas/aiSchema.js";
 
 const router = express.Router();
 
