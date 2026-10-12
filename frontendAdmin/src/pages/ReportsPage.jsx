@@ -400,7 +400,6 @@ function ReportsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [reportToDelete, setReportToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [activeFilter, setActiveFilter] = useState("all");
 
   const fetchReports = async () => {
     try {
@@ -456,13 +455,9 @@ function ReportsPage() {
     statusFilter === "all" ? true : r.status === statusFilter,
   );
 
-  if (loading)
-    return (
-      <div className="p-10 text-center text-muted">Loading reports...</div>
-    );
+  if (loading) return <div className="p-10 text-center text-muted">Loading reports...</div>;
 
-  if (error)
-    return <div className="p-10 text-center text-red-500">Error: {error}</div>;
+  if (error) return <div className="p-10 text-center text-red-500">Error: {error}</div>;
 
   return (
     <>
@@ -486,12 +481,8 @@ function ReportsPage() {
       <div className="p-6 md:p-8 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">
-              Reports Dashboard
-            </h2>
-            <p className="text-muted text-sm">
-              Monitor and manage all user reports
-            </p>
+            <h2 className="text-3xl font-bold tracking-tight">Reports Dashboard</h2>
+            <p className="text-muted text-sm">Monitor and manage all user reports</p>
           </div>
 
           <div className="flex flex-wrap gap-3">
@@ -504,23 +495,17 @@ function ReportsPage() {
 
             <div className="px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-orange-500" />
-              <span className="text-xs font-bold text-orange-500">
-                Pending: {pendingCount}
-              </span>
+              <span className="text-xs font-bold text-orange-500">Pending: {pendingCount}</span>
             </div>
 
             <div className="px-4 py-2 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-green-500" />
-              <span className="text-xs font-bold text-green-500">
-                Resolved: {resolvedCount}
-              </span>
+              <span className="text-xs font-bold text-green-500">Resolved: {resolvedCount}</span>
             </div>
 
             <div className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-2">
               <X className="w-4 h-4 text-red-500" />
-              <span className="text-xs font-bold text-red-500">
-                Rejected: {rejectedCount}
-              </span>
+              <span className="text-xs font-bold text-red-500">Rejected: {rejectedCount}</span>
             </div>
           </div>
         </div>
@@ -578,9 +563,7 @@ function ReportsPage() {
             <tbody>
               {filteredReports.length > 0 ? (
                 filteredReports.map((report) => {
-                  const canDelete =
-                    report.status === "resolved" ||
-                    report.status === "rejected";
+                  const canDelete = report.status === "resolved" || report.status === "rejected";
 
                   return (
                     <tr
@@ -596,9 +579,7 @@ function ReportsPage() {
                             <div className="font-bold text-white">
                               {report.user?.name || "Unknown User"}
                             </div>
-                            <div className="text-[10px] text-muted uppercase">
-                              Reporter
-                            </div>
+                            <div className="text-[10px] text-muted uppercase">Reporter</div>
                           </div>
                         </div>
                       </td>
@@ -608,9 +589,7 @@ function ReportsPage() {
                           {report.email && (
                             <div className="flex items-center gap-1">
                               <Mail className="w-3 h-3 shrink-0" />
-                              <span className="truncate max-w-[140px]">
-                                {report.email}
-                              </span>
+                              <span className="truncate max-w-[140px]">{report.email}</span>
                             </div>
                           )}
                           {report.phone && (
@@ -650,9 +629,7 @@ function ReportsPage() {
                       <td className="text-xs text-muted">
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
-                          {report.createdAt
-                            ? new Date(report.createdAt).toLocaleDateString()
-                            : "—"}
+                          {report.createdAt ? new Date(report.createdAt).toLocaleDateString() : "—"}
                         </div>
                       </td>
 
@@ -666,9 +643,7 @@ function ReportsPage() {
                           </button>
 
                           <button
-                            onClick={() =>
-                              canDelete && setReportToDelete(report)
-                            }
+                            onClick={() => canDelete && setReportToDelete(report)}
                             disabled={!canDelete}
                             className={`h-9 w-9 inline-flex items-center justify-center rounded-xl transition ${
                               canDelete
@@ -687,9 +662,7 @@ function ReportsPage() {
                 <tr>
                   <td colSpan="7" className="p-20 text-center text-muted">
                     <Flag className="w-10 h-10 mx-auto mb-3 opacity-50" />
-                    {statusFilter === "all"
-                      ? "No reports found"
-                      : `No ${statusFilter} reports`}
+                    {statusFilter === "all" ? "No reports found" : `No ${statusFilter} reports`}
                   </td>
                 </tr>
               )}

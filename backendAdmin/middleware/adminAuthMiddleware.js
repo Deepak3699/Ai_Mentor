@@ -27,7 +27,7 @@ export const protectAdmin = async (req, res, next) => {
     }
 
     next();
-  } catch (error) {
+  } catch {
     res.status(401).json({ message: "Not authorized to access this route" });
   }
 };

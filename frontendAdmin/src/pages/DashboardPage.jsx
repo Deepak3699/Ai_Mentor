@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import { callApi } from "../utils/api";
 import { BookOpen, Users, GraduationCap, CreditCard, ShieldAlert } from "lucide-react";
 
 // Updated Metric component with predictable Tailwind styling arrays
-const Metric = ({ label, value, icon: Icon, type }) => {
+const Metric = ({ label, value, icon, type }) => {
   // Explicit mapping so Tailwind detects and compiles the color utilities correctly
   const styles = {
     blue: { bg: "bg-blue-500/10", text: "text-blue-500" },
@@ -18,7 +18,7 @@ const Metric = ({ label, value, icon: Icon, type }) => {
     <article className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between mb-4">
         <div className={`p-3 rounded-xl ${currentStyle.bg}`}>
-          <Icon className={`w-6 h-6 ${currentStyle.text}`} />
+          {createElement(icon, { className: `w-6 h-6 ${currentStyle.text}` })}
         </div>
       </div>
       <p className="text-sm font-bold text-muted uppercase tracking-wider">{label}</p>
@@ -49,7 +49,8 @@ function DashboardPage() {
     fetchStats();
   }, []);
 
-  if (loading) return <div className="p-10 text-center text-muted italic">Loading dashboard stats...</div>;
+  if (loading)
+    return <div className="p-10 text-center text-muted italic">Loading dashboard stats...</div>;
   if (error) return <div className="p-10 text-center text-red-500">Error: {error}</div>;
 
   return (
@@ -60,36 +61,36 @@ function DashboardPage() {
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric 
-          label="Total Users" 
-          value={stats?.totalUsers || 0} 
-          icon={Users} 
-          type="blue" 
+        <Metric label="Total Users" value={stats?.totalUsers || 0} icon={Users} type="blue" />
+        <Metric
+          label="Total Courses"
+          value={stats?.totalCourses || 0}
+          icon={BookOpen}
+          type="teal"
         />
-        <Metric 
-          label="Total Courses" 
-          value={stats?.totalCourses || 0} 
-          icon={BookOpen} 
-          type="teal" 
+        <Metric
+          label="Enrollments"
+          value={stats?.totalEnrollments || 0}
+          icon={GraduationCap}
+          type="purple"
         />
-        <Metric 
-          label="Enrollments" 
-          value={stats?.totalEnrollments || 0} 
-          icon={GraduationCap} 
-          type="purple" 
-        />
-        <Metric 
-          label="Total Revenue" 
-          value={`Rs ${stats?.totalRevenue || 0}`} 
-          icon={CreditCard} 
-          type="green" 
+        <Metric
+          label="Total Revenue"
+          value={`Rs ${stats?.totalRevenue || 0}`}
+          icon={CreditCard}
+          type="green"
         />
       </div>
 
       <div className="bg-canvas-alt rounded-3xl p-8 border border-border/50 border-dashed text-center">
         <ShieldAlert className="w-12 h-12 text-muted mx-auto mb-4 opacity-20" />
-        <h3 className="text-lg font-bold text-main opacity-40 uppercase tracking-widest">Platform Insights Coming Soon</h3>
-        <p className="text-xs text-muted mt-2 max-w-sm mx-auto">Detailed charts and activity graphs are being prepared to help you make better data-driven decisions.</p>
+        <h3 className="text-lg font-bold text-main opacity-40 uppercase tracking-widest">
+          Platform Insights Coming Soon
+        </h3>
+        <p className="text-xs text-muted mt-2 max-w-sm mx-auto">
+          Detailed charts and activity graphs are being prepared to help you make better data-driven
+          decisions.
+        </p>
       </div>
     </div>
   );

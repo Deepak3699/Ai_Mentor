@@ -25,7 +25,7 @@ const Course = sequelize.define(
     timestamps: true,
     tableName: "Courses",
     sync: { alter: false },
-  }
+  },
 );
 
 export default Course;

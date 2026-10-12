@@ -19,6 +19,7 @@ import {
   loginUser,
   getUserProfile,
   updateUserProfile,
+  removeProfileAvatar,
   purchaseCourse,
   updateCourseProgress,
   getWatchedVideos,
@@ -55,9 +56,11 @@ router.post("/complete-profile", protect, upload.single("avatar"), completeProfi
 
 /* ---------- USER ROUTES ---------- */
 
-router.route("/profile")
+router
+  .route("/profile")
   .get(protect, getUserProfile)
   .put(protect, upload.single("avatar"), validate(updateProfileSchema), updateUserProfile);
+router.delete("/profile/avatar", protect, removeProfileAvatar);
 
 router.put("/change-password", protect, validate(changePasswordSchema), changePassword);
 
@@ -67,7 +70,8 @@ router.put("/course-progress", protect, validate(courseProgressSchema), updateCo
 
 router.get("/watched-videos", protect, getWatchedVideos);
 
-router.route("/settings")
+router
+  .route("/settings")
   .get(protect, getUserSettings)
   .put(protect, validate(updateSettingsSchema), updateUserSettings);
 

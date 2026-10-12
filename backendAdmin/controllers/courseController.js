@@ -18,13 +18,22 @@ export const getAllCourses = async (req, res) => {
     if (search) {
       where[Op.or] = [
         { title: { [Op.iLike]: `%${search}%` } },
-        { category: { [Op.iLike]: `%${search}%` } }
+        { category: { [Op.iLike]: `%${search}%` } },
       ];
     }
 
     const courses = await Course.findAll({
       where,
-      attributes: ["id", "title", "category", "priceValue", "currency", "status", "createdAt", "updatedAt"],
+      attributes: [
+        "id",
+        "title",
+        "category",
+        "priceValue",
+        "currency",
+        "status",
+        "createdAt",
+        "updatedAt",
+      ],
       order: [["createdAt", "DESC"]],
     });
     res.status(200).json({ success: true, data: courses });
@@ -173,7 +182,7 @@ export const deleteCourseHard = async (req, res) => {
       console.log(`🧹 Cleaning up purchasedCourses for ${enrolledUsers.length} users...`);
       for (const user of enrolledUsers) {
         user.purchasedCourses = (user.purchasedCourses || []).filter(
-          (c) => Number(c.courseId) !== Number(id)
+          (c) => Number(c.courseId) !== Number(id),
         );
         await user.save();
       }
@@ -241,7 +250,7 @@ export const getCourseEnrollments = async (req, res) => {
         // Surface when the user enrolled, using the purchaseDate stored on the
         // matching purchasedCourses entry (set at purchase time).
         const enrollment = (u.purchasedCourses || []).find(
-          (c) => Number(c.courseId) === Number(id)
+          (c) => Number(c.courseId) === Number(id),
         );
         return {
           id: u.id,
@@ -273,7 +282,10 @@ export const getCourseSyllabus = async (req, res) => {
 
     const modules = await Module.findAll({
       where: { courseId },
-      order: [["order", "ASC"], ["createdAt", "ASC"]],
+      order: [
+        ["order", "ASC"],
+        ["createdAt", "ASC"],
+      ],
       include: [
         {
           model: Lesson,
@@ -286,7 +298,9 @@ export const getCourseSyllabus = async (req, res) => {
     const formattedModules = modules.map((mod) => {
       const plainMod = mod.get({ plain: true });
       if (plainMod.lessons) {
-        plainMod.lessons.sort((a, b) => a.order - b.order || new Date(a.createdAt) - new Date(b.createdAt));
+        plainMod.lessons.sort(
+          (a, b) => a.order - b.order || new Date(a.createdAt) - new Date(b.createdAt),
+        );
       }
       return plainMod;
     });
@@ -329,12 +343,15 @@ export const generateCourseSyllabusWithAI = async (req, res) => {
       },
       body: JSON.stringify({
         course_title: course.title,
-        category: course.category
+        category: course.category,
       }),
     });
 
     if (!aiResponse.ok) {
-      return res.status(500).json({ message: "AI Service failed to generate syllabus. Please make sure the python server is running." });
+      return res.status(500).json({
+        message:
+          "AI Service failed to generate syllabus. Please make sure the python server is running.",
+      });
     }
 
     const data = await aiResponse.json();
@@ -348,7 +365,7 @@ export const generateCourseSyllabusWithAI = async (req, res) => {
       const newModule = await Module.create({
         courseId: course.id,
         title: mod.title,
-        order: moduleOrder++
+        order: moduleOrder++,
       });
 
       let lessonOrder = 1;
@@ -358,7 +375,7 @@ export const generateCourseSyllabusWithAI = async (req, res) => {
           title: les.title,
           duration: les.duration || "5 mins",
           type: les.type || "video",
-          order: lessonOrder++
+          order: lessonOrder++,
         });
       }
     }
@@ -366,8 +383,10 @@ export const generateCourseSyllabusWithAI = async (req, res) => {
     res.json({ message: "Syllabus generated successfully", data: data });
   } catch (error) {
     console.error("GENERATE SYLLABUS ERROR:", error.message);
-    if (error.cause && error.cause.code === 'ECONNREFUSED') {
-      return res.status(500).json({ message: "Python AI Server is not running. Please start it with start_ai.bat" });
+    if (error.cause && error.cause.code === "ECONNREFUSED") {
+      return res
+        .status(500)
+        .json({ message: "Python AI Server is not running. Please start it with start_ai.bat" });
     }
     res.status(500).json({ success: false, message: "Server Error" });
   }

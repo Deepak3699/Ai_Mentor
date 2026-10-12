@@ -1,8 +1,5 @@
 import { getAIServiceHeaders } from "../utils/aiService.js";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
-import { sequelize } from "../config/db.js";
-import { DataTypes } from "sequelize";
 import {
   Admin,
   User,
@@ -13,7 +10,7 @@ import {
   Report,
   AdminNotification,
 } from "../models/index.js";
- 
+
 let notificationSeedPromise = null;
 
 const ensureNotificationSeed = async () => {
@@ -215,7 +212,7 @@ const getAllEnrollments = async (req, res) => {
     });
 
     const coursePriceMap = {};
-    courses.forEach(course => {
+    courses.forEach((course) => {
       coursePriceMap[course.id] = course.priceValue || 0;
     });
 
@@ -227,11 +224,11 @@ const getAllEnrollments = async (req, res) => {
       const now = new Date();
       const activeThresholdDays = 7;
 
-      users.forEach(user => {
+      users.forEach((user) => {
         const purchased = user.purchasedCourses || [];
 
         if (purchased.length > 0) {
-          purchased.forEach(course => {
+          purchased.forEach((course) => {
             totalEnrollments++;
             totalRevenue += coursePriceMap[course.courseId] || 0;
 
@@ -265,10 +262,10 @@ const getAllEnrollments = async (req, res) => {
 
       let enrollments = [];
 
-      users.forEach(user => {
+      users.forEach((user) => {
         const purchased = user.purchasedCourses || [];
 
-        purchased.forEach(course => {
+        purchased.forEach((course) => {
           enrollments.push({
             user: user.name,
             email: user.email,
@@ -310,7 +307,9 @@ const getAllPayments = async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
-    const search = String(req.query.search || "").trim().toLowerCase();
+    const search = String(req.query.search || "")
+      .trim()
+      .toLowerCase();
 
     const users = await User.findAll({
       attributes: ["id", "name", "email", "purchasedCourses"],
@@ -685,7 +684,10 @@ const getCourseSyllabus = async (req, res) => {
 
     const modules = await Module.findAll({
       where: { courseId },
-      order: [["order", "ASC"], ["createdAt", "ASC"]],
+      order: [
+        ["order", "ASC"],
+        ["createdAt", "ASC"],
+      ],
       include: [
         {
           model: Lesson,
@@ -698,7 +700,9 @@ const getCourseSyllabus = async (req, res) => {
     const formattedModules = modules.map((mod) => {
       const plainMod = mod.get({ plain: true });
       if (plainMod.lessons) {
-        plainMod.lessons.sort((a, b) => a.order - b.order || new Date(a.createdAt) - new Date(b.createdAt));
+        plainMod.lessons.sort(
+          (a, b) => a.order - b.order || new Date(a.createdAt) - new Date(b.createdAt),
+        );
       }
       return plainMod;
     });
@@ -741,12 +745,15 @@ const generateCourseSyllabusWithAI = async (req, res) => {
       },
       body: JSON.stringify({
         course_title: course.title,
-        category: course.category
+        category: course.category,
       }),
     });
 
     if (!aiResponse.ok) {
-      return res.status(500).json({ message: "AI Service failed to generate syllabus. Please make sure the python server is running." });
+      return res.status(500).json({
+        message:
+          "AI Service failed to generate syllabus. Please make sure the python server is running.",
+      });
     }
 
     const data = await aiResponse.json();
@@ -760,7 +767,7 @@ const generateCourseSyllabusWithAI = async (req, res) => {
       const newModule = await Module.create({
         courseId: course.id,
         title: mod.title,
-        order: moduleOrder++
+        order: moduleOrder++,
       });
 
       let lessonOrder = 1;
@@ -770,7 +777,7 @@ const generateCourseSyllabusWithAI = async (req, res) => {
           title: les.title,
           duration: les.duration || "5 mins",
           type: les.type || "video",
-          order: lessonOrder++
+          order: lessonOrder++,
         });
       }
     }
@@ -779,8 +786,10 @@ const generateCourseSyllabusWithAI = async (req, res) => {
   } catch (error) {
     console.error("GENERATE SYLLABUS ERROR:", error.message);
     // Return a better error if fetch failed due to AI server not running
-    if (error.cause && error.cause.code === 'ECONNREFUSED') {
-      return res.status(500).json({ message: "Python AI Server is not running. Please start it with start_ai.bat" });
+    if (error.cause && error.cause.code === "ECONNREFUSED") {
+      return res
+        .status(500)
+        .json({ message: "Python AI Server is not running. Please start it with start_ai.bat" });
     }
     res.status(500).json({ success: false, message: "Server Error" });
   }

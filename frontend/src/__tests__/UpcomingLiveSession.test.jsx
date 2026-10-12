@@ -18,10 +18,7 @@ describe("UpcomingLiveSession", () => {
 
   it("renders custom session title and time passed via props", () => {
     render(
-      <UpcomingLiveSession
-        title="Node.js Microservices"
-        time="Tomorrow • 5:00 PM – 6:30 PM"
-      />
+      <UpcomingLiveSession title="Node.js Microservices" time="Tomorrow • 5:00 PM – 6:30 PM" />,
     );
 
     expect(screen.getByText("Node.js Microservices")).toBeDefined();
