@@ -21,9 +21,9 @@ test("AI Job Metadata Persistence", async (t) => {
             timestamps: {
               queued_at: "2026-10-08T00:00:00Z",
               started_at: "2026-10-08T00:00:01Z",
-              completed_at: "2026-10-08T00:00:02Z"
-            }
-          }
+              completed_at: "2026-10-08T00:00:02Z",
+            },
+          },
         };
       }
       return null;
@@ -36,7 +36,7 @@ test("AI Job Metadata Persistence", async (t) => {
 
   await t.test("should return metadata in cached ready status responses", async () => {
     const videoJob = await AIVideo.findOne({ where: { id: "test-job-id" } });
-    
+
     assert.ok(videoJob.meta, "meta should exist");
     assert.equal(videoJob.meta.provider, "gemini");
     assert.equal(videoJob.meta.duration_ms, 1200);

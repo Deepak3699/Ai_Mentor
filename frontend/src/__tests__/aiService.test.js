@@ -20,7 +20,10 @@ describe("getAIVideo", () => {
   });
 
   it("keeps working without options", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => json({ jobId: "j" })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ jobId: "j" })),
+    );
     await expect(getAIVideo({})).resolves.toEqual({ jobId: "j" });
   });
 
@@ -33,7 +36,7 @@ describe("getAIVideo", () => {
         json: async () => {
           throw new DOMException("aborted", "AbortError");
         },
-      }))
+      })),
     );
     await expect(getAIVideo({})).rejects.toSatisfy(isAbortError);
   });
@@ -47,11 +50,14 @@ describe("getAIVideo", () => {
         json: async () => {
           throw new SyntaxError("bad");
         },
-      }))
+      })),
     );
     await expect(getAIVideo({})).rejects.toThrow("Server returned empty or invalid JSON");
 
-    vi.stubGlobal("fetch", vi.fn(async () => json({ message: "nope" }, false)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ message: "nope" }, false)),
+    );
     await expect(getAIVideo({})).rejects.toThrow("nope");
   });
 });

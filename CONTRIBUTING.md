@@ -24,37 +24,44 @@ Replace `<your-github-username>` with your GitHub username.
 # 3. Follow the detailed environment setup
 
     # Read initalSetup.md (Neon database + .env files)
-    
 
-# 4. Install dependencies for each service
+# 4. Install dependencies and run locally
 
-    cd backend       && npm install && cd ..
-    cd backendAdmin  && npm install && cd ..
-    cd frontend      && npm install && cd ..
-    cd frontendAdmin && npm install && cd ..
+From the repository root:
 
-# 5. AI service (Python)
+```bash
+npm run setup
+```
 
-    cd ai_service
-    python -m venv venv
-    source venv/bin/activate          # Windows: venv\Scripts\activate
-    pip install -r backend/requirements.txt
-    cd ..
+Configure the five `.env` files as described in `initalSetup.md`, then use the root commands:
 
+```bash
+npm run dev          # User and Admin API/WEB services
+npm run dev:user     # User API + User WEB
+npm run dev:admin    # Admin API + Admin WEB
+```
 
-### Running everything (five separate terminals)
+Use `npm run dev:backend`, `npm run dev:frontend`, `npm run dev:backend-admin`, or `npm run dev:frontend-admin` for one service. The runner checks backend health before starting a frontend and safely reuses healthy services already running in another terminal.
 
-| # | Service | Command | URL |
-|---|---|---|---|
-| 1 | backend | `cd backend && npm run dev` | http://localhost:5000 |
-| 2 | frontend | `cd frontend && npm run dev` | http://localhost:5173 |
-| 3 | backendAdmin | `cd backendAdmin && npm run dev` | http://localhost:5001 |
-| 4 | frontendAdmin | `cd frontendAdmin && npm run dev` | http://localhost:5174 |
-| 5 | ai_service | `cd ai_service/backend && python graceful_server.py` | http://localhost:8000/docs |
+The Python AI service still runs separately:
 
-**To create the first admin account:** `cd backendAdmin && npm run seed:superadmin`
+```bash
+cd ai_service/backend
+python graceful_server.py
+```
 
----
+`Ctrl+C` stops only processes started by the current runner. Reused services remain running in their original terminal.
+
+### Formatting
+
+Use the project-local Prettier installation before committing frontend, JavaScript, JSON, Markdown, CSS, or HTML changes:
+
+```bash
+npm run format
+npm run format:check
+```
+
+Do not use an unpinned global or temporary Prettier version. Keep functional changes separate from repository-wide formatting changes so pull-request diffs remain reviewable.
 
 ## How to work on a task
 
@@ -137,15 +144,15 @@ Use obvious placeholders in docs and examples (`your_password`, `xxxxx`), which 
 type: short description (lowercase, present tense)
 ```
 
-| Type | When to use it |
-|---|---|
-| `feat` | A new feature |
-| `fix` | A bug fix |
-| `docs` | Documentation only |
-| `style` | Formatting, no logic change |
-| `refactor` | Better code, same behaviour |
-| `test` | Adding tests |
-| `chore` | Dependencies or configuration |
+| Type       | When to use it                |
+| ---------- | ----------------------------- |
+| `feat`     | A new feature                 |
+| `fix`      | A bug fix                     |
+| `docs`     | Documentation only            |
+| `style`    | Formatting, no logic change   |
+| `refactor` | Better code, same behaviour   |
+| `test`     | Adding tests                  |
+| `chore`    | Dependencies or configuration |
 
 Examples:
 
@@ -205,5 +212,5 @@ help you from that alone.
 
 ---
 
-*Questions? Ask the team lead. If you spot a mistake in these rules, send a pull
-request — this file should improve too.*
+_Questions? Ask the team lead. If you spot a mistake in these rules, send a pull
+request — this file should improve too._
