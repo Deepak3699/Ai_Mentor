@@ -51,6 +51,7 @@ def test_job_and_transcript_routes_remain_available():
     routes = route_map()
     assert routes[("get", "/status/{job_id}")] == "get_status"
     assert routes[("get", "/transcript/{filename}")] == "get_transcript"
+    assert routes[("delete", "/jobs/{job_id}")] == "cancel_job"
 
 
 def test_api_uses_declared_config_model_for_primary_gemini_calls():

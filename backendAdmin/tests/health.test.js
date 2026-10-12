@@ -1,9 +1,11 @@
-import express from "express";
+process.env.NODE_ENV = "test";
+
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
 
-import healthRoutes from "../routes/healthRoutes.js";
-import { sequelize } from "../config/db.js";
+const { default: express } = await import("express");
+const { default: healthRoutes } = await import("../routes/healthRoutes.js");
+const { sequelize } = await import("../config/db.js");
 
 const app = express();
 app.use("/health", healthRoutes);
