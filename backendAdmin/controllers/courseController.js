@@ -1,5 +1,12 @@
-import { Course, AdminNotification, Module, Lesson, User } from "../models/index.js";
+import {
+  Course,
+  AdminNotification,
+  Module,
+  Lesson,
+  User,
+} from "../models/index.js";
 import { Op, Sequelize } from "sequelize";
+import { generateCourseSyllabus } from "./syllabusController.js";
 
 // Valid status values
 const VALID_STATUSES = ["published", "disabled", "deleted"];
@@ -17,13 +24,22 @@ export const getAllCourses = async (req, res) => {
     if (search) {
       where[Op.or] = [
         { title: { [Op.iLike]: `%${search}%` } },
-        { category: { [Op.iLike]: `%${search}%` } }
+        { category: { [Op.iLike]: `%${search}%` } },
       ];
     }
 
     const courses = await Course.findAll({
       where,
-      attributes: ["id", "title", "category", "priceValue", "currency", "status", "createdAt", "updatedAt"],
+      attributes: [
+        "id",
+        "title",
+        "category",
+        "priceValue",
+        "currency",
+        "status",
+        "createdAt",
+        "updatedAt",
+      ],
       order: [["createdAt", "DESC"]],
     });
     res.status(200).json({ success: true, data: courses });
@@ -41,7 +57,10 @@ export const getAllCourses = async (req, res) => {
 export const createCourse = async (req, res) => {
   try {
     const { title, category, priceValue, currency } = req.body;
-    if (!title) return res.status(400).json({ success: false, message: "Title is required" });
+    if (!title)
+      return res
+        .status(400)
+        .json({ success: false, message: "Title is required" });
     const course = await Course.create({
       title,
       category,
@@ -84,7 +103,9 @@ export const updateCourseStatus = async (req, res) => {
 
     const course = await Course.findByPk(id);
     if (!course) {
-      return res.status(404).json({ success: false, message: "Course not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
     }
 
     // Update status
@@ -131,7 +152,9 @@ export const deleteCourseHard = async (req, res) => {
 
     const course = await Course.findByPk(id);
     if (!course) {
-      return res.status(404).json({ success: false, message: "Course not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
     }
 
     // Import User to check enrollments and clean up JSONB
@@ -139,7 +162,9 @@ export const deleteCourseHard = async (req, res) => {
 
     // Check for enrolled users
     const enrolledUsers = await User.findAll({
-      where: Sequelize.literal(`"purchasedCourses"::jsonb @> '[{"courseId": ${Number(id)}}]'`),
+      where: Sequelize.literal(
+        `"purchasedCourses"::jsonb @> '[{"courseId": ${Number(id)}}]'`,
+      ),
       attributes: ["id", "name", "purchasedCourses"],
     });
 
@@ -169,10 +194,12 @@ export const deleteCourseHard = async (req, res) => {
 
     // Clean up orphaned courseId references from Users.purchasedCourses
     if (enrolledUsers.length > 0) {
-      console.log(`🧹 Cleaning up purchasedCourses for ${enrolledUsers.length} users...`);
+      console.log(
+        `🧹 Cleaning up purchasedCourses for ${enrolledUsers.length} users...`,
+      );
       for (const user of enrolledUsers) {
         user.purchasedCourses = (user.purchasedCourses || []).filter(
-          (c) => Number(c.courseId) !== Number(id)
+          (c) => Number(c.courseId) !== Number(id),
         );
         await user.save();
       }
@@ -216,11 +243,15 @@ export const getCourseEnrollments = async (req, res) => {
     // id returns 404 instead of a misleading empty enrollment list.
     const course = await Course.findByPk(id);
     if (!course) {
-      return res.status(404).json({ success: false, message: "Course not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
     }
 
     const enrolledUsers = await User.findAll({
-      where: Sequelize.literal(`"purchasedCourses"::jsonb @> '[{"courseId": ${Number(id)}}]'`),
+      where: Sequelize.literal(
+        `"purchasedCourses"::jsonb @> '[{"courseId": ${Number(id)}}]'`,
+      ),
       attributes: ["id", "name", "email", "purchasedCourses"],
     });
 
@@ -240,7 +271,7 @@ export const getCourseEnrollments = async (req, res) => {
         // Surface when the user enrolled, using the purchaseDate stored on the
         // matching purchasedCourses entry (set at purchase time).
         const enrollment = (u.purchasedCourses || []).find(
-          (c) => Number(c.courseId) === Number(id)
+          (c) => Number(c.courseId) === Number(id),
         );
         return {
           id: u.id,
@@ -272,7 +303,10 @@ export const getCourseSyllabus = async (req, res) => {
 
     const modules = await Module.findAll({
       where: { courseId },
-      order: [["order", "ASC"], ["createdAt", "ASC"]],
+      order: [
+        ["order", "ASC"],
+        ["createdAt", "ASC"],
+      ],
       include: [
         {
           model: Lesson,
@@ -285,7 +319,10 @@ export const getCourseSyllabus = async (req, res) => {
     const formattedModules = modules.map((mod) => {
       const plainMod = mod.get({ plain: true });
       if (plainMod.lessons) {
-        plainMod.lessons.sort((a, b) => a.order - b.order || new Date(a.createdAt) - new Date(b.createdAt));
+        plainMod.lessons.sort(
+          (a, b) =>
+            a.order - b.order || new Date(a.createdAt) - new Date(b.createdAt),
+        );
       }
       return plainMod;
     });
@@ -304,67 +341,4 @@ export const getCourseSyllabus = async (req, res) => {
   }
 };
 
-/**
- * @desc    Generate Course Syllabus with AI
- * @route   POST /api/admin/courses/:id/generate-syllabus
- * @access  Private
- */
-export const generateCourseSyllabusWithAI = async (req, res) => {
-  try {
-    const courseId = req.params.id;
-    const course = await Course.findByPk(courseId);
-
-    if (!course) {
-      return res.status(404).json({ message: "Course not found" });
-    }
-
-    // Call Python AI Service
-    const aiUrl = `${process.env.AI_SERVICE_URL}/generate-syllabus`;
-    const aiResponse = await fetch(aiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        course_title: course.title,
-        category: course.category
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      return res.status(500).json({ message: "AI Service failed to generate syllabus. Please make sure the python server is running." });
-    }
-
-    const data = await aiResponse.json();
-    if (data.error) {
-      return res.status(500).json({ message: data.error });
-    }
-
-    // Insert into DB
-    let moduleOrder = 1;
-    for (const mod of data.modules) {
-      const newModule = await Module.create({
-        courseId: course.id,
-        title: mod.title,
-        order: moduleOrder++
-      });
-
-      let lessonOrder = 1;
-      for (const les of mod.lessons) {
-        await Lesson.create({
-          moduleId: newModule.id,
-          title: les.title,
-          duration: les.duration || "5 mins",
-          type: les.type || "video",
-          order: lessonOrder++
-        });
-      }
-    }
-
-    res.json({ message: "Syllabus generated successfully", data: data });
-  } catch (error) {
-    console.error("GENERATE SYLLABUS ERROR:", error.message);
-    if (error.cause && error.cause.code === 'ECONNREFUSED') {
-      return res.status(500).json({ message: "Python AI Server is not running. Please start it with start_ai.bat" });
-    }
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
-};
+export { generateCourseSyllabus };

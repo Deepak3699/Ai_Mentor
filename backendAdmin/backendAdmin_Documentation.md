@@ -1,7 +1,7 @@
-# AI Mentor — Backend Admin Documentation
+# Backend Admin Documentation
 
 ## Introduction
-The `backendAdmin` module is an isolated Express.js management service running on Node.js. It acts as the dedicated administrative terminal for the *AI Mentor* platform, providing content moderation, system configuration overrides, analytical metrics aggregation, dynamic schema toggles, database auditing, and validation logic.
+The `backendAdmin` module is an isolated Express.js management service running on Node.js. It acts as the dedicated administrative terminal for the platform, providing content moderation, system configuration overrides, analytical metrics aggregation, dynamic schema toggles, database auditing, and validation logic.
 
 ---
 
@@ -134,6 +134,10 @@ Requests are guarded by **Zod-based structural runtime validation parameters**. 
 Create a copy of `.env.example` named `.env` inside the `backendAdmin` folder root:
 
 ```bash
+# Syllabus provider connection and request timeout (milliseconds)
+SYLLABUS_SERVICE_URL=http://127.0.0.1:8000
+SYLLABUS_SERVICE_TIMEOUT_MS=15000
+
 # PostgreSQL Connection Data Link 
 DATABASE_URL=postgres://admin:password@endpoint.neon.tech/dbname?sslmode=require
 
@@ -141,6 +145,8 @@ DATABASE_URL=postgres://admin:password@endpoint.neon.tech/dbname?sslmode=require
 PORT=5001
 JWT_ADMIN_SECRET=your_isolated_admin_jwt_secret
 ```
+Syllabus requests are aborted after the configured timeout and return a retryable `503` response when the provider is unavailable. Set `SYLLABUS_SERVICE_URL` for the provider endpoint.
+
 ### System Installation Instructions
 
 1. **Install Administrative Dependencies:**
