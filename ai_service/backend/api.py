@@ -2,7 +2,6 @@ from typing import Literal
 import os
 import datetime
 import re
-import traceback
 import asyncio
 import logging
 import subprocess
@@ -49,6 +48,21 @@ if CLOUDINARY_ENABLED:
 # FastAPI App
 # --------------------------
 logger = logging.getLogger(__name__)
+
+def validate_lesson_script(value: object) -> str:
+    """Normalize and validate generated lesson narration before saving."""
+    if not isinstance(value, str):
+        raise ValueError("Generated lesson must be text.")
+
+    script = " ".join(value.split())
+    if not script:
+        raise ValueError("Generated lesson is empty.")
+    if len(script) > 10000:
+        raise ValueError("Generated lesson exceeds the maximum length.")
+
+    return script
+
+
 
 
 def check_ffmpeg() -> None:
@@ -540,8 +554,6 @@ def generate_lesson(
 # --------------------------
 async def process_lesson(data: LessonRequest, base_filename: str):
 
-    print("\n📥 RAW REQUEST DATA:")
-    print(data.dict())
 
     try:
         print(f"\n🚀 Starting generation for: {data.topic} ({data.celebrity})")
@@ -578,8 +590,6 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         - Match explanation style with preferred learning style
         """
 
-        print("\n📊 USER PREFERENCES:\n")
-        print(data.preferences if data.preferences else "No preferences provided")
 
         script = ""
 
@@ -591,13 +601,13 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 contents=prompt
             )
 
-            script = response.text.strip().replace("\n", " ")
+            script = validate_lesson_script(response.text)
 
             print("✅ Gemini response generated")
 
-        except Exception as gemini_error:
+        except Exception:
 
-            print(f"❌ Gemini failed: {gemini_error}")
+            print("⚠️ Gemini generation or validation failed; trying fallback.")
 
             try:
                 print("⚡ Switching to Groq fallback...")
@@ -614,13 +624,13 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     max_tokens=300,
                 )
 
-                script = groq_response.choices[0].message.content.strip().replace("\n", " ")
+                script = validate_lesson_script(groq_response.choices[0].message.content)
 
                 print("✅ Groq fallback response generated")
 
-            except Exception as groq_error:
+            except Exception:
 
-                print(f"❌ Groq also failed: {groq_error}")
+                print("❌ Both lesson generation providers failed.")
 
                 job_status[base_filename] = {
                     "status": "failed"
@@ -628,7 +638,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
                 return
 
-        print(f"📝 Generated text: {script}")
+        print("✅ Lesson narration validated.")
 
         # 2️⃣ Create Output Folders
 
@@ -814,14 +824,12 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         else:
             print("⚠️ Keeping local files on disk as a fallback proxy since Cloudinary upload failed.")
             print("⚠️ Note: These files will remain until the server is restarted or manually cleaned.")
-    except Exception as e:
+    except Exception:
 
         job_status[base_filename] = {
             "status": "failed"
         }
 
-        print(f"❌ Error generating lesson: {e}")
-
-        traceback.print_exc()
+        print("❌ Lesson generation failed.")
 
 
