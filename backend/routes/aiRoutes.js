@@ -198,7 +198,10 @@ router.get("/status/:jobId", protect, async (req, res) => {
     const data = await response.json();
 
     // 🌥️ If video is ready and Cloudinary URL is available, persist it to DB
-    if (data.status === "ready" && data.cloudinary_url) {
+    if (
+      (data.status === "COMPLETED" || data.status === "ready") &&
+      data.cloudinary_url
+   ) {
       try {
         const updated = await AIVideo.update(
           { videoUrl: data.cloudinary_url },

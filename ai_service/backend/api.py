@@ -1,3 +1,5 @@
+import subprocess
+import time
 import os
 import datetime
 import re
@@ -88,7 +90,7 @@ async def generate_tts(text: str, output_file: str):
 def get_celebrity_video(celebrity_name: str):
     input_video_dir = os.path.join(BASE_DIR, "backend", "input")
     celebrity_video = os.path.join(input_video_dir, f"{celebrity_name.lower()}.mp4")
-    
+
     if os.path.exists(celebrity_video):
         print(f"🎬 Using celebrity video: {celebrity_video}")
         return celebrity_video
@@ -144,9 +146,9 @@ def generate_syllabus(data: SyllabusRequest):
     prompt = f"""
     Create a highly structured course syllabus for a course titled '{data.course_title}'.
     Category: {data.category or 'General Education'}
-    
+
     You MUST respond with ONLY a valid JSON object. Do not include markdown formatting like ```json.
-    
+
     The JSON structure must match this exactly:
     {{
       "modules": [
@@ -162,7 +164,7 @@ def generate_syllabus(data: SyllabusRequest):
         }}
       ]
     }}
-    
+
     Requirements:
     - Create exactly 3 modules.
     - Each module should have exactly 2 lessons.
@@ -211,7 +213,14 @@ def generate_lesson(data: LessonRequest, background_tasks: BackgroundTasks):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     base_filename = f"{topic_clean}_{timestamp}"
 
-    job_status[base_filename] = {"status": "processing"}
+
+    job_status[base_filename] = {
+      "status": "QUEUED",
+      "stage": "QUEUED",
+      "created_at": time.time(),
+
+    }
+
 
     background_tasks.add_task(process_lesson, data, base_filename)
 
@@ -227,6 +236,17 @@ def generate_lesson(data: LessonRequest, background_tasks: BackgroundTasks):
 # Background Task Logic
 # --------------------------
 def process_lesson(data: LessonRequest, base_filename: str):
+
+    started_at = time.monotonic()
+    job_timeout = 120
+
+    def remaining_job_time():
+        remaining = job_timeout - (time.monotonic() - started_at)
+
+        if remaining <= 0:
+            raise TimeoutError("Lesson generation exceeded the 120-second job timeout.")
+
+        return remaining
 
     print("\n📥 RAW REQUEST DATA:")
     print(data.dict())
@@ -271,55 +291,90 @@ def process_lesson(data: LessonRequest, base_filename: str):
         print("\n📊 USER PREFERENCES:\n")
         print(data.preferences if data.preferences else "No preferences provided")
 
+        job_status[base_filename] = {
+           "status": "GENERATING_SCRIPT",
+           "stage": "GENERATING_SCRIPT",
+     }
+
         script = ""
+        max_retries = 2
 
-        try:
-            print("⚡ Trying Gemini Primary Model...")
-
-            response = gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
-            )
-
-            script = response.text.strip().replace("\n", " ")
-
-            print("✅ Gemini response generated")
-
-        except Exception as gemini_error:
-
-            print(f"❌ Gemini failed: {gemini_error}")
-
+        for attempt in range(max_retries + 1):
             try:
-                print("⚡ Switching to Groq fallback...")
-
-                groq_response = groq_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    temperature=0.7,
-                    max_tokens=300,
+                print(
+                    f"⚡ Trying Gemini Primary Model "
+                    f"(attempt {attempt + 1}/{max_retries + 1})..."
                 )
 
-                script = groq_response.choices[0].message.content.strip().replace("\n", " ")
+                response = gemini_client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                )
 
-                print("✅ Groq fallback response generated")
+                script = (response.text or "").strip().replace("\n", " ")
 
-            except Exception as groq_error:
+                if not script:
+                    raise RuntimeError("Gemini returned an empty script.")
 
-                print(f"❌ Groq also failed: {groq_error}")
+                print("✅ Gemini response generated")
+                break
 
-                job_status[base_filename] = {
-                    "status": "failed"
-                }
+            except Exception as gemini_error:
+                print(f"❌ Gemini attempt {attempt + 1} failed: {gemini_error}")
 
-                return
+                if attempt < max_retries:
+                    time.sleep(1 * (attempt + 1))
+
+        if not script:
+            for attempt in range(max_retries + 1):
+                try:
+                    print(
+                        f"⚡ Trying Groq fallback "
+                        f"(attempt {attempt + 1}/{max_retries + 1})..."
+                    )
+
+                    groq_response = groq_client.chat.completions.create(
+                        model="llama-3.3-70b-versatile",
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": prompt,
+                            }
+                        ],
+                        temperature=0.7,
+                        max_tokens=300,
+                    )
+
+                    script = (
+                        groq_response.choices[0].message.content or ""
+                    ).strip().replace("\n", " ")
+
+                    if not script:
+                        raise RuntimeError("Groq returned an empty script.")
+
+                    print("✅ Groq fallback response generated")
+                    break
+
+                except Exception as groq_error:
+                    print(f"❌ Groq attempt {attempt + 1} failed: {groq_error}")
+
+                    if attempt < max_retries:
+                        time.sleep(1 * (attempt + 1))
+
+            if not script:
+              job_status[base_filename] = {
+                "status": "FAILED",
+                "stage": "FAILED",
+                "reason": (
+                    "Script generation failed after retries with both "
+                    "Gemini and Groq."
+                ),
+            }
+            return
+
+        remaining_job_time()
 
         print(f"📝 Generated text: {script}")
-
         # 2️⃣ Create Output Folders
 
         base_output_dir = os.path.join(BASE_DIR, "outputs")
@@ -332,6 +387,8 @@ def process_lesson(data: LessonRequest, base_filename: str):
         os.makedirs(video_dir, exist_ok=True)
 
         text_path = os.path.join(text_dir, f"{base_filename}.txt")
+
+        audio_path = os.path.join(audio_dir, f"{base_filename}.mp3")
         audio_path = os.path.join(audio_dir, f"{base_filename}.mp3")
         final_video = os.path.join(video_dir, f"{base_filename}.mp4")
 
@@ -342,7 +399,14 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
         print(f"💾 Saved text to: {text_path}")
 
+        remaining_job_time()
+
         # 4️⃣ Convert Text to Speech (edge-tts)
+
+        job_status[base_filename] = {
+            "status": "SYNTHESIZING_AUDIO",
+            "stage": "SYNTHESIZING_AUDIO",
+        }
 
         print("🎵 Starting TTS generation...")
 
@@ -355,8 +419,13 @@ def process_lesson(data: LessonRequest, base_filename: str):
             print(f"✅ Audio saved: {audio_path}")
 
         except Exception as e:
-
             print(f"❌ TTS Error: {e}")
+
+            job_status[base_filename] = {
+                "status": "FAILED",
+                "stage": "FAILED",
+                "reason": f"Audio synthesis failed: {e}",
+            }
 
             return
 
@@ -365,34 +434,79 @@ def process_lesson(data: LessonRequest, base_filename: str):
         input_video = get_celebrity_video(data.celebrity)
 
         if not os.path.exists(input_video):
-            print(f"❌ Error: Video file not found at {input_video}")
-            return
+             print(f"❌ Error: Video file not found at {input_video}")
+
+             job_status[base_filename] = {
+               "status": "FAILED",
+               "reason": f"Source video not found: {input_video}",
+             }
+
+             return
 
         # 6️⃣ Merge Video + Audio (FFmpeg)
 
-        ffmpeg_command = (
-            f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
-            f'-i "{audio_path}" '
-            f'-map 0:v:0 -map 1:a:0 '
-            f'-c:v copy -c:a aac -shortest "{final_video}"'
-        )
+        job_status[base_filename] = {
+            "status": "RENDERING_VIDEO",
+            "stage": "RENDERING_VIDEO",
+        }
 
-        print(f"🎥 Running ffmpeg command...")
 
-        os.system(ffmpeg_command)
+        print("🎥 Running ffmpeg command...")
 
-        if not os.path.exists(final_video):
-            print(f"❌ FFmpeg failed — video file not found at {final_video}")
+        try:
+            ffmpeg_args = [
+                "ffmpeg",
+                "-y",
+                "-stream_loop", "-1",
+                "-i", input_video,
+                "-i", audio_path,
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-c:v", "copy",
+                "-c:a", "aac",
+                "-shortest",
+                final_video,
+            ]
 
+            result = subprocess.run(
+                ffmpeg_args,
+                timeout=min(90, remaining_job_time()),
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0 or not os.path.exists(final_video):
+                error_detail = result.stderr[-1000:] if result.stderr else "FFmpeg produced no output."
+                raise RuntimeError(error_detail)
+
+        except subprocess.TimeoutExpired:
             job_status[base_filename] = {
-                "status": "failed"
+                "status": "FAILED",
+                "stage": "FAILED",
+                "reason": (
+                    "Video rendering timed out or exceeded the remaining "
+                    "120-second job deadline."
+                ),
             }
-
             return
+
+        except Exception as e:
+            job_status[base_filename] = {
+                "status": "FAILED",
+                "reason": f"Video rendering failed: {e}",
+            }
+            return
+
 
         # 7️⃣ Upload to Cloudinary
 
         cloudinary_url = None
+
+        job_status[base_filename] = {
+            "status": "UPLOADING",
+            "stage": "UPLOADING",
+        }
 
         try:
             print(f"☁️ Uploading video to Cloudinary...")
@@ -415,8 +529,15 @@ def process_lesson(data: LessonRequest, base_filename: str):
             print(f"⚠️ Cloudinary upload failed (will fall back to local proxy): {cloud_err}")
 
         job_status[base_filename] = {
-            "status": "ready",
+            "status": "COMPLETED",
+            "stage": "COMPLETED",
             "cloudinary_url": cloudinary_url,
+            "video_url": cloudinary_url,
+            "message": (
+                "Lesson generated and uploaded successfully."
+                if cloudinary_url
+                else "Lesson generated; using local video fallback."
+            ),
         }
 
         print(f"✅ Lesson ready!")
@@ -425,10 +546,13 @@ def process_lesson(data: LessonRequest, base_filename: str):
         if cloudinary_url:
             print(f"   Cloud : {cloudinary_url}")
 
+
         # 8️⃣ Storage Cleanup
         if cloudinary_url:
             print("🧹 Cleaning up temporary files from local storage...")
-            for local_file in [text_path, audio_path, final_video]:
+
+            # Keep the transcript .txt file for future retrieval.
+            for local_file in [audio_path, final_video]:
                 try:
                     if os.path.exists(local_file):
                         os.remove(local_file)
@@ -436,14 +560,20 @@ def process_lesson(data: LessonRequest, base_filename: str):
                 except Exception as cleanup_err:
                     print(f"❌ Failed to delete {local_file}: {cleanup_err}")
         else:
-            print("⚠️ Keeping local files on disk as a fallback proxy since Cloudinary upload failed.")
-            print("⚠️ Note: These files will remain until the server is restarted or manually cleaned.")
+            print("⚠️ Keeping local audio/video files as a fallback because Cloudinary upload failed.")
+
     except Exception as e:
+        reason = str(e)
 
         job_status[base_filename] = {
-            "status": "failed"
+            "status": "FAILED",
+            "stage": "FAILED",
+            "reason": (
+                reason
+                if reason
+                else "An unexpected error occurred during lesson generation."
+            ),
         }
 
-        print(f"❌ Error generating lesson: {e}")
-
+        print(f"❌ Error generating lesson: {reason}")
         traceback.print_exc()
