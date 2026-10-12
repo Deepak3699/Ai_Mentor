@@ -1,19 +1,12 @@
-export const buildUserContext = (
-  user,
-  preferences
-) => {
-  const courses =
-    user.purchasedCourses || [];
+export const buildUserContext = (user, preferences) => {
+  const courses = user.purchasedCourses || [];
 
-  const enrolledCourses =
-    courses.map(c => c.courseTitle);
+  const enrolledCourses = courses.map((c) => c.courseTitle);
 
   let completedLessons = 0;
 
-  courses.forEach(course => {
-    completedLessons +=
-      course.progress?.completedLessons
-        ?.length || 0;
+  courses.forEach((course) => {
+    completedLessons += course.progress?.completedLessons?.length || 0;
   });
 
   return `

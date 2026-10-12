@@ -24,37 +24,44 @@ Replace `<your-github-username>` with your GitHub username.
 # 3. Follow the detailed environment setup
 
     # Read initalSetup.md (Neon database + .env files)
-    
 
-# 4. Install dependencies for each service
+# 4. Install dependencies and run locally
 
-    cd backend       && npm install && cd ..
-    cd backendAdmin  && npm install && cd ..
-    cd frontend      && npm install && cd ..
-    cd frontendAdmin && npm install && cd ..
+From the repository root:
 
-# 5. AI service (Python)
+```bash
+npm run setup
+```
 
-    cd ai_service
-    python -m venv venv
-    source venv/bin/activate          # Windows: venv\Scripts\activate
-    pip install -r backend/requirements.txt
-    cd ..
+Configure the five `.env` files as described in `initalSetup.md`, then use the root commands:
 
+```bash
+npm run dev          # User and Admin API/WEB services
+npm run dev:user     # User API + User WEB
+npm run dev:admin    # Admin API + Admin WEB
+```
 
-### Running everything (five separate terminals)
+Use `npm run dev:backend`, `npm run dev:frontend`, `npm run dev:backend-admin`, or `npm run dev:frontend-admin` for one service. The runner checks backend health before starting a frontend and safely reuses healthy services already running in another terminal.
 
-| # | Service | Command | URL |
-|---|---|---|---|
-| 1 | backend | `cd backend && npm run dev` | http://localhost:5000 |
-| 2 | frontend | `cd frontend && npm run dev` | http://localhost:5173 |
-| 3 | backendAdmin | `cd backendAdmin && npm run dev` | http://localhost:5001 |
-| 4 | frontendAdmin | `cd frontendAdmin && npm run dev` | http://localhost:5174 |
-| 5 | ai_service | `cd ai_service/backend && uvicorn api:app --reload --port 8000` | http://localhost:8000/docs |
+The Python AI service still runs separately:
 
-**To create the first admin account:** `cd backendAdmin && npm run seed:superadmin`
+```bash
+cd ai_service/backend
+python graceful_server.py
+```
 
----
+`Ctrl+C` stops only processes started by the current runner. Reused services remain running in their original terminal.
+
+### Formatting
+
+Use the project-local Prettier installation before committing frontend, JavaScript, JSON, Markdown, CSS, or HTML changes:
+
+```bash
+npm run format
+npm run format:check
+```
+
+Do not use an unpinned global or temporary Prettier version. Keep functional changes separate from repository-wide formatting changes so pull-request diffs remain reviewable.
 
 ## How to work on a task
 
@@ -69,7 +76,8 @@ git checkout -b fix/short-description
 # 3. Write code, run it locally, test it
 
 # 4. Run the linter, otherwise CI will fail
-npm run lint          # from the repo root — checks three services
+npm run lint                  # from the repo root — checks all four Node/React services
+npm run lint:backend-admin    # Backend Admin only
 
 # 5. Commit
 git add .
@@ -105,21 +113,46 @@ git push origin fix/short-description
 
 ---
 
+## Secret scanning
+
+CI job **Check for committed secrets** does two things:
+
+1. Fails if any file named `.env` is tracked by git.
+2. Runs [gitleaks](https://github.com/gitleaks/gitleaks) over the full commit history and file content, looking for API keys, tokens, private keys, webhook URLs and passwords inside database connection strings, whatever the file is called. Findings are redacted in the logs.
+
+Run it locally before you push (install gitleaks first):
+
+    gitleaks git . --config .gitleaks.toml --redact --no-banner
+    scripts/test-secret-scan.sh        # self-test with fake credentials
+
+### If the scan fails
+
+- **It is a real secret:** rotate it at the provider first. Removing it from the code is not enough, because it stays in git history.
+- **It is a false positive:** keep the exception as narrow as possible.
+  1. Run the scan with `--report-format json --report-path report.json` and copy the `Fingerprint` of the finding.
+  2. Add it to `.gitleaksignore` with a comment line above it saying why it is safe.
+  3. Only for a whole test fixture file, add its exact path to `[allowlist]` in `.gitleaks.toml` instead.
+  4. Open the pull request. Changes to these files need Team Lead review (see `.github/CODEOWNERS`). Never allowlist something you have not confirmed is fake.
+
+Use obvious placeholders in docs and examples (`your_password`, `xxxxx`), which the scanner ignores.
+
+---
+
 ## Commit message format
 
 ```
 type: short description (lowercase, present tense)
 ```
 
-| Type | When to use it |
-|---|---|
-| `feat` | A new feature |
-| `fix` | A bug fix |
-| `docs` | Documentation only |
-| `style` | Formatting, no logic change |
-| `refactor` | Better code, same behaviour |
-| `test` | Adding tests |
-| `chore` | Dependencies or configuration |
+| Type       | When to use it                |
+| ---------- | ----------------------------- |
+| `feat`     | A new feature                 |
+| `fix`      | A bug fix                     |
+| `docs`     | Documentation only            |
+| `style`    | Formatting, no logic change   |
+| `refactor` | Better code, same behaviour   |
+| `test`     | Adding tests                  |
+| `chore`    | Dependencies or configuration |
 
 Examples:
 
@@ -179,5 +212,5 @@ help you from that alone.
 
 ---
 
-*Questions? Ask the team lead. If you spot a mistake in these rules, send a pull
-request — this file should improve too.*
+_Questions? Ask the team lead. If you spot a mistake in these rules, send a pull
+request — this file should improve too._

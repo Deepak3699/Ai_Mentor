@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "../../lib/api";
 /**
  * CourseCardMeta.jsx
  *
@@ -16,24 +17,27 @@ import API_BASE_URL from "../../lib/api";
 const _cache = {};
 
 function useLiveRating(courseId) {
-  const [state, setState] = useState(() =>
-    _cache[courseId] || { avg: null, total: null, loading: true }
+  const [state, setState] = useState(
+    () => _cache[courseId] || { avg: null, total: null, loading: true },
   );
 
-  const fetchLiveRating = useCallback(async (isMountedRef) => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/feedback`);
-      if (!res.ok) throw new Error("not ok");
-      const json = await res.json();
-      const next = { avg: parseFloat(json.avgRating), total: json.totalReviews, loading: false };
-      _cache[courseId] = next;
-      if (isMountedRef.current) setState(next);
-    } catch {
-      const next = { avg: null, total: 0, loading: false };
-      _cache[courseId] = next;
-      if (isMountedRef.current) setState(next);
-    }
-  }, [courseId]);
+  const fetchLiveRating = useCallback(
+    async (isMountedRef) => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/feedback`);
+        if (!res.ok) throw new Error("not ok");
+        const json = await res.json();
+        const next = { avg: parseFloat(json.avgRating), total: json.totalReviews, loading: false };
+        _cache[courseId] = next;
+        if (isMountedRef.current) setState(next);
+      } catch {
+        const next = { avg: null, total: 0, loading: false };
+        _cache[courseId] = next;
+        if (isMountedRef.current) setState(next);
+      }
+    },
+    [courseId],
+  );
 
   useEffect(() => {
     if (!courseId) return;
@@ -73,7 +77,9 @@ function ReviewsModal({ courseId, onClose }) {
 
   /* close on Escape */
   useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
@@ -98,7 +104,7 @@ function ReviewsModal({ courseId, onClose }) {
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }
 
@@ -130,7 +136,9 @@ export default function CourseCardMeta({ courseId, variant = "dark" }) {
 
   return (
     <>
-      <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${pillBase} text-xs font-semibold`}>
+      <div
+        className={`flex items-center gap-1.5 px-2 py-1 rounded-full ${pillBase} text-xs font-semibold`}
+      >
         {/* Star + avg */}
         <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
         <span className={isDark ? "text-white" : "text-slate-800"}>
@@ -145,9 +153,7 @@ export default function CourseCardMeta({ courseId, variant = "dark" }) {
           onClick={openModal}
           title="View reviews"
           className={`flex items-center gap-1 rounded-full transition-colors ${
-            isDark
-              ? "hover:text-amber-300"
-              : "hover:text-amber-600"
+            isDark ? "hover:text-amber-300" : "hover:text-amber-600"
           }`}
         >
           <MessageSquare className="w-3 h-3 shrink-0" />
