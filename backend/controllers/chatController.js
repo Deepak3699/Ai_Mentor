@@ -177,7 +177,9 @@ export const chatWithAssistant = async (req, res) => {
 
         completedLessons += completed;
 
-        courseProgress.push(`${course.courseTitle}: ${completed} completed lessons`);
+        courseProgress.push(
+          `${course.courseTitle}: ${completed} completed lessons`,
+        );
       });
 
       return res.json({
@@ -220,8 +222,9 @@ export const chatWithAssistant = async (req, res) => {
   } catch (error) {
     console.error("CHAT ERROR:", error);
 
-      res.status(500).json({
-        message: "Failed to process chat",
-      });
-    }
+    res.status(500).json({
+      message: "Failed to process chat",
+    });
+  }
 };
+
