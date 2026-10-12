@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Loader2, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import LoadingSpinner from "./common/LoadingSpinner";
 
 export const WIZARD_STEPS = [
   {
@@ -303,7 +304,7 @@ export default function Preferences({ mode = "modal", onSuccess }) {
     return (
       <div className="bg-transparent text-slate-800 dark:text-slate-200">
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-500 dark:text-slate-400" />
+          <LoadingSpinner variant="compact" label="Loading preferences" />
         </div>
       </div>
     );
@@ -396,7 +397,7 @@ export default function Preferences({ mode = "modal", onSuccess }) {
             className={`flex items-center gap-2 h-12 px-6 rounded-xl text-white font-semibold transition-all ${!hasSelection || isSaving ? "cursor-not-allowed border border-border bg-canvas-alt text-muted opacity-55" : "bg-[#3867D6] hover:-translate-y-0.5 hover:bg-[#315BC0] hover:shadow-lg hover:shadow-[#3867D6]/20"}`}
           >
             {isSaving ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <LoadingSpinner variant="compact" light label="Saving preferences" />
             ) : stepIndex === totalSteps - 1 ? (
               t("preferences.finish")
             ) : (

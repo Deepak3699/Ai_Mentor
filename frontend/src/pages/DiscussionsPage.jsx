@@ -28,6 +28,7 @@ import {
   MoreVertical,
 } from "lucide-react";
 import FloatingAssistant from "../components/common/FloatingAssistant";
+import LoadingSpinner from "../components/common/LoadingSpinner";
 import PageBanner from "../components/common/PageBanner";
 import DiscussionSidebar from "../components/discussions/DiscussionSidebar";
 
@@ -966,7 +967,11 @@ const DiscussionsPage = () => {
                 {/* grid of discussion cards */}
                 {coursePostsLoading ? (
                   <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                    <LoadingSpinner
+                      variant="compact"
+                      label={t("discussions.loading")}
+                      className="mb-4"
+                    />
                     <p className="text-muted">{t("discussions.loading")}</p>
                   </div>
                 ) : coursePosts.length === 0 ? (
@@ -1236,7 +1241,11 @@ const DiscussionsPage = () => {
                       </div>
                     ) : panelLoading ? (
                       <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-3"></div>
+                        <LoadingSpinner
+                          variant="compact"
+                          label={t("common.loading")}
+                          className="mb-3"
+                        />
                         <p className="text-muted text-sm">{t("common.loading")}</p>
                       </div>
                     ) : panelPosts.length === 0 ? (
@@ -2058,7 +2067,11 @@ const DiscussionsPage = () => {
                 {/* Global Posts */}
                 {globalLoading ? (
                   <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                    <LoadingSpinner
+                      variant="compact"
+                      label={t("discussions.loading")}
+                      className="mb-4"
+                    />
                     <p className="text-muted">{t("discussions.loading")}</p>
                   </div>
                 ) : globalPosts.length === 0 ? (
@@ -2709,7 +2722,7 @@ const DiscussionsPage = () => {
               >
                 {reportSubmitting ? (
                   <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <LoadingSpinner variant="compact" light label="Submitting report" />
                     Submitting...
                   </>
                 ) : (
