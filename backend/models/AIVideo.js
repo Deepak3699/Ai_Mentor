@@ -1,59 +1,71 @@
 import { DataTypes, Model } from "sequelize";
 import { sequelize } from "../config/db.js";
 
-class AIVideo extends Model { }
+class AIVideo extends Model {}
 
 AIVideo.init(
-    {
-        id: {
-            type: DataTypes.UUID,
-            defaultValue: DataTypes.UUIDV4,
-            primaryKey: true,
-        },
-        courseId: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-        },
-        lessonId: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-             references: {
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    courseId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    lessonId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
         model: "Lessons",
         key: "id",
+      },
     },
-        },
-        celebrity: {
-            type: DataTypes.STRING,
-            allowNull: false,
-        },
-        videoUrl: {
-            type: DataTypes.STRING,
-            allowNull: false,
-        },
-        transcript: {
-            type: DataTypes.TEXT,
-            allowNull: true,
-        },
-        transcriptName: {
-            type: DataTypes.STRING,
-            allowNull: true,
-        },
-        jobId: {
-            type: DataTypes.STRING,
-            allowNull: true,
-        },
+    celebrity: {
+      type: DataTypes.STRING,
+      allowNull: false,
     },
-    {
-        sequelize,
-        modelName: "AIVideo",
-        timestamps: true,
-        indexes: [
-            {
-                unique: true,
-                fields: ["courseId", "lessonId", "celebrity"],
-            },
-        ],
-    }
+    videoUrl: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    transcript: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    transcriptName: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    jobId: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    status: {
+      type: DataTypes.ENUM("pending", "processing", "completed", "failed"),
+      defaultValue: "pending",
+    },
+    error: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    meta: {
+      type: DataTypes.JSON,
+      allowNull: true,
+    },
+  },
+  {
+    sequelize,
+    modelName: "AIVideo",
+    timestamps: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ["courseId", "lessonId", "celebrity"],
+      },
+    ],
+  },
 );
 
 export default AIVideo;

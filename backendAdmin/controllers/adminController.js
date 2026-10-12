@@ -107,9 +107,7 @@ const registerAdmin = async (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
-    return res
-      .status(400)
-      .json({ message: "Name, email and password are required" });
+    return res.status(400).json({ message: "Name, email and password are required" });
   }
 
   try {
@@ -208,8 +206,7 @@ const deleteAdmin = async (req, res) => {
 // @access  Private
 const logoutAdmin = async (req, res) => {
   res.json({
-    message:
-      "Logged out successfully. Please remove your token on the client side.",
+    message: "Logged out successfully. Please remove your token on the client side.",
   });
 };
 
@@ -323,10 +320,7 @@ const getAllEnrollments = async (req, res) => {
 const getAllPayments = async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.min(
-      Math.max(parseInt(req.query.limit, 10) || 10, 1),
-      100,
-    );
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
     const search = String(req.query.search || "")
       .trim()
       .toLowerCase();
@@ -351,9 +345,7 @@ const getAllPayments = async (req, res) => {
     let payments = [];
 
     users.forEach((user) => {
-      const purchased = Array.isArray(user.purchasedCourses)
-        ? user.purchasedCourses
-        : [];
+      const purchased = Array.isArray(user.purchasedCourses) ? user.purchasedCourses : [];
 
       purchased.forEach((item, index) => {
         if (!item || typeof item !== "object") {
@@ -378,8 +370,7 @@ const getAllPayments = async (req, res) => {
           userName: user.name,
           email: user.email,
           courseId,
-          courseTitle:
-            item.courseTitle || courseInfo.title || `Course ${item.courseId}`,
+          courseTitle: item.courseTitle || courseInfo.title || `Course ${item.courseId}`,
           amount,
           currency: item.currency || courseInfo.currency || "INR",
           status: item.paymentStatus || "paid",
@@ -392,12 +383,7 @@ const getAllPayments = async (req, res) => {
 
     if (search) {
       payments = payments.filter((payment) => {
-        const text = [
-          payment.userName,
-          payment.email,
-          payment.courseTitle,
-          payment.transactionId,
-        ]
+        const text = [payment.userName, payment.email, payment.courseTitle, payment.transactionId]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
@@ -406,15 +392,10 @@ const getAllPayments = async (req, res) => {
       });
     }
 
-    payments.sort(
-      (a, b) => new Date(b.purchaseDate || 0) - new Date(a.purchaseDate || 0),
-    );
+    payments.sort((a, b) => new Date(b.purchaseDate || 0) - new Date(a.purchaseDate || 0));
 
     const total = payments.length;
-    const totalAmount = payments.reduce(
-      (sum, payment) => sum + Number(payment.amount || 0),
-      0,
-    );
+    const totalAmount = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 
     const start = (page - 1) * limit;
     const data = payments.slice(start, start + limit);
@@ -444,15 +425,7 @@ const getAllCourses = async (req, res) => {
   try {
     // Only select columns that actually exist in the Courses table
     const courses = await Course.findAll({
-      attributes: [
-        "id",
-        "title",
-        "category",
-        "priceValue",
-        "currency",
-        "createdAt",
-        "updatedAt",
-      ],
+      attributes: ["id", "title", "category", "priceValue", "currency", "createdAt", "updatedAt"],
     });
     res.status(200).json({
       success: true,
@@ -470,14 +443,7 @@ const getAllCourses = async (req, res) => {
 const getAllUsers = async (req, res) => {
   try {
     const users = await User.findAll({
-      attributes: [
-        "id",
-        "name",
-        "email",
-        "role",
-        "purchasedCourses",
-        "createdAt",
-      ],
+      attributes: ["id", "name", "email", "role", "purchasedCourses", "createdAt"],
     });
     res.status(200).json({
       success: true,
@@ -532,13 +498,8 @@ const getAdminNotifications = async (req, res) => {
 // @access  Private
 const markAllNotificationsRead = async (req, res) => {
   try {
-    await AdminNotification.update(
-      { unread: false },
-      { where: { unread: true } },
-    );
-    res
-      .status(200)
-      .json({ success: true, message: "All notifications marked as read" });
+    await AdminNotification.update({ unread: false }, { where: { unread: true } });
+    res.status(200).json({ success: true, message: "All notifications marked as read" });
   } catch (error) {
     console.error("MARK ALL READ ERROR:", error.message);
     res.status(500).json({ success: false, message: "Server Error" });
@@ -554,9 +515,7 @@ const markNotificationRead = async (req, res) => {
     const notification = await AdminNotification.findByPk(id);
 
     if (!notification) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Notification not found" });
+      return res.status(404).json({ success: false, message: "Notification not found" });
     }
 
     notification.unread = false;
@@ -575,9 +534,7 @@ const markNotificationRead = async (req, res) => {
 const clearAllNotifications = async (req, res) => {
   try {
     await AdminNotification.destroy({ where: {} });
-    res
-      .status(200)
-      .json({ success: true, message: "All notifications cleared" });
+    res.status(200).json({ success: true, message: "All notifications cleared" });
   } catch (error) {
     console.error("CLEAR NOTIFICATIONS ERROR:", error.message);
     res.status(500).json({ success: false, message: "Server Error" });
@@ -758,8 +715,7 @@ const getCourseSyllabus = async (req, res) => {
       const plainMod = mod.get({ plain: true });
       if (plainMod.lessons) {
         plainMod.lessons.sort(
-          (a, b) =>
-            a.order - b.order || new Date(a.createdAt) - new Date(b.createdAt),
+          (a, b) => a.order - b.order || new Date(a.createdAt) - new Date(b.createdAt),
         );
       }
       return plainMod;

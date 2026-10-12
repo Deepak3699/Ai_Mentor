@@ -14,10 +14,7 @@ const getNavigationItems = async (req, res) => {
       return res.status(401).json({ message: "Not authorized" });
     }
 
-    const sidebarPath = path.resolve(
-      __dirname,
-      "../../frontend/public/data/sidebar.json"
-    );
+    const sidebarPath = path.resolve(__dirname, "../../frontend/public/data/sidebar.json");
 
     const sidebarData = await fs.readFile(sidebarPath, "utf8");
 
@@ -32,7 +29,9 @@ const getNavigationItems = async (req, res) => {
 
     let filteredItems = navigationItems;
 
-    if (userRole !== "admin") {
+    const allowedAdminRoles = ["admin", "superadmin"];
+
+    if (!allowedAdminRoles.includes(userRole)) {
       filteredItems = navigationItems.filter((item) => item.id !== "admin");
     }
 

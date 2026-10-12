@@ -1,4 +1,3 @@
-
 import User from "../models/User.js";
 import { createNotification } from "./notificationController.js";
 import AdminNotification from "../models/AdminNotification.js";
@@ -26,7 +25,9 @@ export const createReport = async (req, res) => {
     const reporterName = req.user?.name || "A user";
     const subTypeLabel = subType ? ` (${subType})` : "";
     const courseLabel = courseName ? ` for course "${courseName}"` : "";
-    const descriptionLabel = description ? `: "${description.slice(0, 100)}${description.length > 100 ? "..." : ""}"` : "";
+    const descriptionLabel = description
+      ? `: "${description.slice(0, 100)}${description.length > 100 ? "..." : ""}"`
+      : "";
     const message = `${reporterName} reported a course issue${courseLabel}${subTypeLabel}${descriptionLabel}`;
 
     for (const admin of admins) {

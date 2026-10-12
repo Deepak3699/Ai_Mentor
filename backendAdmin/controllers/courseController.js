@@ -1,10 +1,4 @@
-import {
-  Course,
-  AdminNotification,
-  Module,
-  Lesson,
-  User,
-} from "../models/index.js";
+import { Course, AdminNotification, Module, Lesson, User } from "../models/index.js";
 import { Op, Sequelize } from "sequelize";
 import { generateCourseSyllabus } from "./syllabusController.js";
 
@@ -57,10 +51,7 @@ export const getAllCourses = async (req, res) => {
 export const createCourse = async (req, res) => {
   try {
     const { title, category, priceValue, currency } = req.body;
-    if (!title)
-      return res
-        .status(400)
-        .json({ success: false, message: "Title is required" });
+    if (!title) return res.status(400).json({ success: false, message: "Title is required" });
     const course = await Course.create({
       title,
       category,
@@ -103,9 +94,7 @@ export const updateCourseStatus = async (req, res) => {
 
     const course = await Course.findByPk(id);
     if (!course) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
+      return res.status(404).json({ success: false, message: "Course not found" });
     }
 
     // Update status
@@ -152,9 +141,7 @@ export const deleteCourseHard = async (req, res) => {
 
     const course = await Course.findByPk(id);
     if (!course) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
+      return res.status(404).json({ success: false, message: "Course not found" });
     }
 
     // Import User to check enrollments and clean up JSONB
@@ -162,9 +149,7 @@ export const deleteCourseHard = async (req, res) => {
 
     // Check for enrolled users
     const enrolledUsers = await User.findAll({
-      where: Sequelize.literal(
-        `"purchasedCourses"::jsonb @> '[{"courseId": ${Number(id)}}]'`,
-      ),
+      where: Sequelize.literal(`"purchasedCourses"::jsonb @> '[{"courseId": ${Number(id)}}]'`),
       attributes: ["id", "name", "purchasedCourses"],
     });
 
@@ -194,9 +179,7 @@ export const deleteCourseHard = async (req, res) => {
 
     // Clean up orphaned courseId references from Users.purchasedCourses
     if (enrolledUsers.length > 0) {
-      console.log(
-        `🧹 Cleaning up purchasedCourses for ${enrolledUsers.length} users...`,
-      );
+      console.log(`🧹 Cleaning up purchasedCourses for ${enrolledUsers.length} users...`);
       for (const user of enrolledUsers) {
         user.purchasedCourses = (user.purchasedCourses || []).filter(
           (c) => Number(c.courseId) !== Number(id),
@@ -243,15 +226,11 @@ export const getCourseEnrollments = async (req, res) => {
     // id returns 404 instead of a misleading empty enrollment list.
     const course = await Course.findByPk(id);
     if (!course) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
+      return res.status(404).json({ success: false, message: "Course not found" });
     }
 
     const enrolledUsers = await User.findAll({
-      where: Sequelize.literal(
-        `"purchasedCourses"::jsonb @> '[{"courseId": ${Number(id)}}]'`,
-      ),
+      where: Sequelize.literal(`"purchasedCourses"::jsonb @> '[{"courseId": ${Number(id)}}]'`),
       attributes: ["id", "name", "email", "purchasedCourses"],
     });
 
@@ -320,8 +299,7 @@ export const getCourseSyllabus = async (req, res) => {
       const plainMod = mod.get({ plain: true });
       if (plainMod.lessons) {
         plainMod.lessons.sort(
-          (a, b) =>
-            a.order - b.order || new Date(a.createdAt) - new Date(b.createdAt),
+          (a, b) => a.order - b.order || new Date(a.createdAt) - new Date(b.createdAt),
         );
       }
       return plainMod;
