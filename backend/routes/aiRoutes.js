@@ -1,4 +1,3 @@
-import { getAIServiceHeaders } from "../utils/aiService.js";
 import AIVideo from "../models/AIVideo.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
@@ -6,7 +5,8 @@ import validate from "../middleware/validate.js";
 import { generateVideoSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
-//import { videoQueue } from "../queues/videoQueue.js";
+import { getVideoQueue } from "../queues/videoQueue.js";
+import { getAIServiceHeaders } from "../utils/aiService.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -50,6 +50,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
           videoUrl: cachedVideo.videoUrl,
           transcriptName: cachedVideo.transcriptName,
           jobId: cachedVideo.jobId,
+          meta: cachedVideo.meta,
           cached: true,
         });
       }
@@ -76,6 +77,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
           videoUrl: cachedVideo.videoUrl,
           transcriptName: cachedVideo.transcriptName,
           jobId: cachedVideo.jobId,
+          meta: cachedVideo.meta,
           cached: true,
         });
       }
@@ -99,53 +101,38 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
       ? userPreferencesRecord.toJSON()
       : null;
 
-  
-    // Added to queue instead of blocking the request
-//     const job = await videoQueue.add("generate-video", {
-//       courseId,
-//       lessonId,
-//       celebrity,
-//       courseTitle,
-//       lessonTitle,
-//       userPreferences,
-//     });
-//
-//     console.log(`📥 Job added to queue: ${job.id}`);
-//
-//     res.json({
-//       jobId: job.id,
-//       status: "processing",
-//       message: "Video generation started",
-//     });
-       
-    // Temporary fallback response since videoQueue is disabled
-   const response = await fetch(
-  `${process.env.AI_SERVICE_URL}/generate`,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getAIServiceHeaders(),
-    },
-    body: JSON.stringify({
-      course: courseTitle,
-      topic: lessonTitle,
+    // Create DB record immediately as pending
+    const aiVideo = await AIVideo.create({
+      courseId: Number(courseId),
+      lessonId: String(lessonId),
+      celebrity: String(celebrity).toLowerCase(),
+      videoUrl: "",
+      transcriptName: "",
+      status: "pending",
+    });
+
+    // Add to queue
+    const videoQueue = getVideoQueue();
+    const job = await videoQueue.add("generate-video", {
+      aiVideoId: aiVideo.id,
+      courseId,
+      lessonId,
       celebrity,
-      preferences: userPreferences,
+      courseTitle,
+      lessonTitle,
+      userPreferences,
       voice_id,
       speech_rate,
       speech_pitch,
-    }),
-  }
-);
+    });
 
-if (!response.ok) {
-  throw new Error("AI service request failed");
-}
+    console.log(`📥 Job added to queue: ${job.id}, DB ID: ${aiVideo.id}`);
 
-const data = await response.json();
-
-return res.json(data);
+    return res.json({
+      jobId: aiVideo.id, // Frontend uses DB id to poll
+      status: "processing",
+      message: "Video generation started",
+    });
 
   } catch (error) {
     console.error("AI GENERATE ERROR:", error);
@@ -198,31 +185,78 @@ router.get("/transcript/:filename", async (req, res) => {
 
 router.get("/status/:jobId", protect, async (req, res) => {
   try {
-    const { jobId } = req.params;
-    const response = await fetch(`${process.env.AI_SERVICE_URL}/status/${jobId}`, {
+    const { jobId } = req.params; // This is now aiVideo.id
+
+    // Check DB first
+    const videoJob = await AIVideo.findOne({ where: { id: jobId } });
+    
+    if (!videoJob) {
+      return res.status(404).json({ status: "not_found" });
+    }
+
+    if (videoJob.status === "failed") {
+      return res.json({ status: "failed", error: videoJob.error });
+    }
+
+    if (videoJob.status === "completed" && videoJob.videoUrl) {
+      return res.json({
+        status: "ready",
+        cloudinary_url: videoJob.videoUrl,
+        transcriptName: videoJob.transcriptName,
+        jobId: jobId, // return same ID to frontend
+        meta: videoJob.meta
+      });
+    }
+
+    if (videoJob.status === "pending") {
+      return res.json({ status: "processing", message: "In queue..." });
+    }
+
+    // If processing but no python jobId yet
+    if (!videoJob.jobId) {
+      return res.json({ status: "processing", message: "Starting..." });
+    }
+
+    // Poll Python service using the python jobId
+    const response = await fetch(`${process.env.AI_SERVICE_URL}/status/${videoJob.jobId}`, {
       headers: getAIServiceHeaders(),
     });
 
     if (!response.ok) {
-      return res.status(404).json({ status: "not_found" });
+      return res.json({ status: "processing" });
     }
 
     const data = await response.json();
 
     // 🌥️ If video is ready and Cloudinary URL is available, persist it to DB
-    if (data.status === "ready" && data.cloudinary_url) {
+    const aiVideo = await AIVideo.findOne({
+      where: { jobId: String(jobId) },
+      attributes: ["courseId"],
+    });
+
+    if (data.status === "ready" && data.local_video_url && aiVideo) {
+      const filename = data.local_video_url.split("/").pop();
+      data.local_video_url = "/api/ai/video/" + aiVideo.courseId + "/" + filename;
+    }
+
+    if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
       try {
-        const updated = await AIVideo.update(
-          { videoUrl: data.cloudinary_url },
-          { where: { jobId: String(jobId) } }
+        await AIVideo.update(
+          { videoUrl: data.cloudinary_url, status: "completed", meta: data.meta },
+          { where: { id: jobId } }
         );
-        if (updated[0] > 0) {
-          console.log(`☁️ AIVideo DB updated with Cloudinary URL for jobId: ${jobId}`);
-        }
+        console.log(`☁️ AIVideo DB updated with Cloudinary URL for DB ID: ${jobId}`);
       } catch (dbErr) {
         console.error("⚠️ Failed to update AIVideo with Cloudinary URL:", dbErr.message);
       }
+    } else if (data.status === "failed") {
+        await AIVideo.update(
+          { status: "failed", error: "Failed in AI service" },
+          { where: { id: jobId } }
+        );
     }
+    
+    data.jobId = jobId; // ensure frontend gets our DB id, not python id
 
     res.json(data);
   } catch (error) {
@@ -258,17 +292,20 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
       return res.status(404).json({ error: "Video not found" });
     }
 
-    const jobId = filename.slice(0, -".mp4".length);
+    // The frontend sends <aiVideo.id>.mp4
+    const id = filename.slice(0, -".mp4".length);
     const video = await AIVideo.findOne({
-      where: { courseId: numericCourseId, jobId },
+      where: { courseId: numericCourseId, id: id },
     });
 
-    if (!video) {
+    if (!video || !video.jobId) {
       return res.status(404).json({ error: "Video not found" });
     }
 
+    // Python service expects <pythonJobId>.mp4
+    const pythonFilename = `${video.jobId}.mp4`;
     const pythonVideoUrl =
-      `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`;
+      `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(pythonFilename)}`;
 
     const response = await fetch(pythonVideoUrl, {
       headers: getAIServiceHeaders(),

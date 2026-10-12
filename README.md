@@ -24,6 +24,7 @@ An AI-powered learning management system with course management, analytics, comm
 - PostgreSQL v14+
 - Python 3.10+
 - FFmpeg
+- Redis (Local or Upstash Cloud)
 - npm
 
 ## Quick Start
@@ -106,7 +107,8 @@ Each service has its own `.env` file. Copy the `.env.example` in each folder and
 
 | Service | Key variables |
 |---|---|
-| `backend/` | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `AI_SERVICE_URL`, `AI_SERVICE_KEY` |
+| `backend/` | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `AI_SERVICE_URL`, `AI_SERVICE_KEY`, `REDIS_HOST`, `REDIS_PORT` |
+| `backendAdmin/` | `PORT`, `FRONTEND_ADMIN_URL`, `JWT_SECRET`, `NEON_DATABASE_URL`, `AI_SERVICE_URL`, `AI_SERVICE_KEY` |
 | `frontend/` | `VITE_API_BASE_URL`, `VITE_FIREBASE_*` |
 | `ai_service/backend/` | `GEMINI_API_KEY`, `CLOUDINARY_*`, `AI_SERVICE_KEY` |
 

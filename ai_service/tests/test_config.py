@@ -39,19 +39,18 @@ def test_validate_config_reports_missing_gemini_key_first(monkeypatch):
         config.validate_config()
 
 
-def test_validate_config_reports_missing_groq_key(monkeypatch):
+def test_validate_config_allows_missing_groq_key(monkeypatch):
     config = import_config(monkeypatch)
     config.GEMINI_API_KEY = "gemini-test"
-    with pytest.raises(ValueError, match="GROQ_API_KEY"):
-        config.validate_config()
+    config.AI_SERVICE_KEY = "service-key"
+    assert config.validate_config() is None
 
 
-def test_validate_config_reports_missing_cloudinary_credentials(monkeypatch):
+def test_validate_config_allows_missing_cloudinary_credentials(monkeypatch):
     config = import_config(monkeypatch)
     config.GEMINI_API_KEY = "gemini-test"
-    config.GROQ_API_KEY = "groq-test"
-    with pytest.raises(ValueError, match="Cloudinary credentials missing"):
-        config.validate_config()
+    config.AI_SERVICE_KEY = "service-key"
+    assert config.validate_config() is None
 
 
 def test_validate_config_reports_missing_ai_service_key(monkeypatch):

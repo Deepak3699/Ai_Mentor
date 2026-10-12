@@ -47,6 +47,34 @@ def test_public_health_endpoints_accessible_without_auth(client):
     assert res_health.status_code == 200
     assert res_health.json()["status"] == "ok"
 
+    res_root_head = client.head("/")
+    assert res_root_head.status_code == 200
+
+    res_health_head = client.head("/health")
+    assert res_health_head.status_code == 200
+
+
+def test_public_endpoints_reject_non_get_head_methods_without_auth(client):
+    res_post_root = client.post("/")
+    assert res_post_root.status_code == 401
+
+    res_post_health = client.post("/health")
+    assert res_post_health.status_code == 401
+
+
+def test_documentation_endpoints_are_protected_without_auth(client):
+    assert client.get("/docs").status_code == 401
+    assert client.get("/redoc").status_code == 401
+    assert client.get("/openapi.json").status_code == 401
+
+
+def test_documentation_endpoints_accessible_with_auth(client):
+    res_docs = client.get("/docs", headers={"x-service-key": TEST_KEY})
+    assert res_docs.status_code == 200
+
+    res_openapi = client.get("/openapi.json", headers={"authorization": f"Bearer {TEST_KEY}"})
+    assert res_openapi.status_code == 200
+
 
 @pytest.mark.parametrize("method,path,kwargs", [
     ("post", "/generate", {"json": {"course": "c", "topic": "t", "celebrity": "modi"}}),
@@ -69,11 +97,56 @@ def test_operational_endpoints_reject_missing_credential(client, method, path, k
         assert "Missing service credential" in res.json()["detail"]
 
 
+@pytest.mark.parametrize("auth_header", [
+    {"authorization": "Basic dXNlcjpwYXNz"},
+    {"authorization": "Token my-secret-token"},
+    {"authorization": "Bearer"},
+    {"authorization": "Bearer "},
+    {"authorization": "Bearer   "},
+    {"authorization": "Bearer tok1 tok2"},
+    {"authorization": "raw_secret_value"},
+    {"authorization": f"bearer {TEST_KEY}"},  # exact 'Bearer' required
+])
+def test_rejects_malformed_and_unsupported_authorization_schemes(client, auth_header):
+    res = client.get("/voices", headers=auth_header)
+    assert res.status_code == 401
+    assert "Malformed or unsupported Authorization scheme" in res.json()["detail"]
+
+
+def test_rejects_whitespace_only_service_key(client):
+    res = client.get("/voices", headers={"x-service-key": "   "})
+    assert res.status_code == 401
+    assert "empty or whitespace-only" in res.json()["detail"]
+
+
+def test_unsupported_x_api_key_header_is_ignored(client):
+    # Only canonical x-service-key and Bearer are supported
+    res = client.get("/voices", headers={"x-api-key": TEST_KEY})
+    assert res.status_code == 401
+    assert "Missing service credential" in res.json()["detail"]
+
+
+def test_rejects_conflicting_credential_headers(client):
+    res = client.get("/voices", headers={
+        "x-service-key": "key-alpha",
+        "authorization": "Bearer key-beta",
+    })
+    assert res.status_code == 400
+    assert "Conflicting service credentials" in res.json()["detail"]
+
+
+def test_accepts_matching_credential_headers(client):
+    res = client.get("/voices", headers={
+        "x-service-key": TEST_KEY,
+        "authorization": f"Bearer {TEST_KEY}",
+    })
+    assert res.status_code == 200
+    assert "voices" in res.json()
+
+
 @pytest.mark.parametrize("auth_headers", [
     {"x-service-key": "wrong-key"},
     {"authorization": "Bearer wrong-key"},
-    {"authorization": "wrong-key"},
-    {"x-api-key": "wrong-key"},
 ])
 def test_operational_endpoints_reject_invalid_credential(client, auth_headers):
     res = client.get("/voices", headers=auth_headers)
@@ -81,7 +154,7 @@ def test_operational_endpoints_reject_invalid_credential(client, auth_headers):
     assert "Invalid service credential" in res.json()["detail"]
 
 
-def test_operational_endpoints_accept_valid_x_service_key(client):
+def test_operational_endpoints_accept_canonical_x_service_key(client):
     res = client.get("/voices", headers={"x-service-key": TEST_KEY})
     assert res.status_code == 200
     assert "voices" in res.json()
@@ -89,12 +162,6 @@ def test_operational_endpoints_accept_valid_x_service_key(client):
 
 def test_operational_endpoints_accept_valid_bearer_token(client):
     res = client.get("/status/test-job-id", headers={"authorization": f"Bearer {TEST_KEY}"})
-    assert res.status_code == 200
-    assert res.json()["status"] == "not_found"
-
-
-def test_operational_endpoints_accept_valid_x_api_key(client):
-    res = client.get("/status/test-job-id", headers={"x-api-key": TEST_KEY})
     assert res.status_code == 200
     assert res.json()["status"] == "not_found"
 
@@ -121,7 +188,7 @@ def test_static_media_streams_protected_and_accessible_with_credential(client):
         assert client.get("/video-stream/test_auth_sample.mp4").status_code == 401
         assert client.head("/video-stream/test_auth_sample.mp4").status_code == 401
 
-        # 2. Authenticated requests succeed
+        # 2. Authenticated requests with canonical X-Service-Key succeed
         res_txt = client.get(
             "/transcript-stream/test_auth_sample.txt",
             headers={"x-service-key": TEST_KEY}
@@ -129,9 +196,10 @@ def test_static_media_streams_protected_and_accessible_with_credential(client):
         assert res_txt.status_code == 200
         assert res_txt.text == "secure transcript content"
 
+        # 3. Authenticated requests with Bearer token succeed
         res_vid = client.head(
             "/video-stream/test_auth_sample.mp4",
-            headers={"x-service-key": TEST_KEY}
+            headers={"authorization": f"Bearer {TEST_KEY}"}
         )
         assert res_vid.status_code == 200
 
