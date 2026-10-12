@@ -303,7 +303,7 @@ const ReportModal = ({
                 className="flex-1 py-3 rounded-lg bg-[#3867D6] text-white font-medium hover:bg-[#315BC0] transition disabled:opacity-40 flex items-center justify-center"
               >
                 {loading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                  <LoadingSpinner variant="compact" light label="Submitting report" />
                 ) : (
                   "Submit"
                 )}

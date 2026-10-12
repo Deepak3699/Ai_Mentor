@@ -431,7 +431,11 @@ const CertificatesPage = () => {
                         >
                           {downloadingId === course.courseId ? (
                             <>
-                              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              <LoadingSpinner
+                                variant="compact"
+                                light
+                                label="Generating certificate"
+                              />
                               {t("certificates.generating")}
                             </>
                           ) : (
@@ -752,7 +756,7 @@ const CertificatesPage = () => {
             >
               {downloadingId === selectedCourse?.courseId ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <LoadingSpinner variant="compact" light label="Generating certificate" />
                   Generating PDF...
                 </>
               ) : (
