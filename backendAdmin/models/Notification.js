@@ -30,7 +30,7 @@ const Notification = sequelize.define(
         "account",
         "security",
         "success",
-        "system"
+        "system",
       ),
       defaultValue: "system",
     },
@@ -46,7 +46,7 @@ const Notification = sequelize.define(
   {
     timestamps: true,
     tableName: "Notifications",
-  }
+  },
 );
 
 export default Notification;

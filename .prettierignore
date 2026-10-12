@@ -1,0 +1,31 @@
+# Dependencies
+**/node_modules
+
+# Build and coverage output
+**/dist
+**/build
+**/coverage
+
+# Runtime and generated data
+backend/uploads
+**/.cache
+**/.vite
+
+# Environment and secrets
+**/.env
+**/.env.*
+!**/.env.example
+
+# Binary and generated media
+audio
+video
+*.mp3
+*.mp4
+*.wav
+
+# Temporary system files
+.DS_Store
+Thumbs.db
+
+# Python test caches
+**/.pytest_cache

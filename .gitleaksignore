@@ -1,0 +1,6 @@
+# Gitleaks fingerprints of reviewed FALSE POSITIVES, one per line.
+#
+# A fingerprint looks like:  <commit>:<file>:<rule-id>:<line>
+# Run the scan locally to get it (see "Secret scanning" in CONTRIBUTING.md).
+# Put a comment line above every entry saying why it is safe, and link the PR.
+# Changes to this file need Team Lead review (see .github/CODEOWNERS).
