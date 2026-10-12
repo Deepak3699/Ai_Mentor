@@ -21,9 +21,13 @@ export const detectIntent = (message) => {
     text.includes("my preferences") ||
     text.includes("what are my preferences") ||
     text.includes("show my preferences") ||
+    text.includes("explanation type") ||
+    text.includes("learning style") ||
+    text.includes("teaching pace") ||
+    text.includes("example type") ||
+    text.includes("focus area") ||
     text.includes("learning goal") ||
     text.includes("experience level") ||
-    text.includes("learning style") ||
     text.includes("weekly commitment")
   ) {
     return {
