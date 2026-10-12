@@ -1,3 +1,4 @@
+import { getAIServiceHeaders } from "../utils/aiService.js";
 import jwt from "jsonwebtoken";
 import {
   Admin,
@@ -738,7 +739,10 @@ const generateCourseSyllabusWithAI = async (req, res) => {
     const aiUrl = `${process.env.AI_SERVICE_URL}/generate-syllabus`;
     const aiResponse = await fetch(aiUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...getAIServiceHeaders(),
+      },
       body: JSON.stringify({
         course_title: course.title,
         category: course.category,

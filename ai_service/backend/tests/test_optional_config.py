@@ -5,12 +5,14 @@ import pytest
 
 
 def load_config(monkeypatch, **env):
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *args, **kwargs: None)
     for key in [
         "GEMINI_API_KEY",
         "GROQ_API_KEY",
         "CLOUDINARY_CLOUD_NAME",
         "CLOUDINARY_API_KEY",
         "CLOUDINARY_API_SECRET",
+        "AI_SERVICE_KEY",
     ]:
         monkeypatch.delenv(key, raising=False)
 

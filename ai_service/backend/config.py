@@ -21,6 +21,11 @@ DID_API_KEY = os.getenv("DID_API_KEY")
 DID_API_URL = os.getenv("DID_API_URL", "https://api.d-id.com")
 DID_SOURCE_URL = os.getenv("DID_SOURCE_URL")
 
+# ================================
+# Service-to-Service Authentication
+# ================================
+AI_SERVICE_KEY = os.getenv("AI_SERVICE_KEY")
+
 GROQ_ENABLED = bool(GROQ_API_KEY)
 
 CLOUDINARY_ENABLED = all([
@@ -34,4 +39,5 @@ def validate_config():
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is required for the AI service.")
 
-
+    if not AI_SERVICE_KEY:
+        raise ValueError("AI_SERVICE_KEY is required for the AI service.")

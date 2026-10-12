@@ -1,4 +1,11 @@
 const REQUIRED_ENV_VARS = [
+  // ── AI Service ─────────────────────────────────────────────────────────────
+  {
+    key: "AI_SERVICE_KEY",
+    hint: "Shared key for AI service-to-service authentication",
+    group: "AI Service",
+  },
+
   // ── Database ──────────────────────────────────────────────────────────────
   {
     key: "NEON_DATABASE_URL",

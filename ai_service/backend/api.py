@@ -1,3 +1,6 @@
+import secrets
+from fastapi.responses import JSONResponse
+import config
 import os
 import datetime
 import re
@@ -51,6 +54,118 @@ if CLOUDINARY_ENABLED:
 # --------------------------
 # FastAPI App
 # --------------------------
+
+# --------------------------
+# Service-to-Service Auth Middleware
+# --------------------------
+class ServiceAuthMiddleware:
+    """
+    Enforces service-to-service authentication for operational endpoints and static media.
+    Only health check endpoints (/ and /health) remain public for GET/HEAD requests.
+    All operational routes, static media streams, and API documentation endpoints
+    require a valid service credential (canonical header X-Service-Key or strictly formatted
+    Authorization: Bearer <key>).
+    """
+    def __init__(self, app, public_paths=None):
+        self.app = app
+        self.public_paths = public_paths or {
+            "/",
+            "/health",
+        }
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        path = scope.get("path", "")
+        method = scope.get("method", "").upper()
+
+        # Only allow GET and HEAD requests to whitelisted public health endpoints
+        if path in self.public_paths and method in {"GET", "HEAD"}:
+            await self.app(scope, receive, send)
+            return
+
+        headers = {}
+        for k, v in scope.get("headers", []):
+            headers[k.decode("latin1").lower()] = v.decode("latin1")
+
+        service_key_val = headers.get("x-service-key")
+        auth_val = headers.get("authorization")
+
+        # Reject if no recognized credential headers are present
+        if service_key_val is None and auth_val is None:
+            response = JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized: Missing service credential"},
+            )
+            await response(scope, receive, send)
+            return
+
+        service_token = None
+        auth_token = None
+
+        # 1. Validate X-Service-Key if provided
+        if service_key_val is not None:
+            stripped = service_key_val.strip()
+            if not stripped:
+                response = JSONResponse(
+                    status_code=401,
+                    content={"detail": "Unauthorized: X-Service-Key is empty or whitespace-only"},
+                )
+                await response(scope, receive, send)
+                return
+            service_token = stripped
+
+        # 2. Validate Authorization header if provided
+        if auth_val is not None:
+            raw_auth = auth_val.strip()
+            # Strictly require exact Bearer scheme: "Bearer <token>"
+            parts = raw_auth.split(" ", 1)
+            if len(parts) != 2 or parts[0] != "Bearer" or not parts[1].strip() or " " in parts[1].strip():
+                response = JSONResponse(
+                    status_code=401,
+                    headers={"WWW-Authenticate": "Bearer"},
+                    content={"detail": "Unauthorized: Malformed or unsupported Authorization scheme. Expected 'Bearer <token>'"},
+                )
+                await response(scope, receive, send)
+                return
+            auth_token = parts[1].strip()
+
+        # 3. Detect conflicting credential headers
+        if service_token is not None and auth_token is not None:
+            if not secrets.compare_digest(service_token, auth_token):
+                response = JSONResponse(
+                    status_code=400,
+                    content={"detail": "Bad Request: Conflicting service credentials provided in headers"},
+                )
+                await response(scope, receive, send)
+                return
+            provided_key = service_token
+        else:
+            provided_key = service_token if service_token is not None else auth_token
+
+        # 4. Check server configuration
+        expected_key = getattr(config, "AI_SERVICE_KEY", None) or os.getenv("AI_SERVICE_KEY")
+        if not expected_key:
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": "Server configuration error: AI_SERVICE_KEY is not configured"},
+            )
+            await response(scope, receive, send)
+            return
+
+        # 5. Timing-safe comparison against configured service key
+        if not secrets.compare_digest(provided_key, expected_key):
+            response = JSONResponse(
+                status_code=401,
+                content={"detail": "Unauthorized: Invalid service credential"},
+            )
+            await response(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)
+
 logger = logging.getLogger(__name__)
 
 
@@ -104,6 +219,8 @@ app = FastAPI(
     title="AI Lesson Generator",
     lifespan=lifespan,
 )
+
+app.add_middleware(ServiceAuthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -198,9 +315,23 @@ app.mount("/transcript-stream", StaticFiles(directory=text_output_path), name="t
 # --------------------------
 # Root Route
 # --------------------------
+from fastapi import Response
+
 @app.get("/")
 def home():
     return {"message": "AI Lesson Generator Backend Running"}
+
+@app.head("/")
+def home_head():
+    return Response(status_code=200)
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+@app.head("/health")
+def health_check_head():
+    return Response(status_code=200)
 
 @app.get("/transcript/{filename}")
 def get_transcript(filename: str):

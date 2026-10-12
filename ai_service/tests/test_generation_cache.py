@@ -100,6 +100,9 @@ def test_real_generation_failure_clears_cache_and_allows_retry():
     )
 
     # Simulate both script-generation providers failing.
+    if api.groq_client is None:
+        from groq import Groq
+        api.groq_client = Groq(api_key="dummy_groq_key")
     with (
         patch.object(
             api.gemini_client.models,

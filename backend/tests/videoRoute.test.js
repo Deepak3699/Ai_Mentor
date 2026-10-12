@@ -7,6 +7,7 @@ import jwt from "jsonwebtoken";
 process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = "test-secret";
 process.env.AI_SERVICE_URL = "http://ai-service.test";
+process.env.AI_SERVICE_KEY = "test-service-key";
 
 const { default: express } = await import("express");
 const { default: AIVideo } = await import("../models/AIVideo.js");

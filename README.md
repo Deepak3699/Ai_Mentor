@@ -221,11 +221,11 @@ The following table summarizes the main variable groups. Use the committed `.env
 
 | Service               | Main configuration groups                                                                                                                    |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `backend/`            | Server port, JWT, PostgreSQL TLS/pool, AI service, frontend URL, SMTP, Firebase Admin, Cloudinary, Stripe, Razorpay, super-admin seed values |
-| `backendAdmin/`       | Server port, admin frontend URL, JWT, shared PostgreSQL connection, TLS, optional local database values, super-admin seed values             |
+| `backend/`            | Server port, JWT, PostgreSQL TLS/pool, AI service (including `AI_SERVICE_KEY`), frontend URL, SMTP, Firebase Admin, Cloudinary, Stripe, Razorpay, super-admin seed values |
+| `backendAdmin/`       | Server port, admin frontend URL, JWT, AI service (`AI_SERVICE_KEY`), shared PostgreSQL connection, TLS, optional local database values, super-admin seed values |
 | `frontend/`           | User API URL, Firebase web configuration, Stripe publishable key, Razorpay key ID                                                            |
 | `frontendAdmin/`      | Admin API base URL                                                                                                                           |
-| `ai_service/backend/` | Gemini and model, optional Groq fallback, optional Cloudinary storage, D-ID configuration                                                    |
+| `ai_service/backend/` | Service authentication (`AI_SERVICE_KEY`), Gemini and model, optional Groq fallback, optional Cloudinary storage, D-ID configuration         |
 
 Both Node.js APIs must point to the same PostgreSQL database. For production database connections, follow the TLS requirements documented in the environment templates.
 

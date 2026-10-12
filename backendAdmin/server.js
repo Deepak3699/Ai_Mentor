@@ -9,7 +9,10 @@ import { connectDB } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import { securityHeaders } from "./config/securityHeaders.js";
 
+import { validateEnv } from "./env-validator.js";
+
 dotenv.config();
+validateEnv();
 
 const app = express();
 

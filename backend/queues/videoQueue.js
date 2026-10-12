@@ -1,6 +1,7 @@
 import { Queue, Worker } from "bullmq";
 import dotenv from "dotenv";
 import AIVideo from "../models/AIVideo.js";
+import { getAIServiceHeaders } from "../utils/aiService.js";
 
 dotenv.config();
 
@@ -20,7 +21,10 @@ const processVideoJob = async (job) => {
 
   const response = await fetch(`${AI_SERVICE_URL}/generate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getAIServiceHeaders(),
+    },
     body: JSON.stringify({
       course: courseTitle,
       topic: lessonTitle,
