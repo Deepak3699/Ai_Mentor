@@ -2,7 +2,7 @@ import React from "react";
 import { ArrowRight, ArrowUpRight, Flame } from "lucide-react";
 import PageBanner from "./common/PageBanner";
 
-const DashboardHero = ({ name, streak, onContinue }) => {
+const DashboardHero = ({ name, streak, onContinue, actionLabel = "Continue Learning" }) => {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Morning" : hour < 18 ? "Afternoon" : "Evening";
   const firstName = name?.trim().split(/\s+/)[0] || "there";
@@ -41,7 +41,7 @@ const DashboardHero = ({ name, streak, onContinue }) => {
       artNote={artNote}
     >
       <button className="dashboard-hero__button" onClick={onContinue}>
-        <span>Continue Learning</span>
+        <span>{actionLabel}</span>
         <ArrowRight aria-hidden="true" />
       </button>
     </PageBanner>

@@ -76,7 +76,7 @@ const fakeFetch = (url, init = {}) =>
       response = ok(
         readyJobs.has(jobId)
           ? { status: "ready", cloudinary_url: `https://cdn.test/${jobId}.mp4` }
-          : { status: "processing" }
+          : { status: "processing" },
       );
     } else {
       response = ok({});
@@ -101,7 +101,7 @@ const callsFor = (fragment) => calls.filter((c) => c.url.includes(fragment));
 const statusCallsFor = (jobId) => callsFor(`/api/ai/status/${jobId}`);
 const generateCallsFor = (lessonId, celebrity) =>
   callsFor("/api/ai/generate-video").filter(
-    (c) => c.body.lessonId === lessonId && c.body.celebrity === celebrity
+    (c) => c.body.lessonId === lessonId && c.body.celebrity === celebrity,
   );
 
 const renderPage = async () => {
@@ -257,12 +257,12 @@ describe("Learning page AI video polling cancellation", () => {
 
     // Even if every job were ready, only the latest one may drive the page.
     ["job-l1-srk", "job-l1-modi", "job-l1-salman", "job-l2-salman", "job-l2-srk"].forEach((j) =>
-      readyJobs.add(j)
+      readyJobs.add(j),
     );
     await flush(10_000);
 
     ["job-l1-srk", "job-l1-modi", "job-l1-salman"].forEach((j) =>
-      expect(statusCallsFor(j)).toHaveLength(0)
+      expect(statusCallsFor(j)).toHaveLength(0),
     );
     expect(screen.getByTestId("ai-url").textContent).toBe("https://cdn.test/job-l2-srk.mp4");
     expect(screen.getByTestId("loading").textContent).toBe("false");
@@ -312,8 +312,8 @@ describe("Learning page AI video polling cancellation", () => {
       vi.fn((url, init) =>
         url.endsWith("/api/ai/generate-video")
           ? Promise.resolve({ ok: false, status: 500, json: async () => ({ message: "boom" }) })
-          : fakeFetch(url, init)
-      )
+          : fakeFetch(url, init),
+      ),
     );
 
     selectCelebrity("SRK");

@@ -78,10 +78,6 @@ test("real server sends headers on /health and on 404s", async () => {
     const headers = await getHeaders(app, path);
     assert.ok(headers.get("content-security-policy"), path);
     assert.equal(headers.get("x-content-type-options"), "nosniff", path);
-    assert.equal(
-      headers.get("cross-origin-resource-policy"),
-      "same-origin",
-      path,
-    );
+    assert.equal(headers.get("cross-origin-resource-policy"), "same-origin", path);
   }
 });

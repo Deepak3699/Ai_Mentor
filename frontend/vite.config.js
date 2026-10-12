@@ -68,9 +68,7 @@ function envValidatorPlugin(requiredVars) {
         process.stderr.write(
           `${BOLD}${RED}══════════════════════════════════════════════════${RESET}\n`,
         );
-        process.stderr.write(
-          `${BOLD}${RED}  ✖  Environment Variable Error — Frontend${RESET}\n`,
-        );
+        process.stderr.write(`${BOLD}${RED}  ✖  Environment Variable Error — Frontend${RESET}\n`);
         process.stderr.write(
           `${BOLD}${RED}══════════════════════════════════════════════════${RESET}\n\n`,
         );
@@ -94,9 +92,7 @@ function envValidatorPlugin(requiredVars) {
             process.stderr.write(
               `  ${YELLOW}⚠ ${BOLD}${key}${RESET}${YELLOW} still has a placeholder value${RESET}\n`,
             );
-            process.stderr.write(
-              `    ${DIM}→ Replace it with your real ${hint}${RESET}\n`,
-            );
+            process.stderr.write(`    ${DIM}→ Replace it with your real ${hint}${RESET}\n`);
           }
           process.stderr.write("\n");
         }
@@ -105,9 +101,7 @@ function envValidatorPlugin(requiredVars) {
         process.stderr.write(
           `  ${DIM}1. Copy .env.example to .env  →  cp .env.example .env${RESET}\n`,
         );
-        process.stderr.write(
-          `  ${DIM}2. Open .env and fill in every value listed above${RESET}\n`,
-        );
+        process.stderr.write(`  ${DIM}2. Open .env and fill in every value listed above${RESET}\n`);
         process.stderr.write(`  ${DIM}3. Restart the dev server${RESET}\n\n`);
 
         process.stderr.write(
@@ -130,15 +124,10 @@ function clearStartupStatusPlugin() {
     configureServer(server) {
       server.httpServer?.once("listening", () => {
         const address = server.httpServer.address();
-        const port =
-          typeof address === "object" && address ? address.port : 5173;
+        const port = typeof address === "object" && address ? address.port : 5173;
         console.log(`[READY] Frontend: http://localhost:${port}`);
-        console.log(
-          "[INFO] Keep this terminal open. Press Ctrl+C to stop the frontend.",
-        );
-        console.log(
-          "[INFO] HMR update means the browser received a source change successfully.",
-        );
+        console.log("[INFO] Keep this terminal open. Press Ctrl+C to stop the frontend.");
+        console.log("[INFO] HMR update means the browser received a source change successfully.");
       });
     },
   };

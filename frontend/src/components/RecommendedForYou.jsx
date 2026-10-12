@@ -18,17 +18,11 @@ const CourseCard = ({ course }) => (
     <p className="mt-1 text-xs font-medium text-muted">{course.category}</p>
     <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] font-medium text-muted">
       <span className="inline-flex items-center gap-1.5">
-        <Clock3
-          className="h-3.5 w-3.5 text-blue-500 dark:text-blue-300"
-          aria-hidden="true"
-        />
+        <Clock3 className="h-3.5 w-3.5 text-blue-500 dark:text-blue-300" aria-hidden="true" />
         {course.duration}
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <Layers3
-          className="h-3.5 w-3.5 text-violet-500 dark:text-violet-300"
-          aria-hidden="true"
-        />
+        <Layers3 className="h-3.5 w-3.5 text-violet-500 dark:text-violet-300" aria-hidden="true" />
         {course.level}
       </span>
     </div>
@@ -49,9 +43,7 @@ const RecommendedForYou = () => (
           <Sparkles className="h-5 w-5" aria-hidden="true" />
         </div>
         <div>
-          <h2 className="text-lg font-extrabold tracking-tight text-main">
-            Recommended For You
-          </h2>
+          <h2 className="text-lg font-extrabold tracking-tight text-main">Recommended For You</h2>
           <p className="mt-1 text-xs leading-5 text-muted">
             Based on your learning history and goals
           </p>

@@ -20,7 +20,13 @@ test("failed jobs produce a retryable generation error", async () => {
   const fetchStatus = async () => response(200, { status: "failed" });
 
   await assert.rejects(
-    pollAIVideoStatus({ jobId: "job-1", fetchStatus, timeoutMs: 1000, pollIntervalMs: 1, waitForNextPoll: async () => {} }),
+    pollAIVideoStatus({
+      jobId: "job-1",
+      fetchStatus,
+      timeoutMs: 1000,
+      pollIntervalMs: 1,
+      waitForNextPoll: async () => {},
+    }),
     (error) => error.type === "generation" && error.retryable,
   );
 });
@@ -29,7 +35,13 @@ test("polling past the timeout produces a distinct timeout error", async () => {
   const fetchStatus = async () => response(200, { status: "processing" });
 
   await assert.rejects(
-    pollAIVideoStatus({ jobId: "job-1", fetchStatus, timeoutMs: 1, pollIntervalMs: 1, waitForNextPoll: async () => {} }),
+    pollAIVideoStatus({
+      jobId: "job-1",
+      fetchStatus,
+      timeoutMs: 1,
+      pollIntervalMs: 1,
+      waitForNextPoll: async () => {},
+    }),
     (error) => error.type === "timeout" && error.message.includes("too long"),
   );
 });
@@ -38,16 +50,23 @@ test("invalid status responses are rejected instead of being treated as ready", 
   const fetchStatus = async () => response(200, { status: "ready", cloudinary_url: "" });
 
   await assert.rejects(
-    pollAIVideoStatus({ jobId: "job-1", fetchStatus, timeoutMs: 1000, pollIntervalMs: 1, waitForNextPoll: async () => {} }),
+    pollAIVideoStatus({
+      jobId: "job-1",
+      fetchStatus,
+      timeoutMs: 1000,
+      pollIntervalMs: 1,
+      waitForNextPoll: async () => {},
+    }),
     (error) => error.type === "invalid_response",
   );
 });
 
 test("local video URLs are accepted as ready responses", async () => {
-  const fetchStatus = async () => response(200, {
-    status: "ready",
-    local_video_url: "/videos/local.mp4",
-  });
+  const fetchStatus = async () =>
+    response(200, {
+      status: "ready",
+      local_video_url: "/videos/local.mp4",
+    });
 
   const result = await pollAIVideoStatus({
     jobId: "job-1",
@@ -84,7 +103,11 @@ test("an existing transcript is returned unchanged", async () => {
 });
 
 test("generation errors can be identified without changing their safe message", () => {
-  const error = new AIGenerationError("timeout", "Video generation took too long. Please try again.", { retryable: true });
+  const error = new AIGenerationError(
+    "timeout",
+    "Video generation took too long. Please try again.",
+    { retryable: true },
+  );
 
   assert.equal(classifyGenerationError(error), error);
 });
@@ -173,7 +196,10 @@ test("the abort signal is handed to the wait between polls", async () => {
   const seen = [];
   let calls = 0;
   const fetchStatus = async () =>
-    response(200, calls++ === 0 ? { status: "processing" } : { status: "ready", cloudinary_url: "/v.mp4" });
+    response(
+      200,
+      calls++ === 0 ? { status: "processing" } : { status: "ready", cloudinary_url: "/v.mp4" },
+    );
 
   await pollAIVideoStatus({
     jobId: "job-1",

@@ -148,13 +148,9 @@ User.init(
         // Google users MUST have a password to be "complete".
         // Email users are "complete" if Bio, Avatar, and Names are present.
         if (user.googleId) {
-          user.isProfileComplete = Boolean(
-            hasBio && hasFirstName && hasLastName && hasPassword,
-          );
+          user.isProfileComplete = Boolean(hasBio && hasFirstName && hasLastName && hasPassword);
         } else {
-          user.isProfileComplete = Boolean(
-            hasBio && hasFirstName && hasLastName,
-          );
+          user.isProfileComplete = Boolean(hasBio && hasFirstName && hasLastName);
         }
       },
     },

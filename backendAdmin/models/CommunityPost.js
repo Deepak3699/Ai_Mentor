@@ -54,7 +54,7 @@ const CommunityPost = sequelize.define(
   {
     timestamps: true,
     tableName: "CommunityPosts",
-  }
+  },
 );
 
 export default CommunityPost;

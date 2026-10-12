@@ -37,8 +37,7 @@ const verifyImageUrl = (url) =>
   new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(url);
-    image.onerror = () =>
-      reject(new Error("The uploaded profile photo could not be loaded."));
+    image.onerror = () => reject(new Error("The uploaded profile photo could not be loaded."));
     image.src = url;
   });
 
@@ -125,9 +124,7 @@ function MobileSettingsDrawer({ open, onClose, onSelect, t }) {
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 className="text-[18px] font-bold text-main font-sans">
-            Settings
-          </h2>
+          <h2 className="text-[18px] font-bold text-main font-sans">Settings</h2>
           <button
             onClick={onClose}
             className="w-9 h-9 flex items-center justify-center rounded-full bg-canvas-alt hover:bg-border transition-colors"
@@ -137,10 +134,7 @@ function MobileSettingsDrawer({ open, onClose, onSelect, t }) {
         </div>
 
         {/* List */}
-        <nav
-          className="px-4 py-3 overflow-y-auto"
-          style={{ maxHeight: "calc(88vh - 100px)" }}
-        >
+        <nav className="px-4 py-3 overflow-y-auto" style={{ maxHeight: "calc(88vh - 100px)" }}>
           {NAV_KEYS.map((item) => {
             const Icon = item.icon;
             const isDanger = item.key === "delete_account";
@@ -153,9 +147,7 @@ function MobileSettingsDrawer({ open, onClose, onSelect, t }) {
                 <div
                   className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isDanger ? "bg-red-50 dark:bg-red-900/20" : "bg-teal-50 dark:bg-teal-900/20"}`}
                 >
-                  <Icon
-                    className={`w-5 h-5 ${isDanger ? "text-red-500" : "text-[#3867D6]"}`}
-                  />
+                  <Icon className={`w-5 h-5 ${isDanger ? "text-red-500" : "text-[#3867D6]"}`} />
                 </div>
                 <span
                   className={`flex-1 font-semibold text-[15px] font-sans ${isDanger ? "text-red-500" : "text-main"}`}
@@ -176,7 +168,6 @@ function MobileSettingsDrawer({ open, onClose, onSelect, t }) {
 /* ───────────────────────────────────────────────
    Mobile full-screen modal (individual setting)
 ─────────────────────────────────────────────── */
-// eslint-disable-next-line no-unused-vars
 function MobileModal({ open, onBack, onClose, title, children }) {
   useEffect(() => {
     document.body.style.overflow = open ? "hidden" : "";
@@ -204,9 +195,7 @@ function MobileModal({ open, onBack, onClose, title, children }) {
         >
           <ArrowLeft className="w-5 h-5 text-main" />
         </button>
-        <h2 className="text-[17px] font-bold text-main font-sans flex-1 truncate">
-          {title}
-        </h2>
+        <h2 className="text-[17px] font-bold text-main font-sans flex-1 truncate">{title}</h2>
         <button
           onClick={onClose}
           className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-canvas-alt transition-colors active:scale-90"
@@ -304,17 +293,13 @@ export default function Settings() {
       setDeletePopup(true);
     } catch (error) {
       console.error("Delete error", error);
-      toast.error(
-        error.response?.data?.message ||
-          "Failed to delete account. Please try again.",
-      );
+      toast.error(error.response?.data?.message || "Failed to delete account. Please try again.");
     } finally {
       setDeleting(false);
     }
   };
 
-  const handleInputChange = (field, value) =>
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  const handleInputChange = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
 
   const handleRemoveAvatar = async () => {
     if (!user?.avatar_url || avatarRemoving) return;
@@ -335,13 +320,8 @@ export default function Settings() {
       await fetchUserProfile();
       toast.success("Profile photo removed.");
     } catch (error) {
-      console.error(
-        "Error removing profile photo:",
-        error.response?.data || error,
-      );
-      toast.error(
-        error.response?.data?.message || "Failed to remove profile photo.",
-      );
+      console.error("Error removing profile photo:", error.response?.data || error);
+      toast.error(error.response?.data?.message || "Failed to remove profile photo.");
     } finally {
       setAvatarRemoving(false);
     }
@@ -365,9 +345,7 @@ export default function Settings() {
       });
       const returnedAvatarUrl = resolveAvatarUrl(response.data?.avatar_url);
       if (avatarFile && !returnedAvatarUrl) {
-        throw new Error(
-          "The server did not return the uploaded profile photo.",
-        );
+        throw new Error("The server did not return the uploaded profile photo.");
       }
       if (avatarFile) {
         await verifyImageUrl(returnedAvatarUrl);
@@ -379,9 +357,7 @@ export default function Settings() {
       updateUser(updatedProfile);
       const refreshedProfile = await fetchUserProfile();
       if (avatarFile && !refreshedProfile?.avatar_url) {
-        throw new Error(
-          "The profile photo was not preserved after refreshing the profile.",
-        );
+        throw new Error("The profile photo was not preserved after refreshing the profile.");
       }
       setAvatarFile(null);
       toast.success("Profile updated successfully!");
@@ -465,8 +441,7 @@ export default function Settings() {
           : null;
         setSettingsData(data);
         setOriginalNotifications(notifications);
-        if (data?.appearance?.language)
-          i18n.changeLanguage(data.appearance.language);
+        if (data?.appearance?.language) i18n.changeLanguage(data.appearance.language);
       } catch (err) {
         console.error("Failed to fetch notification settings:", err);
       } finally {
@@ -527,9 +502,7 @@ export default function Settings() {
           <h1 className="text-2xl font-extrabold tracking-tight text-main mb-2">
             {t("settings.profile.title")}
           </h1>
-          <p className="max-w-2xl text-sm leading-6 text-muted">
-            {t("settings.profile.subtitle")}
-          </p>
+          <p className="max-w-2xl text-sm leading-6 text-muted">{t("settings.profile.subtitle")}</p>
         </div>
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
           <div className="border-b border-border bg-gradient-to-r from-[#3867D6]/10 via-transparent to-violet-500/10 px-5 py-5 sm:px-6 md:px-8">
@@ -551,9 +524,7 @@ export default function Settings() {
                 <div className="relative mb-4">
                   {avatarPreviewUrl || user?.avatar_url ? (
                     <img
-                      src={
-                        avatarPreviewUrl || resolveAvatarUrl(user?.avatar_url)
-                      }
+                      src={avatarPreviewUrl || resolveAvatarUrl(user?.avatar_url)}
                       alt="Profile"
                       className="h-28 w-28 rounded-2xl border-4 border-card object-cover shadow-lg ring-1 ring-border"
                     />
@@ -604,9 +575,7 @@ export default function Settings() {
                     <input
                       type="text"
                       value={formData.firstName}
-                      onChange={(e) =>
-                        handleInputChange("firstName", e.target.value)
-                      }
+                      onChange={(e) => handleInputChange("firstName", e.target.value)}
                       className="h-11 w-full rounded-xl border border-border bg-canvas-alt px-4 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10"
                     />
                   </div>
@@ -617,9 +586,7 @@ export default function Settings() {
                     <input
                       type="text"
                       value={formData.lastName}
-                      onChange={(e) =>
-                        handleInputChange("lastName", e.target.value)
-                      }
+                      onChange={(e) => handleInputChange("lastName", e.target.value)}
                       className="h-11 w-full rounded-xl border border-border bg-canvas-alt px-4 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10"
                     />
                   </div>
@@ -809,9 +776,7 @@ export default function Settings() {
         <h1 className="text-2xl font-extrabold tracking-tight text-main mb-2">
           {t("settings.security.title")}
         </h1>
-        <p className="max-w-2xl text-sm leading-6 text-muted">
-          {t("settings.security.subtitle")}
-        </p>
+        <p className="max-w-2xl text-sm leading-6 text-muted">{t("settings.security.subtitle")}</p>
       </div>
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="space-y-3 p-5 sm:p-6">
@@ -926,11 +891,7 @@ export default function Settings() {
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     className="absolute bottom-1.5 right-2 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-card hover:text-main"
                   >
-                    {showNewPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
+                    {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
 
@@ -1028,9 +989,7 @@ export default function Settings() {
                   confirmPassword: "",
                 });
               } catch (error) {
-                toast.error(
-                  error.response?.data?.message || "Failed to update password",
-                );
+                toast.error(error.response?.data?.message || "Failed to update password");
               } finally {
                 setLoading(false);
               }
@@ -1087,9 +1046,7 @@ export default function Settings() {
                   <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-xl shadow-sm transition-transform group-hover:scale-105">
                     {themeOption.icon}
                   </div>
-                  <div className="text-sm font-extrabold">
-                    {t(themeOption.labelKey)}
-                  </div>
+                  <div className="text-sm font-extrabold">{t(themeOption.labelKey)}</div>
                 </button>
               ))}
             </div>
@@ -1105,9 +1062,7 @@ export default function Settings() {
         <h1 className="text-2xl font-extrabold tracking-tight text-main mb-2">
           {t("settings.language.title")}
         </h1>
-        <p className="max-w-2xl text-sm leading-6 text-muted">
-          {t("settings.language.subtitle")}
-        </p>
+        <p className="max-w-2xl text-sm leading-6 text-muted">{t("settings.language.subtitle")}</p>
       </div>
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6 md:p-8">
         <div className="p-5 sm:p-6">
@@ -1181,9 +1136,7 @@ export default function Settings() {
         <h1 className="text-[30px] font-bold text-main font-sans mb-2">
           {t("settings.contactus.title")}
         </h1>
-        <p className="text-[16px] text-muted font-sans">
-          {t("settings.contactus.subtitle")}
-        </p>
+        <p className="text-[16px] text-muted font-sans">{t("settings.contactus.subtitle")}</p>
       </div>
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
         <div className="p-5 sm:p-6">
@@ -1194,9 +1147,7 @@ export default function Settings() {
             <input
               type="text"
               value={contactForm.subject}
-              onChange={(e) =>
-                setContactForm((prev) => ({ ...prev, subject: e.target.value }))
-              }
+              onChange={(e) => setContactForm((prev) => ({ ...prev, subject: e.target.value }))}
               placeholder="Enter subject..."
               className="w-full h-[50px] px-4 rounded-xl border border-border focus:ring-2 focus:ring-primary bg-input text-main"
             />
@@ -1207,9 +1158,7 @@ export default function Settings() {
             </label>
             <textarea
               value={contactForm.message}
-              onChange={(e) =>
-                setContactForm((prev) => ({ ...prev, message: e.target.value }))
-              }
+              onChange={(e) => setContactForm((prev) => ({ ...prev, message: e.target.value }))}
               rows={6}
               placeholder="Describe your issue or question..."
               className="w-full px-4 py-3 rounded-xl border border-border focus:ring-2 focus:ring-primary bg-input text-main resize-vertical"
@@ -1303,18 +1252,15 @@ export default function Settings() {
                 Manage your account
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-                Update your identity, privacy, notifications, appearance, and
-                learning preferences.
+                Update your identity, privacy, notifications, appearance, and learning preferences.
               </p>
             </div>
             <div className="rounded-xl border border-border bg-card px-4 py-3 text-right shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-wide text-muted">
-                Active section
-              </p>
+              <p className="text-xs font-bold uppercase tracking-wide text-muted">Active section</p>
               <p className="mt-1 text-sm font-extrabold text-main">
                 {t(
-                  NAV_KEYS.find((item) => item.key === activeSetting)
-                    ?.labelKey || "settings.profile.title",
+                  NAV_KEYS.find((item) => item.key === activeSetting)?.labelKey ||
+                    "settings.profile.title",
                 )}
               </p>
             </div>
@@ -1330,9 +1276,8 @@ export default function Settings() {
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-extrabold text-main">
-                      {[formData.firstName, formData.lastName]
-                        .filter(Boolean)
-                        .join(" ") || "Your account"}
+                      {[formData.firstName, formData.lastName].filter(Boolean).join(" ") ||
+                        "Your account"}
                     </p>
                     <p className="truncate text-xs text-muted">
                       {formData.email || "Account settings"}
@@ -1357,9 +1302,7 @@ export default function Settings() {
                         <Icon
                           className={`h-4 w-4 ${activeSetting === item.key ? "text-[#3867D6] dark:text-[#7FA7FF]" : item.key === "delete_account" ? "text-red-500" : "text-[#3867D6]"}`}
                         />
-                        <span className="text-sm font-bold">
-                          {t(item.labelKey)}
-                        </span>
+                        <span className="text-sm font-bold">{t(item.labelKey)}</span>
                       </button>
                     );
                   })}
@@ -1386,9 +1329,7 @@ export default function Settings() {
             <div className="mt-4 flex-1 pb-8 lg:hidden">
               <div className="bg-card rounded-2xl p-8 shadow-sm border border-border/40 text-center">
                 <div className="text-4xl mb-3">⚙️</div>
-                <p className="font-semibold text-main mb-1">
-                  Manage Your Settings
-                </p>
+                <p className="font-semibold text-main mb-1">Manage Your Settings</p>
                 <p className="text-xs text-muted">
                   Tap "Open Settings" above to browse and edit your preferences.
                 </p>
@@ -1418,19 +1359,16 @@ export default function Settings() {
 
       {/* ── DELETE ACCOUNT POPUP ── */}
       {showDeletePopup && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[230] p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[230] p-4 ui-overlay-motion">
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 sm:p-8 w-full max-w-[520px] text-center shadow-xl">
             <div className="mb-4 text-red-500 text-5xl">⚠</div>
-            <h2 className="text-xl font-bold mb-2 text-main">
-              Delete Account?
-            </h2>
+            <h2 className="text-xl font-bold mb-2 text-main">Delete Account?</h2>
             <p className="text-muted mb-6 text-sm">
-              This action will permanently delete your profile, courses and
-              progress. This cannot be undone.
+              This action will permanently delete your profile, courses and progress. This cannot be
+              undone.
             </p>
             <p className="text-sm text-muted mb-6">
-              Please type <span className="font-bold text-red-500">DELETE</span>{" "}
-              to confirm.
+              Please type <span className="font-bold text-red-500">DELETE</span> to confirm.
             </p>
             <input
               type="text"
@@ -1463,14 +1401,12 @@ export default function Settings() {
 
       {/* ── PROFILE UPDATED POPUP ── */}
       {profilepopup && (
-        <div className="fixed inset-0 z-[240] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[240] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm ui-overlay-motion">
           <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-center shadow-2xl sm:p-7">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#3867D6]/15 text-[#3867D6] ring-1 ring-[#3867D6]/25 dark:text-[#7FA7FF]">
               <span className="text-2xl font-extrabold">✓</span>
             </div>
-            <h2 className="mt-5 text-xl font-extrabold tracking-tight text-main">
-              Profile saved
-            </h2>
+            <h2 className="mt-5 text-xl font-extrabold tracking-tight text-main">Profile saved</h2>
             <p className="mt-2 text-sm leading-6 text-muted">
               Your account details and profile photo are now up to date.
             </p>
@@ -1486,7 +1422,7 @@ export default function Settings() {
 
       {/* ── ACCOUNT DELETED POPUP ── */}
       {deletePopup && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[240] animate-fadeIn p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[240] animate-fadeIn p-4 ui-overlay-motion">
           <div className="relative bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-3xl p-6 sm:p-10 w-[90vw] max-w-[420px] text-center shadow-2xl border border-slate-200 dark:border-slate-700">
             <div className="mx-auto mb-6 w-20 h-20 flex items-center justify-center rounded-full bg-gradient-to-r from-red-400 to-rose-500 shadow-lg animate-bounce">
               <span className="text-4xl text-white">✓</span>
@@ -1495,8 +1431,7 @@ export default function Settings() {
               Account Deleted Successfully!
             </h2>
             <p className="text-muted mb-6 text-sm font-sans">
-              Your account and all associated data have been permanently
-              removed.
+              Your account and all associated data have been permanently removed.
             </p>
             <button
               onClick={() => {

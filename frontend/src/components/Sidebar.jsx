@@ -22,8 +22,7 @@ import { useTranslation } from "react-i18next";
 const Sidebar = ({ activePage = "dashboard" }) => {
   const { t } = useTranslation();
 
-  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed } =
-    useSidebar();
+  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed } = useSidebar();
 
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -120,22 +119,20 @@ const Sidebar = ({ activePage = "dashboard" }) => {
       {/* ================= MOBILE OVERLAY ================= */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden ui-overlay-motion"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* ================= LOGOUT CONFIRMATION ================= */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 ui-overlay-motion">
           <div className="bg-card border border-border/50 rounded-2xl shadow-2xl p-6 w-full max-w-xs text-center">
             <LogOut className="w-9 h-9 text-red-500 mx-auto mb-3" />
 
             <h3 className="text-sm font-bold text-main mb-2">Logout</h3>
 
-            <p className="text-xs text-muted mb-5">
-              Are you sure you want to logout?
-            </p>
+            <p className="text-xs text-muted mb-5">Are you sure you want to logout?</p>
 
             <div className="flex gap-2">
               <button
@@ -173,9 +170,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
           duration-300
           ease-out
 
-          ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-          }
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
 
           ${sidebarCollapsed ? "lg:w-[72px]" : "w-[245px] lg:w-[245px]"}
         `}
@@ -224,11 +219,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
           <div
             className={`border border-border/50 rounded-2xl p-4 flex flex-col items-center justify-center bg-card shadow-sm w-full ${sidebarCollapsed ? "hidden" : "flex"}`}
           >
-            <img
-              src="/upto.png"
-              alt="UptoSkills Logo"
-              className="h-8 mb-2 object-contain"
-            />
+            <img src="/upto.png" alt="UptoSkills Logo" className="h-8 mb-2 object-contain" />
             <h2 className="text-[1.2rem] font-bold text-slate-900 dark:text-white tracking-wide">
               AI Mentor
             </h2>
@@ -344,16 +335,11 @@ const Sidebar = ({ activePage = "dashboard" }) => {
         {/* ================= BOTTOM SECTION ================= */}
         <div className="px-3 pb-5">
           {/* ================= USER PROFILE ================= */}
-          <div
-            className="relative mt-3 pt-3 border-t border-border/70"
-            ref={profileRef}
-          >
+          <div className="relative mt-3 pt-3 border-t border-border/70" ref={profileRef}>
             {profilePopupOpen && (
               <div
                 className={`sidebar-account-popup absolute bottom-full z-[90] mb-2 overflow-hidden rounded-xl border border-border bg-card shadow-2xl ${
-                  sidebarCollapsed
-                    ? "left-1/2 w-56 -translate-x-1/2"
-                    : "left-0 right-0"
+                  sidebarCollapsed ? "left-1/2 w-56 -translate-x-1/2" : "left-0 right-0"
                 }`}
               >
                 <div className="flex items-center gap-3 border-b border-border bg-[#3867D6]/5 p-3 text-left">
@@ -361,9 +347,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                     src={
                       user?.avatar_url ||
                       `https://api.dicebear.com/8.x/initials/svg?backgroundColor=3867d6&textColor=ffffff&seed=${encodeURIComponent(
-                        `${user?.firstName || ""} ${
-                          user?.lastName || ""
-                        }`.trim() ||
+                        `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
                           user?.name ||
                           displayName,
                       )}`
@@ -372,9 +356,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                     alt="User"
                     onError={(e) => {
                       const seed = encodeURIComponent(
-                        `${user?.firstName || ""} ${
-                          user?.lastName || ""
-                        }`.trim() ||
+                        `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
                           user?.name ||
                           displayName,
                       );

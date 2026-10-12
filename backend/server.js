@@ -64,9 +64,7 @@ const defaultDevOrigins = [
   "http://127.0.0.1:3000",
 ];
 
-const allowedOrigins = Array.from(
-  new Set([...envOrigins, ...defaultDevOrigins]),
-);
+const allowedOrigins = Array.from(new Set([...envOrigins, ...defaultDevOrigins]));
 
 app.use(securityHeaders());
 
@@ -141,7 +139,7 @@ app.use((req, res) => {
 });
 
 // ================= GLOBAL ERROR HANDLER =================
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   if (err.type === "entity.too.large") {
     return res.status(413).json({
       success: false,
@@ -193,12 +191,8 @@ const startServer = async () => {
 
     server.listen(PORT, () => {
       console.log(`[READY] Backend: http://localhost:${PORT}`);
-      console.log(
-        `[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`,
-      );
-      console.log(
-        "[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.",
-      );
+      console.log(`[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`);
+      console.log("[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.");
     });
   } catch (error) {
     console.error("[FAILED] Backend startup failed:", error);

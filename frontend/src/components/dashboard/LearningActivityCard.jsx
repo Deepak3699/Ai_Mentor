@@ -1,18 +1,9 @@
 import React from "react";
-import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { BarChart3, Quote } from "lucide-react";
-import { WEEKLY_ACTIVITY, WEEKLY_SUMMARY } from "./learningActivityData";
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { BarChart3, Clock3 } from "lucide-react";
 
 const formatHours = (value) =>
-  Number.isInteger(value) ? String(value) : value.toFixed(1);
-
+  Number.isInteger(value) ? String(value) : Number(value || 0).toFixed(1);
 const ActivityTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -26,115 +17,92 @@ const ActivityTooltip = ({ active, payload, label }) => {
   );
 };
 
-const LearningActivityCard = ({
-  data = WEEKLY_ACTIVITY,
-  summary = WEEKLY_SUMMARY,
-}) => (
-  <section
-    aria-labelledby="learning-activity-title"
-    className="rounded-2xl border border-border bg-card p-5 shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-6"
-  >
-    <header className="flex items-center gap-3 mb-4">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 ring-1 ring-blue-200/70 dark:bg-blue-500/15 dark:ring-blue-400/20">
-        <BarChart3
-          className="h-5 w-5 text-blue-600 dark:text-blue-300"
-          aria-hidden="true"
-        />
-      </div>
-      <div>
-        <h2
-          id="learning-activity-title"
-          className="text-lg font-extrabold tracking-tight text-main"
-        >
-          Your Learning Activity
-        </h2>
-        <p className="text-xs text-muted">Hours spent learning this week</p>
-      </div>
-    </header>
-
-    <div className="flex flex-col gap-4 md:flex-row md:items-stretch">
-      <div
-        className="h-56 w-full min-w-0 md:flex-1"
-        data-testid="learning-activity-chart"
-      >
-        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-          <BarChart
-            data={data}
-            margin={{ top: 8, right: 8, left: -24, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient
-                id="learningBarGradient"
-                x1="0"
-                y1="0"
-                x2="0"
-                y2="1"
-              >
-                <stop offset="0%" stopColor="#3b82f6" />
-                <stop offset="100%" stopColor="#1d4ed8" />
-              </linearGradient>
-            </defs>
-            <XAxis
-              dataKey="day"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "var(--color-text-muted)", fontSize: 11 }}
-            />
-            <YAxis
-              domain={[0, 8]}
-              ticks={[0, 2, 4, 6, 8]}
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "var(--color-text-muted)", fontSize: 11 }}
-            />
-            <Tooltip
-              content={<ActivityTooltip />}
-              cursor={{ fill: "rgba(59, 130, 246, 0.08)" }}
-            />
-            <Bar
-              dataKey="hours"
-              fill="url(#learningBarGradient)"
-              radius={[6, 6, 0, 0]}
-              maxBarSize={22}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className="flex flex-col gap-3 md:w-56 md:shrink-0">
-        <div className="rounded-2xl border border-border bg-canvas-alt p-4">
-          <div className="text-xs text-muted">This week</div>
-          <div
-            className="mt-1 text-3xl font-extrabold tracking-tight text-main"
-            data-testid="weekly-total"
-          >
-            {formatHours(summary.hours)}{" "}
-            <span className="text-base font-semibold">hours</span>
+const LearningActivityCard = ({ data = [], summary = null }) => {
+  const hasActivity = Array.isArray(data) && data.some((entry) => Number(entry?.hours) > 0);
+  const total =
+    summary?.hours ??
+    (hasActivity ? data.reduce((sum, entry) => sum + Number(entry.hours || 0), 0) : null);
+  return (
+    <section
+      aria-labelledby="learning-activity-title"
+      className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6"
+    >
+      <header className="mb-5 flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-500/10 text-[#3867D6]">
+          <BarChart3 className="h-5 w-5" />
+        </div>
+        <div>
+          <h2 id="learning-activity-title" className="text-lg font-extrabold text-main">
+            Learning activity
+          </h2>
+          <p className="text-xs text-muted">Recorded learning time for this week</p>
+        </div>
+      </header>
+      {hasActivity ? (
+        <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_190px]">
+          <div className="h-60 min-w-0" data-testid="learning-activity-chart">
+            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+              <BarChart data={data} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+                <XAxis
+                  dataKey="day"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "var(--color-text-muted)", fontSize: 11 }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "var(--color-text-muted)", fontSize: 11 }}
+                />
+                <Tooltip content={<ActivityTooltip />} cursor={{ fill: "rgba(59,130,246,.08)" }} />
+                <Bar dataKey="hours" fill="#3867D6" radius={[7, 7, 0, 0]} maxBarSize={24} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <div className="text-xs text-muted" data-testid="weekly-change">
-            <span className="font-bold text-emerald-600 dark:text-emerald-300">
-              ↑ {summary.changePercent}%
-            </span>{" "}
-            compared to last week
+          <div className="rounded-2xl border border-border bg-canvas-alt p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-muted">This week</p>
+            <p className="mt-2 text-3xl font-extrabold text-main" data-testid="weekly-total">
+              {formatHours(total)} <span className="text-base">hours</span>
+            </p>
+            {summary?.changePercent != null && (
+              <p className="mt-2 text-xs text-muted" data-testid="weekly-change">
+                <span className="font-bold text-emerald-500">
+                  {summary.changePercent >= 0 ? "↑" : "↓"} {Math.abs(summary.changePercent)}%
+                </span>{" "}
+                compared to last week
+              </p>
+            )}
           </div>
         </div>
-
-        <figure className="flex flex-1 items-start gap-3 rounded-2xl border border-rose-100 bg-rose-50 p-4 dark:border-rose-400/10 dark:bg-rose-500/10">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-200">
-            <Quote className="h-3.5 w-3.5 text-amber-700" aria-hidden="true" />
+      ) : (
+        <div
+          className="dashboard-empty-chart min-h-52 overflow-hidden rounded-2xl border border-dashed border-border bg-canvas-alt p-5"
+          data-testid="learning-activity-empty"
+        >
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-[#3867D6]">
+              <Clock3 className="h-5 w-5" />
+            </span>
+            <div>
+              <h3 className="font-extrabold text-main">Activity will appear here</h3>
+              <p className="mt-0.5 text-sm text-muted">
+                Complete lessons to start building the weekly chart.
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <blockquote className="text-xs italic text-main">
-              &ldquo;Small steps every day lead to big results.&rdquo;
-            </blockquote>
-            <figcaption className="mt-2 text-right text-[11px] text-muted">
-              — AI Mentor
-            </figcaption>
+          <div className="dashboard-empty-chart__plot relative mt-5 h-28" aria-hidden="true">
+            <div className="absolute inset-0 flex items-end justify-between gap-3 opacity-35">
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                <div key={day} className="flex h-full flex-1 flex-col justify-end gap-2">
+                  <div className="h-px w-full bg-border" />
+                  <span className="text-center text-[10px] text-muted">{day}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </figure>
-      </div>
-    </div>
-  </section>
-);
-
+        </div>
+      )}
+    </section>
+  );
+};
 export default LearningActivityCard;

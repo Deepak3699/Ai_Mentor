@@ -19,7 +19,7 @@
     "dev:backend-admin": "node scripts/dev-runner.cjs backend-admin",
     "dev:frontend-admin": "node scripts/dev-runner.cjs frontend-admin",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check . --end-of-line auto"
   },
   "type": "commonjs",
   "devDependencies": {

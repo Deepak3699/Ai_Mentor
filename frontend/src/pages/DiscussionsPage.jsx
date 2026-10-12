@@ -2628,7 +2628,7 @@ const DiscussionsPage = () => {
 
       {/* Popup Modal */}
       {popupModal.open && (
-        <div className="fixed inset-0 z-160 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+        <div className="fixed inset-0 z-160 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 ui-overlay-motion">
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-xs sm:max-w-sm md:max-w-md">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <h3 className="font-bold text-main text-base">{popupModal.title || "Notice"}</h3>
@@ -2669,7 +2669,7 @@ const DiscussionsPage = () => {
         </div>
       )}
       {reportModal.open && (
-        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md">
             {/* Header */}
             <div className="px-5 pt-5 pb-1">
@@ -2722,7 +2722,7 @@ const DiscussionsPage = () => {
       )}
 
       {reportSuccess && (
-        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -2781,7 +2781,7 @@ const DiscussionsPage = () => {
       )}
 
       {reportAlreadyExists && (
-        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm">
             <div className="px-5 py-6 text-center space-y-3">
               <div className="flex justify-center">

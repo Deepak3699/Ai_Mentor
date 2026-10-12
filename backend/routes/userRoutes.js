@@ -52,46 +52,21 @@ router.post("/login", validate(loginSchema), loginUser);
 
 /* ---------- FIRST-TIME ONBOARDING ---------- */
 // Accepts avatar via multipart form data, requires JWT auth
-router.post(
-  "/complete-profile",
-  protect,
-  upload.single("avatar"),
-  completeProfile,
-);
+router.post("/complete-profile", protect, upload.single("avatar"), completeProfile);
 
 /* ---------- USER ROUTES ---------- */
 
 router
   .route("/profile")
   .get(protect, getUserProfile)
-  .put(
-    protect,
-    upload.single("avatar"),
-    validate(updateProfileSchema),
-    updateUserProfile,
-  );
+  .put(protect, upload.single("avatar"), validate(updateProfileSchema), updateUserProfile);
 router.delete("/profile/avatar", protect, removeProfileAvatar);
 
-router.put(
-  "/change-password",
-  protect,
-  validate(changePasswordSchema),
-  changePassword,
-);
+router.put("/change-password", protect, validate(changePasswordSchema), changePassword);
 
-router.post(
-  "/purchase-course",
-  protect,
-  validate(purchaseCourseSchema),
-  purchaseCourse,
-);
+router.post("/purchase-course", protect, validate(purchaseCourseSchema), purchaseCourse);
 
-router.put(
-  "/course-progress",
-  protect,
-  validate(courseProgressSchema),
-  updateCourseProgress,
-);
+router.put("/course-progress", protect, validate(courseProgressSchema), updateCourseProgress);
 
 router.get("/watched-videos", protect, getWatchedVideos);
 
@@ -100,12 +75,7 @@ router
   .get(protect, getUserSettings)
   .put(protect, validate(updateSettingsSchema), updateUserSettings);
 
-router.post(
-  "/remove-course",
-  protect,
-  validate(removeCourseSchema),
-  removePurchasedCourse,
-);
+router.post("/remove-course", protect, validate(removeCourseSchema), removePurchasedCourse);
 
 router.delete("/delete-account", protect, deleteAccount);
 

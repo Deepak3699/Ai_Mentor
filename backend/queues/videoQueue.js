@@ -14,18 +14,9 @@ let videoQueue;
 let videoWorker;
 
 const processVideoJob = async (job) => {
-  await AIVideo.update(
-    { status: "processing" },
-    { where: { id: job.data.aiVideoId } },
-  );
+  await AIVideo.update({ status: "processing" }, { where: { id: job.data.aiVideoId } });
 
-  const {
-    courseTitle,
-    lessonTitle,
-    celebrity,
-    userPreferences,
-    aiVideoId,
-  } = job.data;
+  const { courseTitle, lessonTitle, celebrity, userPreferences, aiVideoId } = job.data;
 
   const response = await fetch(`${AI_SERVICE_URL}/generate`, {
     method: "POST",

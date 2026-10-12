@@ -108,9 +108,7 @@ export default function Preferences({ mode = "modal", onSuccess }) {
   const [loading, setLoading] = useState(!isCached);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
-  const [hasExisting, setHasExisting] = useState(
-    isCached ? moduleCache.hasExisting : false,
-  );
+  const [hasExisting, setHasExisting] = useState(isCached ? moduleCache.hasExisting : false);
   const [isSkipped, setIsSkipped] = useState(
     () => localStorage.getItem("preferencesSkipped") === "true",
   );
@@ -122,9 +120,7 @@ export default function Preferences({ mode = "modal", onSuccess }) {
         hasExisting,
         isSkipped,
         isCached,
-        currentToken: currentToken
-          ? currentToken.substring(0, 10) + "..."
-          : "null",
+        currentToken: currentToken ? currentToken.substring(0, 10) + "..." : "null",
       });
     }
   }, [loading, hasExisting, isSkipped, isCached, currentToken, mode]);
@@ -290,9 +286,7 @@ export default function Preferences({ mode = "modal", onSuccess }) {
       if (!isMulti) {
         return { ...prev, [fieldId]: optionValue };
       }
-      const currentSelection = Array.isArray(prev[fieldId])
-        ? prev[fieldId]
-        : [];
+      const currentSelection = Array.isArray(prev[fieldId]) ? prev[fieldId] : [];
       if (currentSelection.includes(optionValue)) {
         return {
           ...prev,
@@ -331,9 +325,7 @@ export default function Preferences({ mode = "modal", onSuccess }) {
       className={`settings-preferences-card flex h-full flex-col ${isModal ? "" : "overflow-hidden rounded-2xl border border-border bg-card shadow-sm"}`}
       onClick={(e) => e.stopPropagation()}
     >
-      <div
-        className={`${isModal ? "p-8 flex flex-col h-full min-h-0" : "p-5 sm:p-6"}`}
-      >
+      <div className={`${isModal ? "p-8 flex flex-col h-full min-h-0" : "p-5 sm:p-6"}`}>
         {isModal && (
           <div className="mb-6 shrink-0">
             <h4 className="text-[12px] font-bold text-blue-600 dark:text-blue-500 tracking-wider uppercase mb-2">
@@ -430,7 +422,7 @@ export default function Preferences({ mode = "modal", onSuccess }) {
   if (isModal) {
     return (
       <div
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm p-4 sm:p-6"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm p-4 sm:p-6 ui-overlay-motion"
         style={{ overscrollBehavior: "contain" }}
       >
         <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[24px] shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
