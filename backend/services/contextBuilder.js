@@ -23,10 +23,10 @@ Name:
 ${user.name}
 
 Learning Goal:
-${user.learningGoal || "Unknown"}
+${preferences?.learning_goal || "Unknown"}
 
 Experience Level:
-${user.experienceLevel || "Unknown"}
+${preferences?.experience_level || "Unknown"}
 
 Explanation Type:
 ${preferences?.explanation_type || "Unknown"}
