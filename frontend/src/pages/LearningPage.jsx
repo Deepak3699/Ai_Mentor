@@ -14,6 +14,7 @@ import {
 } from "../service/aiGeneration";
 import VideoPlayer from "../components/video/VideoPlayer";
 import AITranscript from "../components/video/AITranscript";
+import FlashcardStudy from "../components/learning/FlashcardStudy";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import toast from "react-hot-toast";
 
@@ -73,6 +74,7 @@ export default function Learning() {
   const [generatedTextContent, setGeneratedTextContent] = useState("");
   const [aiGenerationError, setAiGenerationError] = useState(null);
   const [generationAttempt, setGenerationAttempt] = useState(0);
+  const [isFlashcardStudyOpen, setIsFlashcardStudyOpen] = useState(false);
 
   const videoRef = useRef(null);
   const playerContainerRef = useRef(null);
@@ -523,6 +525,12 @@ export default function Learning() {
   const { modules, currentLesson } = learningData || {};
   const allLessons = (modules || []).flatMap((module) => module.lessons || []);
   const currentLessonIndex = allLessons.findIndex((lesson) => lesson.id === currentLesson?.id);
+  const currentCourseProgress = user?.purchasedCourses?.find(
+    (course) => Number(course.courseId) === Number(courseId),
+  )?.progress;
+  const isCurrentLessonCompleted = currentCourseProgress?.completedLessons?.some(
+    (completedLesson) => Number(completedLesson.lessonId) === Number(currentLesson?.id),
+  );
 
   // ─── Helper functions ───
   const saveLessonData = async (lessonId, data) => {
@@ -572,6 +580,7 @@ export default function Learning() {
 
   const handleLessonClick = (lesson) => {
     if (currentLesson?.id === lesson.id) return;
+    setIsFlashcardStudyOpen(false);
     setGeneratedTextContent(null);
     setAiVideoUrl(null);
     setLearningData((prev) => ({ ...prev, currentLesson: lesson }));
@@ -1178,7 +1187,7 @@ export default function Learning() {
             </div>
 
             {/* Navigation Buttons */}
-            <div className="flex justify-between items-center mb-6">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <button
                 onClick={handlePrevious}
                 disabled={currentLessonIndex <= 0}
@@ -1187,6 +1196,22 @@ export default function Learning() {
                 <ChevronLeft className="w-5 h-5" />
                 {t("learning.previous")}
               </button>
+              {isCurrentLessonCompleted && (
+                <button
+                  disabled={!generatedTextContent?.trim() || isAIVideoLoading}
+                  onClick={() => setIsFlashcardStudyOpen(true)}
+                  title={
+                    generatedTextContent?.trim()
+                      ? "Study this lesson's flashcards"
+                      : "Lesson transcript is not available"
+                  }
+                  className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-main transition-colors hover:bg-canvas-alt disabled:cursor-not-allowed disabled:opacity-50"
+                  type="button"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  Study Flashcards
+                </button>
+              )}
               <button
                 onClick={handleNext}
                 disabled={currentLessonIndex >= allLessons.length - 1 || isNavigating}
@@ -1208,6 +1233,14 @@ export default function Learning() {
           formatTime={formatTime}
         />
       </div>
+      <FlashcardStudy
+        open={isFlashcardStudyOpen}
+        onClose={() => setIsFlashcardStudyOpen(false)}
+        courseId={courseId}
+        lessonId={currentLesson?.id}
+        lessonTitle={currentLesson?.title}
+        transcript={generatedTextContent}
+      />
     </>
   );
 }
