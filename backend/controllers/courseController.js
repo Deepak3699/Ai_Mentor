@@ -1,4 +1,5 @@
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
+import { sequelize } from "../config/db.js";
 
 /* =========================
    HELPERS
@@ -314,24 +315,31 @@ const addSubtopics = async (req, res) => {
 
 const addLessons = async (req, res) => {
   try {
-    const { courseId, moduleId } = req.params;
+    const { moduleId } = req.params;
     const { lessons } = req.body;
-    
-    // Auto-increment order
-    const maxOrder = await Lesson.max('order', { where: { moduleId } }) || 0;
-    
-    const createdLessons = await Promise.all(lessons.map((l, index) => 
-      Lesson.create({
-        moduleId,
-        title: l.title,
-        duration: l.duration || "5 mins",
-        type: l.type || "video",
-        order: maxOrder + index + 1
-      })
-    ));
+
+    const createdLessons = await sequelize.transaction(async (transaction) => {
+      const maxOrder = await Lesson.max("order", {
+        where: { moduleId },
+        transaction,
+      }) || 0;
+      const created = [];
+
+      for (const [index, lesson] of lessons.entries()) {
+        created.push(await Lesson.create({
+          moduleId,
+          title: lesson.title,
+          duration: lesson.duration || "5 mins",
+          type: lesson.type || "video",
+          order: maxOrder + index + 1,
+        }, { transaction }));
+      }
+
+      return created;
+    });
 
     res.status(201).json(createdLessons);
-  } catch (error) {
+  } catch {
     res.status(500).json({ message: "Failed to add lessons" });
   }
 };
