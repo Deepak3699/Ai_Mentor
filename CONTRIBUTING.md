@@ -138,6 +138,26 @@ Use obvious placeholders in docs and examples (`your_password`, `xxxxx`), which 
 
 ---
 
+## Review and smoke-test scripts
+
+```bash
+scripts/review-pr.sh 123          # check a PR (needs gh; run npm run setup first)
+scripts/smoke-test.sh             # is the local stack alive? (--quick = services only)
+scripts/test-review-scripts.sh    # self-test of both scripts
+```
+
+Both scripts list exactly which checks passed, failed, or were skipped. Neither runs the automated test suites (CI does), so a pass means "the listed checks passed", not "this change is correct". Working from a fork? Use `BASE_REF=upstream/main scripts/review-pr.sh 123`.
+
+| Exit code | Meaning                                                                        |
+| --------- | ------------------------------------------------------------------------------ |
+| `0`       | Every required check ran and passed, no warnings                               |
+| `1`       | A check failed, or the script could not run (bad input, `curl` missing)        |
+| `2`       | Warnings, or a required check was skipped (for example `node_modules` missing) |
+
+Exit code `2` is never a safe-to-merge result. Install what is missing and run the script again.
+
+---
+
 ## Commit message format
 
 ```

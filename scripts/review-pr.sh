@@ -1,28 +1,42 @@
 #!/usr/bin/env bash
 #
-# review-pr.sh — check a pull request when you have no tests
+# review-pr.sh — check a pull request before you review it by hand
 #
 # WHAT IT DOES
 #   1. Checks out the PR locally
 #   2. Shows what changed and how big it is
-#   3. Runs the linter on only the services that changed
-#   4. Runs the build on only the frontends that changed
-#   5. Scans the diff for red flags (secrets, console.log, .env, TODOs)
-#   6. Flags risky files (auth, payments, database models)
-#   7. Prints a verdict
+#   3. Flags risky files (auth, payments, database models)
+#   4. Runs the linter on only the services that changed
+#   5. Runs the build on only the frontends that changed
+#   6. Syntax-checks changed Python files in ai_service
+#   7. Scans the diff for red flags (secrets, console.log, .env, TODOs)
+#   8. Checks commit message format
+#   9. Prints exactly which checks passed, failed, or were skipped, then a verdict
+#
+#   It does NOT run the automated test suites (CI does). A passing result means
+#   "the checks listed above passed", not "this PR is correct".
 #
 # USAGE
 #   ./review-pr.sh 123            # review PR number 123
 #   ./review-pr.sh feature/foo    # review a branch you already have locally
+#   BASE_REF=upstream/main ./review-pr.sh 123   # compare against another base
 #
 # REQUIREMENTS
 #   - GitHub CLI:  https://cli.github.com   (run: gh auth login)
 #   - Run it from the repository root
+#   - npm install done in every service you want linted/built (npm run setup)
+#
+# EXIT CODES
+#   0  every required check ran and passed, no warnings
+#   1  a check failed, or the review could not be run (bad input, no checkout)
+#   2  incomplete or warnings: a required check was skipped (for example
+#      node_modules missing), or there are warnings a human must read.
+#      This is never a safe-to-merge result.
 #
 # It restores your original branch when it finishes.
 # -----------------------------------------------------------------------------
 
-set -uo pipefail
+set -euo pipefail
 
 # Colours (disabled if not a terminal)
 if [ -t 1 ]; then
@@ -45,21 +59,43 @@ fi
 
 # Move to the repo root so relative paths work
 ROOT=$(git rev-parse --show-toplevel)
-cd "$ROOT" || exit 1
+cd "$ROOT"
 
-ORIGINAL_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-PROBLEMS=0
-WARNINGS=0
+BASE_REF="${BASE_REF:-origin/main}"
+ORIGINAL_REF=$(git symbolic-ref -q --short HEAD || git rev-parse HEAD)
+TMP_DIR=""
+
+# Results of every check, so the summary can say exactly what happened
+N_PASS=0; N_FAIL=0; N_WARN=0; N_SKIP=0
+PASS_LIST=""; FAIL_LIST=""; WARN_LIST=""; SKIP_LIST=""
+
+# record <PASS|FAIL|WARN|SKIP> <description>
+record() {
+  case "$1" in
+    PASS) N_PASS=$((N_PASS+1)); PASS_LIST+="    - $2"$'\n' ;;
+    FAIL) N_FAIL=$((N_FAIL+1)); FAIL_LIST+="    - $2"$'\n' ;;
+    WARN) N_WARN=$((N_WARN+1)); WARN_LIST+="    - $2"$'\n' ;;
+    SKIP) N_SKIP=$((N_SKIP+1)); SKIP_LIST+="    - $2"$'\n' ;;
+  esac
+}
 
 cleanup() {
+  local status=$?
   echo
-  echo "${BLU}Returning to branch:${RST} $ORIGINAL_BRANCH"
-  git checkout "$ORIGINAL_BRANCH" >/dev/null 2>&1
+  echo "${BLU}Returning to branch:${RST} $ORIGINAL_REF"
+  git checkout "$ORIGINAL_REF" >/dev/null 2>&1 || echo "${YEL}Could not return to $ORIGINAL_REF${RST}"
+  rm -rf "$TMP_DIR"
+  exit "$status"
 }
 trap cleanup EXIT
 
+TMP_DIR=$(mktemp -d)
+
 hr() { printf '%s\n' "--------------------------------------------------------------"; }
 head2() { echo; echo "${BLD}${BLU}$1${RST}"; hr; }
+
+# changed_matches <regex> — true if any changed file matches
+changed_matches() { grep -qE "$1" <<<"$CHANGED"; }
 
 # -----------------------------------------------------------------------------
 head2 "1. GETTING THE CODE"
@@ -80,179 +116,191 @@ if [[ "$TARGET" =~ ^[0-9]+$ ]]; then
     echo "Check the number exists and that you ran 'gh auth login'."
     exit 1
   fi
-  PR_NUMBER="$TARGET"
 else
   echo "Checking out branch: $TARGET"
   if ! git checkout "$TARGET" >/dev/null 2>&1; then
     echo "${RED}Could not check out branch '$TARGET'.${RST}"
     exit 1
   fi
-  PR_NUMBER=""
 fi
 
 # What are we comparing against?
-BASE=$(git merge-base origin/main HEAD 2>/dev/null || echo "origin/main")
-CHANGED=$(git diff --name-only "$BASE"...HEAD 2>/dev/null)
+if ! BASE=$(git merge-base "$BASE_REF" HEAD 2>/dev/null); then
+  echo "${RED}Cannot find a merge base with '$BASE_REF'.${RST}"
+  echo "  Fetch it first (git fetch) or set BASE_REF, e.g. BASE_REF=upstream/main"
+  exit 1
+fi
+CHANGED=$(git diff --name-only "$BASE"...HEAD)
 
 if [ -z "$CHANGED" ]; then
-  CHANGED=$(git diff --name-only HEAD~1 2>/dev/null)
+  echo "${YEL}No changed files detected. Nothing was reviewed.${RST}"
+  exit 2
 fi
 
-if [ -z "$CHANGED" ]; then
-  echo "${YEL}No changed files detected. Nothing to review.${RST}"
-  exit 0
-fi
-
-FILE_COUNT=$(echo "$CHANGED" | wc -l | tr -d ' ')
-INS=$(git diff --shortstat "$BASE"...HEAD | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' | head -1 || echo 0)
-DEL=$(git diff --shortstat "$BASE"...HEAD | grep -oE '[0-9]+ deletion'  | grep -oE '[0-9]+' | head -1 || echo 0)
+FILE_COUNT=$(wc -l <<<"$CHANGED" | tr -d ' ')
+NUMSTAT=$(git diff --numstat "$BASE"...HEAD)
+INS=$(awk '{s+=$1} END{print s+0}' <<<"$NUMSTAT")
+DEL=$(awk '{s+=$2} END{print s+0}' <<<"$NUMSTAT")
 
 echo "${GRN}Checked out.${RST}"
 echo "  Files changed: $FILE_COUNT"
-echo "  Lines: +${INS:-0} / -${DEL:-0}"
+echo "  Lines: +$INS / -$DEL"
 
 # -----------------------------------------------------------------------------
 head2 "2. SIZE CHECK"
 # -----------------------------------------------------------------------------
 
-TOTAL_LINES=$(( ${INS:-0} + ${DEL:-0} ))
+TOTAL_LINES=$(( INS + DEL ))
 if [ "$TOTAL_LINES" -gt 800 ]; then
   echo "${RED}TOO BIG: $TOTAL_LINES lines changed.${RST}"
   echo "  Ask them to split this PR. Large PRs cannot be reviewed properly."
-  PROBLEMS=$((PROBLEMS+1))
+  record FAIL "size check ($TOTAL_LINES lines, over 800)"
 elif [ "$TOTAL_LINES" -gt 400 ]; then
   echo "${YEL}LARGE: $TOTAL_LINES lines changed.${RST}"
   echo "  Reviewable, but worth asking if it can be split."
-  WARNINGS=$((WARNINGS+1))
+  record WARN "size check ($TOTAL_LINES lines, over 400)"
 else
   echo "${GRN}Good size: $TOTAL_LINES lines.${RST}"
+  record PASS "size check ($TOTAL_LINES lines)"
 fi
 
 echo
 echo "Files changed:"
-echo "$CHANGED" | sed 's/^/  /'
+sed 's/^/  /' <<<"$CHANGED"
 
 # -----------------------------------------------------------------------------
 head2 "3. RISKY FILES"
 # -----------------------------------------------------------------------------
 
 RISK_PATTERN='(middleware/auth|middleware/adminAuth|routes/payment|routes/razorpay|routes/webhook|controllers/authController|models/|env-validator|migrations/|package\.json|requirements\.txt|\.env|config/)'
-RISKY=$(echo "$CHANGED" | grep -E "$RISK_PATTERN" || true)
+RISKY=$(grep -E "$RISK_PATTERN" <<<"$CHANGED" || true)
 
 if [ -n "$RISKY" ]; then
   echo "${YEL}This PR touches sensitive areas — review it yourself:${RST}"
-  echo "$RISKY" | sed 's/^/  /'
-  WARNINGS=$((WARNINGS+1))
+  sed 's/^/  /' <<<"$RISKY"
+  record WARN "risky files touched"
 else
   echo "${GRN}No auth, payment, database or dependency files touched.${RST}"
+  record PASS "risky files scan"
 fi
+
+# -----------------------------------------------------------------------------
+# run_npm_check <lint|build> <dir>
+# Required check: if it cannot run, it is recorded as SKIP (never as a pass).
+# -----------------------------------------------------------------------------
+run_npm_check() {
+  local kind="$1" dir="$2"
+  local name="$kind $dir"
+  local out="$TMP_DIR/${kind}_${dir}.out"
+
+  if [ ! -f "$dir/package.json" ]; then
+    echo "  ${YEL}SKIP${RST} $name (no package.json)"
+    record SKIP "$name (no package.json)"
+    return 0
+  fi
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "  ${YEL}SKIP${RST} $name (npm not installed)"
+    record SKIP "$name (npm not installed)"
+    return 0
+  fi
+  if [ ! -d "$dir/node_modules" ]; then
+    echo "  ${YEL}SKIP${RST} $name (node_modules not installed - run: npm run setup)"
+    record SKIP "$name (node_modules not installed)"
+    return 0
+  fi
+  if ! grep -q "\"$kind\"" "$dir/package.json"; then
+    echo "  ${YEL}SKIP${RST} $name (no \"$kind\" script in package.json)"
+    record SKIP "$name (no $kind script)"
+    return 0
+  fi
+
+  echo "  running $name ..."
+  if (cd "$dir" && npm run "$kind" >"$out" 2>&1); then
+    echo "  ${GRN}PASS${RST} $name"
+    record PASS "$name"
+  else
+    echo "  ${RED}FAIL${RST} $name"
+    tail -20 "$out" | sed 's/^/    /'
+    record FAIL "$name"
+  fi
+}
 
 # -----------------------------------------------------------------------------
 head2 "4. LINT"
 # -----------------------------------------------------------------------------
 
-run_lint() {
-  local dir="$1"
-  if [ -d "$dir" ] && [ -f "$dir/package.json" ]; then
-    if [ ! -d "$dir/node_modules" ]; then
-      echo "  ${YEL}SKIP${RST} $dir (node_modules not installed - run: cd $dir && npm install)"
-      WARNINGS=$((WARNINGS+1))
-      return
-    fi
-    if grep -q '"lint"' "$dir/package.json" 2>/dev/null; then
-      echo "  linting $dir ..."
-      if (cd "$dir" && npm run lint >/tmp/lint_out_$$ 2>&1); then
-        echo "  ${GRN}PASS${RST} $dir"
-      else
-        echo "  ${RED}FAIL${RST} $dir"
-        tail -20 /tmp/lint_out_$$ | sed 's/^/    /'
-        PROBLEMS=$((PROBLEMS+1))
-      fi
-      rm -f /tmp/lint_out_$$
-    fi
+NODE_CHANGED=0
+for d in backend frontend frontendAdmin backendAdmin; do
+  if changed_matches "^$d/"; then
+    NODE_CHANGED=1
+    run_npm_check lint "$d"
   fi
-}
-
-echo "$CHANGED" | grep -q '^backend/'       && run_lint backend
-echo "$CHANGED" | grep -q '^frontend/'      && run_lint frontend
-echo "$CHANGED" | grep -q '^frontendAdmin/' && run_lint frontendAdmin
-echo "$CHANGED" | grep -q '^backendAdmin/'  && run_lint backendAdmin
-
-if ! echo "$CHANGED" | grep -qE '^(backend|frontend|frontendAdmin|backendAdmin)/'; then
-  echo "  (no Node service changed — skipping lint)"
+done
+if [ "$NODE_CHANGED" -eq 0 ]; then
+  echo "  (no Node service changed — lint not applicable)"
 fi
 
 # -----------------------------------------------------------------------------
 head2 "5. BUILD (frontends only)"
 # -----------------------------------------------------------------------------
 
-run_build() {
-  local dir="$1"
-  if [ -d "$dir" ] && [ -f "$dir/package.json" ]; then
-    if [ ! -d "$dir/node_modules" ]; then
-      echo "  ${YEL}SKIP${RST} $dir build (node_modules not installed)"
-      WARNINGS=$((WARNINGS+1))
-      return
-    fi
-    echo "  building $dir ..."
-    if (cd "$dir" && npm run build >/tmp/build_out_$$ 2>&1); then
-      echo "  ${GRN}PASS${RST} $dir build"
-    else
-      echo "  ${RED}FAIL${RST} $dir build — the app does not compile"
-      tail -20 /tmp/build_out_$$ | sed 's/^/    /'
-      PROBLEMS=$((PROBLEMS+1))
-    fi
-    rm -f /tmp/build_out_$$
+FRONTEND_CHANGED=0
+for d in frontend frontendAdmin; do
+  if changed_matches "^$d/"; then
+    FRONTEND_CHANGED=1
+    run_npm_check build "$d"
   fi
-}
-
-if echo "$CHANGED" | grep -q '^frontend/';      then run_build frontend; fi
-if echo "$CHANGED" | grep -q '^frontendAdmin/'; then run_build frontendAdmin; fi
+done
+if [ "$FRONTEND_CHANGED" -eq 0 ]; then
+  echo "  (no frontend changed — build not applicable)"
+fi
 
 # -----------------------------------------------------------------------------
 head2 "6. PYTHON (ai_service)"
 # -----------------------------------------------------------------------------
 
-if echo "$CHANGED" | grep -q '^ai_service/'; then
+PYFILES=$(grep -E '^ai_service/.*\.py$' <<<"$CHANGED" || true)
+if [ -n "$PYFILES" ]; then
   echo "  ai_service changed — syntax check:"
-  PYFILES=$(echo "$CHANGED" | grep -E '^ai_service/.*\.py$' || true)
-  if [ -n "$PYFILES" ]; then
-    if command -v python3 >/dev/null 2>&1; then
-      if python3 -m compileall -q $PYFILES >/tmp/py_out_$$ 2>&1; then
-        echo "  ${GRN}PASS${RST} Python syntax"
-      else
-        echo "  ${RED}FAIL${RST} Python syntax"
-        tail -20 /tmp/py_out_$$ | sed 's/^/    /'
-        PROBLEMS=$((PROBLEMS+1))
-      fi
-      rm -f /tmp/py_out_$$
+  if command -v python3 >/dev/null 2>&1; then
+    # shellcheck disable=SC2086
+    if python3 -m compileall -q $PYFILES >"$TMP_DIR/py.out" 2>&1; then
+      echo "  ${GRN}PASS${RST} Python syntax"
+      record PASS "python syntax (ai_service)"
     else
-      echo "  ${YEL}python3 not found — skipped${RST}"
+      echo "  ${RED}FAIL${RST} Python syntax"
+      tail -20 "$TMP_DIR/py.out" | sed 's/^/    /'
+      record FAIL "python syntax (ai_service)"
     fi
+  else
+    echo "  ${YEL}SKIP${RST} Python syntax (python3 not found)"
+    record SKIP "python syntax (python3 not found)"
   fi
 else
-  echo "  (ai_service not touched)"
+  echo "  (no ai_service Python files changed — not applicable)"
 fi
 
 # -----------------------------------------------------------------------------
 head2 "7. RED FLAG SCAN"
 # -----------------------------------------------------------------------------
 
-DIFF=$(git diff "$BASE"...HEAD 2>/dev/null)
+DIFF=$(git diff "$BASE"...HEAD)
+SCAN_FLAGS=0
 
 scan() {
-  local label="$1"; local pattern="$2"; local severity="$3"
+  local label="$1" pattern="$2" severity="$3"
   local hits
-  hits=$(echo "$DIFF" | grep -E "$pattern" | head -5 || true)
+  hits=$(grep -E "$pattern" <<<"$DIFF" | head -5 || true)
   if [ -n "$hits" ]; then
+    SCAN_FLAGS=$((SCAN_FLAGS+1))
     if [ "$severity" = "error" ]; then
       echo "  ${RED}[BLOCK]${RST} $label"
-      PROBLEMS=$((PROBLEMS+1))
+      record FAIL "red flag: $label"
     else
       echo "  ${YEL}[WARN]${RST} $label"
-      WARNINGS=$((WARNINGS+1))
+      record WARN "red flag: $label"
     fi
-    echo "$hits" | sed 's/^/      /'
+    sed 's/^/      /' <<<"$hits"
   fi
 }
 
@@ -267,30 +315,33 @@ scan "Commented-out code block"          '^\+[[:space:]]*//[[:space:]]*(const|le
 scan "alert() in production code"        '^\+.*\balert\('             warn
 
 # Lock file consistency
-if echo "$CHANGED" | grep -q 'package.json'; then
-  DIR_CHANGED=$(echo "$CHANGED" | grep 'package.json' | cut -d/ -f1 | sort -u)
-  for d in $DIR_CHANGED; do
-    if ! echo "$CHANGED" | grep -q "^$d/package-lock.json"; then
-      echo "  ${YEL}[WARN]${RST} $d/package.json changed but package-lock.json did not"
-      WARNINGS=$((WARNINGS+1))
-    fi
-  done
-fi
+for d in $(grep 'package.json' <<<"$CHANGED" | cut -d/ -f1 | sort -u); do
+  if ! changed_matches "^$d/package-lock.json"; then
+    echo "  ${YEL}[WARN]${RST} $d/package.json changed but package-lock.json did not"
+    record WARN "red flag: $d/package.json changed without package-lock.json"
+    SCAN_FLAGS=$((SCAN_FLAGS+1))
+  fi
+done
 
 # Large binaries
-BIG=$(echo "$CHANGED" | while read -r f; do
+BIG=""
+while IFS= read -r f; do
   [ -f "$f" ] || continue
-  s=$(wc -c < "$f" 2>/dev/null || echo 0)
-  [ "$s" -gt 1000000 ] && echo "$f ($((s/1024)) KB)"
-done)
+  s=$(wc -c < "$f")
+  if [ "$s" -gt 1000000 ]; then
+    BIG+="$f ($((s/1024)) KB)"$'\n'
+  fi
+done <<<"$CHANGED"
 if [ -n "$BIG" ]; then
   echo "  ${RED}[BLOCK]${RST} Large binary file committed:"
-  echo "$BIG" | sed 's/^/      /'
-  PROBLEMS=$((PROBLEMS+1))
+  sed 's/^/      /' <<<"$BIG"
+  record FAIL "red flag: large binary file committed"
+  SCAN_FLAGS=$((SCAN_FLAGS+1))
 fi
 
-if [ "$PROBLEMS" -eq 0 ] && [ "$WARNINGS" -eq 0 ]; then
+if [ "$SCAN_FLAGS" -eq 0 ]; then
   echo "  ${GRN}Clean — no red flags found.${RST}"
+  record PASS "red flag scan"
 fi
 
 # -----------------------------------------------------------------------------
@@ -302,40 +353,57 @@ git log --oneline "$BASE"...HEAD | sed 's/^/  /'
 BAD_MSG=$(git log --format=%s "$BASE"...HEAD | grep -vE '^(feat|fix|docs|style|refactor|test|chore|perf|build|ci)(\(.+\))?: .+' || true)
 if [ -n "$BAD_MSG" ]; then
   echo "${YEL}Some commit messages do not follow 'type: description':${RST}"
-  echo "$BAD_MSG" | sed 's/^/  /'
-  WARNINGS=$((WARNINGS+1))
+  sed 's/^/  /' <<<"$BAD_MSG"
+  record WARN "commit message format"
 else
   echo "${GRN}All commit messages follow the convention.${RST}"
+  record PASS "commit message format"
 fi
+
+# -----------------------------------------------------------------------------
+head2 "SUMMARY OF CHECKS"
+# -----------------------------------------------------------------------------
+
+echo "  Passed  : $N_PASS"
+echo "  Failed  : $N_FAIL"
+echo "  Skipped : $N_SKIP"
+echo "  Warnings: $N_WARN"
+echo
+[ -z "$PASS_LIST" ] || { echo "  Passed:";   printf '%s' "$PASS_LIST"; }
+[ -z "$FAIL_LIST" ] || { echo "  Failed:";   printf '%s' "$FAIL_LIST"; }
+[ -z "$SKIP_LIST" ] || { echo "  Skipped:";  printf '%s' "$SKIP_LIST"; }
+[ -z "$WARN_LIST" ] || { echo "  Warnings:"; printf '%s' "$WARN_LIST"; }
+echo "  Not run by this script: automated tests (npm test / CI)"
 
 # -----------------------------------------------------------------------------
 head2 "VERDICT"
 # -----------------------------------------------------------------------------
 
-echo "  Blocking problems : $PROBLEMS"
-echo "  Warnings          : $WARNINGS"
-echo
-
-
-if [ "$PROBLEMS" -gt 0 ]; then
-  echo "${RED}${BLD}  >>> DO NOT MERGE — fix the blocking problems above${RST}"
+if [ "$N_FAIL" -gt 0 ]; then
+  echo "${RED}${BLD}  >>> DO NOT MERGE — $N_FAIL check(s) failed (see above)${RST}"
   echo
   echo "  Suggested comment:"
   echo "  ----------------------------------------------------------"
   echo "  Thanks for this. A few things before I can approve:"
-  echo "  $( if echo "$DIFF" | grep -qE '^\+.*console\.log\('; then echo '- Please remove the console.log statements'; fi )"
-  echo "  $( if echo "$DIFF" | grep -qE '^\+\+\+ .*/\.env$'; then echo '- A .env file is included. Please remove it (it should never be committed)'; fi )"
+  if grep -qE '^\+.*console\.log\(' <<<"$DIFF"; then echo "  - Please remove the console.log statements"; fi
+  if grep -qE '^\+\+\+ .*/\.env$' <<<"$DIFF"; then echo "  - A .env file is included. Please remove it (it should never be committed)"; fi
+  echo "  - Please fix the failed checks listed above"
   echo "  - Please run 'npm run lint' from the repo root before pushing"
   echo "  Push again when ready, no need to open a new PR."
   echo "  ----------------------------------------------------------"
   exit 1
-elif [ "$WARNINGS" -gt 0 ]; then
-  echo "${YEL}${BLD}  >>> NEEDS A LOOK — warnings above${RST}"
-  echo "  Read the diff yourself. If the warnings are acceptable, merge."
-  exit 0
+elif [ "$N_SKIP" -gt 0 ]; then
+  echo "${YEL}${BLD}  >>> INCOMPLETE — $N_SKIP required check(s) were skipped${RST}"
+  echo "  No verdict can be given. This is NOT a safe-to-merge result."
+  echo "  Fix the skipped checks (for example: npm run setup) and run again."
+  exit 2
+elif [ "$N_WARN" -gt 0 ]; then
+  echo "${YEL}${BLD}  >>> NEEDS A LOOK — $N_WARN warning(s) above${RST}"
+  echo "  All required checks ran and passed. Read the diff and the warnings yourself."
+  exit 2
 else
-  echo "${GRN}${BLD}  >>> SAFE TO MERGE${RST}"
-  echo "  Lint, build and red-flag scans all passed."
+  echo "${GRN}${BLD}  >>> ALL PERFORMED CHECKS PASSED${RST}"
+  echo "  The $N_PASS checks listed above passed. Automated tests were not run here."
   echo
   echo "  Still do these two things yourself:"
   echo "    1. Read the diff for logic errors (the script cannot judge intent)"
