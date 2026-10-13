@@ -17,9 +17,7 @@ export const submitFeedback = async (req, res) => {
 
     // Only enrolled users can leave feedback
     const purchasedCourses = req.user.purchasedCourses || [];
-    const isEnrolled = purchasedCourses.some(
-      (c) => String(c.courseId) === String(courseId)
-    );
+    const isEnrolled = purchasedCourses.some((c) => String(c.courseId) === String(courseId));
     if (!isEnrolled) {
       return res.status(403).json({ message: "You must be enrolled to leave a review." });
     }
@@ -59,10 +57,7 @@ export const submitFeedback = async (req, res) => {
     const avgRating = parseFloat(result[0]?.avgRating || 0).toFixed(1);
     const totalReviews = parseInt(result[0]?.totalReviews || 0, 10);
 
-    await Course.update(
-      { rating: parseFloat(avgRating) },
-      { where: { id: courseId } }
-    );
+    await Course.update({ rating: parseFloat(avgRating) }, { where: { id: courseId } });
 
     return res.status(created ? 201 : 200).json({
       message: created ? "Review submitted!" : "Review updated!",
@@ -186,12 +181,13 @@ export const deleteFeedback = async (req, res) => {
     });
 
     const avgRating = parseFloat(result[0]?.avgRating || 0).toFixed(1);
-    await Course.update(
-      { rating: parseFloat(avgRating) || null },
-      { where: { id: courseId } }
-    );
+    await Course.update({ rating: parseFloat(avgRating) || null }, { where: { id: courseId } });
 
-    return res.json({ message: "Review deleted", avgRating, totalReviews: parseInt(result[0]?.totalReviews || 0, 10) });
+    return res.json({
+      message: "Review deleted",
+      avgRating,
+      totalReviews: parseInt(result[0]?.totalReviews || 0, 10),
+    });
   } catch (error) {
     console.error("DELETE FEEDBACK ERROR:", error);
     res.status(500).json({ message: "Failed to delete review" });

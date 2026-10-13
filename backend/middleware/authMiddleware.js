@@ -5,10 +5,7 @@ const protect = async (req, res, next) => {
   let token;
 
   // 1️⃣ Check Authorization header
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
     try {
       token = req.headers.authorization.split(" ")[1];
 
@@ -27,6 +24,16 @@ const protect = async (req, res, next) => {
 
       if (!user) {
         return res.status(401).json({ message: "User not found" });
+      }
+
+      if (user.isBlocked) {
+        return res.status(403).json({ message: "Account suspended" });
+      }
+      if (user.passwordChangedAt) {
+        const passwordChangedAt = Math.floor(user.passwordChangedAt.getTime() / 1000);
+        if (passwordChangedAt > decoded.iat) {
+          return res.status(401).json({ message: "Token revoked, Please Log in again" });
+        }
       }
 
       req.user = user;
