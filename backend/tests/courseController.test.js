@@ -3,10 +3,13 @@ import assert from "node:assert/strict";
 
 process.env.NODE_ENV = "test";
 
+const { sequelize } = await import("../config/db.js");
 const associations = await import("../models/modelAssociations.js");
 const { Course, Module, Lesson, LessonContent } = associations;
 const {
   addCourse,
+  addLessons,
+  addModules,
   deleteCourse,
   getCourseById,
   getCourseLearningData,
@@ -24,6 +27,11 @@ const originals = {
   courseDestroy: Course.destroy,
   moduleFindAll: Module.findAll,
   lessonFindAll: Lesson.findAll,
+  moduleMax: Module.max,
+  moduleCreate: Module.create,
+  lessonMax: Lesson.max,
+  lessonCreate: Lesson.create,
+  sequelizeTransaction: sequelize.transaction,
 };
 
 const response = () => {
@@ -57,6 +65,9 @@ const course = (overrides = {}) => ({
   ...overrides,
 });
 
+let transactionStats;
+let persistedModules;
+let persistedLessons;
 beforeEach(() => {
   Course.findAndCountAll = async () => ({ rows: [], count: 0 });
   Course.findByPk = async () => null;
@@ -66,6 +77,39 @@ beforeEach(() => {
   Course.destroy = async () => 0;
   Module.findAll = async () => [];
   Lesson.findAll = async () => [];
+  persistedModules = [];
+  persistedLessons = [];
+
+  Module.max = async () => 0;
+  Module.create = async (data) => ({ id: 1, ...data });
+
+  Lesson.max = async () => 0;
+  Lesson.create = async (data) => ({ id: 1, ...data });
+
+  transactionStats = {
+    calls: 0,
+    commits: 0,
+    rollbacks: 0,
+  };
+
+  sequelize.transaction = async (callback) => {
+    transactionStats.calls += 1;
+    const transaction = {
+    pendingModules: [],
+    pendingLessons: [],
+    };
+
+    try {
+      const result = await callback(transaction);
+      persistedModules.push(...transaction.pendingModules);
+      persistedLessons.push(...transaction.pendingLessons);
+      transactionStats.commits += 1;
+      return result;
+    } catch (error) {
+      transactionStats.rollbacks += 1;
+      throw error;
+    }
+  };
 });
 
 after(() => {
@@ -77,6 +121,14 @@ after(() => {
   Course.destroy = originals.courseDestroy;
   Module.findAll = originals.moduleFindAll;
   Lesson.findAll = originals.lessonFindAll;
+
+  Module.max = originals.moduleMax;
+  Module.create = originals.moduleCreate;
+
+  Lesson.max = originals.lessonMax;
+  Lesson.create = originals.lessonCreate;
+
+  sequelize.transaction = originals.sequelizeTransaction;
 });
 
 test("getCourses sanitizes pagination and returns only formatted published courses", async () => {
@@ -210,4 +262,246 @@ test("addCourse forces published status and deleteCourse handles missing and del
   outcome = response();
   await deleteCourse({ params: { id: "5" } }, outcome.res);
   assert.deepEqual(outcome.state.body, { message: "Course deleted successfully" });
+});
+
+
+test("addModules creates all modules in one transaction with sequential order", async () => {
+  let transactionUsed;
+  const inserted = [];
+
+  Module.max = async (field, options) => {
+    assert.equal(field, "order");
+    assert.deepEqual(options.where, { courseId: "7" });
+    transactionUsed = options.transaction;
+    return 2;
+  };
+
+  Module.create = async (data, options) => {
+  assert.strictEqual(options.transaction, transactionUsed);
+  inserted.push(data);
+  options.transaction.pendingModules.push(data);
+  return { id: inserted.length, ...data };
+};
+
+  const { state, res } = response();
+
+  await addModules(
+    {
+      params: { courseId: "7" },
+      body: { modules: [{ title: "Module One" }, { title: "Module Two" }] },
+    },
+    res
+  );
+
+  assert.equal(state.statusCode, 201);
+  assert.deepEqual(inserted.map((item) => item.order), [3, 4]);
+  assert.equal(state.body.length, 2);
+  assert.equal(persistedModules.length, 2);
+  assert.deepEqual(transactionStats, {
+    calls: 1,
+    commits: 1,
+    rollbacks: 0,
+  });
+});
+
+test("addModules rejects invalid items before starting a transaction", async () => {
+  const { state, res } = response();
+
+  await addModules(
+    {
+      params: { courseId: "7" },
+      body: { modules: [{ title: "Valid Module" }, { title: "  " }] },
+    },
+    res
+  );
+
+  assert.equal(state.statusCode, 400);
+  assert.equal(transactionStats.calls, 0);
+});
+
+test("addModules rolls back when an insert fails", async () => {
+  let transactionUsed;
+  let insertCount = 0;
+
+  Module.max = async (_field, options) => {
+    transactionUsed = options.transaction;
+    return 0;
+  };
+
+  Module.create = async (data, options) => {
+  assert.strictEqual(options.transaction, transactionUsed);
+  insertCount += 1;
+
+  if (insertCount === 2) {
+    throw new Error("Simulated module insert failure");
+  }
+
+  options.transaction.pendingModules.push(data);
+  return { id: insertCount };
+};
+
+  const { state, res } = response();
+
+  await addModules(
+    {
+      params: { courseId: "7" },
+      body: { modules: [{ title: "Module One" }, { title: "Module Two" }] },
+    },
+    res
+  );
+
+  assert.equal(state.statusCode, 500);
+  assert.equal(insertCount, 2);
+  assert.equal(persistedModules.length, 0);
+  assert.deepEqual(transactionStats, {
+    calls: 1,
+    commits: 0,
+    rollbacks: 1,
+  });
+});
+
+test("addLessons creates all lessons in one transaction with sequential order", async () => {
+  let transactionUsed;
+  const inserted = [];
+
+  Lesson.max = async (field, options) => {
+    assert.equal(field, "order");
+    assert.deepEqual(options.where, { moduleId: "10" });
+    transactionUsed = options.transaction;
+    return 4;
+  };
+
+  Lesson.create = async (data, options) => {
+  assert.strictEqual(options.transaction, transactionUsed);
+  inserted.push(data);
+  options.transaction.pendingLessons.push(data);
+  return { id: inserted.length, ...data };
+};
+
+  const { state, res } = response();
+
+  await addLessons(
+    {
+      params: { courseId: "7", moduleId: "10" },
+      body: {
+        lessons: [
+          { id: "lesson-1", title: "Lesson One", duration: "3 mins", type: "article" },
+          { id: "lesson-2", title: "Lesson Two" },
+        ],
+      },
+    },
+    res
+  );
+  assert.equal(state.statusCode, 201);
+  assert.deepEqual(inserted.map((item) => item.order), [5, 6]);
+  assert.equal(inserted[1].duration, "5 mins");
+  assert.equal(inserted[1].type, "video");
+  assert.equal(state.body.length, 2);
+  assert.equal(persistedLessons.length, 2);
+  assert.deepEqual(transactionStats, {
+    calls: 1,
+    commits: 1,
+    rollbacks: 0,
+  });
+});
+
+test("addLessons rejects invalid items before starting a transaction", async () => {
+  const { state, res } = response();
+
+  await addLessons(
+    {
+      params: { courseId: "7", moduleId: "10" },
+      body: { lessons: [{ id: "lesson-1", title: "  " }] },
+    },
+    res
+  );
+
+  assert.equal(state.statusCode, 400);
+  assert.equal(transactionStats.calls, 0);
+});
+
+test("addLessons rolls back when an insert fails", async () => {
+  let transactionUsed;
+  let insertCount = 0;
+
+  Lesson.max = async (_field, options) => {
+    transactionUsed = options.transaction;
+    return 0;
+  };
+
+  Lesson.create = async (data, options) => {
+  assert.strictEqual(options.transaction, transactionUsed);
+  insertCount += 1;
+
+  if (insertCount === 2) {
+    throw new Error("Simulated lesson insert failure");
+  }
+
+  options.transaction.pendingLessons.push(data);
+  return { id: insertCount };
+};
+
+  const { state, res } = response();
+
+  await addLessons(
+    {
+      params: { courseId: "7", moduleId: "10" },
+      body: {
+        lessons: [
+          { id: "lesson-1", title: "Lesson One" },
+          { id: "lesson-2", title: "Lesson Two" },
+        ],
+      },
+    },
+    res
+  );
+
+  assert.equal(state.statusCode, 500);
+  assert.equal(insertCount, 2);
+  assert.equal(persistedLessons.length, 0);
+  assert.deepEqual(transactionStats, {
+    calls: 1,
+    commits: 0,
+    rollbacks: 1,
+  });
+});
+
+test("addModules rejects duplicate titles before starting a transaction", async () => {
+  const { state, res } = response();
+
+  await addModules(
+    {
+      params: { courseId: "7" },
+      body: {
+        modules: [
+          { title: "Introduction" },
+          { title: " introduction " },
+        ],
+      },
+    },
+    res
+  );
+
+  assert.equal(state.statusCode, 400);
+  assert.equal(transactionStats.calls, 0);
+});
+
+test("addLessons rejects duplicate titles before starting a transaction", async () => {
+  const { state, res } = response();
+
+  await addLessons(
+    {
+      params: { courseId: "7", moduleId: "10" },
+      body: {
+        lessons: [
+          { id: "lesson-1", title: "Introduction" },
+          { id: "lesson-2", title: " introduction " },
+        ],
+      },
+    },
+    res
+  );
+
+  assert.equal(state.statusCode, 400);
+  assert.equal(transactionStats.calls, 0);
 });
