@@ -9,8 +9,8 @@ process.env.RAZORPAY_KEY_SECRET = "dummy";
 const { default: app } = await import("../server.js");
 
 const LIMIT_KB = 100;
-const UNDER_LIMIT = 90 * 1024;  // 90 KB, just below
-const OVER_LIMIT = 110 * 1024;  // 110 KB, just above
+const UNDER_LIMIT = 90 * 1024; // 90 KB, just below
+const OVER_LIMIT = 110 * 1024; // 110 KB, just above
 
 const PATH = "/api/body-limit-test";
 

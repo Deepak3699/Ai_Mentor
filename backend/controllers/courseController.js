@@ -1,7 +1,5 @@
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
 import { sequelize } from "../config/db.js";
-
-
 /* =========================
    HELPERS
 ========================= */
@@ -44,7 +42,7 @@ const getCourses = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
-    
+
     const sanitizedPage = page > 0 ? page : 1;
     const sanitizedLimit = limit > 0 ? limit : 10;
     const offset = (sanitizedPage - 1) * sanitizedLimit;
@@ -58,7 +56,6 @@ const getCourses = async (req, res) => {
 
     // Directly return the mapped array so the frontend doesn't break
     res.json(rows.map(formatCourse));
-    
   } catch (error) {
     console.error("GET COURSES ERROR:", error);
     res.status(500).json({ message: "Failed to load courses" });
@@ -96,8 +93,7 @@ const getMyCourses = async (req, res) => {
       return res.json([]);
     }
 
-    const purchasedIds =
-      req.user.purchasedCourses?.map((c) => String(c.courseId)) || [];
+    const purchasedIds = req.user.purchasedCourses?.map((c) => String(c.courseId)) || [];
 
     if (purchasedIds.length === 0) {
       return res.json([]);
@@ -120,7 +116,7 @@ const getMyCourses = async (req, res) => {
         lessons: course.lessons,
         lessonsCount: course.lessonsCount ?? parseLessonsCount(course.lessons),
         image: course.image,
-      }))
+      })),
     );
   } catch (error) {
     console.error("MY COURSES ERROR:", error);
@@ -153,24 +149,26 @@ const getCourseLearningData = async (req, res) => {
     if (course.status === "deleted") {
       return res.status(404).json({ message: "Learning data not found" });
     }
-// Check if user purchased/enrolled in the course
-const purchasedCourses =
-  req.user.purchasedCourses?.map((c) => String(c.courseId)) || [];
+    // Check if user purchased/enrolled in the course
+    const purchasedCourses = req.user.purchasedCourses?.map((c) => String(c.courseId)) || [];
 
-const hasAccess = purchasedCourses.includes(String(course.id));
+    const hasAccess = purchasedCourses.includes(String(course.id));
 
-const priceValue = parseFloat(course.priceValue) || 0;
-const isFreeOrOne = priceValue <= 1;
+    const priceValue = parseFloat(course.priceValue) || 0;
+    const isFreeOrOne = priceValue <= 1;
 
-if (!hasAccess && req.user.role !== "admin" && !isFreeOrOne) {
-  return res.status(403).json({
-    message: "Access denied. Please purchase/enroll in this course.",
-  });
-}
- 
+    if (!hasAccess && req.user.role !== "admin" && !isFreeOrOne) {
+      return res.status(403).json({
+        message: "Access denied. Please purchase/enroll in this course.",
+      });
+    }
+
     const modules = await Module.findAll({
       where: { courseId },
-      order: [["order", "ASC"], ["createdAt", "ASC"]],
+      order: [
+        ["order", "ASC"],
+        ["createdAt", "ASC"],
+      ],
     });
 
     const formattedModules = await Promise.all(
@@ -184,7 +182,10 @@ if (!hasAccess && req.user.role !== "admin" && !isFreeOrOne) {
               required: false,
             },
           ],
-          order: [["order", "ASC"], ["createdAt", "ASC"]],
+          order: [
+            ["order", "ASC"],
+            ["createdAt", "ASC"],
+          ],
         });
 
         return {
@@ -201,13 +202,13 @@ if (!hasAccess && req.user.role !== "admin" && !isFreeOrOne) {
             videoUrl: lesson.videoUrl,
             content: lesson.content
               ? {
-                introduction: lesson.content.introduction,
-                keyConcepts: lesson.content.keyConcepts,
-              }
+                  introduction: lesson.content.introduction,
+                  keyConcepts: lesson.content.keyConcepts,
+                }
               : undefined,
           })),
         };
-      })
+      }),
     );
 
     let currentLesson = null;
@@ -245,8 +246,8 @@ if (!hasAccess && req.user.role !== "admin" && !isFreeOrOne) {
 ===================================== */
 const getCourseAndLessonTitles = async (courseId, lessonId) => {
   try {
-    const course = await Course.findByPk((courseId));
-    const lesson = await Lesson.findByPk((lessonId));
+    const course = await Course.findByPk(courseId);
+    const lesson = await Lesson.findByPk(lessonId);
 
     if (!course || !lesson) return null;
 
@@ -301,7 +302,7 @@ const deleteCourse = async (req, res) => {
       return res.status(404).json({ message: "Course not found" });
     }
     res.json({ message: "Course deleted successfully" });
-  } catch (error) {
+  } catch {
     res.status(500).json({ message: "Failed to delete course" });
   }
 };
@@ -341,6 +342,7 @@ const hasValidLessons = (lessons) =>
 const addLessons = async (req, res) => {
   try {
     const { moduleId } = req.params;
+
     const lessons = req.body?.lessons;
 
     if (!hasValidLessons(lessons)) {
@@ -392,6 +394,7 @@ const addModules = async (req, res) => {
     const { courseId } = req.params;
     const modules = req.body?.modules;
 
+
     if (!hasValidItems(modules)) {
       return res.status(400).json({
         message: "Invalid modules payload",
@@ -431,6 +434,7 @@ const addModules = async (req, res) => {
     return res.status(500).json({
       message: "Failed to add modules",
     });
+
   }
 };
 
@@ -447,17 +451,19 @@ const generateCourseSyllabusWithAI = async (req, res) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         course_title: course.title,
-        category: course.category
+        category: course.category,
       }),
     });
 
     if (!aiResponse.ok) {
-      return res.status(500).json({ message: "AI Service failed to generate syllabus" });
+      return res.status(aiResponse.status).json({
+        message: "AI Service failed to generate syllabus",
+      });
     }
 
     const data = await aiResponse.json();
     if (data.error) {
-       return res.status(500).json({ message: data.error });
+      return res.status(500).json({ message: data.error });
     }
 
     // 2. Insert into DB
@@ -466,7 +472,7 @@ const generateCourseSyllabusWithAI = async (req, res) => {
       const newModule = await Module.create({
         courseId: course.id,
         title: mod.title,
-        order: moduleOrder++
+        order: moduleOrder++,
       });
 
       let lessonOrder = 1;
@@ -476,13 +482,12 @@ const generateCourseSyllabusWithAI = async (req, res) => {
           title: les.title,
           duration: les.duration || "5 mins",
           type: les.type || "video",
-          order: lessonOrder++
+          order: lessonOrder++,
         });
       }
     }
 
     res.json({ message: "Syllabus generated successfully", data: data });
-
   } catch (error) {
     console.error("GENERATE SYLLABUS ERROR:", error);
     res.status(500).json({ message: "Server error" });

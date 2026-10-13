@@ -22,8 +22,8 @@ const AuthLayout = ({ children, title, subtitle }) => {
 
           {/* Subtitle */}
           <p className="text-gray-500 dark:text-gray-400 text-base mt-3 max-w-sm">
-            Unlock the future of education with AI-powered courses designed to
-            accelerate your learning journey.
+            Unlock the future of education with AI-powered courses designed to accelerate your
+            learning journey.
           </p>
 
           {/* HERO IMAGE SECTION */}
