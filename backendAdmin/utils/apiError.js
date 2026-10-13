@@ -9,7 +9,7 @@ export function logServerError(req, err, context) {
       adminId: req.admin?.id,
       errorName: err?.name,
       errorCode: err?.code,
-      dbCode: err?.parent?.code, 
+      dbCode: err?.parent?.code,
       message: err?.message,
       stack: err?.stack,
     }),
