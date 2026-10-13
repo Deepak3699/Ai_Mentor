@@ -663,6 +663,15 @@ RAZORPAY_KEY_ID
 RAZORPAY_KEY_SECRET
 ```
 
+## Optional Variables
+
+```env
+# Timeout (in milliseconds) for requests to the AI service.
+# Prevents requests from hanging forever when the AI service is down or slow.
+# On timeout the API responds with HTTP 503. Defaults to 30000 (30s).
+AI_SERVICE_TIMEOUT_MS=
+```
+
 ---
 
 # Local Development Setup

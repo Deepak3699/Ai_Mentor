@@ -94,6 +94,11 @@ JWT_SECRET=your_jwt_secret_key
 # Python AI service URL (use deployed AI service URL or local URL during development)
 AI_SERVICE_URL=http://127.0.0.1:8000
 
+# Timeout (in milliseconds) for requests to the AI service.
+# Prevents requests from hanging forever when the AI service is down or slow;
+# on timeout the API responds with HTTP 503. Defaults to 30000 (30s).
+AI_SERVICE_TIMEOUT_MS=30000
+
 # Frontend URL (for CORS and password reset emails)
 FRONTEND_URL=http://localhost:5173
 

@@ -6,6 +6,10 @@ import { generateVideoSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
 import { getVideoQueue } from "../queues/videoQueue.js";
+import fetchWithTimeout, {
+  AI_SERVICE_TIMEOUT_MESSAGE,
+  isTimeoutError,
+} from "../utils/fetchWithTimeout.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -56,7 +60,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
 
       const filename = cachedVideo.videoUrl.split("/").pop();
 
-      const videoCheck = await fetch(
+      const videoCheck = await fetchWithTimeout(
         `${process.env.AI_SERVICE_URL}/video-stream/${filename}`,
         { method: "HEAD" }, // lightweight check
       );
@@ -127,6 +131,9 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
     });
   } catch (error) {
     console.error("AI GENERATE ERROR:", error);
+    if (isTimeoutError(error)) {
+      return res.status(503).json({ message: AI_SERVICE_TIMEOUT_MESSAGE });
+    }
     res.status(500).json({ message: "Failed to generate AI video" });
   }
 });
@@ -149,7 +156,7 @@ router.get("/transcript/:filename", async (req, res) => {
     }
 
     const pythonTranscriptUrl = `${process.env.AI_SERVICE_URL}/transcript/${filename}`;
-    const response = await fetch(pythonTranscriptUrl);
+    const response = await fetchWithTimeout(pythonTranscriptUrl);
 
     if (!response.ok) {
       return res.status(404).json({ error: "Transcript not found" });
@@ -167,6 +174,9 @@ router.get("/transcript/:filename", async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error("❌ Transcript Proxy Error:", error.message);
+    if (isTimeoutError(error)) {
+      return res.status(503).json({ error: AI_SERVICE_TIMEOUT_MESSAGE });
+    }
     res.status(500).json({ error: "Failed to load transcript" });
   }
 });
@@ -206,7 +216,7 @@ router.get("/status/:jobId", protect, async (req, res) => {
     }
 
     // Poll Python service using the python jobId
-    const response = await fetch(`${process.env.AI_SERVICE_URL}/status/${videoJob.jobId}`);
+    const response = await fetchWithTimeout(`${process.env.AI_SERVICE_URL}/status/${videoJob.jobId}`);
 
     if (!response.ok) {
       return res.json({ status: "processing" });
@@ -247,6 +257,9 @@ router.get("/status/:jobId", protect, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error("❌ Status Proxy Error:", error.message);
+    if (isTimeoutError(error)) {
+      return res.status(503).json({ status: "error", message: AI_SERVICE_TIMEOUT_MESSAGE });
+    }
     res.status(500).json({ status: "error" });
   }
 });
@@ -292,7 +305,7 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
     const pythonFilename = `${video.jobId}.mp4`;
     const pythonVideoUrl = `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(pythonFilename)}`;
 
-    const response = await fetch(pythonVideoUrl);
+    const response = await fetchWithTimeout(pythonVideoUrl);
 
     if (!response.ok) {
       return res.status(404).json({
@@ -312,6 +325,10 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
     res.end();
   } catch (error) {
     console.error("❌ Proxy Error:", error.message);
+    if (isTimeoutError(error)) {
+      if (res.headersSent) return res.end();
+      return res.status(503).json({ error: AI_SERVICE_TIMEOUT_MESSAGE });
+    }
     res.status(500).json({
       error: "Failed to load video via proxy",
     });
@@ -323,12 +340,15 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
 // ----------------------------------------------------
 router.get("/voices", protect, async (req, res) => {
   try {
-    const response = await fetch(`${process.env.AI_SERVICE_URL}/voices`);
+    const response = await fetchWithTimeout(`${process.env.AI_SERVICE_URL}/voices`);
     if (!response.ok) throw new Error("Failed to fetch voices");
     const data = await response.json();
     res.json(data);
   } catch (error) {
     console.error("❌ Voices Proxy Error:", error.message);
+    if (isTimeoutError(error)) {
+      return res.status(503).json({ error: AI_SERVICE_TIMEOUT_MESSAGE });
+    }
     res.status(500).json({ error: "Failed to fetch voices" });
   }
 });
