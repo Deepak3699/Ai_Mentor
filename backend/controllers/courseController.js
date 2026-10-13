@@ -1,4 +1,5 @@
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
+import { sequelize } from "../config/db.js";
 
 /* =========================
    HELPERS

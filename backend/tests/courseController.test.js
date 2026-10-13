@@ -5,8 +5,12 @@ process.env.NODE_ENV = "test";
 
 const associations = await import("../models/modelAssociations.js");
 const { Course, Module, Lesson, LessonContent } = associations;
+const { sequelize } = await import("../config/db.js");
+const { addLessonsSchema } = await import("../schemas/courseSchema.js");
+const validate = (await import("../middleware/validate.js")).default;
 const {
   addCourse,
+  addLessons,
   deleteCourse,
   getCourseById,
   getCourseLearningData,
@@ -24,6 +28,9 @@ const originals = {
   courseDestroy: Course.destroy,
   moduleFindAll: Module.findAll,
   lessonFindAll: Lesson.findAll,
+  lessonMax: Lesson.max,
+  lessonCreate: Lesson.create,
+  transaction: sequelize.transaction,
 };
 
 const response = () => {
@@ -72,6 +79,8 @@ beforeEach(() => {
   Course.destroy = async () => 0;
   Module.findAll = async () => [];
   Lesson.findAll = async () => [];
+  Lesson.max = async () => 0;
+  Lesson.create = async (data) => ({ id: 1, ...data });
 });
 
 after(() => {
@@ -83,6 +92,9 @@ after(() => {
   Course.destroy = originals.courseDestroy;
   Module.findAll = originals.moduleFindAll;
   Lesson.findAll = originals.lessonFindAll;
+  Lesson.max = originals.lessonMax;
+  Lesson.create = originals.lessonCreate;
+  sequelize.transaction = originals.transaction;
 });
 
 test("getCourses sanitizes pagination and returns only formatted published courses", async () => {
@@ -265,4 +277,154 @@ test("addCourse forces published status and deleteCourse handles missing and del
   outcome = response();
   await deleteCourse({ params: { id: "5" } }, outcome.res);
   assert.deepEqual(outcome.state.body, { message: "Course deleted successfully" });
+});
+
+test("addLessons creates all lessons in one transaction", async () => {
+  const pending = [];
+  const saved = [];
+  const transaction = { pending };
+  let transactionCompleted = false;
+
+  sequelize.transaction = async (work) => {
+    const result = await work(transaction);
+    saved.push(...pending);
+    transactionCompleted = true;
+    return result;
+  };
+  Lesson.max = async (field, options) => {
+    assert.equal(field, "order");
+    assert.equal(options.transaction, transaction);
+    return 2;
+  };
+  Lesson.create = async (data, options) => {
+    assert.equal(options.transaction, transaction);
+    pending.push(data);
+    return { id: pending.length, ...data };
+  };
+
+  const { state, res } = response();
+  await addLessons({
+    params: { courseId: "1", moduleId: "10" },
+    body: { lessons: [{ title: "Lesson One" }, { title: "Lesson Two", duration: "10 mins" }] },
+  }, res);
+
+  assert.equal(state.statusCode, 201);
+  assert.equal(transactionCompleted, true);
+  assert.equal(saved.length, 2);
+  assert.deepEqual(state.body.map(({ order }) => order), [3, 4]);
+  assert.equal(state.body[0].duration, "5 mins");
+  assert.equal(state.body[1].duration, "10 mins");
+});
+
+test("addLessons rolls back earlier inserts when a later lesson fails", async () => {
+  const pending = [];
+  const saved = [];
+  const transaction = { pending };
+  let transactionRolledBack = false;
+  let createCalls = 0;
+
+  sequelize.transaction = async (work) => {
+    try {
+      const result = await work(transaction);
+      saved.push(...pending);
+      return result;
+    } catch (error) {
+      pending.length = 0;
+      transactionRolledBack = true;
+      throw error;
+    }
+  };
+  Lesson.max = async () => 0;
+  Lesson.create = async (data, options) => {
+    assert.equal(options.transaction, transaction);
+    createCalls += 1;
+    if (createCalls === 3) throw new Error("Lesson creation failed");
+    pending.push(data);
+    return { id: createCalls, ...data };
+  };
+
+  const { state, res } = response();
+  await addLessons({
+    params: { courseId: "1", moduleId: "10" },
+    body: { lessons: [{ title: "Lesson One" }, { title: "Lesson Two" }, { title: "Lesson Three" }] },
+  }, res);
+
+  assert.equal(state.statusCode, 500);
+  assert.deepEqual(state.body, { message: "Failed to add lessons" });
+  assert.equal(transactionRolledBack, true);
+  assert.deepEqual(saved, []);
+  assert.equal(createCalls, 3);
+});
+
+test("addLessons rolls back when the order lookup fails", async () => {
+  let transactionRolledBack = false;
+  let createCalls = 0;
+  sequelize.transaction = async (work) => {
+    try {
+      return await work({});
+    } catch (error) {
+      transactionRolledBack = true;
+      throw error;
+    }
+  };
+  Lesson.max = async () => { throw new Error("Order lookup failed"); };
+  Lesson.create = async () => {
+    createCalls += 1;
+    return {};
+  };
+
+  const { state, res } = response();
+  await addLessons({
+    params: { courseId: "1", moduleId: "10" },
+    body: { lessons: [{ title: "Lesson One" }] },
+  }, res);
+
+  assert.equal(state.statusCode, 500);
+  assert.deepEqual(state.body, { message: "Failed to add lessons" });
+  assert.equal(transactionRolledBack, true);
+  assert.equal(createCalls, 0);
+});
+
+test("addLessons preserves the empty-list success behavior", async () => {
+  const transaction = {};
+  let transactionCompleted = false;
+  let createCalls = 0;
+  sequelize.transaction = async (work) => {
+    const result = await work(transaction);
+    transactionCompleted = true;
+    return result;
+  };
+  Lesson.max = async (_field, options) => {
+    assert.equal(options.transaction, transaction);
+    return null;
+  };
+  Lesson.create = async () => {
+    createCalls += 1;
+    return {};
+  };
+
+  const { state, res } = response();
+  await addLessons({
+    params: { courseId: "1", moduleId: "10" },
+    body: { lessons: [] },
+  }, res);
+
+  assert.equal(state.statusCode, 201);
+  assert.deepEqual(state.body, []);
+  assert.equal(transactionCompleted, true);
+  assert.equal(createCalls, 0);
+});
+
+test("addLessons route validation rejects invalid input before the controller runs", () => {
+  const { state, res } = response();
+  let nextCalled = false;
+  const req = { body: { lessons: [{ id: "lesson-1", title: "" }] } };
+
+  validate(addLessonsSchema)(req, res, () => {
+    nextCalled = true;
+  });
+
+  assert.equal(state.statusCode, 400);
+  assert.equal(state.body.message, "Validation failed");
+  assert.equal(nextCalled, false);
 });
