@@ -367,7 +367,9 @@ const FloatingAssistant = () => {
                       {message.route && (
                         <button
                           type="button"
-                          onClick={() => navigate(message.route, { state: { lessonId: message.lessonId } })}
+                          onClick={() =>
+                            navigate(message.route, { state: { lessonId: message.lessonId } })
+                          }
                           className="mt-3 rounded-lg bg-[#3867D6] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#315BC0]"
                         >
                           {message.lessonId ? "Resume Lesson" : "Go to page"}

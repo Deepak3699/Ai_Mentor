@@ -142,9 +142,7 @@ export const chatWithAssistant = async (req, res) => {
     // Current lesson and resume navigation
     if (intent.type === "current_lesson") {
       const courses = user.purchasedCourses || [];
-      const activeCourse = courses.find(
-        (course) => course.progress?.currentLesson,
-      );
+      const activeCourse = courses.find((course) => course.progress?.currentLesson);
 
       if (!activeCourse) {
         return res.json({ reply: "I couldn't find an active lesson." });
@@ -153,13 +151,11 @@ export const chatWithAssistant = async (req, res) => {
       const savedLesson = activeCourse.progress.currentLesson;
       const lessonId =
         typeof savedLesson === "object" && savedLesson !== null
-          ? savedLesson.lessonId ?? savedLesson.id
+          ? (savedLesson.lessonId ?? savedLesson.id)
           : null;
 
       let lessonTitle =
-        typeof savedLesson === "object" && savedLesson !== null
-          ? savedLesson.title
-          : null;
+        typeof savedLesson === "object" && savedLesson !== null ? savedLesson.title : null;
 
       if (lessonId && !lessonTitle) {
         const lesson = await Lesson.findByPk(lessonId);
@@ -167,15 +163,11 @@ export const chatWithAssistant = async (req, res) => {
       }
 
       const displayLesson =
-        lessonTitle ||
-        (lessonId ? `lesson ${lessonId}` : `lesson ${savedLesson}`);
+        lessonTitle || (lessonId ? `lesson ${lessonId}` : `lesson ${savedLesson}`);
 
       return res.json({
         reply: `You were last studying ${displayLesson} in ${activeCourse.courseTitle}.`,
-        route:
-          activeCourse.courseId && lessonId
-            ? `/learning/${activeCourse.courseId}`
-            : null,
+        route: activeCourse.courseId && lessonId ? `/learning/${activeCourse.courseId}` : null,
         lessonId: lessonId || null,
       });
     }
