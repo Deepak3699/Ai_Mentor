@@ -288,11 +288,17 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
       return res.status(404).json({ error: "Video not found" });
     }
 
-    // Python service expects <pythonJobId>.mp4
+    // Python service expects &lt;pythonJobId&gt;.mp4
     const pythonFilename = `${video.jobId}.mp4`;
     const pythonVideoUrl = `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(pythonFilename)}`;
+    const requestHeaders = {};
+    if (req.headers.range) {
+      requestHeaders.Range = req.headers.range;
+    }
 
-    const response = await fetch(pythonVideoUrl);
+    const response = await fetch(pythonVideoUrl, {
+      headers: requestHeaders,
+    });
 
     if (!response.ok) {
       return res.status(404).json({
@@ -300,16 +306,26 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
       });
     }
 
-    res.setHeader("Content-Type", "video/mp4");
-    // Streams the response body directly to the client
-    const reader = response.body.getReader();
+    const headersToForward = ["content-range", "content-length", "accept-ranges"];
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(value);
+    res.setHeader("Content-Type", "video/mp4");
+
+    for (const header of headersToForward) {
+      const value = response.headers.get(header);
+      if (value) {
+        res.setHeader(header, value);
+      }
     }
-    res.end();
+
+    res.status(response.status);
+
+    if (!response.body) {
+      return res.status(502).json({
+        error: "Empty video response from AI service",
+      });
+    }
+    const { Readable } = await import("node:stream");
+    Readable.fromWeb(response.body).pipe(res);
   } catch (error) {
     console.error("❌ Proxy Error:", error.message);
     res.status(500).json({
