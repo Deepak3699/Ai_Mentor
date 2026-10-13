@@ -38,8 +38,14 @@ const response = () => {
   return {
     state,
     res: {
-      status(code) { state.statusCode = code; return this; },
-      json(body) { state.body = body; return this; },
+      status(code) {
+        state.statusCode = code;
+        return this;
+      },
+      json(body) {
+        state.body = body;
+        return this;
+      },
     },
   };
 };
@@ -123,7 +129,10 @@ test("getCourseById returns 404 for missing and 403 for unpublished courses", as
 });
 
 test("getCourseById returns a formatted published course", async () => {
-  Course.findByPk = async (id) => { assert.equal(id, "1"); return course(); };
+  Course.findByPk = async (id) => {
+    assert.equal(id, "1");
+    return course();
+  };
   const { state, res } = response();
   await getCourseById({ params: { id: 1 } }, res);
   assert.equal(state.statusCode, 200);
@@ -137,7 +146,10 @@ test("getMyCourses returns empty without purchases and queries only owned publis
   assert.deepEqual(outcome.state.body, []);
 
   let query;
-  Course.findAll = async (options) => { query = options; return [course({ id: "2" })]; };
+  Course.findAll = async (options) => {
+    query = options;
+    return [course({ id: "2" })];
+  };
   outcome = response();
   await getMyCourses({ user: { purchasedCourses: [{ courseId: 2 }] } }, outcome.res);
   assert.deepEqual(query.where, { id: ["2"], status: "published" });
@@ -147,19 +159,31 @@ test("getMyCourses returns empty without purchases and queries only owned publis
 
 test("learning data blocks missing, disabled, deleted, and unowned paid courses", async () => {
   let outcome = response();
-  await getCourseLearningData({ params: { id: "1" }, user: { role: "user", purchasedCourses: [] } }, outcome.res);
+  await getCourseLearningData(
+    { params: { id: "1" }, user: { role: "user", purchasedCourses: [] } },
+    outcome.res,
+  );
   assert.equal(outcome.state.statusCode, 404);
 
-  for (const [status, expected] of [["disabled", 403], ["deleted", 404]]) {
+  for (const [status, expected] of [
+    ["disabled", 403],
+    ["deleted", 404],
+  ]) {
     Course.findByPk = async () => course({ status });
     outcome = response();
-    await getCourseLearningData({ params: { id: "1" }, user: { role: "user", purchasedCourses: [] } }, outcome.res);
+    await getCourseLearningData(
+      { params: { id: "1" }, user: { role: "user", purchasedCourses: [] } },
+      outcome.res,
+    );
     assert.equal(outcome.state.statusCode, expected);
   }
 
   Course.findByPk = async () => course({ priceValue: 499 });
   outcome = response();
-  await getCourseLearningData({ params: { id: "1" }, user: { role: "user", purchasedCourses: [] } }, outcome.res);
+  await getCourseLearningData(
+    { params: { id: "1" }, user: { role: "user", purchasedCourses: [] } },
+    outcome.res,
+  );
   assert.equal(outcome.state.statusCode, 403);
   assert.match(outcome.state.body.message, /purchase\/enroll/);
 });
@@ -184,33 +208,61 @@ test("learning data permits an owner, admin, and free course", async () => {
 test("learning data returns ordered modules, lessons, content, and first current lesson", async () => {
   Course.findByPk = async () => course();
   Module.findAll = async (options) => {
-    assert.deepEqual(options.order, [["order", "ASC"], ["createdAt", "ASC"]]);
+    assert.deepEqual(options.order, [
+      ["order", "ASC"],
+      ["createdAt", "ASC"],
+    ]);
     return [{ id: 10, title: "Module One" }];
   };
   Lesson.findAll = async (options) => {
     assert.equal(options.where.moduleId, 10);
     assert.equal(options.include[0].model, LessonContent);
-    return [{ id: 20, title: "Lesson One", duration: "5 mins", type: "video", content: { introduction: "Intro", keyConcepts: ["A"] } }];
+    return [
+      {
+        id: 20,
+        title: "Lesson One",
+        duration: "5 mins",
+        type: "video",
+        content: { introduction: "Intro", keyConcepts: ["A"] },
+      },
+    ];
   };
   const { state, res } = response();
-  await getCourseLearningData({ params: { id: "1" }, user: { role: "user", purchasedCourses: [{ courseId: 1 }] } }, res);
+  await getCourseLearningData(
+    { params: { id: "1" }, user: { role: "user", purchasedCourses: [{ courseId: 1 }] } },
+    res,
+  );
   assert.equal(state.body.modules[0].lessons[0].content.introduction, "Intro");
   assert.equal(state.body.currentLesson.module, "Module One");
   assert.equal(state.body.currentLesson.id, 20);
 });
 
 test("getStatsCards returns the published course count", async () => {
-  Course.count = async (options) => { assert.deepEqual(options, { where: { status: "published" } }); return 7; };
+  Course.count = async (options) => {
+    assert.deepEqual(options, { where: { status: "published" } });
+    return 7;
+  };
   const { state, res } = response();
   await getStatsCards({}, res);
-  assert.deepEqual(state.body, { totalCourses: 7, completedCourses: 0, hoursLearned: 0, certificates: 0 });
+  assert.deepEqual(state.body, {
+    totalCourses: 7,
+    completedCourses: 0,
+    hoursLearned: 0,
+    certificates: 0,
+  });
 });
 
 test("addCourse forces published status and deleteCourse handles missing and deleted courses", async () => {
   let created;
-  Course.create = async (data) => { created = data; return { id: 5, ...data }; };
+  Course.create = async (data) => {
+    created = data;
+    return { id: 5, ...data };
+  };
   let outcome = response();
-  await addCourse({ body: { title: "New", category: "Dev", priceValue: 20, status: "disabled" } }, outcome.res);
+  await addCourse(
+    { body: { title: "New", category: "Dev", priceValue: 20, status: "disabled" } },
+    outcome.res,
+  );
   assert.equal(outcome.state.statusCode, 201);
   assert.equal(created.status, "published");
 
@@ -218,7 +270,10 @@ test("addCourse forces published status and deleteCourse handles missing and del
   await deleteCourse({ params: { id: "5" } }, outcome.res);
   assert.equal(outcome.state.statusCode, 404);
 
-  Course.destroy = async ({ where }) => { assert.deepEqual(where, { id: "5" }); return 1; };
+  Course.destroy = async ({ where }) => {
+    assert.deepEqual(where, { id: "5" });
+    return 1;
+  };
   outcome = response();
   await deleteCourse({ params: { id: "5" } }, outcome.res);
   assert.deepEqual(outcome.state.body, { message: "Course deleted successfully" });

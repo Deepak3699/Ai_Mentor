@@ -8,7 +8,11 @@ import { authServices } from "../services/authExternalServices.js";
 
 // Initialize Firebase Admin only outside tests and only when real keys are provided.
 if (process.env.NODE_ENV !== "test") {
-  if (!admin.apps.length && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_PRIVATE_KEY.length > 50) {
+  if (
+    !admin.apps.length &&
+    process.env.FIREBASE_PRIVATE_KEY &&
+    process.env.FIREBASE_PRIVATE_KEY.length > 50
+  ) {
     try {
       admin.initializeApp({
         credential: admin.credential.cert({
@@ -34,7 +38,7 @@ const generateToken = (id) => {
 
 // Centralized logic moved to userUtils.js
 const register = async (req, res) => {
-  const {firstName, lastName, name, email, password } = req.body;
+  const { firstName, lastName, name, email, password } = req.body;
 
   try {
     const userExists = await User.findOne({ where: { email } });
@@ -86,10 +90,9 @@ const login = async (req, res) => {
 
     const isMatch = await user.matchPassword(password);
 
-if (user.isBlocked) {
-  return res.status(403).json({ message: "Account suspended" });
-}
-
+    if (user.isBlocked) {
+      return res.status(403).json({ message: "Account suspended" });
+    }
 
     if (user && user.password && isMatch) {
       await ensureProfileCompleteness(user);
@@ -175,7 +178,8 @@ const googleLogin = async (req, res) => {
     const email = decodedToken.email;
     const name = decodedToken.name || email.split("@")[0];
     let firstName = decodedToken.given_name || decodedToken.name?.split(" ")[0] || "";
-    let lastName = decodedToken.family_name || decodedToken.name?.split(" ").slice(1).join(" ") || "";
+    let lastName =
+      decodedToken.family_name || decodedToken.name?.split(" ").slice(1).join(" ") || "";
     const avatar_url = decodedToken.picture || null;
 
     // Fallback if given_name and family_name are missing
@@ -201,11 +205,11 @@ const googleLogin = async (req, res) => {
         role: "user",
       });
     } else {
-  if (user.isBlocked) {
-    return res.status(403).json({ message: "Account suspended" });
-  }
+      if (user.isBlocked) {
+        return res.status(403).json({ message: "Account suspended" });
+      }
 
-  let changed = false;
+      let changed = false;
 
       if (!user.firstName && firstName) {
         user.firstName = firstName;
@@ -291,10 +295,7 @@ const forgotPassword = async (req, res) => {
 
     const resetToken = crypto.randomBytes(20).toString("hex");
 
-    user.resetPasswordToken = crypto
-      .createHash("sha256")
-      .update(resetToken)
-      .digest("hex");
+    user.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
     user.resetPasswordExpires = Date.now() + 3600000;
 
@@ -321,7 +322,7 @@ const forgotPassword = async (req, res) => {
       });
 
       res.status(200).json(genericResponse);
-    } catch (err) {
+    } catch {
       console.error("Email could not be sent");
       user.resetPasswordToken = null;
       user.resetPasswordExpires = null;
@@ -338,10 +339,7 @@ const resetPassword = async (req, res) => {
   const { password } = req.body;
 
   try {
-    const hashedToken = crypto
-      .createHash("sha256")
-      .update(req.params.token)
-      .digest("hex");
+    const hashedToken = crypto.createHash("sha256").update(req.params.token).digest("hex");
 
     const user = await User.findOne({
       where: {
@@ -357,7 +355,7 @@ const resetPassword = async (req, res) => {
     user.set("password", password);
     user.resetPasswordToken = null;
     user.resetPasswordExpires = null;
-    user.passwordChangedAt=Date.now();
+    user.passwordChangedAt = Date.now();
 
     await user.save();
 
@@ -365,7 +363,8 @@ const resetPassword = async (req, res) => {
       .then(({ createNotification }) => {
         createNotification(user.id, {
           title: "Password Changed",
-          message: "Your password has been successfully reset. If this wasn't you, please secure your account.",
+          message:
+            "Your password has been successfully reset. If this wasn't you, please secure your account.",
           type: "security",
         });
       })
@@ -380,10 +379,4 @@ const resetPassword = async (req, res) => {
   }
 };
 
-export {
-  register,
-  login,
-  googleLogin,
-  forgotPassword,
-  resetPassword,
-};
+export { register, login, googleLogin, forgotPassword, resetPassword };

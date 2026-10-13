@@ -13,12 +13,11 @@ if (!isTestEnvironment) {
 const connectionString = isTestEnvironment ? null : process.env.NEON_DATABASE_URL;
 
 const allowInsecureDbSsl =
-  !isProduction &&
-  process.env.ALLOW_INSECURE_DB_SSL === "true";
+  !isProduction && String(process.env.ALLOW_INSECURE_DB_SSL).trim() === "true";
 
 if (isProduction && process.env.ALLOW_INSECURE_DB_SSL === "true") {
   throw new Error(
-    "Invalid database TLS configuration: ALLOW_INSECURE_DB_SSL cannot be enabled in production."
+    "Invalid database TLS configuration: ALLOW_INSECURE_DB_SSL cannot be enabled in production.",
   );
 }
 
@@ -33,7 +32,7 @@ const getCaCertificate = () => {
     } catch (error) {
       throw new Error(
         `Invalid database TLS configuration: unable to read DB_SSL_CA_FILE (${error.message})`,
-        { cause: error }
+        { cause: error },
       );
     }
   }
@@ -49,18 +48,13 @@ const prepareConnectionString = (urlString) => {
 
   if (isProduction && sslMode !== "verify-full") {
     throw new Error(
-      "Invalid production database TLS configuration: NEON_DATABASE_URL must use sslmode=verify-full."
+      "Invalid production database TLS configuration: NEON_DATABASE_URL must use sslmode=verify-full.",
     );
   }
 
-  if (
-    !isProduction &&
-    !allowInsecureDbSsl &&
-    sslMode &&
-    sslMode !== "verify-full"
-  ) {
+  if (!isProduction && !allowInsecureDbSsl && sslMode && sslMode !== "verify-full") {
     throw new Error(
-      "Invalid database TLS configuration: use sslmode=verify-full, or explicitly set ALLOW_INSECURE_DB_SSL=true for development only."
+      "Invalid database TLS configuration: use sslmode=verify-full, or explicitly set ALLOW_INSECURE_DB_SSL=true for development only.",
     );
   }
 
@@ -91,10 +85,8 @@ if (isTestEnvironment) {
     logging: false,
   });
 } else if (connectionString) {
-  const {
-    connectionString: secureConnectionString,
-    ssl,
-  } = prepareConnectionString(connectionString);
+  const { connectionString: secureConnectionString, ssl } =
+    prepareConnectionString(connectionString);
 
   sequelize = new Sequelize(secureConnectionString, {
     dialect: "postgres",
@@ -112,17 +104,12 @@ if (isTestEnvironment) {
 } else {
   // Local development PostgreSQL.
   // This branch is used only when NEON_DATABASE_URL is not configured.
-  sequelize = new Sequelize(
-    process.env.DB_NAME,
-    process.env.DB_USER,
-    process.env.DB_PASSWORD,
-    {
-      host: process.env.DB_HOST || "localhost",
-      port: process.env.DB_PORT || 5432,
-      dialect: "postgres",
-      logging: false,
-    }
-  );
+  sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, process.env.DB_PASSWORD, {
+    host: process.env.DB_HOST || "localhost",
+    port: process.env.DB_PORT || 5432,
+    dialect: "postgres",
+    logging: false,
+  });
 }
 
 async function connectDB() {

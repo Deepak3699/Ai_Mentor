@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
@@ -19,7 +19,7 @@
   /* Borders (gray-200) */
   --color-input-bg: #f9fafb;
   /* Input background (gray-50) */
-  --color-primary: #00BEA5;
+  --color-primary: #00bea5;
   /* Primary accent color */
   --color-transcript-bg: var(--color-blue-50);
 }
@@ -28,7 +28,7 @@
   /* Dark Mode - Carbon/Graphite Palette */
   --color-canvas: #18181b;
   /* Zinc-900 - Deep Matte Grey for Background */
-  --color-canvas-alt: rgb(26,26,26);
+  --color-canvas-alt: rgb(26, 26, 26);
   /* Same as canvas for unified background */
   --color-card: #27272a;
   /* Zinc-800 - Lighter Grey for Cards/Sidebar to pop */
@@ -41,7 +41,12 @@
   --color-input-bg: #3f3f46;
   /* Zinc-700 - Distinct input background */
   --color-transcript-bg: #162456;
+}
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 @theme {
@@ -59,15 +64,30 @@
 html,
 body,
 #root {
+  width: 100%;
   height: 100%;
-  /* Use dynamic viewport height so macOS browsers (Safari/Chrome) recompute
-     correctly after minimize/restore — fixes the bottom gap. dvh == vh on desktop. */
   min-height: 100dvh;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  overflow-x: hidden;
 }
 
 body {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
-    "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+  margin: 0;
+  overflow-x: hidden;
+  font-family:
+    "Manrope",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Roboto",
+    "Oxygen",
+    "Ubuntu",
+    "Cantarell",
+    "Fira Sans",
+    "Droid Sans",
+    "Helvetica Neue",
     sans-serif;
   /* Match the dashboard shell (bg-canvas-alt) so a transient height gap never
      shows a contrasting strip. */
@@ -75,7 +95,7 @@ body {
   color: var(--color-text-main);
 }
 
-button{
+button {
   cursor: pointer;
 }
 
@@ -94,12 +114,12 @@ button{
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--color-canvas-alt);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: color-mix(in srgb, var(--color-text-muted) 45%, transparent);
   border-radius: 3px;
 }
 
@@ -180,7 +200,9 @@ button{
   padding: 0 12px;
   background: var(--color-card);
   color: var(--color-text-muted);
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .dashboard-search:focus-within {
@@ -237,13 +259,35 @@ button{
 .dashboard-hero__ridge--far {
   height: 46%;
   background: linear-gradient(160deg, rgba(38, 72, 131, 0.5), rgba(11, 29, 63, 0.5));
-  clip-path: polygon(0 64%, 13% 45%, 25% 75%, 38% 35%, 49% 72%, 64% 25%, 77% 66%, 88% 38%, 100% 69%, 100% 100%, 0 100%);
+  clip-path: polygon(
+    0 64%,
+    13% 45%,
+    25% 75%,
+    38% 35%,
+    49% 72%,
+    64% 25%,
+    77% 66%,
+    88% 38%,
+    100% 69%,
+    100% 100%,
+    0 100%
+  );
 }
 
 .dashboard-hero__ridge--near {
   height: 30%;
   background: linear-gradient(180deg, rgba(18, 42, 83, 0.25), rgba(5, 18, 41, 0.84));
-  clip-path: polygon(0 55%, 16% 83%, 32% 53%, 48% 79%, 66% 38%, 81% 69%, 100% 35%, 100% 100%, 0 100%);
+  clip-path: polygon(
+    0 55%,
+    16% 83%,
+    32% 53%,
+    48% 79%,
+    66% 38%,
+    81% 69%,
+    100% 35%,
+    100% 100%,
+    0 100%
+  );
 }
 
 .dashboard-hero__content {
@@ -307,7 +351,9 @@ button{
   color: #fff;
   font-size: 12px;
   font-weight: 700;
-  transition: background-color 160ms ease, transform 160ms ease;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
 }
 
 .dashboard-hero__button:hover {
@@ -335,13 +381,13 @@ button{
 
 .dashboard-hero__note {
   position: absolute;
-  top: 19%;
-  right: 41%;
+  top: 25%;
+  right: 55%;
   margin: 0;
   transform: rotate(-10deg);
   color: #e0eaff;
   font-family: "Segoe Print", "Bradley Hand", cursive;
-  font-size: clamp(12px, 1.35vw, 16px);
+  font-size: clamp(14px, 1.6vw, 20px);
   font-weight: 600;
   line-height: 1.05;
 }
@@ -358,10 +404,11 @@ button{
 
 .dashboard-hero__robot {
   position: absolute;
+  top: 3%;
   right: 8%;
   bottom: -17px;
-  width: 118px;
-  height: 164px;
+  width: 200px;
+  height: 250px;
   filter: drop-shadow(0 0 18px rgba(42, 149, 255, 0.26));
 }
 
@@ -398,7 +445,10 @@ button{
   border: 2px solid #d7e9ff;
   border-radius: 27px 27px 24px 24px;
   background: linear-gradient(145deg, #fff 4%, #cfdef2 39%, #8298bb 100%);
-  box-shadow: inset 5px 5px 10px rgba(255, 255, 255, 0.9), inset -5px -7px 10px rgba(39, 61, 99, 0.35), 0 7px 11px rgba(1, 11, 29, 0.36);
+  box-shadow:
+    inset 5px 5px 10px rgba(255, 255, 255, 0.9),
+    inset -5px -7px 10px rgba(39, 61, 99, 0.35),
+    0 7px 11px rgba(1, 11, 29, 0.36);
 }
 
 .dashboard-hero__head::before,
@@ -431,7 +481,9 @@ button{
   border: 2px solid rgba(131, 218, 255, 0.6);
   border-radius: 15px;
   background: linear-gradient(145deg, #07132c, #0b2860);
-  box-shadow: inset 0 0 14px rgba(29, 128, 255, 0.3), 0 0 12px rgba(30, 156, 255, 0.32);
+  box-shadow:
+    inset 0 0 14px rgba(29, 128, 255, 0.3),
+    0 0 12px rgba(30, 156, 255, 0.32);
 }
 
 .dashboard-hero__visor span {
@@ -464,7 +516,10 @@ button{
   border-radius: 22px 22px 7px 7px;
   padding-top: 12px;
   background: linear-gradient(110deg, #879cbd, #f5f9ff 38%, #a4b8d4 74%, #6d83a5);
-  box-shadow: inset 4px 0 8px rgba(255, 255, 255, 0.7), inset -5px 0 8px rgba(37, 56, 88, 0.34), 0 5px 10px rgba(1, 11, 29, 0.3);
+  box-shadow:
+    inset 4px 0 8px rgba(255, 255, 255, 0.7),
+    inset -5px 0 8px rgba(37, 56, 88, 0.34),
+    0 5px 10px rgba(1, 11, 29, 0.3);
 }
 
 .dashboard-hero__body span {
@@ -555,27 +610,430 @@ button{
   opacity: 0;
   transform: translateX(30px);
 }
+
 .wizard-step-enter-active {
   opacity: 1;
   transform: translateX(0);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
+
 .wizard-step-exit {
   opacity: 0;
   transform: translateX(-30px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 
 /* Progress bar animation */
 .wizard-progress-bar {
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 /* Selected option highlight pulse */
 @keyframes option-select {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.02); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
+
 .wizard-option-selected {
   animation: option-select 0.2s ease;
+}
+
+/* MODERN UI FOUNDATION */
+:root {
+  --ui-accent: #3b82f6;
+  --ui-accent-strong: #2563eb;
+  --ui-radius-card: 1rem;
+  --ui-shadow-card: 0 12px 32px rgba(15, 23, 42, 0.07);
+}
+body {
+  font-feature-settings: "ss01", "cv02", "cv03";
+  text-rendering: optimizeLegibility;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}
+
+/* COURSE ARTWORK THEME TREATMENT
+   Preserve original artwork colors while softening dark thumbnails in light mode. */
+.course-artwork {
+  transition:
+    filter 180ms ease,
+    opacity 180ms ease;
+}
+
+html:not(.dark) .course-artwork {
+  filter: brightness(1.12) saturate(0.9) contrast(0.92);
+}
+
+html:not(.dark) .course-artwork-shell,
+html:not(.dark) .course-artwork-wrapper {
+  background: linear-gradient(145deg, #eff6ff, #f8fafc);
+}
+
+.dark .course-artwork {
+  filter: none;
+}
+
+/* DASHBOARD FINAL VISUAL POLISH */
+html,
+body,
+#root,
+#root > * {
+  border-radius: 0 !important;
+}
+
+#root {
+  width: 100vw;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.dashboard-hero {
+  min-height: 220px !important;
+  max-height: 230px;
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-hero {
+    max-height: none;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-text-muted) 30%, transparent);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-text-muted) 48%, transparent);
+}
+
+/* CONTENT-ONLY SCROLL
+   Keep the Header and Sidebar stationary; page content owns vertical scrolling. */
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden !important;
+}
+
+#root > * {
+  height: 100%;
+  min-height: 0;
+}
+
+/* MAIN CONTENT SCROLLBAR */
+.dashboard-content-scroll {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+/* DASHBOARD HERO ROBOT POSITION */
+.dashboard-hero__robot {
+  width: clamp(190px, 17vw, 270px);
+  height: clamp(190px, 17vw, 270px);
+  bottom: 12px;
+  transform: translateY(-6px);
+}
+
+.dashboard-hero__robot img {
+  object-position: center bottom;
+}
+
+@media (max-width: 1024px) {
+  .dashboard-hero__robot {
+    width: 210px;
+    height: 210px;
+    bottom: 8px;
+    transform: translateY(-4px);
+  }
+}
+
+/* DASHBOARD HERO ROBOT FINAL POSITION */
+.dashboard-hero__robot {
+  width: clamp(170px, 14.5vw, 220px) !important;
+  height: clamp(170px, 14.5vw, 220px) !important;
+  top: auto !important;
+  bottom: 0 !important;
+  transform: none !important;
+}
+.dashboard-hero__robot img {
+  object-position: center bottom;
+}
+
+/* DASHBOARD COURSE CAROUSEL: FOUR COMPLETE CARDS */
+.course-slider__card {
+  width: calc((100% - 3.75rem) / 4);
+}
+
+@media (max-width: 1279px) {
+  .course-slider__card {
+    width: calc((100% - 1.25rem) / 2);
+  }
+}
+
+@media (max-width: 639px) {
+  .course-slider__card {
+    width: 100%;
+  }
+}
+
+/* SHARED ROUTED PAGE SCROLL */
+.app-route-scroll {
+  scrollbar-gutter: stable;
+  overscroll-behavior-y: contain;
+}
+
+/* Dashboard previously owned its own scroll area. The shared layout now owns it. */
+.app-route-scroll .dashboard-content-scroll {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow-y: visible !important;
+  scrollbar-gutter: auto;
+}
+
+/* SETTINGS VISUAL SYSTEM */
+.settings-page input,
+.settings-page textarea,
+.settings-page select {
+  box-shadow: inset 0 0 0 1px transparent;
+}
+
+.settings-page input:focus,
+.settings-page textarea:focus,
+.settings-page select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.14);
+  outline: none;
+}
+
+.settings-page button {
+  min-height: 40px;
+}
+
+/* MODERN COURSES EXPERIENCE */
+.courses-modern-page {
+  container-type: inline-size;
+}
+
+.courses-modern-page [role="dialog"],
+.courses-modern-page aside[aria-label="Course filters"] {
+  animation: courses-surface-in 180ms ease-out;
+}
+
+@keyframes courses-surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 1023px) {
+  .courses-modern-page aside[aria-label="Course filters"] {
+    animation-name: courses-sheet-in;
+  }
+}
+
+@keyframes courses-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* SHARED OVERLAY MOTION */
+.ui-overlay-motion {
+  animation: ui-overlay-in 180ms ease-out both;
+}
+.ui-overlay {
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+.ui-overlay.is-open {
+  opacity: 1;
+}
+.ui-overlay.is-closing {
+  opacity: 0;
+  pointer-events: none;
+}
+.ui-modal-surface,
+[data-motion-surface],
+.ui-popover-surface {
+  transform-origin: top center;
+  animation: ui-surface-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.ui-overlay.is-closing .ui-modal-surface {
+  animation: ui-surface-out 180ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+@keyframes ui-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ui-surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes ui-surface-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-overlay-motion,
+  .ui-overlay,
+  .ui-modal-surface,
+  [data-motion-surface],
+  .ui-popover-surface,
+  .ui-overlay.is-closing .ui-modal-surface {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* MODERN LEARNER DASHBOARD */
+.dashboard-summary-card,
+.dashboard-course-card {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+.dashboard-summary-card:hover,
+.dashboard-course-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, #3867d6 38%, var(--color-border));
+  box-shadow: 0 16px 34px rgb(15 23 42 / 0.11);
+}
+.dashboard-summary-icon {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 0.9rem;
+}
+.dashboard-summary-icon--blue {
+  background: rgb(59 130 246 / 0.13);
+  color: #3867d6;
+}
+.dashboard-summary-icon--emerald {
+  background: rgb(16 185 129 / 0.13);
+  color: #10b981;
+}
+.dashboard-summary-icon--violet {
+  background: rgb(139 92 246 / 0.13);
+  color: #8b5cf6;
+}
+.dashboard-summary-icon--amber {
+  background: rgb(245 158 11 / 0.15);
+  color: #f59e0b;
+}
+.dashboard-icon-button {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 0.8rem;
+  background: var(--color-card);
+  color: var(--color-text-main);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+.dashboard-icon-button:hover {
+  border-color: #3867d6;
+  background: rgb(56 103 214 / 0.1);
+  color: #3867d6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-summary-card,
+  .dashboard-course-card {
+    transition: none;
+  }
+}
+
+/* DASHBOARD FINAL POLISH */
+@media (min-width: 1024px) {
+  .app-route-scroll .dashboard-content-scroll {
+    padding-right: 1.5rem;
+  }
+
+  .dashboard-course-slider {
+    padding-right: 4.25rem;
+    scroll-padding-right: 4.25rem;
+  }
+}
+
+/* DASHBOARD ASSISTANT SAFE ZONE */
+.dashboard-empty-chart__plot::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 1.35rem;
+  background: repeating-linear-gradient(
+    to top,
+    transparent 0 27px,
+    color-mix(in srgb, var(--color-border) 48%, transparent) 28px 29px
+  );
+  pointer-events: none;
 }
