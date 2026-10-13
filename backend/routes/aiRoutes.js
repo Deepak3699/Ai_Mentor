@@ -306,11 +306,7 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
       });
     }
 
-    const headersToForward = [
-      "content-range",
-      "content-length",
-      "accept-ranges",
-    ];
+    const headersToForward = ["content-range", "content-length", "accept-ranges"];
 
     res.setHeader("Content-Type", "video/mp4");
 
