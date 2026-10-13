@@ -303,15 +303,21 @@ test("addLessons creates all lessons in one transaction", async () => {
   };
 
   const { state, res } = response();
-  await addLessons({
-    params: { courseId: "1", moduleId: "10" },
-    body: { lessons: [{ title: "Lesson One" }, { title: "Lesson Two", duration: "10 mins" }] },
-  }, res);
+  await addLessons(
+    {
+      params: { courseId: "1", moduleId: "10" },
+      body: { lessons: [{ title: "Lesson One" }, { title: "Lesson Two", duration: "10 mins" }] },
+    },
+    res,
+  );
 
   assert.equal(state.statusCode, 201);
   assert.equal(transactionCompleted, true);
   assert.equal(saved.length, 2);
-  assert.deepEqual(state.body.map(({ order }) => order), [3, 4]);
+  assert.deepEqual(
+    state.body.map(({ order }) => order),
+    [3, 4],
+  );
   assert.equal(state.body[0].duration, "5 mins");
   assert.equal(state.body[1].duration, "10 mins");
 });
@@ -344,10 +350,15 @@ test("addLessons rolls back earlier inserts when a later lesson fails", async ()
   };
 
   const { state, res } = response();
-  await addLessons({
-    params: { courseId: "1", moduleId: "10" },
-    body: { lessons: [{ title: "Lesson One" }, { title: "Lesson Two" }, { title: "Lesson Three" }] },
-  }, res);
+  await addLessons(
+    {
+      params: { courseId: "1", moduleId: "10" },
+      body: {
+        lessons: [{ title: "Lesson One" }, { title: "Lesson Two" }, { title: "Lesson Three" }],
+      },
+    },
+    res,
+  );
 
   assert.equal(state.statusCode, 500);
   assert.deepEqual(state.body, { message: "Failed to add lessons" });
@@ -367,17 +378,22 @@ test("addLessons rolls back when the order lookup fails", async () => {
       throw error;
     }
   };
-  Lesson.max = async () => { throw new Error("Order lookup failed"); };
+  Lesson.max = async () => {
+    throw new Error("Order lookup failed");
+  };
   Lesson.create = async () => {
     createCalls += 1;
     return {};
   };
 
   const { state, res } = response();
-  await addLessons({
-    params: { courseId: "1", moduleId: "10" },
-    body: { lessons: [{ title: "Lesson One" }] },
-  }, res);
+  await addLessons(
+    {
+      params: { courseId: "1", moduleId: "10" },
+      body: { lessons: [{ title: "Lesson One" }] },
+    },
+    res,
+  );
 
   assert.equal(state.statusCode, 500);
   assert.deepEqual(state.body, { message: "Failed to add lessons" });
@@ -404,10 +420,13 @@ test("addLessons preserves the empty-list success behavior", async () => {
   };
 
   const { state, res } = response();
-  await addLessons({
-    params: { courseId: "1", moduleId: "10" },
-    body: { lessons: [] },
-  }, res);
+  await addLessons(
+    {
+      params: { courseId: "1", moduleId: "10" },
+      body: { lessons: [] },
+    },
+    res,
+  );
 
   assert.equal(state.statusCode, 201);
   assert.deepEqual(state.body, []);
