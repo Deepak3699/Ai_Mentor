@@ -3,13 +3,13 @@ import rateLimit from "express-rate-limit";
 import { protect } from "../middleware/authMiddleware.js";
 import Payment from "../models/Payment.js";
 import { paymentGatewayServices } from "../services/paymentGatewayServices.js";
-import buildLogger from '../utils/logger.js';
+import buildLogger from "../utils/logger.js";
 
 const router = express.Router();
 
-const prodRedactPaths = ['idempotencyKey']
+const prodRedactPaths = ["idempotencyKey"];
 
-const log=buildLogger("PAYMENT",prodRedactPaths);
+const log = buildLogger("PAYMENT", prodRedactPaths);
 
 const paymentLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -21,7 +21,7 @@ const paymentLimiter = rateLimit({
 });
 
 //  CREATE CHECKOUT SESSION — with idempotency protection
-router.post("/create-checkout-session", protect,paymentLimiter, async (req, res) => {
+router.post("/create-checkout-session", protect, paymentLimiter, async (req, res) => {
   try {
     const { course, idempotencyKey } = req.body;
     const userId = req.user.id; //  from JWT token — never trust req.body for userId
@@ -49,7 +49,7 @@ router.post("/create-checkout-session", protect,paymentLimiter, async (req, res)
     const existing = await Payment.findOne({ where: { idempotencyKey } });
 
     if (existing && existing.cachedResponse && existing.cacheExpiresAt > new Date()) {
-      log.info({idempotencyKey,},'Returning cached response for key: {idempotencyKey}');
+      log.info({ idempotencyKey }, "Returning cached response for key: {idempotencyKey}");
       return res.status(200).json(existing.cachedResponse);
     }
 
@@ -91,7 +91,7 @@ router.post("/create-checkout-session", protect,paymentLimiter, async (req, res)
       metadata: {
         courseId: course.id.toString(),
         courseTitle: course.title,
-        userId: userId.toString(),        //  from JWT — secure
+        userId: userId.toString(), //  from JWT — secure
         paymentId: payment.id,
         idempotencyKey,
       },
@@ -112,7 +112,7 @@ router.post("/create-checkout-session", protect,paymentLimiter, async (req, res)
 
     return res.status(200).json(cachedResponse);
   } catch (error) {
-    log.error({err:error,}," Stripe Error:");
+    log.error({ err: error }, " Stripe Error:");
     return res.status(500).json({ error: "Stripe session failed" });
   }
 });
@@ -142,7 +142,7 @@ router.get("/status/:paymentId", protect, async (req, res) => {
       createdAt: payment.createdAt,
     });
   } catch (error) {
-    log.error({err:error}," Payment Status Error:");
+    log.error({ err: error }, " Payment Status Error:");
     return res.status(500).json({ error: "Failed to fetch payment status" });
   }
 });

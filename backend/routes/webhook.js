@@ -8,46 +8,41 @@ import buildLogger from "../utils/logger.js";
 
 const router = express.Router();
 
-const prodRedactPaths = ['stripeSessionId','courseId','intentId',];
+const prodRedactPaths = ["stripeSessionId", "courseId", "intentId"];
 
-const log = buildLogger('WEBHOOK', prodRedactPaths);
-
+const log = buildLogger("WEBHOOK", prodRedactPaths);
 
 //Stripe webhook MUST use RAW body
-router.post(
-  "/webhook",
-  express.raw({ type: "application/json" }),
-  async (req, res) => {
-    const sig = req.headers["stripe-signature"];
+router.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  const sig = req.headers["stripe-signature"];
 
   let event;
 
-    //  Verify webhook signature
-    // Distinguishes between invalid signature (attack) vs missing secret (config error)
-    try {
-      if (!sig) {
-        log.error('Missing stripe-signature header');
-        return res.status(400).send("Missing stripe-signature header");
-      }
-      event = paymentGatewayServices.constructStripeWebhookEvent(
-        req.body,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
-    } catch (err) {
-      // Invalid signature = possible attack or corrupted payload
-      log.error({err},'Signature verification failed');
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+  //  Verify webhook signature
+  // Distinguishes between invalid signature (attack) vs missing secret (config error)
+  try {
+    if (!sig) {
+      log.error("Missing stripe-signature header");
+      return res.status(400).send("Missing stripe-signature header");
     }
+    event = paymentGatewayServices.constructStripeWebhookEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET,
+    );
+  } catch (err) {
+    // Invalid signature = possible attack or corrupted payload
+    log.error({ err }, "Signature verification failed");
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
 
-    switch (event.type) {
-
-      //  PAYMENT SUCCESS
-      case "checkout.session.completed": {
-        const session = event.data.object;
-        const courseId = session.metadata?.courseId;
-        const userId = session.metadata?.userId;
-        const courseTitle = session.metadata?.courseTitle;
+  switch (event.type) {
+    //  PAYMENT SUCCESS
+    case "checkout.session.completed": {
+      const session = event.data.object;
+      const courseId = session.metadata?.courseId;
+      const userId = session.metadata?.userId;
+      const courseTitle = session.metadata?.courseTitle;
 
       const transaction = await sequelize.transaction();
       try {
@@ -57,11 +52,11 @@ router.post(
             transaction,
           });
 
-            if (payment?.status === "success") {
-              await transaction.rollback();
-              log.info({stripeSessionId:session.id},'Already processed');
-              return res.json({ received: true });
-            }
+          if (payment?.status === "success") {
+            await transaction.rollback();
+            log.info({ stripeSessionId: session.id }, "Already processed");
+            return res.json({ received: true });
+          }
 
           await Payment.update(
             { status: "success", stripePaymentIntentId: session.payment_intent },
@@ -92,53 +87,51 @@ router.post(
 
         await transaction.commit();
 
-          // Send notification AFTER commit
-          try {
-            await createNotification(user.id, {
-              title: "Course Enrolled 🎉",
-              message: `You successfully enrolled in ${courseTitle || "a course"}`,
-              type: "course",
-              metadata: { courseId },
-            });
-          } catch (err) {
-            log.error({err},"Notification error:");
-          }
-          log.info({courseId,},'Payment Processed:');
+        // Send notification AFTER commit
+        try {
+          await createNotification(user.id, {
+            title: "Course Enrolled 🎉",
+            message: `You successfully enrolled in ${courseTitle || "a course"}`,
+            type: "course",
+            metadata: { courseId },
+          });
         } catch (err) {
-          await transaction.rollback();
-
-          log.error({err},"DB Error:");
-          
-          return res.status(500).send("Internal Server Error");
+          log.error({ err }, "Notification error:");
         }
-        break;
-      }
+        log.info({ courseId }, "Payment Processed:");
+      } catch (err) {
+        await transaction.rollback();
 
-      //  SESSION EXPIRED
-      case "checkout.session.expired": {
-        const session = event.data.object;
-        if (session.id) {
-          await Payment.update(
-            { status: "failed" },
-            { where: { stripeSessionId: session.id } }
-          ).catch((err) =>
-      log.error({ err }, "Failed to mark expired session as failed")
-    );
-          log.info({stripeSessionId:session.id},'Session expired - marked failed:');
-        }
-        break;
-      }
+        log.error({ err }, "DB Error:");
 
-      //  PAYMENT FAILED
-      case "payment_intent.payment_failed": {
-        const intent = event.data.object;
-        log.error({intentId:intent.id,}, 'PaymentIntent failed:');
-        break;
+        return res.status(500).send("Internal Server Error");
       }
-
-      default:
-        log.error({eventType:event.type},'Unhandled event:');
+      break;
     }
+
+    //  SESSION EXPIRED
+    case "checkout.session.expired": {
+      const session = event.data.object;
+      if (session.id) {
+        await Payment.update(
+          { status: "failed" },
+          { where: { stripeSessionId: session.id } },
+        ).catch((err) => log.error({ err }, "Failed to mark expired session as failed"));
+        log.info({ stripeSessionId: session.id }, "Session expired - marked failed:");
+      }
+      break;
+    }
+
+    //  PAYMENT FAILED
+    case "payment_intent.payment_failed": {
+      const intent = event.data.object;
+      log.error({ intentId: intent.id }, "PaymentIntent failed:");
+      break;
+    }
+
+    default:
+      log.error({ eventType: event.type }, "Unhandled event:");
+  }
 
   res.json({ received: true });
 });

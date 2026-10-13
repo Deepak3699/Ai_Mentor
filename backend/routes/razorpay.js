@@ -1,4 +1,3 @@
-
 import express from "express";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
@@ -13,13 +12,17 @@ import buildLogger from "../utils/logger.js";
 const router = express.Router();
 
 // ADD PATH WHICH SHOUDL BE REDACTED IN PRODUCTION
-const prodRedactPaths=['idempotencyKey','userId',
-                        'courseTitle','user.id',
-                        'razorpayOrderId','razorpay_order_id',
-                        'razorpay_payment_id',
-                        ]
-                        
-const log= buildLogger("RAZORPAY",prodRedactPaths)
+const prodRedactPaths = [
+  "idempotencyKey",
+  "userId",
+  "courseTitle",
+  "user.id",
+  "razorpayOrderId",
+  "razorpay_order_id",
+  "razorpay_payment_id",
+];
+
+const log = buildLogger("RAZORPAY", prodRedactPaths);
 
 //  Configure the rate limiter for payment creations
 //  window size 15 minutes
@@ -27,7 +30,7 @@ const log= buildLogger("RAZORPAY",prodRedactPaths)
 
 const paymentLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5, 
+  max: 5,
   message: {
     error: "Too many payment attempts from this IP. Please try again after 15 minutes.",
   },
@@ -40,8 +43,8 @@ const paymentLimiter = rateLimit({
 router.post("/create-order", protect, paymentLimiter, async (req, res) => {
   try {
     const { course, idempotencyKey } = req.body;
-    log.info({idempotencyKey,},'Idempotency key received:');
-    
+    log.info({ idempotencyKey }, "Idempotency key received:");
+
     if (!course || !course.id || !course.priceValue || Number(course.priceValue) <= 0) {
       return res.status(400).json({ error: "Invalid course data" });
     }
@@ -54,42 +57,45 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
       receipt: `receipt_order_${course.id}_${Date.now()}`,
     };
 
-//  FIXED — check idempotency FIRST before creating order
-if (!idempotencyKey) {
-  return res.status(400).json({ error: "idempotencyKey is required" });
-}
+    //  FIXED — check idempotency FIRST before creating order
+    if (!idempotencyKey) {
+      return res.status(400).json({ error: "idempotencyKey is required" });
+    }
 
-// Check if this key already exists — return cached response if so
-const existing = await Payment.findOne({ where: { idempotencyKey } });
-if (existing && existing.cachedResponse && Object.keys(existing.cachedResponse).length > 0) {
-  log.info({idempotencyKey},' Returning cached Razorpay response for key ');
-  return res.status(200).json(existing.cachedResponse);
-}
+    // Check if this key already exists — return cached response if so
+    const existing = await Payment.findOne({ where: { idempotencyKey } });
+    if (existing && existing.cachedResponse && Object.keys(existing.cachedResponse).length > 0) {
+      log.info({ idempotencyKey }, " Returning cached Razorpay response for key ");
+      return res.status(200).json(existing.cachedResponse);
+    }
 
-// Save payment record FIRST before calling Razorpay
- log.info({courseTitle:course.title,userId:req.user.id,},`Initiating payment for course: course.title | User:userId`);
-const payment = await Payment.create({
-  userId: req.user.id,
-  courseId: course.id,
-  courseTitle: course.title || "Course",
-  amount,
-  currency: "INR",
-  status: "initiated",
-  gateway: "razorpay",
-  idempotencyKey,
-  cacheExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-});
+    // Save payment record FIRST before calling Razorpay
+    log.info(
+      { courseTitle: course.title, userId: req.user.id },
+      `Initiating payment for course: course.title | User:userId`,
+    );
+    const payment = await Payment.create({
+      userId: req.user.id,
+      courseId: course.id,
+      courseTitle: course.title || "Course",
+      amount,
+      currency: "INR",
+      status: "initiated",
+      gateway: "razorpay",
+      idempotencyKey,
+      cacheExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
 
-// NOW create Razorpay order
-let order;
-try {
-    order = await paymentGatewayServices.createRazorpayOrder(options);
-} catch (razorpayErr) {
-    // Clean up the orphaned payment record
-    await payment.update({ status: "failed" });
-    log.error(`[Payment]  Razorpay order creation failed | Status: failed`);
-    throw razorpayErr; // re-throw to outer catch
-}
+    // NOW create Razorpay order
+    let order;
+    try {
+      order = await paymentGatewayServices.createRazorpayOrder(options);
+    } catch (razorpayErr) {
+      // Clean up the orphaned payment record
+      await payment.update({ status: "failed" });
+      log.error(`[Payment]  Razorpay order creation failed | Status: failed`);
+      throw razorpayErr; // re-throw to outer catch
+    }
 
     // Cache the response
     const cachedResponse = {
@@ -99,16 +105,19 @@ try {
       paymentId: payment.id,
     };
 
-await payment.update({
-  status: "processing",
-  razorpayOrderId: order.id,
-  cachedResponse,
-});
-log.info({razorpayOrderId:order.id,},'Order created successfully | OrderId: razorpayOrderId | Status: processing');
+    await payment.update({
+      status: "processing",
+      razorpayOrderId: order.id,
+      cachedResponse,
+    });
+    log.info(
+      { razorpayOrderId: order.id },
+      "Order created successfully | OrderId: razorpayOrderId | Status: processing",
+    );
 
     return res.status(200).json(cachedResponse);
   } catch (error) {
-    log.error({err:error}," Razorpay Order Error");
+    log.error({ err: error }, " Razorpay Order Error");
     return res.status(500).json({ error: "Razorpay order creation failed" });
   }
 });
@@ -137,33 +146,34 @@ router.post("/verify", protect, async (req, res) => {
       .digest("hex");
 
     if (razorpay_signature === expectedSign) {
-   let user;
-const transaction = await sequelize.transaction();
-try {
-  const payment = await Payment.findOne({
-    where: {
-      razorpayOrderId: razorpay_order_id,
-      userId,
-    },
-    transaction,
-  });
-  if (!payment) {
-    await transaction.rollback();
-    return res.status(404).json({
-      success: false,
-      error: "Payment not found",
-    });
-  }
-  await payment.update(
-    {
-      status: "success",
-      razorpayPaymentId: razorpay_payment_id,
-    },
-    { transaction }
-  );
-  log.info({razorpay_order_id,razorpay_payment_id,},
-    ` Payment verified | OrderId: razorpay_order_id | PaymentId: razorpay_payment_id | Status: success`
-  );
+      let user;
+      const transaction = await sequelize.transaction();
+      try {
+        const payment = await Payment.findOne({
+          where: {
+            razorpayOrderId: razorpay_order_id,
+            userId,
+          },
+          transaction,
+        });
+        if (!payment) {
+          await transaction.rollback();
+          return res.status(404).json({
+            success: false,
+            error: "Payment not found",
+          });
+        }
+        await payment.update(
+          {
+            status: "success",
+            razorpayPaymentId: razorpay_payment_id,
+          },
+          { transaction },
+        );
+        log.info(
+          { razorpay_order_id, razorpay_payment_id },
+          ` Payment verified | OrderId: razorpay_order_id | PaymentId: razorpay_payment_id | Status: success`,
+        );
 
         user = await User.findByPk(userId, { transaction });
 
@@ -212,7 +222,7 @@ try {
           metadata: { courseId },
         });
       } catch (err) {
-        log.error({err,},"Failed to create notification:");
+        log.error({ err }, "Failed to create notification:");
       }
       return res.status(200).json({
         success: true,
@@ -222,7 +232,10 @@ try {
       return res.status(400).json({ success: false, error: "Invalid signature" });
     }
   } catch (error) {
-  log.error({razorpayOrderId:orderIdForLog,err:error,},`razorpay  Verification error | OrderId: razorpayOrderId | Status: failed`);
+    log.error(
+      { razorpayOrderId: orderIdForLog, err: error },
+      `razorpay  Verification error | OrderId: razorpayOrderId | Status: failed`,
+    );
     return res.status(500).json({ success: false, error: "Payment verification failed" });
   }
 });
