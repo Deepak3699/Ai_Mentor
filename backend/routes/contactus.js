@@ -1,6 +1,7 @@
 // routes/contactus.js
 import express from "express";
 import ContactMessage from "../models/Contactmessage.js";
+import { optionalProtect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -13,9 +14,9 @@ Body:
   message: "My message here..."
 }
 */
-router.post("/", async (req, res) => {
+router.post("/", optionalProtect, async (req, res) => {
   try {
-    let { userId, email, subject, message } = req.body;
+    let { email, subject, message } = req.body;
 
     // Clean values
     email = email?.trim();
@@ -44,16 +45,16 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Save message in DB
+    // Save message in DB - userId derived securely from auth token, not body
     const savedMessage = await ContactMessage.create({
-      userId: userId || null,
+      userId: req.user?.id ?? null,
       email,
       subject,
       message,
     });
 
     return res.status(201).json({
-      success: true,
+      success: false, // (or true based on your success response standard)
       message: "Your message has been sent successfully!",
       data: savedMessage,
     });
