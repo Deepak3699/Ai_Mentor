@@ -1,6 +1,6 @@
 ## What does this change?
 
-Describe it in two to four lines. Cover both *what* changed and *why*.
+Describe it in two to four lines. Cover both _what_ changed and _why_.
 
 ## Which issue does this close?
 

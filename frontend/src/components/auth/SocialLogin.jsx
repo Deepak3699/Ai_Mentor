@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "../../lib/api";
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import logoGoogle from "../../assets/images/google.jpg";
@@ -39,14 +40,11 @@ const SocialLogin = () => {
       const idToken = await user.getIdToken();
 
       // Call backend to exchange Google token for your JWT
-      const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/auth/google-login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken }),
-        }
-      );
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/auth/google-login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
 
       const data = await res.json();
       if (!res.ok) {
@@ -59,20 +57,19 @@ const SocialLogin = () => {
         login({ ...data, isGoogleUser: true });
         // Redirect to onboarding if profile is incomplete
         if (!data.isProfileComplete) {
-          navigate('/complete-profile');
+          navigate("/complete-profile");
         } else {
-          navigate('/dashboard');
+          navigate("/dashboard");
         }
       }, 1000);
     } catch (err) {
-  console.error("Google Sign-In Error:", err);
-  const message = err.code
-    ? getGoogleAuthErrorMessage(err.code)
-    : err.message || "Google sign-in failed. Please try again.";
-     toast.error(message);
-}
-    finally {
-     setLoading(false);
+      console.error("Google Sign-In Error:", err);
+      const message = err.code
+        ? getGoogleAuthErrorMessage(err.code)
+        : err.message || "Google sign-in failed. Please try again.";
+      toast.error(message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -81,19 +78,13 @@ const SocialLogin = () => {
       <button
         disabled={loading}
         className={`flex items-center justify-center w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00BEA5] transition-all dark:bg-[#0f172a] dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 cursor-pointer ${
-        loading
-      ? "opacity-60 cursor-not-allowed"
-      : "hover:bg-gray-50 cursor-pointer"
-      }
+          loading ? "opacity-60 cursor-not-allowed" : "hover:bg-gray-50 cursor-pointer"
+        }
     `}
         type="button"
         onClick={handleGoogleLogin}
       >
-        <img
-          src={logoGoogle}
-          alt="Google"
-          className="w-4 h-4 mr-2.5 object-contain"
-        />
+        <img src={logoGoogle} alt="Google" className="w-4 h-4 mr-2.5 object-contain" />
         <span className="text-sm"> {loading ? "Signing in..." : "Sign in with Google"}</span>
       </button>
     </div>

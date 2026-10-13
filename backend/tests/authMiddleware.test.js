@@ -16,21 +16,38 @@ const invoke = async (middleware, { authorization, user } = {}) => {
   if (authorization !== undefined) req.headers.authorization = authorization;
   const result = { statusCode: 200, body: undefined, nextCalls: 0 };
   const res = {
-    status(code) { result.statusCode = code; return this; },
-    json(body) { result.body = body; return this; },
+    status(code) {
+      result.statusCode = code;
+      return this;
+    },
+    json(body) {
+      result.body = body;
+      return this;
+    },
   };
-  await middleware(req, res, () => { result.nextCalls += 1; });
+  await middleware(req, res, () => {
+    result.nextCalls += 1;
+  });
   return { req, result };
 };
 
 const quietErrors = async (callback) => {
   const original = console.error;
   console.error = () => {};
-  try { return await callback(); } finally { console.error = original; }
+  try {
+    return await callback();
+  } finally {
+    console.error = original;
+  }
 };
 
-before(() => { process.env.JWT_SECRET = SECRET; });
-beforeEach(() => { User.findByPk = async () => null; process.env.JWT_SECRET = SECRET; });
+before(() => {
+  process.env.JWT_SECRET = SECRET;
+});
+beforeEach(() => {
+  User.findByPk = async () => null;
+  process.env.JWT_SECRET = SECRET;
+});
 after(() => {
   User.findByPk = originalFindByPk;
   if (originalSecret === undefined) delete process.env.JWT_SECRET;
@@ -45,7 +62,9 @@ test("protect rejects a request without a bearer token", async () => {
 });
 
 test("protect rejects a malformed or invalid token", async () => {
-  const { result } = await quietErrors(() => invoke(protect, { authorization: "Bearer invalid-token" }));
+  const { result } = await quietErrors(() =>
+    invoke(protect, { authorization: "Bearer invalid-token" }),
+  );
   assert.equal(result.statusCode, 401);
   assert.deepEqual(result.body, { message: "Not authorized, token failed" });
 });
