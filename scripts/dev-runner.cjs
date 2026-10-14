@@ -1,5 +1,6 @@
 const { spawn } = require("node:child_process");
 const http = require("node:http");
+const { isAbsolute, resolve } = require("node:path");
 
 const npmCli = process.env.npm_execpath;
 if (!npmCli) {
@@ -186,8 +187,13 @@ function phaseSummary(key) {
 }
 function aiPythonPath() {
   const configured = process.env.AI_SERVICE_PYTHON;
-  const localVenv = "ai_service\\.venv\\Scripts\\python.exe";
-  const candidates = [configured, localVenv, "python"].filter(Boolean);
+  const configuredPath = configured
+    ? isAbsolute(configured)
+      ? configured
+      : resolve(configured)
+    : null;
+  const localVenv = resolve("ai_service", ".venv", "Scripts", "python.exe");
+  const candidates = [configuredPath, localVenv, "python"].filter(Boolean);
   return candidates.find(
     (candidate) => candidate === "python" || require("node:fs").existsSync(candidate),
   );
