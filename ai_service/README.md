@@ -289,6 +289,19 @@ Generates a structured course syllabus using AI. This endpoint is **synchronous*
 | `/video-stream/{filename}`      | `outputs/video/` | Serves generated `.mp4` videos     |
 | `/transcript-stream/{filename}` | `outputs/text/`  | Serves raw transcript `.txt` files |
 
+## Prompt Input Security
+
+Lesson, syllabus, quiz, and flashcard generation send fixed task instructions in the
+provider's system-instruction field and caller-controlled values as a separate,
+JSON-serialized user message. The system instructions tell the model to treat
+JSON values as untrusted content rather than instructions. JSON serialization
+preserves input as data but does not guarantee that a model will resist every
+prompt injection.
+
+Lesson preferences are validated against the supported fields `explanation_type`,
+`learning_style`, `teaching_pace`, `example_type`, and `focus_area`. Unknown keys
+are rejected instead of being included in a prompt.
+
 ## ðŸ”„ Generation Pipeline
 
 ```
