@@ -1,23 +1,21 @@
+
 import { apiFetch as fetch } from "../lib/api";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
-  ArrowRight,
   Award,
   BookOpen,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock3,
-  GraduationCap,
   Play,
-  Sparkles,
 } from "lucide-react";
 import Preferences from "../components/Preferences";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
-import CourseCardMeta from "../components/common/CourseCardMeta";
+import ContinueLearningCard from "../components/common/ContinueLearningCard";
 import LearningActivityCard from "../components/dashboard/LearningActivityCard";
 import DashboardHero from "../components/DashboardHero";
 import UpcomingLiveSession from "../components/UpcomingLiveSession";
@@ -39,20 +37,29 @@ const artworkFor = (title = "") => {
     "Full Stack Web Development": "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png",
     "Full Stack Web Dev": "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png",
   };
+
   return artwork[title] || "/AI_Tutor_New_UI/Dashboard/logo.png";
 };
 
 const parseLessonCount = (course) =>
-  Number(course?.lessonsCount) || Number.parseInt(String(course?.lessons || "0"), 10) || 0;
-const purchasedId = (entry) => entry?.id ?? entry?.courseId ?? entry?.course?.id;
-const matchesCourse = (entry, id) => String(purchasedId(entry)) === String(id);
+  Number(course?.lessonsCount) ||
+  Number.parseInt(String(course?.lessons || "0"), 10) ||
+  0;
+
+const purchasedId = (entry) =>
+  entry?.id ?? entry?.courseId ?? entry?.course?.id;
+
+const matchesCourse = (entry, id) =>
+  String(purchasedId(entry)) === String(id);
 
 const Dashboard = () => {
   const { user, fetchUserProfile } = useAuth();
   const navigate = useNavigate();
+
   const [courses, setCourses] = useState([]);
   const [certificateData, setCertificateData] = useState(null);
   const [loading, setLoading] = useState(true);
+
   const [learningStreak] = useState(() => {
     const stored = Number.parseInt(localStorage.getItem("streak") || "0", 10);
     return Number.isFinite(stored) ? Math.max(0, stored) : 0;
@@ -68,15 +75,25 @@ const Dashboard = () => {
     const load = async () => {
       try {
         const token = localStorage.getItem("token");
-        const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+
+        const headers = {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        };
+
         const [coursesResult, certificateResult] = await Promise.allSettled([
           fetch("/api/courses", { headers }),
           fetch("/api/certificate/list", { headers }),
         ]);
+
         if (coursesResult.status === "fulfilled" && coursesResult.value.ok) {
           setCourses(await coursesResult.value.json());
         }
-        if (certificateResult.status === "fulfilled" && certificateResult.value.ok) {
+
+        if (
+          certificateResult.status === "fulfilled" &&
+          certificateResult.value.ok
+        ) {
           setCertificateData(await certificateResult.value.json());
         }
       } catch (error) {
@@ -85,6 +102,7 @@ const Dashboard = () => {
         setLoading(false);
       }
     };
+
     load();
   }, []);
 
@@ -92,46 +110,71 @@ const Dashboard = () => {
     () =>
       courses
         .filter((course) =>
-          user?.purchasedCourses?.some((entry) => matchesCourse(entry, course.id)),
+          user?.purchasedCourses?.some((entry) =>
+            matchesCourse(entry, course.id)
+          )
         )
         .map((course) => {
-          const purchase = user?.purchasedCourses?.find((entry) => matchesCourse(entry, course.id));
+          const purchase = user?.purchasedCourses?.find((entry) =>
+            matchesCourse(entry, course.id)
+          );
+
           const total = parseLessonCount(course);
-          const completed = purchase?.progress?.completedLessons?.length || 0;
+          const completed =
+            purchase?.progress?.completedLessons?.length || 0;
+
           return {
             ...course,
             purchase,
             total,
             completed,
-            progress: total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0,
+            progress:
+              total > 0
+                ? Math.min(100, Math.round((completed / total) * 100))
+                : 0,
           };
         }),
-    [courses, user?.purchasedCourses],
+    [courses, user?.purchasedCourses]
   );
 
   const inProgress = enrolledCourses.filter(
-    (course) => course.completed > 0 && course.completed < course.total,
+    (course) => course.completed > 0 && course.completed < course.total
   );
+
   const completed = enrolledCourses.filter(
-    (course) => course.total > 0 && course.completed >= course.total,
+    (course) => course.total > 0 && course.completed >= course.total
   );
+
   const continueCourse = inProgress[0] || enrolledCourses[0];
+
   const certificateCount =
-    certificateData?.stats?.certificatesEarned ?? user?.analytics?.certificates ?? 0;
+    certificateData?.stats?.certificatesEarned ??
+    user?.analytics?.certificates ??
+    0;
+
   const totalHours = user?.analytics?.totalHours;
+
   const weeklyActivity = Array.isArray(user?.analytics?.weeklyActivity)
     ? user.analytics.weeklyActivity
     : [];
+
   const weeklySummary = user?.analytics?.weeklySummary || null;
-  const upcomingSessions = Array.isArray(user?.upcomingSessions) ? user.upcomingSessions : [];
+
+  const upcomingSessions = Array.isArray(user?.upcomingSessions)
+    ? user.upcomingSessions
+    : [];
 
   const handleContinue = () => {
-    if (continueCourse) navigate(`/learning/${continueCourse.id}`);
-    else navigate("/courses", { state: { activeTab: "explore" } });
+    if (continueCourse) {
+      navigate(`/learning/${continueCourse.id}`);
+    } else {
+      navigate("/courses", { state: { activeTab: "explore" } });
+    }
   };
 
   const enrollAndPreview = async (course) => {
     if (!user) return navigate("/login");
+
     try {
       if (Number(course.priceValue || 0) === 0) {
         await fetch("/api/users/purchase-course", {
@@ -140,11 +183,19 @@ const Dashboard = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-          body: JSON.stringify({ courseId: course.id, courseTitle: course.title }),
+          body: JSON.stringify({
+            courseId: course.id,
+            courseTitle: course.title,
+          }),
         });
-        if (typeof fetchUserProfile === "function") await fetchUserProfile();
+
+        if (typeof fetchUserProfile === "function") {
+          await fetchUserProfile();
+        }
+
         window.dispatchEvent(new Event("refreshCourses"));
       }
+
       navigate(`/course-preview/${course.id}`);
     } catch (error) {
       console.error("Enroll and preview error:", error);
@@ -152,12 +203,29 @@ const Dashboard = () => {
     }
   };
 
-  if (loading) return <LoadingSpinner variant="inline" label="Loading dashboard..." />;
+  if (loading) {
+    return <LoadingSpinner variant="inline" label="Loading dashboard..." />;
+  }
 
   const statCards = [
-    { label: "Ongoing courses", value: inProgress.length, icon: Play, tone: "blue" },
-    { label: "Completed", value: completed.length, icon: CheckCircle2, tone: "emerald" },
-    { label: "Certificates", value: certificateCount, icon: Award, tone: "violet" },
+    {
+      label: "Ongoing courses",
+      value: inProgress.length,
+      icon: Play,
+      tone: "blue",
+    },
+    {
+      label: "Completed",
+      value: completed.length,
+      icon: CheckCircle2,
+      tone: "emerald",
+    },
+    {
+      label: "Certificates",
+      value: certificateCount,
+      icon: Award,
+      tone: "violet",
+    },
     {
       label: totalHours == null ? "Hours not recorded" : "Hours spent",
       value: totalHours == null ? "—" : `${totalHours}h`,
@@ -175,6 +243,7 @@ const Dashboard = () => {
           content="Track learning progress, enrolled courses and certificates on UptoSkills."
         />
       </Helmet>
+
       <Preferences key={localStorage.getItem("token")} mode="modal" />
 
       <div className="dashboard-content-inner mx-auto max-w-[1500px] space-y-6">
@@ -185,77 +254,75 @@ const Dashboard = () => {
           actionLabel="View My Courses"
         />
 
-        <section className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Learning summary">
+        <section
+          className="grid grid-cols-2 gap-3 xl:grid-cols-4"
+          aria-label="Learning summary"
+        >
           {statCards.map(({ label, value, icon, tone }) => (
             <article
               key={label}
               className="dashboard-summary-card rounded-2xl border border-border bg-card p-4 shadow-sm"
             >
-              <div className={`dashboard-summary-icon dashboard-summary-icon--${tone}`}>
+              <div
+                className={`dashboard-summary-icon dashboard-summary-icon--${tone}`}
+              >
                 {React.createElement(icon, { className: "h-5 w-5" })}
               </div>
-              <p className="mt-4 text-3xl font-extrabold tracking-tight text-main">{value}</p>
-              <p className="mt-1 text-sm font-semibold text-muted">{label}</p>
+
+              <p className="mt-4 text-3xl font-extrabold tracking-tight text-main">
+                {value}
+              </p>
+
+              <p className="mt-1 text-sm font-semibold text-muted">
+                {label}
+              </p>
             </article>
           ))}
         </section>
 
-        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-[#3867D6]">
-                <Sparkles className="h-4 w-4" /> Next step
-              </span>
-              <h2 className="mt-2 text-xl font-extrabold text-main">Continue learning</h2>
-            </div>
-            <Link to="/courses" className="text-sm font-bold text-[#3867D6] hover:underline">
-              View my courses
-            </Link>
-          </div>
-          {continueCourse ? (
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              <img
-                src={artworkFor(continueCourse.title)}
-                alt={continueCourse.title}
-                className="h-24 w-full rounded-xl object-cover sm:w-36"
-              />
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate text-lg font-extrabold text-main">
-                  {continueCourse.title}
-                </h3>
-                <p className="mt-1 text-sm text-muted">
-                  {continueCourse.completed > 0
-                    ? `${continueCourse.completed} of ${continueCourse.total || "?"} lessons completed`
-                    : "Ready for the first lesson"}
-                </p>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-border">
-                  <div
-                    className="h-full rounded-full bg-[#3867D6] transition-[width] duration-500"
-                    style={{ width: `${continueCourse.progress}%` }}
-                  />
-                </div>
-              </div>
-              <button type="button" onClick={handleContinue} className={BLUE_BUTTON}>
-                {continueCourse.completed > 0 ? "Continue" : "Start learning"}{" "}
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-border px-6 py-10 text-center">
-              <GraduationCap className="mx-auto h-8 w-8 text-[#3867D6]" />
-              <h3 className="mt-3 font-extrabold text-main">Choose the next skill to learn</h3>
-              <p className="mt-1 text-sm text-muted">
-                Explore the course catalog to begin a learning path.
-              </p>
-              <button type="button" onClick={handleContinue} className={`${BLUE_BUTTON} mt-5`}>
-                Explore courses
-              </button>
-            </div>
-          )}
-        </section>
+        {/* New Continue Learning Card */}
+        {continueCourse ? (
+          <ContinueLearningCard
+            course={{
+              id: continueCourse.id,
+              title: continueCourse.title,
+              category: continueCourse.category || "Web Development",
+              lesson:
+                continueCourse.completed > 0
+                  ? `${continueCourse.completed} of ${continueCourse.total} lessons completed`
+                  : "Ready for the first lesson",
+              progress: continueCourse.progress,
+              duration: continueCourse.duration || "15 min",
+              level: continueCourse.level || "Beginner",
+            }}
+            onContinue={handleContinue}
+          />
+        ) : (
+          <section className="rounded-3xl border border-border bg-card p-6 text-center">
+            <h2 className="text-xl font-bold text-main">
+              Choose the next skill to learn
+            </h2>
+
+            <p className="mt-2 text-sm text-muted">
+              Explore the course catalog to begin a learning path.
+            </p>
+
+            <button
+              type="button"
+              onClick={handleContinue}
+              className={`${BLUE_BUTTON} mt-5`}
+            >
+              Explore courses
+            </button>
+          </section>
+        )}
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.85fr)]">
-          <LearningActivityCard data={weeklyActivity} summary={weeklySummary} />
+          <LearningActivityCard
+            data={weeklyActivity}
+            summary={weeklySummary}
+          />
+
           <UpcomingLiveSession sessions={upcomingSessions} />
         </div>
 
@@ -265,8 +332,12 @@ const Dashboard = () => {
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#3867D6]">
                 Discover
               </p>
-              <h2 className="mt-1 text-xl font-extrabold text-main">Popular courses</h2>
+
+              <h2 className="mt-1 text-xl font-extrabold text-main">
+                Popular courses
+              </h2>
             </div>
+
             <div className="flex gap-2">
               <button
                 type="button"
@@ -280,6 +351,7 @@ const Dashboard = () => {
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
+
               <button
                 type="button"
                 aria-label="Next courses"
@@ -294,14 +366,16 @@ const Dashboard = () => {
               </button>
             </div>
           </div>
+
           <div
             id="dashboardCourseSlider"
             className="dashboard-course-slider scrollbar-hide flex snap-x gap-5 overflow-x-auto pb-4"
           >
             {courses.slice(0, 10).map((course) => {
               const enrolled = user?.purchasedCourses?.some((entry) =>
-                matchesCourse(entry, course.id),
+                matchesCourse(entry, course.id)
               );
+
               return (
                 <article
                   key={course.id}
@@ -313,25 +387,41 @@ const Dashboard = () => {
                       alt={course.title}
                       className="course-artwork h-full w-full object-cover transition duration-300 group-hover:scale-[1.025]"
                     />
+
                     <div className="absolute bottom-3 right-3">
                       <CourseCardMeta courseId={course.id} />
                     </div>
                   </div>
+
                   <div className="p-5">
-                    <h3 className="line-clamp-2 font-extrabold text-main">{course.title}</h3>
+                    <h3 className="line-clamp-2 font-extrabold text-main">
+                      {course.title}
+                    </h3>
+
                     <p className="mt-2 text-sm text-muted">
-                      {course.lessons || "Lessons available"} · {course.level || "All levels"}
+                      {course.lessons || "Lessons available"} ·{" "}
+                      {course.level || "All levels"}
                     </p>
+
                     <div className="mt-5 flex items-center justify-between gap-3">
                       <span
-                        className={`font-extrabold ${Number(course.priceValue || 0) === 0 ? "text-emerald-500" : "text-main"}`}
+                        className={`font-extrabold ${
+                          Number(course.priceValue || 0) === 0
+                            ? "text-emerald-500"
+                            : "text-main"
+                        }`}
                       >
-                        {Number(course.priceValue || 0) === 0 ? "Free" : `₹${course.priceValue}`}
+                        {Number(course.priceValue || 0) === 0
+                          ? "Free"
+                          : `₹${course.priceValue}`}
                       </span>
+
                       <button
                         type="button"
                         onClick={() =>
-                          enrolled ? navigate(`/learning/${course.id}`) : enrollAndPreview(course)
+                          enrolled
+                            ? navigate(`/learning/${course.id}`)
+                            : enrollAndPreview(course)
                         }
                         className={BLUE_BUTTON}
                       >
@@ -351,12 +441,17 @@ const Dashboard = () => {
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#3867D6]">
                 Your library
               </p>
-              <h2 className="mt-1 text-xl font-extrabold text-main">Course progress</h2>
+
+              <h2 className="mt-1 text-xl font-extrabold text-main">
+                Course progress
+              </h2>
             </div>
+
             <Link to="/courses" className="text-sm font-bold text-[#3867D6]">
               View all →
             </Link>
           </div>
+
           {enrolledCourses.length ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {enrolledCourses.slice(0, 3).map((course) => (
@@ -371,14 +466,20 @@ const Dashboard = () => {
                       alt=""
                       className="h-16 w-16 rounded-xl object-cover"
                     />
+
                     <div className="min-w-0 flex-1">
-                      <h3 className="truncate font-extrabold text-main">{course.title}</h3>
+                      <h3 className="truncate font-extrabold text-main">
+                        {course.title}
+                      </h3>
+
                       <p className="mt-1 text-xs text-muted">
                         {course.completed}/{course.total || 0} lessons
                       </p>
                     </div>
+
                     <BookOpen className="h-5 w-5 text-[#3867D6]" />
                   </div>
+
                   <div className="mt-4 h-2 overflow-hidden rounded-full bg-border">
                     <div
                       className="h-full rounded-full bg-[#3867D6]"
@@ -389,12 +490,15 @@ const Dashboard = () => {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted">Enrolled courses will appear here.</p>
+            <p className="text-sm text-muted">
+              Enrolled courses will appear here.
+            </p>
           )}
         </section>
 
         <RecommendedForYou />
       </div>
+
       <FloatingAssistant />
     </main>
   );
