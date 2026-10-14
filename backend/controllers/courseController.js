@@ -316,23 +316,37 @@ const addLessons = async (req, res) => {
   try {
     const { courseId, moduleId } = req.params;
     const { lessons } = req.body;
-    
-    // Auto-increment order
-    const maxOrder = await Lesson.max('order', { where: { moduleId } }) || 0;
-    
-    const createdLessons = await Promise.all(lessons.map((l, index) => 
-      Lesson.create({
-        moduleId,
-        title: l.title,
-        duration: l.duration || "5 mins",
-        type: l.type || "video",
-        order: maxOrder + index + 1
-      })
-    ));
 
-    res.status(201).json(createdLessons);
+    // Ensure the module belongs to the course in the URL before creating lessons.
+    const module = await Module.findOne({
+      where: { id: moduleId, courseId },
+    });
+
+    if (!module) {
+      return res.status(404).json({
+        message: "Module not found for the specified course",
+      });
+    }
+
+    // Auto-increment order only after the relationship has been validated.
+    const maxOrder = (await Lesson.max("order", { where: { moduleId } })) || 0;
+
+    const createdLessons = await Promise.all(
+      lessons.map((lesson, index) =>
+        Lesson.create({
+          moduleId,
+          title: lesson.title,
+          duration: lesson.duration || "5 mins",
+          type: lesson.type || "video",
+          order: maxOrder + index + 1,
+        })
+      )
+    );
+
+    return res.status(201).json(createdLessons);
   } catch (error) {
-    res.status(500).json({ message: "Failed to add lessons" });
+    console.error("ADD LESSONS ERROR:", error);
+    return res.status(500).json({ message: "Failed to add lessons" });
   }
 };
 
