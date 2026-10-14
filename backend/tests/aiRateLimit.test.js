@@ -152,7 +152,10 @@ test("enforces per-user limit with 429 response, Retry-After header, and blocks 
   // Consistent body format check
   const data3 = await res3.json();
   assert.equal(data3.error, "Too Many Requests");
-  assert.ok(data3.message.includes("Too many AI generation requests"), `Unexpected message: ${data3.message}`);
+  assert.ok(
+    data3.message.includes("Too many AI generation requests"),
+    `Unexpected message: ${data3.message}`,
+  );
   assert.ok(typeof data3.retryAfter === "number" && data3.retryAfter > 0);
 
   // Rejected request must NOT enqueue another job or call AI service
@@ -204,10 +207,15 @@ test("createAIRateLimiter allows custom configuration and standalone usage", asy
   const customLimiter = createAIRateLimiter({ windowMs: 200, max: 1 });
   const app = express();
   app.use(express.json());
-  app.post("/test-ai", (req, _res, next) => {
-    req.user = { id: 99 };
-    next();
-  }, customLimiter, (_req, res) => res.json({ ok: true }));
+  app.post(
+    "/test-ai",
+    (req, _res, next) => {
+      req.user = { id: 99 };
+      next();
+    },
+    customLimiter,
+    (_req, res) => res.json({ ok: true }),
+  );
 
   const localServer = http.createServer(app);
   await new Promise((resolve) => localServer.listen(0, resolve));

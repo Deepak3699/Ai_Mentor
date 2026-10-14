@@ -34,7 +34,7 @@ export const classifyGenerationError = (error) => {
       {
         retryable: true,
         details: error,
-      }
+      },
     );
   }
 

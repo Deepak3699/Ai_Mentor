@@ -48,7 +48,9 @@ router.route("/:id").get(getCourseById);
 // ADMIN (PROTECTED + ADMIN ONLY)
 router.route("/").post(protect, admin, validate(addCourseSchema), addCourse);
 router.route("/:id").delete(protect, admin, deleteCourse);
-router.route("/:id/generate-syllabus").post(protect, admin, aiGenerationLimiter, generateCourseSyllabusWithAI);
+router
+  .route("/:id/generate-syllabus")
+  .post(protect, admin, aiGenerationLimiter, generateCourseSyllabusWithAI);
 router.route("/:courseId/modules").post(protect, admin, validate(addModulesSchema), addModules);
 router
   .route("/:courseId/modules/:moduleId/lessons")

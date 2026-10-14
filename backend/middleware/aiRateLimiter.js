@@ -9,14 +9,14 @@ export const parseLimitOptions = (overrides = {}) => {
       process.env.AI_RATE_LIMIT_WINDOW_MS ??
       (process.env.AI_RATE_LIMIT_WINDOW_MINUTES
         ? Number(process.env.AI_RATE_LIMIT_WINDOW_MINUTES) * 60 * 1000
-        : DEFAULT_WINDOW_MS)
+        : DEFAULT_WINDOW_MS),
   );
 
   const max = Number(
     overrides.max ??
       process.env.AI_RATE_LIMIT_MAX_REQUESTS ??
       process.env.AI_RATE_LIMIT_MAX ??
-      DEFAULT_MAX_REQUESTS
+      DEFAULT_MAX_REQUESTS,
   );
 
   return {
@@ -46,17 +46,19 @@ export const createAIRateLimiter = (options = {}) => {
         ? Number(headerRetry)
         : Math.ceil((limiterOptions.windowMs || parsed.windowMs) / 1000);
 
-      const safeRetrySeconds = Number.isFinite(retrySeconds) && retrySeconds > 0
-        ? retrySeconds
-        : Math.ceil((limiterOptions.windowMs || parsed.windowMs) / 1000);
+      const safeRetrySeconds =
+        Number.isFinite(retrySeconds) && retrySeconds > 0
+          ? retrySeconds
+          : Math.ceil((limiterOptions.windowMs || parsed.windowMs) / 1000);
 
       const retryMinutes = Math.ceil(safeRetrySeconds / 60);
-      const hint = safeRetrySeconds < 60
-        ? `${safeRetrySeconds} second(s)`
-        : `${retryMinutes} minute(s)`;
+      const hint =
+        safeRetrySeconds < 60 ? `${safeRetrySeconds} second(s)` : `${retryMinutes} minute(s)`;
 
       const identifier = req.user?.id ? `User ${req.user.id}` : `IP ${req.ip || "unknown"}`;
-      console.warn(`[AI Rate Limit] ${identifier} exceeded rate limit on ${req.method} ${req.originalUrl || req.url}`);
+      console.warn(
+        `[AI Rate Limit] ${identifier} exceeded rate limit on ${req.method} ${req.originalUrl || req.url}`,
+      );
 
       return res.status(429).json({
         message: `Too many AI generation requests. Please try again in ${hint}.`,

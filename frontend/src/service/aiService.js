@@ -26,7 +26,8 @@ export const getAIVideo = async (payload, { signal } = {}) => {
   if (!response.ok) {
     const error = new Error(data?.message || "Request failed");
     error.status = response.status;
-    error.retryAfter = data?.retryAfter ?? (response.headers?.get ? response.headers.get("Retry-After") : null);
+    error.retryAfter =
+      data?.retryAfter ?? (response.headers?.get ? response.headers.get("Retry-After") : null);
     throw error;
   }
 

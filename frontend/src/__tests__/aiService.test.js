@@ -72,14 +72,16 @@ describe("getAIVideo", () => {
           message: "Too many AI generation requests. Please try again in 15 minute(s).",
           retryAfter: 900,
         }),
-      }))
+      })),
     );
 
     try {
       await getAIVideo({});
       expect.unreachable();
     } catch (err) {
-      expect(err.message).toBe("Too many AI generation requests. Please try again in 15 minute(s).");
+      expect(err.message).toBe(
+        "Too many AI generation requests. Please try again in 15 minute(s).",
+      );
       expect(err.status).toBe(429);
       expect(err.retryAfter).toBe(900);
     }
