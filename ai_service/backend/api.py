@@ -540,7 +540,6 @@ job_status = TTLCache(
     maxsize=1000,
     ttl=3600
 )
-
 generation_cache = TTLCache(maxsize=1000, ttl=3600)
 
 @app.post("/generate")
@@ -725,8 +724,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         except Exception as gemini_error:
             print(f"❌ Gemini failed: {gemini_error}")
-    
-                  try:
+            try:
                 print("⚡ Switching to Groq fallback...")
     
                 groq_response = groq_client.chat.completions.create(
