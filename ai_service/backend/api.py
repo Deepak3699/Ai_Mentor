@@ -469,22 +469,12 @@ def generate_lesson(
         data.celebrity,
         data.language,
     ])
-        cache_data = json.dumps(
-        {
-            "course": data.course,
-            "topic": data.topic,
-            "celebrity": data.celebrity,
-            "language": data.language,
-            "voice_id": data.voice_id,
-            "gender": data.gender,
-            "speech_rate": data.speech_rate,
-            "speech_pitch": data.speech_pitch,
-            "preferences": data.preferences,
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    )
+            cache_data = "|".join([
+        data.course,
+        data.topic,
+        data.celebrity,
+        data.language,
+    ])
     cache_key = hashlib.sha256(
         cache_data.encode("utf-8")
     ).hexdigest()
