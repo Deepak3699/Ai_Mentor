@@ -561,12 +561,7 @@ def generate_lesson(
         data.celebrity,
         data.language,
     ])
-            cache_data = "|".join([
-        data.course,
-        data.topic,
-        data.celebrity,
-        data.language,
-    ])
+            
     cache_key = hashlib.sha256(
         cache_data.encode("utf-8")
     ).hexdigest()
