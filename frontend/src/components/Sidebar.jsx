@@ -342,9 +342,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                 <Rocket className="h-5 w-5 text-purple-400" />
               </div>
 
-              <h3 className="mb-2 text-sm font-bold text-white">
-                Upgrade to Pro
-              </h3>
+              <h3 className="mb-2 text-sm font-bold text-white">Upgrade to Pro</h3>
 
               <p className="mb-4 text-xs leading-relaxed text-slate-300">
                 Get unlimited access to AI lessons, premium courses and more!
