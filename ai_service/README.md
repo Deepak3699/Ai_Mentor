@@ -157,11 +157,73 @@ The service will be available at **http://localhost:8000**.
 ## ðŸ“¡ API Reference
 
 ### `GET /`
-Health check.
+Basic status check.
 
 **Response:**
 ```json
 { "message": "AI Lesson Generator Backend Running" }
+```
+
+---
+
+### `GET /health/live`
+Liveness probe confirming the AI service process is running. Always returns HTTP 200.
+
+**Response:**
+```json
+{
+  "status": "alive"
+}
+```
+
+---
+
+### `GET /health/ready`
+Readiness probe verifying runtime dependencies:
+- **FFmpeg availability** (required)
+- **Gemini API key configured** (`GEMINI_API_KEY`) (required)
+- **Default input video** (`backend/input/modi.mp4`) (required)
+- **Outputs storage writable** (`outputs/` folder) (required)
+- **Optional integrations** (`groq`, `cloudinary`, `did` reported as `enabled` or `disabled` without failing readiness)
+
+**Success Response (200 OK):**
+```json
+{
+  "status": "ready",
+  "checks": {
+    "ffmpeg": "available",
+    "gemini_api_key": "configured",
+    "default_input_video": "available",
+    "outputs_writable": "writable"
+  },
+  "optional": {
+    "groq": "enabled",
+    "cloudinary": "disabled",
+    "did": "disabled"
+  }
+}
+```
+
+**Failure Response (503 Service Unavailable):**
+```json
+{
+  "status": "not_ready",
+  "reason": "Gemini API key is missing",
+  "reasons": [
+    "Gemini API key is missing"
+  ],
+  "checks": {
+    "ffmpeg": "available",
+    "gemini_api_key": "missing",
+    "default_input_video": "available",
+    "outputs_writable": "writable"
+  },
+  "optional": {
+    "groq": "disabled",
+    "cloudinary": "disabled",
+    "did": "disabled"
+  }
+}
 ```
 
 ---
@@ -315,9 +377,9 @@ FastAPI auto-generates interactive API documentation:
 
 ## Configuration Modes
 
-- **Required:** `GEMINI_API_KEY` — the primary AI provider.
-- **Optional:** `GROQ_API_KEY` — enables Groq fallback when configured. If omitted, Gemini remains the only AI provider.
-- **Optional:** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` — enables Cloudinary video hosting when all three are configured.
+- **Required:** `GEMINI_API_KEY`  -  the primary AI provider.
+- **Optional:** `GROQ_API_KEY`  -  enables Groq fallback when configured. If omitted, Gemini remains the only AI provider.
+- **Optional:** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`  -  enables Cloudinary video hosting when all three are configured.
 - If Cloudinary is unavailable, generated videos remain available through the local-storage path.
 - The service can run in reduced mode without Groq and/or Cloudinary credentials. Startup configuration reports which optional integrations are enabled.
 

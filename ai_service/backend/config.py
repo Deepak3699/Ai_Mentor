@@ -29,6 +29,8 @@ CLOUDINARY_ENABLED = all([
     CLOUDINARY_API_SECRET,
 ])
 
+DID_ENABLED = bool(DID_API_KEY and DID_SOURCE_URL)
+
 
 def validate_config():
     if not GEMINI_API_KEY:

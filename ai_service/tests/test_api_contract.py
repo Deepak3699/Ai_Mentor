@@ -41,6 +41,8 @@ def test_quiz_response_contract_is_defined():
 def test_public_routes_are_mapped_to_expected_handlers():
     routes = route_map()
     assert routes[("get", "/")] == "home"
+    assert routes[("get", "/health/live")] == "health_live"
+    assert routes[("get", "/health/ready")] == "health_ready"
     assert routes[("get", "/voices")] == "get_voices"
     assert routes[("post", "/generate-syllabus")] == "generate_syllabus"
     assert routes[("post", "/generate-quiz")] == "generate_quiz"

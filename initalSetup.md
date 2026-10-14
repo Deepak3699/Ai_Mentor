@@ -305,6 +305,8 @@ Check each one. If a step fails, see the troubleshooting table below.
 | Admin panel loads | Open http://localhost:5174 | The admin login page appears |
 | Admin login works | Log in with your super admin email and password | You reach the dashboard and see data |
 | AI service is up | Open http://localhost:8000 | `{"message":"AI Lesson Generator Backend Running"}` |
+| AI service liveness | Open http://localhost:8000/health/live | `{"status":"alive"}` |
+| AI service readiness | Open http://localhost:8000/health/ready | `{"status":"ready"}` when FFmpeg, API key, and storage are available |
 | AI service docs | Open http://localhost:8000/docs | The Swagger UI appears |
 
 ### Test the full flow once
@@ -357,6 +359,8 @@ Tick every box before you move on to real work.
 - [ ] http://localhost:5000/health/ready reports `{"status":"ready"}` when the database is available
 - [ ] http://localhost:5001/health/live reports `{"status":"alive"}`
 - [ ] http://localhost:5001/health/ready reports `{"status":"ready"}` when the database is available
+- [ ] http://localhost:8000/health/live reports `{"status":"alive"}`
+- [ ] http://localhost:8000/health/ready reports `{"status":"ready"}` when runtime dependencies are available
 - [ ] http://localhost:8000/docs opens
 - [ ] Admin seeded with `npm run seed:superadmin`
 - [ ] Included courses seeded once with `npm run seed:courses` on the new empty database
