@@ -181,17 +181,33 @@ async def generate_tts(text: str, output_file: str, voice_id: str = "en-US-GuyNe
     )
     await communicate.save(output_file)
 
-def get_celebrity_video(celebrity_name: str):
-    input_video_dir = os.path.join(BASE_DIR, "backend", "input")
-    celebrity_video = os.path.join(input_video_dir, f"{celebrity_name.lower()}.mp4")
-    
-    if os.path.exists(celebrity_video):
-        print(f"🎬 Using celebrity video: {celebrity_video}")
-        return celebrity_video
-    else:
-        input_video = os.path.join(input_video_dir, "modi.mp4")
-        print(f"🎬 Using default video: {input_video}")
-        return input_video
+ALLOWED_CELEBRITIES = {"modi", "owl", "salman", "srk"}
+
+
+def get_celebrity_video(celebrity_name: str) -> str:
+    input_video_dir = os.path.realpath(
+        os.path.join(BASE_DIR, "backend", "input")
+    )
+
+    name = celebrity_name.strip().lower() if isinstance(celebrity_name, str) else ""
+    if name not in ALLOWED_CELEBRITIES:
+        name = "modi"
+
+    candidate = os.path.realpath(
+        os.path.join(input_video_dir, f"{name}.mp4")
+    )
+
+    if (
+        os.path.commonpath([input_video_dir, candidate]) == input_video_dir
+        and os.path.isfile(candidate)
+    ):
+        print(f"Using celebrity video: {name}")
+        return candidate
+
+    fallback = os.path.realpath(os.path.join(input_video_dir, "modi.mp4"))
+    print("Using default celebrity video: modi")
+    return fallback
+
 
 # --------------------------
 # Serve Files
