@@ -1,4 +1,8 @@
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
+import fetchWithTimeout, {
+  AI_SERVICE_TIMEOUT_MESSAGE,
+  isTimeoutError,
+} from "../utils/fetchWithTimeout.js";
 import { sequelize } from "../config/db.js";
 
 /* =========================
@@ -380,7 +384,7 @@ const generateCourseSyllabusWithAI = async (req, res) => {
     if (!course) return res.status(404).json({ message: "Course not found" });
 
     // 1. Call Python AI Service
-    const aiResponse = await fetch(`${process.env.AI_SERVICE_URL}/generate-syllabus`, {
+    const aiResponse = await fetchWithTimeout(`${process.env.AI_SERVICE_URL}/generate-syllabus`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -424,6 +428,9 @@ const generateCourseSyllabusWithAI = async (req, res) => {
     res.json({ message: "Syllabus generated successfully", data: data });
   } catch (error) {
     console.error("GENERATE SYLLABUS ERROR:", error);
+    if (isTimeoutError(error)) {
+      return res.status(503).json({ message: AI_SERVICE_TIMEOUT_MESSAGE });
+    }
     res.status(500).json({ message: "Server error" });
   }
 };
