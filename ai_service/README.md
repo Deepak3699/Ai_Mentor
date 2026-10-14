@@ -121,6 +121,13 @@ Then edit `backend/.env`:
 ```env
 # Google Gemini API key
 GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
+
+# Outbound LLM timeout in seconds (default: 60)
+LLM_TIMEOUT_SECONDS=60
+
+# Optional fallback AI provider
+GROQ_API_KEY=your_groq_api_key_here
 
 # Cloudinary credentials (for cloud video hosting)
 CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
@@ -331,6 +338,7 @@ FastAPI auto-generates interactive API documentation:
 
 - **Required:** `GEMINI_API_KEY` - the primary AI provider.
 - **Optional:** `GROQ_API_KEY` - enables Groq fallback when configured. If omitted, Gemini remains the only AI provider.
+- **Optional:** `LLM_TIMEOUT_SECONDS` - timeout in seconds for Gemini and Groq API calls (defaults to `60`). Ensures calls abort if a provider hangs and allows automatic fallback or failure marking.
 - **Optional:** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` - enables Cloudinary video hosting when all three are configured.
 - If Cloudinary is unavailable, generated videos remain available through the local-storage path.
 - The service can run in reduced mode without Groq and/or Cloudinary credentials. Startup configuration reports which optional integrations are enabled.
