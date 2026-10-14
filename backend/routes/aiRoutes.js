@@ -12,77 +12,89 @@ dotenv.config();
 
 const router = express.Router();
 
+const serveCachedVideo = async (req, res, next) => {
+  try {
+    const { courseId, lessonId, celebrity } = req.body;
+
+    // 🔐 Check purchase
+    const purchasedCourse = (req.user?.purchasedCourses || []).find(
+      (c) => Number(c.courseId) === Number(courseId),
+    );
+
+    if (!purchasedCourse) {
+      return res.status(403).json({ message: "Course not purchased" });
+    }
+
+    // 🕵️ Check Cache First
+    const cachedVideo = await AIVideo.findOne({
+      where: {
+        courseId: Number(courseId),
+        lessonId: String(lessonId),
+        celebrity: String(celebrity).toLowerCase(),
+      },
+    });
+
+    if (cachedVideo) {
+      let parsedUrl;
+      try {
+        parsedUrl = new URL(cachedVideo.videoUrl);
+      } catch {
+        parsedUrl = null;
+      }
+      if (
+        parsedUrl &&
+        parsedUrl.protocol === "https:" &&
+        parsedUrl.hostname.endsWith("res.cloudinary.com")
+      ) {
+        return res.json({
+          videoUrl: cachedVideo.videoUrl,
+          transcriptName: cachedVideo.transcriptName,
+          jobId: cachedVideo.jobId,
+          meta: cachedVideo.meta,
+          cached: true,
+        });
+      }
+
+      const filename = cachedVideo.videoUrl.split("/").pop();
+
+      const videoCheck = await fetch(
+        `${process.env.AI_SERVICE_URL}/video-stream/${filename}`,
+        { method: "HEAD" }, // lightweight check
+      );
+
+      if (!videoCheck.ok) {
+        console.log("⚠️ Cached video missing. Removing from DB...");
+        await cachedVideo.destroy(); // delete bad cache
+      } else {
+        console.log("✅ Cached video verified.");
+
+        return res.json({
+          videoUrl: cachedVideo.videoUrl,
+          transcriptName: cachedVideo.transcriptName,
+          jobId: cachedVideo.jobId,
+          meta: cachedVideo.meta,
+          cached: true,
+        });
+      }
+    }
+
+    // Cache miss: proceed to rate limiter and generation
+    return next();
+  } catch (error) {
+    console.error("AI GENERATE CACHE ERROR:", error);
+    res.status(500).json({ message: "Failed to check AI video cache" });
+  }
+};
+
 router.post(
   "/generate-video",
   protect,
-  aiGenerationLimiter,
   validate(generateVideoSchema),
+  serveCachedVideo,
+  aiGenerationLimiter,
   async (req, res) => {
     try {
       const { courseId, lessonId, celebrity, voice_id, speech_rate, speech_pitch } = req.body;
-
-      // 🔐 Check purchase
-      const purchasedCourse = req.user.purchasedCourses.find(
-        (c) => Number(c.courseId) === Number(courseId),
-      );
-
-      if (!purchasedCourse) {
-        return res.status(403).json({ message: "Course not purchased" });
-      }
-
-      // 🕵️ Check Cache First
-      const cachedVideo = await AIVideo.findOne({
-        where: {
-          courseId: Number(courseId),
-          lessonId: String(lessonId),
-          celebrity: String(celebrity).toLowerCase(),
-        },
-      });
-
-      if (cachedVideo) {
-        let parsedUrl;
-        try {
-          parsedUrl = new URL(cachedVideo.videoUrl);
-        } catch {
-          parsedUrl = null;
-        }
-        if (
-          parsedUrl &&
-          parsedUrl.protocol === "https:" &&
-          parsedUrl.hostname.endsWith("res.cloudinary.com")
-        ) {
-          return res.json({
-            videoUrl: cachedVideo.videoUrl,
-            transcriptName: cachedVideo.transcriptName,
-            jobId: cachedVideo.jobId,
-            meta: cachedVideo.meta,
-            cached: true,
-          });
-        }
-
-        const filename = cachedVideo.videoUrl.split("/").pop();
-
-        const videoCheck = await fetch(
-          `${process.env.AI_SERVICE_URL}/video-stream/${filename}`,
-          { method: "HEAD" }, // lightweight check
-        );
-
-        if (!videoCheck.ok) {
-          console.log("⚠️ Cached video missing. Removing from DB...");
-
-          await cachedVideo.destroy(); // delete bad cache
-        } else {
-          console.log("✅ Cached video verified.");
-
-          return res.json({
-            videoUrl: cachedVideo.videoUrl,
-            transcriptName: cachedVideo.transcriptName,
-            jobId: cachedVideo.jobId,
-            meta: cachedVideo.meta,
-            cached: true,
-          });
-        }
-      }
 
       // Get titles from JSON
       const titles = await getCourseAndLessonTitles(courseId, lessonId);

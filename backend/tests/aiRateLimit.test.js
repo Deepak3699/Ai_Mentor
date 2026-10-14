@@ -203,6 +203,42 @@ test("limit resets after the window expires", async () => {
   assert.equal(data.status, "processing");
 });
 
+test("cached video requests do not consume rate limit quota and remain accessible when quota is exhausted", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  // Exhaust User 1's generation quota (2 allowed)
+  assert.equal((await postGenerate(1)).status, 200);
+  assert.equal((await postGenerate(1)).status, 200);
+
+  // 3rd generation request (cache miss) is rate-limited (429)
+  const blockedMiss = await postGenerate(1);
+  assert.equal(blockedMiss.status, 429);
+
+  // Mock an existing verified cached video
+  AIVideo.findOne = async () => ({
+    courseId: 1,
+    lessonId: "1",
+    celebrity: "salman",
+    videoUrl: "https://res.cloudinary.com/test-cloud/video/upload/sample.mp4",
+    transcriptName: "sample.vtt",
+    jobId: "cached-job-123",
+    meta: { provider: "gemini" },
+  });
+
+  // Cached request from the same rate-limited user must succeed (200 OK) without 429
+  const cachedRes = await postGenerate(1);
+  assert.equal(cachedRes.status, 200);
+  const cachedData = await cachedRes.json();
+  assert.equal(cachedData.cached, true);
+  assert.equal(
+    cachedData.videoUrl,
+    "https://res.cloudinary.com/test-cloud/video/upload/sample.mp4",
+  );
+
+  // Restore cache miss mock for other tests
+  AIVideo.findOne = async () => null;
+});
+
 test("createAIRateLimiter allows custom configuration and standalone usage", async () => {
   const customLimiter = createAIRateLimiter({ windowMs: 200, max: 1 });
   const app = express();
