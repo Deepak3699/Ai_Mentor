@@ -469,8 +469,7 @@ def generate_lesson(
         data.celebrity,
         data.language,
     ])
-          cache_key = hashlib.sha256(
-    cache_data = json.dumps(
+        cache_data = json.dumps(
         {
             "course": data.course,
             "topic": data.topic,
