@@ -1,8 +1,7 @@
-# AI Mentor — Backend Admin Documentation
+# Backend Admin Documentation
 
 ## Introduction
-
-The `backendAdmin` module is an isolated Express.js management service running on Node.js. It acts as the dedicated administrative API for the _AI Mentor_ platform, providing course management, user management, discussion moderation, enrollment and payment analytics, notification management, and content reporting.
+The `backendAdmin` module is an isolated Express.js management service running on Node.js. It acts as the dedicated administrative terminal for the platform, providing content moderation, system configuration overrides, analytical metrics aggregation, dynamic schema toggles, database auditing, and validation logic.
 
 ---
 
@@ -290,7 +289,10 @@ Copy `.env.example` to `.env` inside the `backendAdmin` folder:
 # Server
 PORT=5001
 FRONTEND_ADMIN_URL=http://localhost:5174
-AI_SERVICE_URL=http://127.0.0.1:8000
+
+# Syllabus provider connection and request timeout (milliseconds)
+SYLLABUS_SERVICE_URL=http://127.0.0.1:8000
+SYLLABUS_SERVICE_TIMEOUT_MS=15000
 
 # Authentication
 JWT_SECRET=your_super_secret_jwt_key
@@ -303,6 +305,7 @@ SUPER_ADMIN_NAME=Super Admin
 SUPER_ADMIN_EMAIL=admin@yourdomain.com
 SUPER_ADMIN_PASSWORD=strong_admin_password
 ```
+Syllabus requests are aborted after the configured timeout and return a retryable `503` response when the provider is unavailable. Set `SYLLABUS_SERVICE_URL` for the provider endpoint.
 
 ### System Installation Instructions
 

@@ -1,5 +1,6 @@
 import { Course, AdminNotification, Module, Lesson, User } from "../models/index.js";
 import { Op, Sequelize } from "sequelize";
+import { generateCourseSyllabus } from "./syllabusController.js";
 
 // Valid status values
 const VALID_STATUSES = ["published", "disabled", "deleted"];
@@ -318,72 +319,4 @@ export const getCourseSyllabus = async (req, res) => {
   }
 };
 
-/**
- * @desc    Generate Course Syllabus with AI
- * @route   POST /api/admin/courses/:id/generate-syllabus
- * @access  Private
- */
-export const generateCourseSyllabusWithAI = async (req, res) => {
-  try {
-    const courseId = req.params.id;
-    const course = await Course.findByPk(courseId);
-
-    if (!course) {
-      return res.status(404).json({ message: "Course not found" });
-    }
-
-    // Call Python AI Service
-    const aiUrl = `${process.env.AI_SERVICE_URL}/generate-syllabus`;
-    const aiResponse = await fetch(aiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        course_title: course.title,
-        category: course.category,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      return res.status(500).json({
-        message:
-          "AI Service failed to generate syllabus. Please make sure the python server is running.",
-      });
-    }
-
-    const data = await aiResponse.json();
-    if (data.error) {
-      return res.status(500).json({ message: data.error });
-    }
-
-    // Insert into DB
-    let moduleOrder = 1;
-    for (const mod of data.modules) {
-      const newModule = await Module.create({
-        courseId: course.id,
-        title: mod.title,
-        order: moduleOrder++,
-      });
-
-      let lessonOrder = 1;
-      for (const les of mod.lessons) {
-        await Lesson.create({
-          moduleId: newModule.id,
-          title: les.title,
-          duration: les.duration || "5 mins",
-          type: les.type || "video",
-          order: lessonOrder++,
-        });
-      }
-    }
-
-    res.json({ message: "Syllabus generated successfully", data: data });
-  } catch (error) {
-    console.error("GENERATE SYLLABUS ERROR:", error.message);
-    if (error.cause && error.cause.code === "ECONNREFUSED") {
-      return res
-        .status(500)
-        .json({ message: "Python AI Server is not running. Please start it with start_ai.bat" });
-    }
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
-};
+export { generateCourseSyllabus };

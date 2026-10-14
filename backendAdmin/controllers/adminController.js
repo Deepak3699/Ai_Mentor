@@ -1,4 +1,8 @@
 import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
+import { sequelize } from "../config/db.js";
+import { DataTypes } from "sequelize";
+import { generateCourseSyllabus } from "./syllabusController.js";
 import {
   Admin,
   User,
@@ -22,9 +26,18 @@ const ensureNotificationSeed = async () => {
       }
 
       const [latestCourse, latestUser, latestAdmin] = await Promise.all([
-        Course.findOne({ attributes: ["title", "createdAt"], order: [["createdAt", "DESC"]] }),
-        User.findOne({ attributes: ["name", "createdAt"], order: [["createdAt", "DESC"]] }),
-        Admin.findOne({ attributes: ["name", "createdAt"], order: [["createdAt", "DESC"]] }),
+        Course.findOne({
+          attributes: ["title", "createdAt"],
+          order: [["createdAt", "DESC"]],
+        }),
+        User.findOne({
+          attributes: ["name", "createdAt"],
+          order: [["createdAt", "DESC"]],
+        }),
+        Admin.findOne({
+          attributes: ["name", "createdAt"],
+          order: [["createdAt", "DESC"]],
+        }),
       ]);
 
       const seedRows = [];
@@ -192,7 +205,9 @@ const deleteAdmin = async (req, res) => {
 // @route   POST /api/admin/logout
 // @access  Private
 const logoutAdmin = async (req, res) => {
-  res.json({ message: "Logged out successfully. Please remove your token on the client side." });
+  res.json({
+    message: "Logged out successfully. Please remove your token on the client side.",
+  });
 };
 
 // @desc    Get all Enrollments
@@ -720,77 +735,6 @@ const getCourseSyllabus = async (req, res) => {
   }
 };
 
-// @desc    Generate Course Syllabus with AI
-// @route   POST /api/admin/courses/:id/generate-syllabus
-// @access  Private
-const generateCourseSyllabusWithAI = async (req, res) => {
-  try {
-    const courseId = req.params.id;
-    const course = await Course.findByPk(courseId);
-
-    if (!course) {
-      return res.status(404).json({ message: "Course not found" });
-    }
-
-    // Call Python AI Service
-    // We assume backendAdmin can access AI service via process.env.BACKEND_URL or hardcode
-    // Let's use the Python AI server URL (it runs on 8000)
-    const aiUrl = `${process.env.AI_SERVICE_URL}/generate-syllabus`;
-    const aiResponse = await fetch(aiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        course_title: course.title,
-        category: course.category,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      return res.status(500).json({
-        message:
-          "AI Service failed to generate syllabus. Please make sure the python server is running.",
-      });
-    }
-
-    const data = await aiResponse.json();
-    if (data.error) {
-      return res.status(500).json({ message: data.error });
-    }
-
-    // Insert into DB
-    let moduleOrder = 1;
-    for (const mod of data.modules) {
-      const newModule = await Module.create({
-        courseId: course.id,
-        title: mod.title,
-        order: moduleOrder++,
-      });
-
-      let lessonOrder = 1;
-      for (const les of mod.lessons) {
-        await Lesson.create({
-          moduleId: newModule.id,
-          title: les.title,
-          duration: les.duration || "5 mins",
-          type: les.type || "video",
-          order: lessonOrder++,
-        });
-      }
-    }
-
-    res.json({ message: "Syllabus generated successfully", data: data });
-  } catch (error) {
-    console.error("GENERATE SYLLABUS ERROR:", error.message);
-    // Return a better error if fetch failed due to AI server not running
-    if (error.cause && error.cause.code === "ECONNREFUSED") {
-      return res
-        .status(500)
-        .json({ message: "Python AI Server is not running. Please start it with start_ai.bat" });
-    }
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
-};
-
 export {
   Admin,
   registerAdmin,
@@ -810,5 +754,5 @@ export {
   clearAllNotifications,
   getAllReports,
   getCourseSyllabus,
-  generateCourseSyllabusWithAI,
+  generateCourseSyllabus,
 };
