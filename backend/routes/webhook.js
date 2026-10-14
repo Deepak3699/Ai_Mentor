@@ -4,20 +4,25 @@ import Payment from "../models/Payment.js";
 import { createNotification } from "../controllers/notificationController.js";
 import { sequelize } from "../config/db.js";
 import { paymentGatewayServices } from "../services/paymentGatewayServices.js";
+import buildLogger from "../utils/logger.js";
 
 const router = express.Router();
 
-// ⚠️ Stripe webhook MUST use RAW body
+const prodRedactPaths = ["stripeSessionId", "courseId", "intentId"];
+
+const log = buildLogger("WEBHOOK", prodRedactPaths);
+
+//Stripe webhook MUST use RAW body
 router.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
   const sig = req.headers["stripe-signature"];
 
   let event;
 
-  // ✅ Verify webhook signature
+  //  Verify webhook signature
   // Distinguishes between invalid signature (attack) vs missing secret (config error)
   try {
     if (!sig) {
-      console.error("[Webhook] Missing stripe-signature header");
+      log.error("Missing stripe-signature header");
       return res.status(400).send("Missing stripe-signature header");
     }
     event = paymentGatewayServices.constructStripeWebhookEvent(
@@ -27,12 +32,12 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
     );
   } catch (err) {
     // Invalid signature = possible attack or corrupted payload
-    console.error("[Webhook] ❌ Signature verification failed:", err.message);
+    log.error({ err }, "Signature verification failed");
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   switch (event.type) {
-    // ✅ PAYMENT SUCCESS
+    //  PAYMENT SUCCESS
     case "checkout.session.completed": {
       const session = event.data.object;
       const courseId = session.metadata?.courseId;
@@ -49,7 +54,7 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
 
           if (payment?.status === "success") {
             await transaction.rollback();
-            console.log("[Webhook] Already processed:", session.id);
+            log.info({ stripeSessionId: session.id }, "Already processed");
             return res.json({ received: true });
           }
 
@@ -91,40 +96,41 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
             metadata: { courseId },
           });
         } catch (err) {
-          console.error("[Webhook] Notification error:", err);
+          log.error({ err }, "Notification error:");
         }
-
-        console.log("[Webhook] ✅ Payment processed:", courseId);
+        log.info({ courseId }, "Payment Processed:");
       } catch (err) {
         await transaction.rollback();
-        console.error("[Webhook] ❌ DB Error:", err);
+
+        log.error({ err }, "DB Error:");
+
         return res.status(500).send("Internal Server Error");
       }
       break;
     }
 
-    // ✅ SESSION EXPIRED
+    //  SESSION EXPIRED
     case "checkout.session.expired": {
       const session = event.data.object;
       if (session.id) {
         await Payment.update(
           { status: "failed" },
           { where: { stripeSessionId: session.id } },
-        ).catch(console.error);
-        console.log(`[Webhook] Session expired — marked failed: ${session.id}`);
+        ).catch((err) => log.error({ err }, "Failed to mark expired session as failed"));
+        log.info({ stripeSessionId: session.id }, "Session expired - marked failed:");
       }
       break;
     }
 
-    // ✅ PAYMENT FAILED
+    //  PAYMENT FAILED
     case "payment_intent.payment_failed": {
       const intent = event.data.object;
-      console.log(`[Webhook] PaymentIntent failed: ${intent.id}`);
+      log.error({ intentId: intent.id }, "PaymentIntent failed:");
       break;
     }
 
     default:
-      console.log(`[Webhook] Unhandled event: ${event.type}`);
+      log.error({ eventType: event.type }, "Unhandled event:");
   }
 
   res.json({ received: true });

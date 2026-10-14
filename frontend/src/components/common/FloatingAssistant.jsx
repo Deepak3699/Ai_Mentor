@@ -127,8 +127,9 @@ const FloatingAssistant = () => {
         ...previous,
         {
           sender: "assistant",
-          text: data.reply,
+          text: typeof data.reply === "string" ? data.reply : JSON.stringify(data.reply),
           route: data.route || null,
+          lessonId: data.lessonId || null,
         },
       ]);
     } catch (error) {
@@ -368,10 +369,12 @@ const FloatingAssistant = () => {
                       {message.route && (
                         <button
                           type="button"
-                          onClick={() => navigate(message.route)}
+                          onClick={() =>
+                            navigate(message.route, { state: { lessonId: message.lessonId } })
+                          }
                           className="mt-3 rounded-lg bg-[#3867D6] px-3 py-2 text-xs font-bold text-white transition hover:bg-[#315BC0]"
                         >
-                          Go to page
+                          {message.lessonId ? "Resume Lesson" : "Go to page"}
                         </button>
                       )}
                     </div>

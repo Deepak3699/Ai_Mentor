@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import os
 
 import requests
 
@@ -52,7 +53,7 @@ def upload_audio(audio_path: str) -> str:
                 headers=headers,
                 files={
                     "audio": (
-                        audio_path.split("/")[-1],
+                        os.path.basename(str(audio_path).replace("\\", "/")),
                         audio_file,
                         "audio/mpeg",
                     )
