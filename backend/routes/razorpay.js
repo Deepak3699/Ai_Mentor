@@ -7,13 +7,30 @@ import { createNotification } from "../controllers/notificationController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import Payment from "../models/Payment.js";
 import { paymentGatewayServices } from "../services/paymentGatewayServices.js";
+import buildLogger from "../utils/logger.js";
 
 const router = express.Router();
 
-// ✅ Configure the rate limiter for payment creations
+// ADD PATH WHICH SHOUDL BE REDACTED IN PRODUCTION
+const prodRedactPaths = [
+  "idempotencyKey",
+  "userId",
+  "courseTitle",
+  "user.id",
+  "razorpayOrderId",
+  "razorpay_order_id",
+  "razorpay_payment_id",
+];
+
+const log = buildLogger("RAZORPAY", prodRedactPaths);
+
+//  Configure the rate limiter for payment creations
+//  window size 15 minutes
+// Limit each IP to 5 requests per windowMs
+
 const paymentLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 5,
   message: {
     error: "Too many payment attempts from this IP. Please try again after 15 minutes.",
   },
@@ -22,13 +39,11 @@ const paymentLimiter = rateLimit({
   skip: () => process.env.NODE_ENV === "test",
 });
 
-// ✅ CREATE ORDER
+//  CREATE ORDER
 router.post("/create-order", protect, paymentLimiter, async (req, res) => {
   try {
     const { course, idempotencyKey } = req.body;
-
-    console.log("Incoming course for Razorpay:", course);
-    console.log("Idempotency key received:", idempotencyKey);
+    log.info({ idempotencyKey }, "Idempotency key received:");
 
     if (!course || !course.id || !course.priceValue || Number(course.priceValue) <= 0) {
       return res.status(400).json({ error: "Invalid course data" });
@@ -42,7 +57,7 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
       receipt: `receipt_order_${course.id}_${Date.now()}`,
     };
 
-    // ✅ FIXED — check idempotency FIRST before creating order
+    //  FIXED — check idempotency FIRST before creating order
     if (!idempotencyKey) {
       return res.status(400).json({ error: "idempotencyKey is required" });
     }
@@ -50,13 +65,14 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
     // Check if this key already exists — return cached response if so
     const existing = await Payment.findOne({ where: { idempotencyKey } });
     if (existing && existing.cachedResponse && Object.keys(existing.cachedResponse).length > 0) {
-      console.log(`[Idempotency] Returning cached Razorpay response for key: ${idempotencyKey}`);
+      log.info({ idempotencyKey }, " Returning cached Razorpay response for key ");
       return res.status(200).json(existing.cachedResponse);
     }
 
     // Save payment record FIRST before calling Razorpay
-    console.log(
-      `[Payment] 🔄 Initiating payment for course: ${course.title} | User: ${req.user.id}`,
+    log.info(
+      { courseTitle: course.title, userId: req.user.id },
+      `Initiating payment for course: course.title | User:userId`,
     );
     const payment = await Payment.create({
       userId: req.user.id,
@@ -77,7 +93,7 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
     } catch (razorpayErr) {
       // Clean up the orphaned payment record
       await payment.update({ status: "failed" });
-      console.log(`[Payment] ❌ Razorpay order creation failed | Status: failed`);
+      log.error(`[Payment]  Razorpay order creation failed | Status: failed`);
       throw razorpayErr; // re-throw to outer catch
     }
 
@@ -94,18 +110,19 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
       razorpayOrderId: order.id,
       cachedResponse,
     });
-    console.log(
-      `[Payment] ✅ Order created successfully | OrderId: ${order.id} | Status: processing`,
+    log.info(
+      { razorpayOrderId: order.id },
+      "Order created successfully | OrderId: razorpayOrderId | Status: processing",
     );
 
     return res.status(200).json(cachedResponse);
   } catch (error) {
-    console.error("❌ Razorpay Order Error:", error);
+    log.error({ err: error }, " Razorpay Order Error");
     return res.status(500).json({ error: "Razorpay order creation failed" });
   }
 });
 
-// ✅ VERIFY PAYMENT
+//  VERIFY PAYMENT
 router.post("/verify", protect, async (req, res) => {
   // ISSUE_54_RAZORPAY_ERROR_LOG_V1
   const orderIdForLog = req.body?.razorpay_order_id || "unknown";
@@ -153,8 +170,9 @@ router.post("/verify", protect, async (req, res) => {
           },
           { transaction },
         );
-        console.log(
-          `[Payment] 💰 Payment verified | OrderId: ${razorpay_order_id} | PaymentId: ${razorpay_payment_id} | Status: success`,
+        log.info(
+          { razorpay_order_id, razorpay_payment_id },
+          ` Payment verified | OrderId: razorpay_order_id | PaymentId: razorpay_payment_id | Status: success`,
         );
 
         user = await User.findByPk(userId, { transaction });
@@ -198,13 +216,13 @@ router.post("/verify", protect, async (req, res) => {
 
       try {
         await createNotification(user.id, {
-          title: "Course Enrolled 🎉",
+          title: "Course Enrolled ",
           message: `You successfully enrolled in ${courseTitle || "a course"}`,
           type: "course",
           metadata: { courseId },
         });
       } catch (err) {
-        console.error("Failed to create notification:", err);
+        log.error({ err }, "Failed to create notification:");
       }
       return res.status(200).json({
         success: true,
@@ -214,8 +232,10 @@ router.post("/verify", protect, async (req, res) => {
       return res.status(400).json({ success: false, error: "Invalid signature" });
     }
   } catch (error) {
-    console.error("❌ Razorpay Verify Error:", error);
-    console.log(`[Payment] ❌ Verification error | OrderId: ${orderIdForLog} | Status: failed`);
+    log.error(
+      { razorpayOrderId: orderIdForLog, err: error },
+      `razorpay  Verification error | OrderId: razorpayOrderId | Status: failed`,
+    );
     return res.status(500).json({ success: false, error: "Payment verification failed" });
   }
 });
