@@ -30,11 +30,17 @@ const User = sequelize.define(
       type: DataTypes.STRING,
       defaultValue: "active",
     },
+
+    avatar_url: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null,
+    },
     isBlocked: {
-  type: DataTypes.BOOLEAN,
-  defaultValue: false,
-  allowNull: false,
-},
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+      allowNull: false,
+    },
     purchasedCourses: {
       type: DataTypes.JSON,
       defaultValue: [],
@@ -43,7 +49,7 @@ const User = sequelize.define(
   {
     timestamps: true,
     tableName: "Users",
-  }
+  },
 );
 
 export default User;

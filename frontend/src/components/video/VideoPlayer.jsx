@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import LoadingSpinner from "../common/LoadingSpinner";
 import {
   Play,
   Pause,
@@ -78,7 +79,7 @@ const VideoPlayer = ({
     } else {
       v.pause();
     }
-  }, [isPlaying, aiVideoUrl]);
+  }, [isPlaying, aiVideoUrl, videoRef]);
 
   // Unified loading state
   const showLoading = isAIVideoLoading || isBuffering;
@@ -129,7 +130,7 @@ const VideoPlayer = ({
       {showLoading && (
         <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
           <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
+            <LoadingSpinner variant="compact" light label="Loading video" />
             <p className="text-white mt-2 text-sm">Loading video...</p>
           </div>
         </div>

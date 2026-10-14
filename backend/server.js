@@ -16,6 +16,7 @@ import courseRoutes from "./routes/courseRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import sidebarRoutes from "./routes/sidebarRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import flashcardRoutes from "./routes/flashcardRoutes.js";
 import communityRoutes from "./routes/communityRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
@@ -90,7 +91,7 @@ app.use(
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
-  })
+  }),
 );
 
 // ================= MIDDLEWARE =================
@@ -116,6 +117,7 @@ app.use("/api/payment/razorpay", razorpayRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/sidebar", sidebarRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/flashcards", flashcardRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
@@ -137,7 +139,7 @@ app.use((req, res) => {
 });
 
 // ================= GLOBAL ERROR HANDLER =================
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   if (err.type === "entity.too.large") {
     return res.status(413).json({
       success: false,
@@ -165,7 +167,10 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
+    console.log("[STARTING] Backend startup");
+    console.log("[CHECK] Connecting to database...");
     await connectDB();
+    console.log("[OK] Database connected");
 
     const isDevelopment = process.env.NODE_ENV !== "production";
     const syncOptions = isDevelopment ? { alter: true } : {};
@@ -174,8 +179,8 @@ const startServer = async () => {
 
     console.log(
       isDevelopment
-        ? "✅ Database models synced with schema auto-alter enabled (development)"
-        : "✅ Database models synced"
+        ? "[OK] Database schema synchronized (development auto-alter enabled)"
+        : "[OK] Database schema synchronized",
     );
 
     const server = http.createServer(app);
@@ -185,11 +190,12 @@ const startServer = async () => {
     server.keepAliveTimeout = 60_000;
 
     server.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log("✅ Allowed Origins:", allowedOrigins);
+      console.log(`[READY] Backend: http://localhost:${PORT}`);
+      console.log(`[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`);
+      console.log("[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.");
     });
   } catch (error) {
-    console.error("❌ Server failed:", error);
+    console.error("[FAILED] Backend startup failed:", error);
     process.exit(1);
   }
 };

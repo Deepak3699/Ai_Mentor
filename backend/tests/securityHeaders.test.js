@@ -84,10 +84,6 @@ test("real server sends headers on /, 404s and static file paths", async () => {
     const headers = await getHeaders(app, path);
     assert.ok(headers.get("content-security-policy"), path);
     assert.equal(headers.get("x-content-type-options"), "nosniff", path);
-    assert.equal(
-      headers.get("cross-origin-resource-policy"),
-      "cross-origin",
-      path,
-    );
+    assert.equal(headers.get("cross-origin-resource-policy"), "cross-origin", path);
   }
 });
