@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 
-API_FILE = Path("ai_service/backend/api.py").resolve()
+API_FILE = Path(__file__).resolve().parents[1] / "api.py"
 
 
 @pytest.fixture
