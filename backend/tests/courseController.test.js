@@ -23,6 +23,7 @@ const originals = {
   courseFindAndCountAll: Course.findAndCountAll,
   courseFindByPk: Course.findByPk,
   courseFindAll: Course.findAll,
+  moduleFindOne: Module.findOne,
   courseCount: Course.count,
   courseCreate: Course.create,
   courseDestroy: Course.destroy,
@@ -91,6 +92,7 @@ after(() => {
   Course.create = originals.courseCreate;
   Course.destroy = originals.courseDestroy;
   Module.findAll = originals.moduleFindAll;
+  Module.findOne = originals.moduleFindOne;
   Lesson.findAll = originals.lessonFindAll;
   Lesson.max = originals.lessonMax;
   Lesson.create = originals.lessonCreate;
@@ -212,6 +214,7 @@ test("learning data returns ordered modules, lessons, content, and first current
       ["order", "ASC"],
       ["createdAt", "ASC"],
     ]);
+    Module.findOne = async () => ({ id: 10, courseId: 1 });
     return [{ id: 10, title: "Module One" }];
   };
   Lesson.findAll = async (options) => {
@@ -446,4 +449,70 @@ test("addLessons route validation rejects invalid input before the controller ru
   assert.equal(state.statusCode, 400);
   assert.equal(state.body.message, "Validation failed");
   assert.equal(nextCalled, false);
+});
+
+
+test("addLessons accepts a module belonging to the requested course", async () => {
+  const { res, state } = response();
+  const created = [];
+
+  Module.findOne = async (options) => {
+    assert.deepEqual(options.where, { id: "10", courseId: "1" });
+    return { id: 10, courseId: 1 };
+  };
+  Lesson.max = async () => 2;
+  Lesson.create = async (data) => {
+    created.push(data);
+    return { id: created.length, ...data };
+  };
+
+  await addLessons(
+    {
+      params: { courseId: "1", moduleId: "10" },
+      body: {
+        lessons: [
+          { title: "Lesson One" },
+          { title: "Lesson Two" },
+        ],
+      },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 201);
+  assert.equal(created.length, 2);
+  assert.equal(created[0].order, 3);
+  assert.equal(created[1].order, 4);
+});
+
+test("addLessons rejects a module belonging to another course", async () => {
+  const { res, state } = response();
+  let createCalled = false;
+  let maxCalled = false;
+
+  Module.findOne = async () => null;
+  Lesson.max = async () => {
+    maxCalled = true;
+    return 0;
+  };
+  Lesson.create = async () => {
+    createCalled = true;
+    return {};
+  };
+
+  await addLessons(
+    {
+      params: { courseId: "1", moduleId: "10" },
+      body: { lessons: [{ title: "Lesson One" }] },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 404);
+  assert.equal(
+    state.body.message,
+    "Module not found for the specified course",
+  );
+  assert.equal(maxCalled, false);
+  assert.equal(createCalled, false);
 });
