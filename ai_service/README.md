@@ -1,60 +1,64 @@
-# AI Mentor — AI Service Backend (Python / FastAPI)
+# AI Mentor â€” AI Service Backend (Python / FastAPI)
 
 The Python microservice behind the AI Mentor platform's "AI Lesson" feature. Given a course, topic, and a celebrity name, it:
 
-1. 📝 **Generates** a short educational script using **Google Gemini**.
-2. 🎙️ **Converts** the script to speech using **pyttsx3** (offline TTS).
-3. 🎥 **Merges** the audio with a looped celebrity video using **FFmpeg**.
-4. ☁️ **Uploads** the final video to **Cloudinary** for CDN delivery.
+1. ðŸ“ **Generates** a short educational script using **Google Gemini**.
+2. ðŸŽ™ï¸ **Converts** the script to speech using **pyttsx3** (offline TTS).
+3. ðŸŽ¥ **Merges** the audio with a looped celebrity video using **FFmpeg**.
+4. â˜ï¸ **Uploads** the final video to **Cloudinary** for CDN delivery.
 
 The service exposes a **FastAPI** HTTP API that the Node.js backend calls as a proxy.
 
 ---
 
-## 🛠 Tech Stack
+## ðŸ›  Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | FastAPI + Uvicorn |
-| AI / LLM | Google Gemini (`gemini-2.5-flash`) via `google-genai` |
-| Text-to-Speech | pyttsx3 (offline, no API required) |
-| Video Processing | FFmpeg (must be installed separately) |
-| Cloud Storage | Cloudinary |
-| Config | python-dotenv |
+| Layer            | Technology                                            |
+| ---------------- | ----------------------------------------------------- |
+| Framework        | FastAPI + Uvicorn                                     |
+| AI / LLM         | Google Gemini (`gemini-2.5-flash`) via `google-genai` |
+| Text-to-Speech   | pyttsx3 (offline, no API required)                    |
+| Video Processing | FFmpeg (must be installed separately)                 |
+| Cloud Storage    | Cloudinary                                            |
+| Config           | python-dotenv                                         |
 
 ---
 
-## 📁 Project Structure
+## ðŸ“ Project Structure
 
 ```
 ai_service/
-├── backend/
-│   ├── api.py             # Main FastAPI application (all routes & logic)
-│   ├── config.py          # Loads and validates env variables
-│   ├── requirements.txt   # Python dependencies
-│   ├── input/             # 📂 Place your source celebrity videos here
-│   │   └── modi.mp4       # Default/fallback celebrity video (REQUIRED)
-│   └── .env.example       # Environment variable template
-└── outputs/               # Auto-created: generated outputs
-    ├── video/             # Final merged .mp4 lesson videos
-    ├── audio/             # Intermediate TTS .mp3 files
-    └── text/              # Generated lesson scripts (.txt)
+â”œâ”€â”€ backend/
+â”‚   â”œâ”€â”€ api.py             # Main FastAPI application (all routes & logic)
+â”‚   â”œâ”€â”€ config.py          # Loads and validates env variables
+â”‚   â”œâ”€â”€ requirements.txt   # Python dependencies
+â”‚   â”œâ”€â”€ input/             # ðŸ“‚ Place your source celebrity videos here
+â”‚   â”‚   â””â”€â”€ modi.mp4       # Default/fallback celebrity video (REQUIRED)
+â”‚   â””â”€â”€ .env.example       # Environment variable template
+â””â”€â”€ outputs/               # Auto-created: generated outputs
+    â”œâ”€â”€ video/             # Final merged .mp4 lesson videos
+    â”œâ”€â”€ audio/             # Intermediate TTS .mp3 files
+    â””â”€â”€ text/              # Generated lesson scripts (.txt)
 ```
 
 ---
 
-## ✅ Prerequisites
+## âœ… Prerequisites
 
 ### 1. Python 3.10+
+
 ```bash
 python --version
 ```
+
 > During Windows installation, ensure **"Add Python to PATH"** is checked.
 
 ### 2. FFmpeg
+
 FFmpeg is **required** for merging audio and video.
 
-**Windows (via winget — recommended):**
+**Windows (via winget â€” recommended):**
+
 ```powershell
 winget install ffmpeg
 ```
@@ -62,13 +66,14 @@ winget install ffmpeg
 **Manual install:** Download from [ffmpeg.org](https://ffmpeg.org/download.html), extract the archive, and add the `bin/` folder to your System `PATH`.
 
 **Verify installation:**
+
 ```bash
 ffmpeg -version
 ```
 
 ---
 
-## 📥 Installation
+## ðŸ“¥ Installation
 
 > Run all commands from the `ai_service/` directory.
 
@@ -85,7 +90,7 @@ python -m venv venv
 # Windows (Command Prompt)
 .\venv\Scripts\activate
 
-# Windows (PowerShell) — if activation fails, first run:
+# Windows (PowerShell) â€” if activation fails, first run:
 # Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\venv\Scripts\Activate.ps1
 
@@ -101,7 +106,7 @@ pip install -r backend/requirements.txt
 
 ---
 
-## ⚙️ Configuration
+## âš™ï¸ Configuration
 
 ### Environment Variables
 
@@ -123,22 +128,22 @@ CLOUDINARY_API_KEY=your_cloudinary_api_key
 CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 ```
 
-> **Get a Gemini API key:** [Google AI Studio](https://aistudio.google.com/app/apikey) — free tier available.
+> **Get a Gemini API key:** [Google AI Studio](https://aistudio.google.com/app/apikey) â€” free tier available.
 >
-> **Get Cloudinary credentials:** [Cloudinary Console](https://cloudinary.com/console) — free tier available.
+> **Get Cloudinary credentials:** [Cloudinary Console](https://cloudinary.com/console) â€” free tier available.
 
 ### Input Videos (Celebrity Sources)
 
 Place source video files in `ai_service/backend/input/`:
 
 - File names must match the celebrity name (lowercase): e.g., `modi.mp4`, `elon.mp4`
-- **`modi.mp4` is required** — it is used as the default fallback if a requested celebrity video is not found.
+- **`modi.mp4` is required** â€” it is used as the default fallback if a requested celebrity video is not found.
 
 The video is looped silently and merged with the TTS audio.
 
 ---
 
-## 🏃 Running the Service
+## ðŸƒ Running the Service
 
 ```bash
 # Activate your virtual environment first (see above)
@@ -150,16 +155,18 @@ python graceful_server.py
 
 The service will be available at **http://localhost:8000**.
 
-> ⚠️ The Node.js backend must be configured with `AI_SERVICE_URL=http://127.0.0.1:8000` to communicate with this service.
+> âš ï¸ The Node.js backend must be configured with `AI_SERVICE_URL=http://127.0.0.1:8000` to communicate with this service.
 
 ---
 
-## 📡 API Reference
+## ðŸ“¡ API Reference
 
 ### `GET /`
-Basic status check.
+
+Health check.
 
 **Response:**
+
 ```json
 { "message": "AI Lesson Generator Backend Running" }
 ```
@@ -229,9 +236,11 @@ Readiness probe verifying runtime dependencies:
 ---
 
 ### `POST /generate`
+
 Generates an AI lesson video **asynchronously** (runs in background).
 
 **Request Body:**
+
 ```json
 {
   "course": "ReactJS",
@@ -241,6 +250,7 @@ Generates an AI lesson video **asynchronously** (runs in background).
 ```
 
 **Response (immediately):**
+
 ```json
 {
   "status": "Processing",
@@ -256,14 +266,17 @@ Use the `jobId` to poll `/status/:jobId` for completion.
 ---
 
 ### `GET /status/{job_id}`
+
 Polls the status of a generation job.
 
 **Response (while processing):**
+
 ```json
 { "status": "processing" }
 ```
 
 **Response (on completion):**
+
 ```json
 {
   "status": "ready",
@@ -272,6 +285,7 @@ Polls the status of a generation job.
 ```
 
 **Response (on failure):**
+
 ```json
 { "status": "failed" }
 ```
@@ -332,48 +346,48 @@ Generates a structured course syllabus using AI. This endpoint is **synchronous*
 
 ---
 
-| Mount Path | Directory Served | Description |
-|---|---|---|
-| `/video-stream/{filename}` | `outputs/video/` | Serves generated `.mp4` videos |
-| `/transcript-stream/{filename}` | `outputs/text/` | Serves raw transcript `.txt` files |
+| Mount Path                      | Directory Served | Description                        |
+| ------------------------------- | ---------------- | ---------------------------------- |
+| `/video-stream/{filename}`      | `outputs/video/` | Serves generated `.mp4` videos     |
+| `/transcript-stream/{filename}` | `outputs/text/`  | Serves raw transcript `.txt` files |
 
-## 🔄 Generation Pipeline
+## ðŸ”„ Generation Pipeline
 
 ```
 POST /generate
-     │
-     ├─ 1. Gemini API → generates 50-word lesson script
-     │
-     ├─ 2. pyttsx3 → converts script to .mp3 audio
-     │
-     ├─ 3. FFmpeg → loops celebrity .mp4 + merges .mp3 audio → final .mp4
-     │
-     └─ 4. Cloudinary → uploads final .mp4 → stores secure_url in job_status
+     â”‚
+     â”œâ”€ 1. Gemini API â†’ generates 50-word lesson script
+     â”‚
+     â”œâ”€ 2. pyttsx3 â†’ converts script to .mp3 audio
+     â”‚
+     â”œâ”€ 3. FFmpeg â†’ loops celebrity .mp4 + merges .mp3 audio â†’ final .mp4
+     â”‚
+     â””â”€ 4. Cloudinary â†’ uploads final .mp4 â†’ stores secure_url in job_status
 ```
 
 Jobs run in FastAPI **BackgroundTasks**, so `/generate` returns immediately while processing happens in the background.
 
 ---
 
-## 🧪 Testing with Swagger
+## ðŸ§ª Testing with Swagger
 
 FastAPI auto-generates interactive API documentation:
 
 1. Start the server (see above).
 2. Open **[http://localhost:8000/docs](http://localhost:8000/docs)** in your browser.
-3. Click **POST /generate → Try it out**, enter a request body, and click **Execute**.
+3. Click **POST /generate â†’ Try it out**, enter a request body, and click **Execute**.
 
 ---
 
-## 🛠 Troubleshooting
+## ðŸ›  Troubleshooting
 
-| Problem | Solution |
-|---|---|
-| `FFmpeg not found` | Install FFmpeg and ensure its `bin/` folder is in your system PATH. Restart your terminal after adding it. |
-| `GEMINI_API_KEY not found` | Ensure `backend/.env` exists with a valid `GEMINI_API_KEY`. |
-| `Cloudinary credentials missing` | All three Cloudinary vars (`CLOUD_NAME`, `API_KEY`, `API_SECRET`) must be set in `backend/.env`. |
-| PowerShell activation error | Run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` then try `.\venv\Scripts\Activate.ps1` again. |
-| Video status stays `processing` | Check the terminal for FFmpeg or TTS errors. Ensure the input celebrity video exists in `backend/input/`. |
+| Problem                          | Solution                                                                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `FFmpeg not found`               | Install FFmpeg and ensure its `bin/` folder is in your system PATH. Restart your terminal after adding it.               |
+| `GEMINI_API_KEY not found`       | Ensure `backend/.env` exists with a valid `GEMINI_API_KEY`.                                                              |
+| `Cloudinary credentials missing` | All three Cloudinary vars (`CLOUD_NAME`, `API_KEY`, `API_SECRET`) must be set in `backend/.env`.                         |
+| PowerShell activation error      | Run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` then try `.\venv\Scripts\Activate.ps1` again. |
+| Video status stays `processing`  | Check the terminal for FFmpeg or TTS errors. Ensure the input celebrity video exists in `backend/input/`.                |
 
 ## Configuration Modes
 
@@ -388,3 +402,18 @@ FastAPI auto-generates interactive API documentation:
 For development, only `GEMINI_API_KEY` is required to start the AI service. Groq and Cloudinary can be omitted when their features are not needed.
 
 For production, configure Groq and Cloudinary when their fallback and cloud-hosting features are required. Missing optional credentials do not prevent the service from starting; the corresponding integration is disabled.
+
+### Celebrity Video Security
+
+Only the following celebrity names are approved for video selection:
+
+- `modi`
+- `owl`
+- `salman`
+- `srk`
+
+Place the corresponding video files in `ai_service/backend/input/` using lowercase filenames, such as `modi.mp4` and `srk.mp4`.
+
+For security, unapproved names and path traversal attempts—including absolute paths and URL-encoded traversal strings—fall back to `modi.mp4`. Video selection resolves the file path and verifies that the selected file is inside the approved input directory. Logs display the selected celebrity name rather than the absolute video path.
+
+**Fallback requirement:** Keep `modi.mp4` in the input directory so it is available when a requested celebrity is invalid or its video is missing.

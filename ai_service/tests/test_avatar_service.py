@@ -84,6 +84,7 @@ def test_upload_audio_returns_the_did_url_without_network(monkeypatch, tmp_path)
     assert avatar_service.upload_audio(str(audio)) == "https://media.test/audio.mp3"
     assert captured["url"].endswith("/audios")
     assert captured["kwargs"]["timeout"] == 60
+    assert captured["kwargs"]["files"]["audio"][0] == "voice.mp3"
     assert "Content-Type" not in captured["kwargs"]["headers"]
 
 
@@ -132,3 +133,33 @@ def test_poll_returns_completed_video_and_rejects_missing_result(monkeypatch):
     )
     with pytest.raises(RuntimeError, match="returned no video URL"):
         asyncio.run(avatar_service._poll_for_video("talk-2"))
+
+
+@pytest.mark.parametrize(
+    "audio_path_input,expected_filename",
+    [
+        (r"D:\Ai_Mentor\ai_service\outputs\audio\lesson.mp3", "lesson.mp3"),
+        (r"C:\Users\test\lesson_final.mp3", "lesson_final.mp3"),
+        ("/var/data/ai_service/audio/lesson.mp3", "lesson.mp3"),
+        ("simple_lesson.mp3", "simple_lesson.mp3"),
+        (r"D:\mixed/path\to/lesson.mp3", "lesson.mp3"),
+    ],
+)
+def test_upload_audio_extracts_basename_from_windows_and_posix_paths(
+    monkeypatch, audio_path_input, expected_filename
+):
+    import io
+    monkeypatch.setattr(avatar_service, "DID_API_KEY", "user:pass")
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["files"] = kwargs.get("files")
+        return FakeResponse(201, {"url": "https://media.test/audio.mp3"})
+
+    monkeypatch.setattr(avatar_service.requests, "post", fake_post)
+    monkeypatch.setattr("builtins.open", lambda *args, **kwargs: io.BytesIO(b"dummy audio data"))
+
+    result = avatar_service.upload_audio(audio_path_input)
+    assert result == "https://media.test/audio.mp3"
+    uploaded_filename = captured["files"]["audio"][0]
+    assert uploaded_filename == expected_filename

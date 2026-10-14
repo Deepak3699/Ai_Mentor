@@ -32,7 +32,7 @@ const renderAdminRoute = (initialPath = "/admin") =>
         <Route path="/login" element={<LocationProbe />} />
         <Route path="/" element={<LocationProbe />} />
       </Routes>
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 
 describe("AdminRoute", () => {
@@ -93,9 +93,7 @@ describe("AdminRoute", () => {
 
     renderAdminRoute("/admin/courses");
 
-    await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith("http://localhost:5174/courses")
-    );
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("http://localhost:5174/courses"));
   });
 
   it("redirects superadmins to the supported admin application", async () => {
@@ -106,9 +104,7 @@ describe("AdminRoute", () => {
 
     renderAdminRoute("/admin/users");
 
-    await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith("http://localhost:5174/users")
-    );
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("http://localhost:5174/users"));
   });
 
   it("maps the learner admin root to the admin dashboard", () => {

@@ -36,9 +36,7 @@ export const updateReportStatus = async (req, res) => {
 
     if (status === "resolved" || status === "rejected") {
       const title =
-        status === "resolved"
-          ? "Your report has been resolved"
-          : "Your report was rejected";
+        status === "resolved" ? "Your report has been resolved" : "Your report was rejected";
 
       const baseMessage =
         status === "resolved"

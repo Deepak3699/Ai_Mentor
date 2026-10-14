@@ -36,7 +36,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-pr-review
-          eslint_flags: '.'
+          eslint_flags: "."
           workdir: backend
 
       - name: Run reviewdog for frontend
@@ -44,7 +44,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-pr-review
-          eslint_flags: '.'
+          eslint_flags: "."
           workdir: frontend
 
       - name: Run reviewdog for frontendAdmin
@@ -52,7 +52,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-pr-review
-          eslint_flags: '.'
+          eslint_flags: "."
           workdir: frontendAdmin
 
       - name: Run reviewdog for backendAdmin
@@ -60,5 +60,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-pr-review
-          eslint_flags: '.'
+          eslint_flags: "."
           workdir: backendAdmin
