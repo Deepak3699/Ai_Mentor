@@ -14,6 +14,9 @@ import {
 } from "../service/aiGeneration";
 import VideoPlayer from "../components/video/VideoPlayer";
 import AITranscript from "../components/video/AITranscript";
+import TranscriptToggle from "../components/video/TranscriptToggle";
+import { buildCuesFromText, hasTranscriptText } from "../service/transcript";
+import FlashcardStudy from "../components/learning/FlashcardStudy";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import toast from "react-hot-toast";
 
@@ -37,6 +40,8 @@ import {
   RefreshCw,
   AlertTriangle,
 } from "lucide-react";
+
+const TRANSCRIPT_PANEL_ID = "lesson-transcript-panel";
 
 export default function Learning() {
   const { t } = useTranslation();
@@ -73,7 +78,10 @@ export default function Learning() {
   const [generatedTextContent, setGeneratedTextContent] = useState("");
   const [aiGenerationError, setAiGenerationError] = useState(null);
   const [generationAttempt, setGenerationAttempt] = useState(0);
+  const [isFlashcardStudyOpen, setIsFlashcardStudyOpen] = useState(false);
+  const [isTranscriptOpen, setIsTranscriptOpen] = useState(true);
 
+  const transcriptToggleRef = useRef(null);
   const videoRef = useRef(null);
   const playerContainerRef = useRef(null);
   const transcriptContainerRef = useRef(null);
@@ -209,20 +217,9 @@ export default function Learning() {
     if (!video) return;
 
     const generateFromText = (d) => {
-      if (!generatedTextContent) return false;
-      const sentences = generatedTextContent
-        .split(/[.!?]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      if (!sentences.length) return false;
-      const timePerSentence = d / sentences.length;
-      setCaptions(
-        sentences.map((text, i) => ({
-          start: i * timePerSentence,
-          end: (i + 1) * timePerSentence,
-          text,
-        })),
-      );
+      const cues = buildCuesFromText(generatedTextContent, d);
+      if (!cues.length) return false;
+      setCaptions(cues);
       return true;
     };
 
@@ -523,6 +520,12 @@ export default function Learning() {
   const { modules, currentLesson } = learningData || {};
   const allLessons = (modules || []).flatMap((module) => module.lessons || []);
   const currentLessonIndex = allLessons.findIndex((lesson) => lesson.id === currentLesson?.id);
+  const currentCourseProgress = user?.purchasedCourses?.find(
+    (course) => Number(course.courseId) === Number(courseId),
+  )?.progress;
+  const isCurrentLessonCompleted = currentCourseProgress?.completedLessons?.some(
+    (completedLesson) => Number(completedLesson.lessonId) === Number(currentLesson?.id),
+  );
 
   // ─── Helper functions ───
   const saveLessonData = async (lessonId, data) => {
@@ -572,6 +575,7 @@ export default function Learning() {
 
   const handleLessonClick = (lesson) => {
     if (currentLesson?.id === lesson.id) return;
+    setIsFlashcardStudyOpen(false);
     setGeneratedTextContent(null);
     setAiVideoUrl(null);
     setLearningData((prev) => ({ ...prev, currentLesson: lesson }));
@@ -755,6 +759,8 @@ export default function Learning() {
     function handleKeyDown(event) {
       const tag = event.target.tagName.toLowerCase();
       if (tag === "input" || tag === "textarea" || tag === "select") return;
+      // The transcript has its own keyboard handling; don't also trigger player shortcuts there.
+      if (event.target.closest?.("[data-shortcuts-ignore]")) return;
       if (isCelebrityModalOpen) return;
 
       switch (event.key.toLowerCase()) {
@@ -833,6 +839,16 @@ export default function Learning() {
   if (!learningData) {
     return <LoadingSpinner label={t("learning.loading")} />;
   }
+
+  // The transcript is still loading while the video is generating, or while the saved script is
+  // waiting for the video's duration to place its sentences.
+  const isTranscriptLoading =
+    isAIVideoLoading || (hasTranscriptText(generatedTextContent) && captions.length === 0);
+
+  const closeTranscript = () => {
+    setIsTranscriptOpen(false);
+    transcriptToggleRef.current?.focus();
+  };
 
   return (
     <>
@@ -1101,7 +1117,9 @@ export default function Learning() {
 
       {/* Video and Transcript Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 min-h-[calc(100vh-180px)]">
-        <div className="lg:col-span-2 bg-canvas-alt p-6 overflow-y-auto">
+        <div
+          className={`${isTranscriptOpen ? "lg:col-span-2" : "lg:col-span-3"} bg-canvas-alt p-6 overflow-y-auto`}
+        >
           <div className="max-w-2xl mx-auto">
             <VideoPlayer
               currentLesson={currentLesson}
@@ -1127,6 +1145,15 @@ export default function Learning() {
               toggleFullscreen={toggleFullscreen}
               formatTime={formatTime}
             />
+
+            <div className="mt-3">
+              <TranscriptToggle
+                buttonRef={transcriptToggleRef}
+                isOpen={isTranscriptOpen}
+                onToggle={() => setIsTranscriptOpen((open) => !open)}
+                controlsId={TRANSCRIPT_PANEL_ID}
+              />
+            </div>
 
             {aiGenerationError && (
               <div
@@ -1178,7 +1205,7 @@ export default function Learning() {
             </div>
 
             {/* Navigation Buttons */}
-            <div className="flex justify-between items-center mb-6">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
               <button
                 onClick={handlePrevious}
                 disabled={currentLessonIndex <= 0}
@@ -1187,6 +1214,22 @@ export default function Learning() {
                 <ChevronLeft className="w-5 h-5" />
                 {t("learning.previous")}
               </button>
+              {isCurrentLessonCompleted && (
+                <button
+                  disabled={!generatedTextContent?.trim() || isAIVideoLoading}
+                  onClick={() => setIsFlashcardStudyOpen(true)}
+                  title={
+                    generatedTextContent?.trim()
+                      ? "Study this lesson's flashcards"
+                      : "Lesson transcript is not available"
+                  }
+                  className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-main transition-colors hover:bg-canvas-alt disabled:cursor-not-allowed disabled:opacity-50"
+                  type="button"
+                >
+                  <BookOpen className="h-4 w-4" />
+                  Study Flashcards
+                </button>
+              )}
               <button
                 onClick={handleNext}
                 disabled={currentLessonIndex >= allLessons.length - 1 || isNavigating}
@@ -1200,6 +1243,10 @@ export default function Learning() {
         </div>
 
         <AITranscript
+          id={TRANSCRIPT_PANEL_ID}
+          isOpen={isTranscriptOpen}
+          isLoading={isTranscriptLoading}
+          onClose={closeTranscript}
           captions={captions}
           currentTime={currentTime}
           activeCaptionRef={activeCaptionRef}
@@ -1208,6 +1255,14 @@ export default function Learning() {
           formatTime={formatTime}
         />
       </div>
+      <FlashcardStudy
+        open={isFlashcardStudyOpen}
+        onClose={() => setIsFlashcardStudyOpen(false)}
+        courseId={courseId}
+        lessonId={currentLesson?.id}
+        lessonTitle={currentLesson?.title}
+        transcript={generatedTextContent}
+      />
     </>
   );
 }

@@ -155,6 +155,18 @@ class QuizQuestion(BaseModel):
 class QuizResponse(BaseModel):
     questions: list[QuizQuestion]
 
+
+class FlashcardRequest(BaseModel):
+    transcript: str = Field(..., min_length=1, max_length=30000)
+    count: int = Field(5, ge=5, le=10)
+
+
+class Flashcard(BaseModel):
+    id: int = Field(..., ge=1)
+    front: str = Field(..., min_length=1, max_length=500)
+    back: str = Field(..., min_length=1, max_length=2000)
+    hint: str = Field(..., min_length=1, max_length=300)
+
 # --------------------------
 # Helpers
 # --------------------------
@@ -169,17 +181,33 @@ async def generate_tts(text: str, output_file: str, voice_id: str = "en-US-GuyNe
     )
     await communicate.save(output_file)
 
-def get_celebrity_video(celebrity_name: str):
-    input_video_dir = os.path.join(BASE_DIR, "backend", "input")
-    celebrity_video = os.path.join(input_video_dir, f"{celebrity_name.lower()}.mp4")
-    
-    if os.path.exists(celebrity_video):
-        print(f"🎬 Using celebrity video: {celebrity_video}")
-        return celebrity_video
-    else:
-        input_video = os.path.join(input_video_dir, "modi.mp4")
-        print(f"🎬 Using default video: {input_video}")
-        return input_video
+ALLOWED_CELEBRITIES = {"modi", "owl", "salman", "srk"}
+
+
+def get_celebrity_video(celebrity_name: str) -> str:
+    input_video_dir = os.path.realpath(
+        os.path.join(BASE_DIR, "backend", "input")
+    )
+
+    name = celebrity_name.strip().lower() if isinstance(celebrity_name, str) else ""
+    if name not in ALLOWED_CELEBRITIES:
+        name = "modi"
+
+    candidate = os.path.realpath(
+        os.path.join(input_video_dir, f"{name}.mp4")
+    )
+
+    if (
+        os.path.commonpath([input_video_dir, candidate]) == input_video_dir
+        and os.path.isfile(candidate)
+    ):
+        print(f"Using celebrity video: {name}")
+        return candidate
+
+    fallback = os.path.realpath(os.path.join(input_video_dir, "modi.mp4"))
+    print("Using default celebrity video: modi")
+    return fallback
+
 
 # --------------------------
 # Serve Files
@@ -430,6 +458,70 @@ def generate_quiz(data: QuizRequest):
                 return {"questions": []}
 
     return {"questions": []}
+
+
+@app.post("/generate-flashcards", response_model=list[Flashcard])
+def generate_flashcards(data: FlashcardRequest):
+    prompt = f"""
+    Create exactly {data.count} study flashcards from this lesson transcript.
+    Focus on distinct, important concepts and use concise question-and-answer pairs.
+    Do not introduce facts that are not supported by the transcript.
+
+    Transcript:
+    {data.transcript}
+
+    Respond with ONLY a valid JSON array, without markdown or code fences:
+    [
+      {{"id": 1, "front": "Question", "back": "Answer", "hint": "Short recall hint"}}
+    ]
+
+    Each card must have a unique question and a useful hint. Generate exactly
+    {data.count} cards, with IDs numbered from 1 through {data.count}.
+    """
+
+    for attempt in range(2):
+        try:
+            try:
+                response = gemini_client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=prompt,
+                )
+                text = response.text.strip()
+            except Exception as gemini_error:
+                logger.warning("Gemini flashcard generation failed: %s", gemini_error)
+                if not groq_client:
+                    raise
+                groq_response = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.4,
+                    max_tokens=3000,
+                )
+                text = groq_response.choices[0].message.content.strip()
+
+            if text.startswith("```"):
+                text = text.split("\n", 1)[-1]
+                if text.endswith("```"):
+                    text = text[:-3]
+
+            flashcard_data = json.loads(text.strip())
+            if not isinstance(flashcard_data, list) or len(flashcard_data) != data.count:
+                raise ValueError(f"Expected exactly {data.count} flashcards.")
+
+            cards = [Flashcard.model_validate(card) for card in flashcard_data]
+            if len({card.front.strip().casefold() for card in cards}) != data.count:
+                raise ValueError("Flashcard questions must be unique.")
+
+            return [
+                Flashcard.model_validate({**card.model_dump(), "id": index})
+                for index, card in enumerate(cards, start=1)
+            ]
+        except Exception as error:
+            logger.warning(
+                "Flashcard generation attempt %s failed: %s", attempt + 1, error
+            )
+
+    raise HTTPException(status_code=503, detail="Failed to generate flashcards")
 
 # --------------------------
 # Generate Lesson Endpoint

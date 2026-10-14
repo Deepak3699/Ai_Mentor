@@ -6,6 +6,7 @@ import {
   ChevronRight,
   LogOut,
   Settings,
+  Rocket,
   LayoutDashboard,
   BookOpen,
   MessageSquare,
@@ -334,6 +335,29 @@ const Sidebar = ({ activePage = "dashboard" }) => {
 
         {/* ================= BOTTOM SECTION ================= */}
         <div className="px-3 pb-5">
+          {/* ================= UPGRADE TO PRO CARD ================= */}
+          {!sidebarCollapsed && (
+            <div className="mb-3 rounded-2xl border border-purple-500/30 bg-gradient-to-br from-[#17152d] to-[#252044] p-4 shadow-lg">
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/20">
+                <Rocket className="h-5 w-5 text-purple-400" />
+              </div>
+
+              <h3 className="mb-2 text-sm font-bold text-white">Upgrade to Pro</h3>
+
+              <p className="mb-4 text-xs leading-relaxed text-slate-300">
+                Get unlimited access to AI lessons, premium courses and more!
+              </p>
+
+              <button
+                type="button"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-3 py-2.5 text-xs font-semibold text-white transition-all duration-200 hover:bg-purple-500 active:scale-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-400"
+              >
+                Go Premium
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
           {/* ================= USER PROFILE ================= */}
           <div className="relative mt-3 pt-3 border-t border-border/70" ref={profileRef}>
             {profilePopupOpen && (
