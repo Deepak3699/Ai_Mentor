@@ -150,7 +150,7 @@ const Header = () => {
 
   return (
     <>
-      <header className={`bg-card/80 backdrop-blur-xl border-b border-border/50 px-3 sm:px-6 py-3 sm:py-4 fixed top-0 right-0 z-[100] transition-all duration-300 ease-out ${sidebarCollapsed ? 'left-0 lg:left-[72px]' : 'left-0 lg:left-[245px]'}`}>
+      <header className={`bg-card/80 backdrop-blur-xl border-b border-border/50 px-3 sm:px-6 py-3 sm:py-4 fixed top-0 right-0 z-100 transition-all duration-300 ease-out ${sidebarCollapsed ? 'left-0 lg:left-61.25' : 'left-0 lg:left-61.25'}`}>
         <div className="flex items-center justify-between max-w-[1600px] mx-auto">
           {/* Mobile Menu & Search */}
           <div className="flex items-center space-x-2 sm:space-x-4 flex-1">
@@ -168,7 +168,7 @@ const Header = () => {
             {/* Search Bar */}
             <div className="relative w-full max-w-md hidden md:block ml-4 transition-all duration-300">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                <Search className="h-[18px] w-[18px] text-muted-foreground opacity-70" />
+                <Search className="h-4.5 w-4.5 text-muted-foreground opacity-70" />
               </div>
               <input
                 type="text"
@@ -188,15 +188,15 @@ const Header = () => {
                 >
                   <Bell className="w-5 h-5 group-hover:rotate-12 transition-transform" />
                   {unreadCount > 0 && (
-                    <span className="absolute top-0 right-0 translate-x-1/4 -translate-y-1/4 min-w-[18px] h-[18px] px-1 bg-red-500 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-black text-white animate-in zoom-in duration-300">
+                    <span className="absolute top-0 right-0 translate-x-1/4 -translate-y-1/4 min-w-4.5 h-4.5 px-1 bg-red-500 rounded-full border-2 border-card flex items-center justify-center text-[10px] font-black text-white animate-in zoom-in duration-300">
                       {unreadCount}
                     </span>
                   )}
                 </button>
 
                 {notifOpen && (
-                  <div className="fixed md:absolute left-4 right-4 top-16 md:left-auto md:right-0 md:top-auto md:mt-4 md:w-96 bg-card border border-border/50 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] z-[110] overflow-hidden animate-in fade-in zoom-in slide-in-from-top-4 duration-300">
-                    <div className="p-6 bg-gradient-to-br from-teal-500/10 via-blue-500/5 to-transparent border-b border-border/50 flex items-center justify-between">
+                  <div className="fixed md:absolute left-4 right-4 top-16 md:left-auto md:right-0 md:top-auto md:mt-4 md:w-96 bg-card border border-border/50 rounded-4xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] z-110 overflow-hidden animate-in fade-in zoom-in slide-in-from-top-4 duration-300">
+                    <div className="p-6 bg-linear-to-br from-teal-500/10 via-blue-500/5 to-transparent border-b border-border/50 flex items-center justify-between">
                       <div>
                         <h4 className="text-sm font-black text-main uppercase">
                           Notifications
@@ -232,7 +232,7 @@ const Header = () => {
                       </div>
                     </div>
 
-                    <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
+                    <div className="max-h-87.5 overflow-y-auto custom-scrollbar">
                       {loading ? (
                         <div className="p-12 text-center">
                           <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -327,8 +327,8 @@ const Header = () => {
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-4 w-[90vw] sm:w-72 bg-card/95 backdrop-blur-2xl border border-border/50 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] z-[110] overflow-hidden animate-in fade-in zoom-in slide-in-from-top-4 duration-300">
-                    <div className="p-6 bg-gradient-to-br from-teal-500/10 via-blue-500/5 to-transparent border-b border-border/50">
+                  <div className="absolute right-0 mt-4 w-[90vw] sm:w-72 bg-card/95 backdrop-blur-2xl border border-border/50 rounded-4xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] z-110 overflow-hidden animate-in fade-in zoom-in slide-in-from-top-4 duration-300">
+                    <div className="p-6 bg-linear-to-br from-teal-500/10 via-blue-500/5 to-transparent border-b border-border/50">
                       <div className="flex items-center space-x-4 mb-4">
                         <img
                           src={
@@ -406,8 +406,8 @@ const Header = () => {
         </div>
       </header>
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-card border border-border/50 rounded-[2rem] shadow-2xl p-6 sm:p-8 w-[90%] max-w-sm text-center">
+        <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-card border border-border/50 rounded-4xl shadow-2xl p-6 sm:p-8 w-[90%] max-w-sm text-center">
             <LogOut className="w-10 h-10 text-red-500 mx-auto mb-4" />
             <h3 className="text-sm font-black uppercase tracking-tight text-main mb-2">
               Logout

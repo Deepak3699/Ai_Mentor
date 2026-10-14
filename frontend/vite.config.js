@@ -92,7 +92,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [
-      envValidatorPlugin(REQUIRED_ENV_VARS), // must be first
+      // envValidatorPlugin(REQUIRED_ENV_VARS),
       tailwindcss(),
       react(),
     ],

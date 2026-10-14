@@ -55,7 +55,7 @@ function BreakdownBar({ star, count, total }) {
       <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
       <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
         <div
-          className="h-1.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all duration-700"
+          className="h-1.5 rounded-full bg-linear-to-r from-amber-400 to-orange-400 transition-all duration-700"
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -95,7 +95,7 @@ function ReviewCard({ review, isOwn, onEdit, onDelete }) {
         {review.userAvatar ? (
           <img src={review.userAvatar} alt={review.userName} className="w-9 h-9 rounded-full object-cover shrink-0 border-2 border-white dark:border-slate-700 shadow-sm" onError={e => { e.currentTarget.style.display = "none"; }} />
         ) : (
-          <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${colors[colorIdx]} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm`}>
+          <div className={`w-9 h-9 rounded-full bg-linear-to-br ${colors[colorIdx]} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm`}>
             {initial}
           </div>
         )}
@@ -247,7 +247,7 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
     return (
       <div className="mt-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden bg-white dark:bg-slate-900 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
         {/* ── Header ── */}
-        <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-5">
+        <div className="relative bg-linear-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-5">
           <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
           <div className="relative flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
@@ -273,7 +273,7 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
               Enrol in this course to leave a review.
             </div>
           ) : (
-            <div className="relative rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 border border-amber-200 dark:border-amber-800/50 p-5">
+            <div className="relative rounded-2xl bg-linear-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 border border-amber-200 dark:border-amber-800/50 p-5">
               <h3 className="font-semibold text-slate-800 dark:text-slate-100 mb-4 text-sm">
                 {myFeedback ? "Update your review" : "Share your experience"}
               </h3>
@@ -305,7 +305,7 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
                   <button
                     type="submit"
                     disabled={submitting || !draftRating}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-sm font-bold shadow-md hover:shadow-amber-200 dark:hover:shadow-amber-900/40 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-all"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-sm font-bold shadow-md hover:shadow-amber-200 dark:hover:shadow-amber-900/40 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-all"
                   >
                     <Send className="w-3.5 h-3.5" />
                     {submitting ? "Saving…" : myFeedback ? "Update" : "Submit"}
@@ -332,7 +332,7 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
     <div className="mt-8 rounded-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
 
       {/* ── Header ── */}
-      <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-5">
+      <div className="relative bg-linear-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-5">
         {/* decorative dots */}
         <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
         <div className="relative flex items-center justify-between gap-4 flex-wrap">
@@ -390,7 +390,7 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
 
           {/* ── Review form ── */}
           {showForm && isEnrolled && (
-            <div className="relative rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 border border-amber-200 dark:border-amber-800/50 p-5">
+            <div className="relative rounded-2xl bg-linear-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 border border-amber-200 dark:border-amber-800/50 p-5">
               <button
                 onClick={() => setShowForm(false)}
                 className="absolute top-3.5 right-3.5 p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-black/5 transition-colors"
@@ -430,7 +430,7 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
                   <button
                     type="submit"
                     disabled={submitting || !draftRating}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-sm font-bold shadow-md hover:shadow-amber-200 dark:hover:shadow-amber-900/40 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-all"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-sm font-bold shadow-md hover:shadow-amber-200 dark:hover:shadow-amber-900/40 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-all"
                   >
                     <Send className="w-3.5 h-3.5" />
                     {submitting ? "Saving…" : myFeedback ? "Update" : "Submit"}

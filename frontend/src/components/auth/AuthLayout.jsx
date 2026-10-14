@@ -14,7 +14,7 @@ const AuthLayout = ({ children, title, subtitle }) => {
 
           {/* Heading */}
           <h1 className="font-bold mt-6 text-4xl leading-tight text-gray-900 dark:text-white">
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4facfe] to-[#7846aa] font-bold">
+            <span className="text-transparent bg-clip-text bg-linear-to-r from-[#4facfe] to-[#7846aa] font-bold">
               AI Learning
             </span>
             <br /> Platform
@@ -31,14 +31,14 @@ const AuthLayout = ({ children, title, subtitle }) => {
             <img
               src={hero}
               alt="AI Learning Illustration"
-              className="max-w-[360px] w-full h-auto object-contain"
+              className="max-w-90 w-full h-auto object-contain"
             />
           </div>
         </div>
 
         {/* RIGHT SECTION */}
-        <div className="mt-[24px] mb-[24px] w-full lg:w-1/2 flex justify-center items-center p-4 lg:p-0 bg-white dark:bg-[#0f172a]">
-          <div className="bg-white dark:bg-[#0f172a] shadow-[0_10px_30px_rgba(0,0,0,0.19)] dark:shadow-[0_10px_30px_rgba(255,255,255,0.19)] border-0 py-7 px-6 rounded-2xl relative w-full max-w-[370px] dark:border dark:border-gray-800">
+        <div className="mt-6 mb-6 w-full lg:w-1/2 flex justify-center items-center p-4 lg:p-0 bg-white dark:bg-[#0f172a]">
+          <div className="bg-white dark:bg-[#0f172a] shadow-[0_10px_30px_rgba(0,0,0,0.19)] dark:shadow-[0_10px_30px_rgba(255,255,255,0.19)] border-0 py-7 px-6 rounded-2xl relative w-full max-w-92.5 dark:border dark:border-gray-800">
             {/* 🔥 UNIVERSAL THEME TOGGLE (TOP-RIGHT) */}
             <div className="absolute top-3 right-3">
               <ThemeToggle />

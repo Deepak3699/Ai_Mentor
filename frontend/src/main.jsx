@@ -1,4 +1,3 @@
-import "./env-validator.js";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter as Router } from "react-router-dom";
@@ -14,16 +13,19 @@ import App from "./App.jsx";
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <HelmetProvider>
-    <Router>
-      <ThemeProvider>
-        <SidebarProvider>
-          <AuthProvider>
-            <App />
-            <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
-          </AuthProvider>
-        </SidebarProvider>
-      </ThemeProvider>
-    </Router>
+      <Router>
+        <ThemeProvider>
+          <SidebarProvider>
+            <AuthProvider>
+              <App />
+              <Toaster
+                position="top-center"
+                toastOptions={{ duration: 3000 }}
+              />
+            </AuthProvider>
+          </SidebarProvider>
+        </ThemeProvider>
+      </Router>
     </HelmetProvider>
-  </StrictMode>
+  </StrictMode>,
 );

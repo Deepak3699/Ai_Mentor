@@ -2,6 +2,8 @@ import { apiFetch as fetch } from "../lib/api";
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import robotImage from "../assets/images/rrr.png";
+import { Bot } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   Play,
@@ -874,6 +876,64 @@ const Dashboard = () => {
             }
           )}
         </div>
+
+
+       {/* ai   */ }
+           
+            <div className="mt-8 flex justify-end">
+              <div
+                className="
+                  w-full
+                  max-w-[440px]
+                  bg-white
+                  rounded-[16px]
+                  border
+                  border-[#dce5f1]
+                  px-[14px]
+                  py-[13px]
+                  shadow-[0_2px_10px_rgba(34,80,130,0.08)]
+                "
+              >
+                {/* Header */}
+                  <div className="flex flex-row ">
+                    <div className="mt-3">
+                      <div className="flex items-center justify-between mb-[8px]">
+                        <div className="flex items-center gap-[7px]">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-blue-600 text-[11px] font-bold text-white">
+                            AI
+                          </div>
+                          <h2 className="text-base font-bold text-[#1f2d43]">
+                            Meet Your AI Mentor
+                          </h2>
+                        </div>
+                      </div>
+              
+                <div className="w-68 mt-4">
+                  <p className="text-sm leading-6 text-[#1f2d43]">Ask questions, generate lessons, get personalized guidance and learn smater with Ai</p>
+                </div>
+                </div>
+                <img className="mx-auto h-auto w-36 shrink-0 object-contain sm:mx-0" src={robotImage} alt="AI Mentor Robot" />
+                </div>
+                   <div className="flex flex-col gap-3 sm:flex-row">
+                  <button onClick={() => {}}
+                       className="min-h-10 flex-1 rounded-xl bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 ">Ask AI Mentor</button>
+                  <button onClick={() => {}}
+                        className="min-h-10 flex-1 rounded-xl border-2 border-blue-600 px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50">Generate AI lesson</button>
+                </div>
+
+               
+                
+                
+              </div>
+            </div>
+          
+
+          
+        
+        
+
+
+
 
         {/* =================================================
             POPULAR COURSES
