@@ -1,4 +1,3 @@
-
 import express from "express";
 import crypto from "crypto";
 import rateLimit from "express-rate-limit";
@@ -32,8 +31,7 @@ const paymentLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   message: {
-    error:
-      "Too many payment attempts from this IP. Please try again after 15 minutes.",
+    error: "Too many payment attempts from this IP. Please try again after 15 minutes.",
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -42,147 +40,112 @@ const paymentLimiter = rateLimit({
 
 // CREATE ORDER
 
-router.post(
-  "/create-order",
-  protect,
-  paymentLimiter,
-  async (req, res) => {
-    try {
-      const { course, idempotencyKey } = req.body;
+router.post("/create-order", protect, paymentLimiter, async (req, res) => {
+  try {
+    const { course, idempotencyKey } = req.body;
 
-      if (
-        !course ||
-        !course.id ||
-        course.priceValue == null ||
-        course.priceValue === "" ||
-        !Number.isFinite(Number(course.priceValue)) ||
-        Number(course.priceValue) <= 0
-      ) {
-        return res.status(400).json({
-          error: "Invalid course data",
-        });
-      }
-
-      if (!idempotencyKey) {
-        return res.status(400).json({
-          error: "idempotencyKey is required",
-        });
-      }
-
-      const userId = req.user.id;
-
-      log.info(
-        { idempotencyKey },
-        "Idempotency key received"
-      );
-
-      // Look up an existing key for this authenticated user.
-      const existing = await Payment.findOne({
-        where: { idempotencyKey, userId },
-      });
-
-      if (
-        existing?.cachedResponse &&
-        Object.keys(existing.cachedResponse).length > 0
-      ) {
-        log.info(
-          { idempotencyKey },
-          "Returning cached Razorpay response"
-        );
-
-        return res.status(200).json(existing.cachedResponse);
-      }
-
-      const amount = Math.round(Number(course.priceValue) * 100);
-
-      const options = {
-        amount,
-        currency: "INR",
-        receipt: `receipt_order_${course.id}_${Date.now()}`,
-      };
-
-      log.info(
-        { courseTitle: course.title, userId },
-        "Initiating Razorpay payment"
-      );
-
-      // Persist the payment before contacting Razorpay.
-      const payment = await Payment.create({
-        userId,
-        courseId: course.id,
-        courseTitle: course.title || "Course",
-        amount,
-        currency: "INR",
-        status: "initiated",
-        gateway: "razorpay",
-        idempotencyKey,
-        cacheExpiresAt: new Date(
-          Date.now() + 24 * 60 * 60 * 1000
-        ),
-      });
-
-      let order;
-
-      try {
-        order =
-          await paymentGatewayServices.createRazorpayOrder(options);
-      } catch (razorpayErr) {
-        await payment.update({ status: "failed" });
-
-        log.error(
-          { err: razorpayErr },
-          "Razorpay order creation failed"
-        );
-
-        throw razorpayErr;
-      }
-
-      const cachedResponse = {
-        orderId: order.id,
-        amount: order.amount,
-        currency: order.currency,
-        paymentId: payment.id,
-      };
-
-      await payment.update({
-        status: "processing",
-        razorpayOrderId: order.id,
-        cachedResponse,
-      });
-
-      log.info(
-        { razorpayOrderId: order.id },
-        "Razorpay order created successfully"
-      );
-
-      return res.status(200).json(cachedResponse);
-    } catch (error) {
-      log.error(
-        { err: error },
-        "Razorpay order creation error"
-      );
-
-      return res.status(500).json({
-        error: "Razorpay order creation failed",
+    if (
+      !course ||
+      !course.id ||
+      course.priceValue == null ||
+      course.priceValue === "" ||
+      !Number.isFinite(Number(course.priceValue)) ||
+      Number(course.priceValue) <= 0
+    ) {
+      return res.status(400).json({
+        error: "Invalid course data",
       });
     }
+
+    if (!idempotencyKey) {
+      return res.status(400).json({
+        error: "idempotencyKey is required",
+      });
+    }
+
+    const userId = req.user.id;
+
+    log.info({ idempotencyKey }, "Idempotency key received");
+
+    // Look up an existing key for this authenticated user.
+    const existing = await Payment.findOne({
+      where: { idempotencyKey, userId },
+    });
+
+    if (existing?.cachedResponse && Object.keys(existing.cachedResponse).length > 0) {
+      log.info({ idempotencyKey }, "Returning cached Razorpay response");
+
+      return res.status(200).json(existing.cachedResponse);
+    }
+
+    const amount = Math.round(Number(course.priceValue) * 100);
+
+    const options = {
+      amount,
+      currency: "INR",
+      receipt: `receipt_order_${course.id}_${Date.now()}`,
+    };
+
+    log.info({ courseTitle: course.title, userId }, "Initiating Razorpay payment");
+
+    // Persist the payment before contacting Razorpay.
+    const payment = await Payment.create({
+      userId,
+      courseId: course.id,
+      courseTitle: course.title || "Course",
+      amount,
+      currency: "INR",
+      status: "initiated",
+      gateway: "razorpay",
+      idempotencyKey,
+      cacheExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+
+    let order;
+
+    try {
+      order = await paymentGatewayServices.createRazorpayOrder(options);
+    } catch (razorpayErr) {
+      await payment.update({ status: "failed" });
+
+      log.error({ err: razorpayErr }, "Razorpay order creation failed");
+
+      throw razorpayErr;
+    }
+
+    const cachedResponse = {
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      paymentId: payment.id,
+    };
+
+    await payment.update({
+      status: "processing",
+      razorpayOrderId: order.id,
+      cachedResponse,
+    });
+
+    log.info({ razorpayOrderId: order.id }, "Razorpay order created successfully");
+
+    return res.status(200).json(cachedResponse);
+  } catch (error) {
+    log.error({ err: error }, "Razorpay order creation error");
+
+    return res.status(500).json({
+      error: "Razorpay order creation failed",
+    });
   }
-);
+});
 
 // VERIFY PAYMENT AND ENROLL USER
 
 router.post("/verify", protect, async (req, res) => {
-  const orderIdForLog =
-    req.body?.razorpay_order_id || "unknown";
+  const orderIdForLog = req.body?.razorpay_order_id || "unknown";
 
   try {
-    const {
-      razorpay_order_id,
-      razorpay_payment_id,
-      razorpay_signature,
-      courseId,
-      courseTitle,
-    } = req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, courseId, courseTitle } =
+      req.body;
 
     // Always take the user ID from the authenticated token.
     const userId = req.user.id;
@@ -212,8 +175,7 @@ router.post("/verify", protect, async (req, res) => {
     }
 
     // Verify the Razorpay signature.
-    const sign =
-      `${razorpay_order_id}|${razorpay_payment_id}`;
+    const sign = `${razorpay_order_id}|${razorpay_payment_id}`;
 
     const expectedSign = crypto
       .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
@@ -224,10 +186,7 @@ router.post("/verify", protect, async (req, res) => {
     const received = Buffer.from(razorpay_signature, "utf8");
     const expected = Buffer.from(expectedSign, "utf8");
 
-    if (
-      received.length !== expected.length ||
-      !crypto.timingSafeEqual(received, expected)
-    ) {
+    if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
       return res.status(400).json({
         success: false,
         error: "Invalid signature",
@@ -262,10 +221,7 @@ router.post("/verify", protect, async (req, res) => {
       }
 
       // Ensure the client has not substituted another course.
-      if (
-        payment.courseId != null &&
-        Number(courseId) !== Number(payment.courseId)
-      ) {
+      if (payment.courseId != null && Number(courseId) !== Number(payment.courseId)) {
         await transaction.rollback();
 
         return res.status(400).json({
@@ -286,8 +242,7 @@ router.post("/verify", protect, async (req, res) => {
 
       // Use the database record as the source of truth.
       enrolledCourseId = Number(payment.courseId ?? courseId);
-      enrolledCourseTitle =
-        payment.courseTitle ?? courseTitle ?? "Course";
+      enrolledCourseTitle = payment.courseTitle ?? courseTitle ?? "Course";
 
       // Confirm the user exists before updating payment status.
       user = await User.findByPk(userId, { transaction });
@@ -307,22 +262,14 @@ router.post("/verify", protect, async (req, res) => {
           status: "success",
           razorpayPaymentId: razorpay_payment_id,
         },
-        { transaction }
+        { transaction },
       );
 
-      log.info(
-        { razorpay_order_id, razorpay_payment_id },
-        "Razorpay payment verified"
-      );
+      log.info({ razorpay_order_id, razorpay_payment_id }, "Razorpay payment verified");
 
-      const purchased = Array.isArray(user.purchasedCourses)
-        ? [...user.purchasedCourses]
-        : [];
+      const purchased = Array.isArray(user.purchasedCourses) ? [...user.purchasedCourses] : [];
 
-      const alreadyPurchased = purchased.some(
-        (item) =>
-          Number(item.courseId) === enrolledCourseId
-      );
+      const alreadyPurchased = purchased.some((item) => Number(item.courseId) === enrolledCourseId);
 
       if (!alreadyPurchased) {
         purchased.push({
@@ -358,19 +305,14 @@ router.post("/verify", protect, async (req, res) => {
       try {
         await createNotification(user.id, {
           title: "Course Enrolled",
-          message: `You successfully enrolled in ${
-            enrolledCourseTitle || "a course"
-          }`,
+          message: `You successfully enrolled in ${enrolledCourseTitle || "a course"}`,
           type: "course",
           metadata: {
             courseId: enrolledCourseId,
           },
         });
       } catch (err) {
-        log.error(
-          { err },
-          "Failed to create enrollment notification"
-        );
+        log.error({ err }, "Failed to create enrollment notification");
       }
     }
 
@@ -384,7 +326,7 @@ router.post("/verify", protect, async (req, res) => {
         razorpayOrderId: orderIdForLog,
         err: error,
       },
-      "Razorpay verification error"
+      "Razorpay verification error",
     );
 
     return res.status(500).json({

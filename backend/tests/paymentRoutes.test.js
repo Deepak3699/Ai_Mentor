@@ -620,8 +620,12 @@ const setupVerify = (payment) => {
   sequelize.transaction = async () => {
     state.transaction = {
       finished: undefined,
-      async commit() { this.finished = "commit"; },
-      async rollback() { this.finished = "rollback"; },
+      async commit() {
+        this.finished = "commit";
+      },
+      async rollback() {
+        this.finished = "rollback";
+      },
     };
     return state.transaction;
   };
@@ -684,7 +688,10 @@ test("Razorpay verify rejects a course that differs from the paid course", async
   const state = setupVerify(payment);
   const res = await verifyRequest({ courseId: 8 });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { success: false, error: "Course does not match the paid order" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: "Course does not match the paid order",
+  });
   assert.equal(state.transaction.finished, "rollback");
   assert.deepEqual(payment.updates, []);
   assert.equal(state.user.purchasedCourses.length, 0);
