@@ -844,7 +844,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
     
             print("🎵 Starting TTS generation...")
     
-                log_event("OK", "Lesson script generated", provider="groq", words=len(script.split()))
+            log_event("OK", "Lesson script generated", provider="groq", words=len(script.split()))
 
             except Exception as groq_error:
 
