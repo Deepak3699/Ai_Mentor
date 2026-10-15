@@ -771,7 +771,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             model_used = GEMINI_MODEL
             log_event("OK", "Lesson script generated", provider="gemini", words=len(script.split()))
 
-            except Exception as gemini_error:
+         except Exception as gemini_error:
                 print(f"❌ Gemini failed: {gemini_error}")
 
                 print("⚡ Switching to Groq fallback...")
