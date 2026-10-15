@@ -1,16 +1,9 @@
 import { ArrowRight, GraduationCap, Play } from "lucide-react";
 import { Link } from "react-router-dom";
 
-const ContinueLearningCard = ({
-  course,
-  onContinue,
-  onExplore,
-  artworkFor,
-  buttonClass,
-}) => {
+const ContinueLearningCard = ({ course, onContinue, onExplore, artworkFor, buttonClass }) => {
   const progress = Math.min(100, Math.max(0, Number(course?.progress) || 0));
-  const isCompleted =
-    course?.total > 0 && course.completed >= course.total;
+  const isCompleted = course?.total > 0 && course.completed >= course.total;
   const isInProgress = course?.completed > 0 && !isCompleted;
 
   return (
@@ -23,10 +16,7 @@ const ContinueLearningCard = ({
           Continue Learning
         </h2>
 
-        <Link
-          to="/courses"
-          className="shrink-0 text-sm font-bold text-[#3867D6] hover:underline"
-        >
+        <Link to="/courses" className="shrink-0 text-sm font-bold text-[#3867D6] hover:underline">
           View All →
         </Link>
       </div>
@@ -42,27 +32,16 @@ const ContinueLearningCard = ({
 
             <span
               className={`absolute left-2 top-2 rounded-full px-2 py-1 text-[10px] font-bold text-white ${
-                isCompleted
-                  ? "bg-blue-600"
-                  : isInProgress
-                    ? "bg-emerald-500"
-                    : "bg-slate-600"
+                isCompleted ? "bg-blue-600" : isInProgress ? "bg-emerald-500" : "bg-slate-600"
               }`}
             >
-              {isCompleted
-                ? "Completed"
-                : isInProgress
-                  ? "In Progress"
-                  : "Not Started"}
+              {isCompleted ? "Completed" : isInProgress ? "In Progress" : "Not Started"}
             </span>
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h3
-                title={course.title}
-                className="min-w-0 truncate font-extrabold text-main"
-              >
+              <h3 title={course.title} className="min-w-0 truncate font-extrabold text-main">
                 {course.title}
               </h3>
 
@@ -71,10 +50,7 @@ const ContinueLearningCard = ({
               </span>
             </div>
 
-            <p
-              title={course.currentLessonTitle || ""}
-              className="mt-1 truncate text-sm text-muted"
-            >
+            <p title={course.currentLessonTitle || ""} className="mt-1 truncate text-sm text-muted">
               {course.currentLessonTitle ||
                 (course.completed > 0
                   ? `${course.completed} of ${course.total || "?"} lessons completed`
@@ -96,9 +72,7 @@ const ContinueLearningCard = ({
                 />
               </div>
 
-              <span className="shrink-0 text-xs font-semibold text-muted">
-                {progress}%
-              </span>
+              <span className="shrink-0 text-xs font-semibold text-muted">{progress}%</span>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-muted">
@@ -124,17 +98,11 @@ const ContinueLearningCard = ({
       ) : (
         <div className="rounded-2xl border border-dashed border-border px-6 py-10 text-center">
           <GraduationCap className="mx-auto h-8 w-8 text-[#3867D6]" />
-          <h3 className="mt-3 font-extrabold text-main">
-            Choose the next skill to learn
-          </h3>
+          <h3 className="mt-3 font-extrabold text-main">Choose the next skill to learn</h3>
           <p className="mt-1 text-sm text-muted">
             Explore the course catalog to begin a learning path.
           </p>
-          <button
-            type="button"
-            onClick={onExplore}
-            className={`${buttonClass} mt-5`}
-          >
+          <button type="button" onClick={onExplore} className={`${buttonClass} mt-5`}>
             Explore courses
           </button>
         </div>
