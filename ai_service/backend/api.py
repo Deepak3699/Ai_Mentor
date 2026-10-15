@@ -814,7 +814,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
     
             return
     
-                    return
+            return
     
             print(f"📝 Generated text: {script}")
     
