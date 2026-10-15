@@ -148,6 +148,25 @@ expect_exit "smoke: broken endpoint" 1 "$RC"
 run_smoke "http://backend.test/api/notifications=200"
 expect_exit "smoke: unprotected endpoint fails" 1 "$RC"
 
+run_smoke "http://ai.test/transcript/does-not-exist.txt=500"
+expect_exit "smoke: transcript HTTP 500 fails" 1 "$RC"
+expect_has  "smoke: transcript HTTP 500 is reported" "$OUT" "returned a server error (500)"
+
+run_smoke "http://ai.test/transcript/does-not-exist.txt=503"
+expect_exit "smoke: transcript HTTP 503 fails" 1 "$RC"
+
+run_smoke "http://ai.test/transcript/does-not-exist.txt=000"
+expect_exit "smoke: transcript unreachable warns" 2 "$RC"
+
+run_smoke "http://ai.test/transcript/does-not-exist.txt=418"
+expect_exit "smoke: transcript unexpected 4xx warns" 2 "$RC"
+
+run_smoke "http://ai.test/transcript/..%2F..%2F.env=500"
+expect_exit "smoke: path traversal HTTP 500 fails" 1 "$RC"
+
+run_smoke "http://ai.test/transcript/..%2F..%2F.env=200"
+expect_exit "smoke: path traversal HTTP 200 fails" 1 "$RC"
+
 run_smoke "http://ai.test/docs=500"
 expect_exit "smoke: warnings only" 2 "$RC"
 expect_has  "smoke: warnings are not called green" "$OUT" "USABLE, with warnings"

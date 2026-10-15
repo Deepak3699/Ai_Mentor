@@ -210,18 +210,26 @@ fi
 
 # Transcript endpoint — must not serve files it should not
 code=$(status "$AISERVICE/transcript/does-not-exist.txt")
-if [ "$code" = "400" ] || [ "$code" = "401" ] || [ "$code" = "403" ]; then
-  ok "Transcript endpoint rejects bad input ($code)"
+if [ "$code" = "400" ] || [ "$code" = "401" ] || [ "$code" = "403" ] || [ "$code" = "404" ]; then
+  ok "Transcript endpoint rejects a missing file ($code)"
 elif [ "$code" = "200" ]; then
   warn "Transcript endpoint returned 200 for a non-existent file" "Check the transcript route validates the filename"
+elif [ "$code" = "000" ]; then
+  warn "Transcript endpoint did not respond" "$AISERVICE/transcript/does-not-exist.txt"
+elif [[ "$code" == 5* ]]; then
+  bad "Transcript endpoint returned a server error ($code) for a missing file" "Expected a 4xx rejection — check the AI service logs"
 else
-  ok "Transcript endpoint returns $code for a missing file"
+  warn "Transcript endpoint returned unexpected HTTP $code for a missing file" "Expected 400, 401, 403 or 404"
 fi
 
 # Path traversal attempt
 code=$(status "$AISERVICE/transcript/..%2F..%2F.env")
 if [ "$code" = "200" ]; then
   bad "PATH TRAVERSAL WORKS — /transcript/..%2F..%2F.env returned 200" "CRITICAL: filename is not validated. Server files are readable."
+elif [ "$code" = "000" ]; then
+  warn "Path traversal check did not get a response" "$AISERVICE/transcript/..%2F..%2F.env"
+elif [[ "$code" == 5* ]]; then
+  bad "Path traversal attempt caused a server error ($code)" "Expected a clean 4xx rejection — check the AI service logs"
 else
   ok "Path traversal blocked (returned $code)"
 fi
