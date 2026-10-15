@@ -38,14 +38,10 @@ describe("CodeExplainer", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Analyze Code" }));
 
-    expect(
-      await screen.findByText("Increments x by one."),
-    ).toBeTruthy();
+    expect(await screen.findByText("Increments x by one.")).toBeTruthy();
 
     expect(screen.getByText("Possible division by zero.")).toBeTruthy();
-    expect(
-      screen.getByText("Check the denominator before dividing."),
-    ).toBeTruthy();
+    expect(screen.getByText("Check the denominator before dividing.")).toBeTruthy();
 
     expect(screen.getByText("Line: 5")).toBeTruthy();
     expect(screen.getByText("Line: 8")).toBeTruthy();
