@@ -19,7 +19,9 @@
     "dev:backend-admin": "node scripts/dev-runner.cjs backend-admin",
     "dev:frontend-admin": "node scripts/dev-runner.cjs frontend-admin",
     "format": "prettier --write .",
-    "format:check": "prettier --check . --end-of-line auto"
+    "format:check": "prettier --check . --end-of-line auto",
+    "dev:ai": "node scripts/dev-runner.cjs ai",
+    "setup:ai": "node scripts/install-dependencies.cjs --ai-only"
   },
   "type": "commonjs",
   "devDependencies": {
