@@ -14,16 +14,34 @@ import App from "./App.jsx";
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <HelmetProvider>
-    <Router>
-      <ThemeProvider>
-        <SidebarProvider>
-          <AuthProvider>
-            <App />
-            <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
-          </AuthProvider>
-        </SidebarProvider>
-      </ThemeProvider>
-    </Router>
+      <Router>
+        <ThemeProvider>
+          <SidebarProvider>
+            <AuthProvider>
+              <App />
+              <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
+            </AuthProvider>
+          </SidebarProvider>
+        </ThemeProvider>
+      </Router>
     </HelmetProvider>
-  </StrictMode>
+  </StrictMode>,
 );
+
+const hideStartupLoader = () => {
+  const loader = document.getElementById("app-startup-loader");
+  const styles = document.getElementById("app-startup-loader-styles");
+  if (!loader) return;
+
+  loader.remove();
+  styles?.remove();
+};
+
+const isInitialDashboardRoute = window.location.pathname === "/dashboard";
+
+if (isInitialDashboardRoute) {
+  window.addEventListener("app:initial-content-ready", hideStartupLoader, { once: true });
+  window.setTimeout(hideStartupLoader, 10000);
+} else {
+  requestAnimationFrame(() => requestAnimationFrame(hideStartupLoader));
+}

@@ -13,14 +13,14 @@ The service exposes a **FastAPI** HTTP API that the Node.js backend calls as a p
 
 ## 🛠 Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | FastAPI + Uvicorn |
-| AI / LLM | Google Gemini (`gemini-2.5-flash`) via `google-genai` |
-| Text-to-Speech | pyttsx3 (offline, no API required) |
-| Video Processing | FFmpeg (must be installed separately) |
-| Cloud Storage | Cloudinary |
-| Config | python-dotenv |
+| Layer            | Technology                                            |
+| ---------------- | ----------------------------------------------------- |
+| Framework        | FastAPI + Uvicorn                                     |
+| AI / LLM         | Google Gemini (`gemini-2.5-flash`) via `google-genai` |
+| Text-to-Speech   | pyttsx3 (offline, no API required)                    |
+| Video Processing | FFmpeg (must be installed separately)                 |
+| Cloud Storage    | Cloudinary                                            |
+| Config           | python-dotenv                                         |
 
 ---
 
@@ -46,15 +46,19 @@ ai_service/
 ## ✅ Prerequisites
 
 ### 1. Python 3.10+
+
 ```bash
 python --version
 ```
+
 > During Windows installation, ensure **"Add Python to PATH"** is checked.
 
 ### 2. FFmpeg
+
 FFmpeg is **required** for merging audio and video.
 
 **Windows (via winget — recommended):**
+
 ```powershell
 winget install ffmpeg
 ```
@@ -62,6 +66,7 @@ winget install ffmpeg
 **Manual install:** Download from [ffmpeg.org](https://ffmpeg.org/download.html), extract the archive, and add the `bin/` folder to your System `PATH`.
 
 **Verify installation:**
+
 ```bash
 ffmpeg -version
 ```
@@ -145,7 +150,7 @@ The video is looped silently and merged with the TTS audio.
 
 # From the ai_service/ directory:
 cd backend
-uvicorn api:app --reload --port 8000
+python graceful_server.py
 ```
 
 The service will be available at **http://localhost:8000**.
@@ -157,9 +162,11 @@ The service will be available at **http://localhost:8000**.
 ## 📡 API Reference
 
 ### `GET /`
+
 Health check.
 
 **Response:**
+
 ```json
 { "message": "AI Lesson Generator Backend Running" }
 ```
@@ -167,9 +174,11 @@ Health check.
 ---
 
 ### `POST /generate`
+
 Generates an AI lesson video **asynchronously** (runs in background).
 
 **Request Body:**
+
 ```json
 {
   "course": "ReactJS",
@@ -179,6 +188,7 @@ Generates an AI lesson video **asynchronously** (runs in background).
 ```
 
 **Response (immediately):**
+
 ```json
 {
   "status": "Processing",
@@ -194,14 +204,17 @@ Use the `jobId` to poll `/status/:jobId` for completion.
 ---
 
 ### `GET /status/{job_id}`
+
 Polls the status of a generation job.
 
 **Response (while processing):**
+
 ```json
 { "status": "processing" }
 ```
 
 **Response (on completion):**
+
 ```json
 {
   "status": "ready",
@@ -210,6 +223,7 @@ Polls the status of a generation job.
 ```
 
 **Response (on failure):**
+
 ```json
 { "status": "failed" }
 ```
@@ -217,23 +231,63 @@ Polls the status of a generation job.
 ---
 
 ### `GET /transcript/{filename}`
+
 Returns the text content of a generated lesson script.
 
 **Response:**
+
 ```json
 { "content": "Welcome students! Today we will learn about..." }
 ```
 
 ---
 
-### Static File Mounts
+### `POST /generate-syllabus`
 
-| Mount Path | Directory Served | Description |
-|---|---|---|
-| `/video-stream/{filename}` | `outputs/video/` | Serves generated `.mp4` videos |
-| `/transcript-stream/{filename}` | `outputs/text/` | Serves raw transcript `.txt` files |
+Generates a structured course syllabus using AI. This endpoint is **synchronous** and may take several seconds to complete. It tries Gemini first and falls back to Groq if Gemini fails.
+
+**Request Body:**
+
+```json
+{
+  "course_title": "ReactJS",
+  "category": "Programming"
+}
+```
+
+**Success Response:**
+
+```json
+{
+  "modules": [
+    {
+      "title": "Module 1: Introduction",
+      "lessons": [
+        {
+          "title": "Lesson 1: Basics",
+          "duration": "5 mins",
+          "type": "video"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Failure Response:**
+
+```json
+{
+  "error": "Failed to generate syllabus"
+}
+```
 
 ---
+
+| Mount Path                      | Directory Served | Description                        |
+| ------------------------------- | ---------------- | ---------------------------------- |
+| `/video-stream/{filename}`      | `outputs/video/` | Serves generated `.mp4` videos     |
+| `/transcript-stream/{filename}` | `outputs/text/`  | Serves raw transcript `.txt` files |
 
 ## 🔄 Generation Pipeline
 
@@ -265,10 +319,24 @@ FastAPI auto-generates interactive API documentation:
 
 ## 🛠 Troubleshooting
 
-| Problem | Solution |
-|---|---|
-| `FFmpeg not found` | Install FFmpeg and ensure its `bin/` folder is in your system PATH. Restart your terminal after adding it. |
-| `GEMINI_API_KEY not found` | Ensure `backend/.env` exists with a valid `GEMINI_API_KEY`. |
-| `Cloudinary credentials missing` | All three Cloudinary vars (`CLOUD_NAME`, `API_KEY`, `API_SECRET`) must be set in `backend/.env`. |
-| PowerShell activation error | Run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` then try `.\venv\Scripts\Activate.ps1` again. |
-| Video status stays `processing` | Check the terminal for FFmpeg or TTS errors. Ensure the input celebrity video exists in `backend/input/`. |
+| Problem                          | Solution                                                                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `FFmpeg not found`               | Install FFmpeg and ensure its `bin/` folder is in your system PATH. Restart your terminal after adding it.               |
+| `GEMINI_API_KEY not found`       | Ensure `backend/.env` exists with a valid `GEMINI_API_KEY`.                                                              |
+| `Cloudinary credentials missing` | All three Cloudinary vars (`CLOUD_NAME`, `API_KEY`, `API_SECRET`) must be set in `backend/.env`.                         |
+| PowerShell activation error      | Run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` then try `.\venv\Scripts\Activate.ps1` again. |
+| Video status stays `processing`  | Check the terminal for FFmpeg or TTS errors. Ensure the input celebrity video exists in `backend/input/`.                |
+
+## Configuration Modes
+
+- **Required:** `GEMINI_API_KEY` - the primary AI provider.
+- **Optional:** `GROQ_API_KEY` - enables Groq fallback when configured. If omitted, Gemini remains the only AI provider.
+- **Optional:** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` - enables Cloudinary video hosting when all three are configured.
+- If Cloudinary is unavailable, generated videos remain available through the local-storage path.
+- The service can run in reduced mode without Groq and/or Cloudinary credentials. Startup configuration reports which optional integrations are enabled.
+
+### Development and Production Behavior
+
+For development, only `GEMINI_API_KEY` is required to start the AI service. Groq and Cloudinary can be omitted when their features are not needed.
+
+For production, configure Groq and Cloudinary when their fallback and cloud-hosting features are required. Missing optional credentials do not prevent the service from starting; the corresponding integration is disabled.

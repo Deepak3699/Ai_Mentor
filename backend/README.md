@@ -6,32 +6,32 @@ The Express.js REST API backend for the **AI Mentor** learning platform. It hand
 
 ## ✨ Features
 
-| Feature | Description |
-|---|---|
-| 🔐 Authentication | JWT-based auth, Email/Password register & login, Google OAuth (Firebase), Forgot/Reset Password via Email |
-| 📚 Course Management | CRUD for courses and lessons (Admin), purchase tracking per user |
-| 🤖 AI Video Proxy | Secure bridge between frontend and Python AI service; video caching in DB |
-| 💬 Community Posts | Create, read, and manage community discussion posts |
-| 📊 Analytics | User activity and course progress analytics |
-| 📌 Sidebar | Dynamic sidebar navigation data endpoint |
-| 📧 Email | Password reset emails via Nodemailer |
-| ☁️ Cloudinary | Cloud storage integration for media uploads |
+| Feature              | Description                                                                                               |
+| -------------------- | --------------------------------------------------------------------------------------------------------- |
+| 🔐 Authentication    | JWT-based auth, Email/Password register & login, Google OAuth (Firebase), Forgot/Reset Password via Email |
+| 📚 Course Management | CRUD for courses and lessons (Admin), purchase tracking per user                                          |
+| 🤖 AI Video Proxy    | Secure bridge between frontend and Python AI service; video caching in DB                                 |
+| 💬 Community Posts   | Create, read, and manage community discussion posts                                                       |
+| 📊 Analytics         | User activity and course progress analytics                                                               |
+| 📌 Sidebar           | Dynamic sidebar navigation data endpoint                                                                  |
+| 📧 Email             | Password reset emails via Nodemailer                                                                      |
+| ☁️ Cloudinary        | Cloud storage integration for media uploads                                                               |
 
 ---
 
 ## 🛠 Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js (ESM) |
-| Framework | Express.js v4 |
-| ORM | Sequelize v6 |
-| Database | PostgreSQL |
-| Auth | JWT (`jsonwebtoken`) + bcryptjs |
-| Email | Nodemailer |
-| File Upload | Multer |
-| Cloud Storage | Cloudinary SDK |
-| Dev Server | Nodemon |
+| Layer         | Technology                      |
+| ------------- | ------------------------------- |
+| Runtime       | Node.js (ESM)                   |
+| Framework     | Express.js v4                   |
+| ORM           | Sequelize v6                    |
+| Database      | PostgreSQL                      |
+| Auth          | JWT (`jsonwebtoken`) + bcryptjs |
+| Email         | Nodemailer                      |
+| File Upload   | Multer                          |
+| Cloud Storage | Cloudinary SDK                  |
+| Dev Server    | Nodemon                         |
 
 ---
 
@@ -105,9 +105,12 @@ CLOUDINARY_API_SECRET=your_api_secret
 
 ---
 
+> **Repository-root workflow:** For normal development, use `npm run setup` and `npm run dev:backend` from the repository root. Use `npm run dev` or `npm run dev:user` to coordinate the matching applications.
+
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js v18+
 - An active Neon (or other hosted Postgres) project and its connection string
 - npm
@@ -131,13 +134,23 @@ npm run dev
 
 The API will be available at **http://localhost:5000**.
 
+### Initial course data
+
+For a new, empty development database, run `npm run seed:courses` once from
+`backend/`. The normal command skips safely if courses already exist, so it does
+not delete or duplicate existing course data.
+
+Destructive reset mode is restricted to maintainers and must not be used on
+shared, staging, or production databases.
+
 ### Available Scripts
 
-| Script | Description |
-|---|---|
-| `npm run dev` | Start with Nodemon (auto-restart on changes) |
-| `npm start` | Start the production server |
-| `npm run lint` | Run ESLint to check for code issues |
+| Script                 | Description                                                  |
+| ---------------------- | ------------------------------------------------------------ |
+| `npm run dev`          | Start with Nodemon (auto-restart on changes)                 |
+| `npm start`            | Start the production server                                  |
+| `npm run lint`         | Run ESLint to check for code issues                          |
+| `npm run seed:courses` | Seed included courses only when the course database is empty |
 
 ---
 
@@ -151,6 +164,7 @@ The backend uses **Sequelize** with PostgreSQL and expects a full connection str
 4. On server startup, Sequelize will **sync all models** (`sequelize.sync({ alter: true })`), creating or altering tables as needed.
 
 Notes:
+
 - If you need a separate read-only or replica connection, obtain the appropriate URL from Neon and set additional env vars as needed.
 - For production, follow Neon best practices: restrict branch access, use the recommended role, and rotate credentials as required.
 
@@ -160,56 +174,56 @@ Notes:
 
 ### Auth — `/api/auth`
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/register` | Register a new user (email + password) |
-| `POST` | `/login` | Login with email & password → returns JWT |
-| `POST` | `/google-login` | Login/register via Firebase Google OAuth token |
-| `POST` | `/forgot-password` | Send password reset email |
-| `POST` | `/reset-password/:token` | Reset password using token from email |
+| Method | Endpoint                 | Description                                    |
+| ------ | ------------------------ | ---------------------------------------------- |
+| `POST` | `/register`              | Register a new user (email + password)         |
+| `POST` | `/login`                 | Login with email & password → returns JWT      |
+| `POST` | `/google-login`          | Login/register via Firebase Google OAuth token |
+| `POST` | `/forgot-password`       | Send password reset email                      |
+| `POST` | `/reset-password/:token` | Reset password using token from email          |
 
 ### Users — `/api/users`
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `GET` | `/profile` | Get current user profile | ✅ |
-| `PUT` | `/profile` | Update name, bio, profile picture | ✅ |
-| `POST` | `/purchase/:courseId` | Purchase a course | ✅ |
+| Method | Endpoint              | Description                       | Auth |
+| ------ | --------------------- | --------------------------------- | ---- |
+| `GET`  | `/profile`            | Get current user profile          | ✅   |
+| `PUT`  | `/profile`            | Update name, bio, profile picture | ✅   |
+| `POST` | `/purchase/:courseId` | Purchase a course                 | ✅   |
 
 ### Courses — `/api/courses`
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/` | List all courses |
-| `GET` | `/:id` | Get course details with lessons |
+| Method | Endpoint | Description                     |
+| ------ | -------- | ------------------------------- |
+| `GET`  | `/`      | List all courses                |
+| `GET`  | `/:id`   | Get course details with lessons |
 
 ### AI Video — `/api/ai`
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `POST` | `/generate-video` | Generate an AI lesson video (with DB caching) | ✅ |
-| `GET` | `/status/:jobId` | Poll generation job status | ✅ |
-| `GET` | `/transcript/:filename` | Fetch transcript text (with DB caching) | — |
-| `GET` | `/video/:courseId/:filename` | Proxy video stream from AI service | — |
+| Method | Endpoint                     | Description                                                                                                         | Auth |
+| ------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---- |
+| `POST` | `/generate-video`            | Generate an AI lesson video (with DB caching)                                                                       | ✅   |
+| `GET`  | `/status/:jobId`             | Poll generation job status                                                                                          | ✅   |
+| `GET`  | `/transcript/:filename`      | Fetch transcript text (with DB caching)                                                                             | —    |
+| `GET`  | `/video/:courseId/:filename` | Proxy video stream from AI service (must be enrolled in `courseId`; 404 if the file does not belong to that course) | ✅   |
 
 ### Community — `/api/community`
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `GET` | `/` | List community posts | ✅ |
-| `POST` | `/` | Create a new post | ✅ |
+| Method | Endpoint | Description          | Auth |
+| ------ | -------- | -------------------- | ---- |
+| `GET`  | `/`      | List community posts | ✅   |
+| `POST` | `/`      | Create a new post    | ✅   |
 
 ### Analytics — `/api/analytics`
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `GET` | `/` | Get learning analytics for user | ✅ |
+| Method | Endpoint | Description                     | Auth |
+| ------ | -------- | ------------------------------- | ---- |
+| `GET`  | `/`      | Get learning analytics for user | ✅   |
 
 ### Sidebar — `/api/sidebar`
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `GET` | `/` | Get sidebar navigation data | ✅ |
+| Method | Endpoint | Description                 | Auth |
+| ------ | -------- | --------------------------- | ---- |
+| `GET`  | `/`      | Get sidebar navigation data | ✅   |
 
 ---
 
@@ -227,6 +241,7 @@ Notes:
 ## 🤖 AI Video Caching
 
 The AI route (`/api/ai/generate-video`) implements a **cache-first** strategy:
+
 1. Check the `AIVideo` table for an existing record matching `(courseId, lessonId, celebrity)`.
 2. If found, verify the video still exists in the AI service.
 3. If the cache is valid → return immediately (no generation cost).

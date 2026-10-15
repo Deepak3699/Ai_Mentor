@@ -1,0 +1,216 @@
+# Contributing to AI Mentor
+
+New to the project? Start here.
+
+---
+
+# 1. Fork the repository
+
+First, fork the repository to your own GitHub account:
+
+https://github.com/Deepak3699/Ai_Mentor
+
+Click the **Fork** button in the top-right corner and create a fork under your GitHub account.
+
+# 2. Clone your fork
+
+Clone **your forked repository**, not the original repository:
+
+    git clone https://github.com/<your-github-username>/Ai_Mentor.git
+    cd Ai_Mentor
+
+Replace `<your-github-username>` with your GitHub username.
+
+# 3. Follow the detailed environment setup
+
+    # Read initalSetup.md (Neon database + .env files)
+
+# 4. Install dependencies and run locally
+
+From the repository root:
+
+```bash
+npm run setup
+```
+
+Configure the five `.env` files as described in `initalSetup.md`, then use the root commands:
+
+```bash
+npm run dev          # User and Admin API/WEB services
+npm run dev:user     # User API + User WEB
+npm run dev:admin    # Admin API + Admin WEB
+```
+
+Use `npm run dev:backend`, `npm run dev:frontend`, `npm run dev:backend-admin`, or `npm run dev:frontend-admin` for one service. The runner checks backend health before starting a frontend and safely reuses healthy services already running in another terminal.
+
+The Python AI service still runs separately:
+
+```bash
+cd ai_service/backend
+python graceful_server.py
+```
+
+`Ctrl+C` stops only processes started by the current runner. Reused services remain running in their original terminal.
+
+### Formatting
+
+Use the project-local Prettier installation before committing frontend, JavaScript, JSON, Markdown, CSS, or HTML changes:
+
+```bash
+npm run format
+npm run format:check
+```
+
+Do not use an unpinned global or temporary Prettier version. Keep functional changes separate from repository-wide formatting changes so pull-request diffs remain reviewable.
+
+## How to work on a task
+
+```bash
+# 1. Always start from the latest code
+git checkout main
+git pull origin main
+
+# 2. Create your own branch
+git checkout -b fix/short-description
+
+# 3. Write code, run it locally, test it
+
+# 4. Run the linter, otherwise CI will fail
+npm run lint                  # from the repo root — checks all four Node/React services
+npm run lint:backend-admin    # Backend Admin only
+
+# 5. Commit
+git add .
+git commit -m "fix: admin panel pointing to wrong port"
+
+# 6. Push
+git push origin fix/short-description
+
+# 7. Open a pull request on GitHub
+```
+
+---
+
+## Rules
+
+### Do
+
+- One pull request does one thing — keep it under roughly 400 changed lines
+- Run the service locally before you push
+- `npm run lint` must pass
+- Attach screenshots for any UI change
+- Use the commit format `type: description` (see below)
+- Try on your own for 30 minutes before asking for help
+
+### Do not
+
+- Push directly to `main`
+- Commit a `.env` file — ever
+- Put API keys or passwords in the code
+- Merge someone else's pull request without being asked
+- Leave `console.log` statements behind
+- Bundle five unrelated changes into one pull request
+
+---
+
+## Secret scanning
+
+CI job **Check for committed secrets** does two things:
+
+1. Fails if any file named `.env` is tracked by git.
+2. Runs [gitleaks](https://github.com/gitleaks/gitleaks) over the full commit history and file content, looking for API keys, tokens, private keys, webhook URLs and passwords inside database connection strings, whatever the file is called. Findings are redacted in the logs.
+
+Run it locally before you push (install gitleaks first):
+
+    gitleaks git . --config .gitleaks.toml --redact --no-banner
+    scripts/test-secret-scan.sh        # self-test with fake credentials
+
+### If the scan fails
+
+- **It is a real secret:** rotate it at the provider first. Removing it from the code is not enough, because it stays in git history.
+- **It is a false positive:** keep the exception as narrow as possible.
+  1. Run the scan with `--report-format json --report-path report.json` and copy the `Fingerprint` of the finding.
+  2. Add it to `.gitleaksignore` with a comment line above it saying why it is safe.
+  3. Only for a whole test fixture file, add its exact path to `[allowlist]` in `.gitleaks.toml` instead.
+  4. Open the pull request. Changes to these files need Team Lead review (see `.github/CODEOWNERS`). Never allowlist something you have not confirmed is fake.
+
+Use obvious placeholders in docs and examples (`your_password`, `xxxxx`), which the scanner ignores.
+
+---
+
+## Commit message format
+
+```
+type: short description (lowercase, present tense)
+```
+
+| Type       | When to use it                |
+| ---------- | ----------------------------- |
+| `feat`     | A new feature                 |
+| `fix`      | A bug fix                     |
+| `docs`     | Documentation only            |
+| `style`    | Formatting, no logic change   |
+| `refactor` | Better code, same behaviour   |
+| `test`     | Adding tests                  |
+| `chore`    | Dependencies or configuration |
+
+Examples:
+
+```
+feat: add certificate download button
+fix: point admin frontend to port 5001
+docs: add backendAdmin setup to README
+chore: bump express to v5
+```
+
+---
+
+## Review process
+
+1. Open your pull request and fill in the template
+2. Automated checks run (lint and build, about three minutes)
+3. Red cross? Click "Details", read the error, fix it, push again
+4. Green checks plus one approval — then merge
+5. Delete your branch after merging
+
+---
+
+## Project structure (five services)
+
+```
+Ai_Mentor/
+├── frontend/        Learner app      React 19 + Vite + Tailwind      :5173
+├── backend/         Main API         Express 4 + Sequelize + Postgres :5000
+├── frontendAdmin/   Admin panel      React 19 + Vite + Tailwind      :5174
+├── backendAdmin/    Admin API        Express 5 + Sequelize            :5001
+└── ai_service/      AI video         FastAPI + Gemini + FFmpeg        :8000
+```
+
+`backend` and `backendAdmin` share the **same PostgreSQL database**.
+
+---
+
+## Stuck?
+
+1. Try on your own first — give it 30 minutes and read the error carefully
+2. Search Google or Stack Overflow with the exact error message
+3. Still stuck? Ask in the team group, and include:
+   - What you already tried
+   - The full error message (screenshot or pasted text)
+   - Which service and which file
+
+Asking for help is fine. Just do not ask with "it is not working" — nobody can
+help you from that alone.
+
+---
+
+## Further reading
+
+- `initalSetup.md` — environment setup
+- `backend/BACKEND_DOCUMENTATION.md` — the most detailed backend reference
+- `ai_service/README.md` — the AI video pipeline
+
+---
+
+_Questions? Ask the team lead. If you spot a mistake in these rules, send a pull
+request — this file should improve too._

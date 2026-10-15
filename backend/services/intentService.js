@@ -113,10 +113,7 @@ export const detectIntent = (message) => {
     };
   }
 
-  if (
-    text.includes("go to community") ||
-    text.includes("open community")
-  ) {
+  if (text.includes("go to community") || text.includes("open community")) {
     return {
       type: "navigation",
       route: "/discussions",
@@ -134,50 +131,35 @@ export const detectIntent = (message) => {
     };
   }
 
-  if (
-    text.includes("watch history") ||
-    text.includes("open watch history")
-  ) {
+  if (text.includes("watch history") || text.includes("open watch history")) {
     return {
       type: "navigation",
       route: "/watchedvideos",
     };
   }
 
-  if (
-    text.includes("go to dashboard") ||
-    text.includes("open dashboard")
-  ) {
+  if (text.includes("go to dashboard") || text.includes("open dashboard")) {
     return {
       type: "navigation",
       route: "/dashboard",
     };
   }
 
-  if (
-    text.includes("go to analytics") ||
-    text.includes("open analytics")
-  ) {
+  if (text.includes("go to analytics") || text.includes("open analytics")) {
     return {
       type: "navigation",
       route: "/analytics",
     };
   }
 
-  if (
-    text.includes("go to certificates") ||
-    text.includes("open certificates")
-  ) {
+  if (text.includes("go to certificates") || text.includes("open certificates")) {
     return {
       type: "navigation",
       route: "/certificates",
     };
   }
 
-  if (
-    text.includes("go to reports") ||
-    text.includes("open reports")
-  ) {
+  if (text.includes("go to reports") || text.includes("open reports")) {
     return {
       type: "navigation",
       route: "/report",
