@@ -574,7 +574,6 @@ job_status = TTLCache(
     maxsize=1000,
     ttl=3600
 )
-
 generation_cache = TTLCache(maxsize=1000, ttl=3600)
 
 @app.post("/generate")
@@ -589,40 +588,36 @@ def generate_lesson(
             detail="Service is shutting down; new jobs are not accepted.",
         )
 
-    cache_data = json.dumps(
-        {
-            "course": data.course,
-            "topic": data.topic,
-            "celebrity": data.celebrity,
-            "language": data.language,
-            "voice_id": data.voice_id,
-            "gender": data.gender,
-            "speech_rate": data.speech_rate,
-            "speech_pitch": data.speech_pitch,
-            "preferences": data.preferences,
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=False,
-    )
+    cache_data = "|".join([
+        data.course,
+        data.topic,
+        data.celebrity,
+        data.language,
+        str(data.voice_id),
+        str(data.gender),
+        str(data.speech_rate),
+        str(data.speech_pitch),
+        json.dumps(data.preferences, sort_keys=True, default=str), 
+    ])
+            
     cache_key = hashlib.sha256(
         cache_data.encode("utf-8")
     ).hexdigest()
-
     topic_clean = re.sub(
         r'[^\w\s-]', '', data.topic
     ).strip().replace(" ", "_")
     topic_clean = topic_clean[:81]
     if force:
-        base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
+       base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
     else:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        base_filename = f"{topic_clean}_{timestamp}"
+        base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
 
     if not force and cache_key in generation_cache:
         base_filename = generation_cache[cache_key]
         existing_status = job_status.get(
             base_filename,
+
             {"status": "processing"}
         )
 
@@ -643,7 +638,7 @@ def generate_lesson(
         base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
     else:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        base_filename = f"{topic_clean}_{timestamp}"
+        base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
 
     if not force:
         generation_cache[cache_key] = base_filename
@@ -749,11 +744,15 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         - Match the explanation style with the user's preferred learning style.
         """
 
+        print("\n📊 USER PREFERENCES:\n")
+        print(data.preferences if data.preferences else "No preferences provided")
         log_event("INFO", "Preferences loaded", configured=bool(data.preferences))
 
         script = ""
-
+    
         try:
+            print("⚡ Trying Gemini Primary Model...")
+    
             log_event("RUN", "Generating lesson script with Gemini")
 
             response = gemini_client.models.generate_content(
@@ -763,17 +762,24 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     http_options=types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000)
                 ),
             )
-
+    
             script = response.text.strip().replace("\n", " ")
             provider_used = "gemini"
             model_used = GEMINI_MODEL
             log_event("OK", "Lesson script generated", provider="gemini", words=len(script.split()))
 
         except Exception as gemini_error:
+            print(f"❌ Gemini failed: {gemini_error}")
+            print("⚡ Switching to Groq fallback...")
 
-            log_event("WARN", "Gemini lesson generation failed", error=short_error(gemini_error))
+            log_event(
+                "WARN",
+                "Gemini lesson generation failed",
+                error=short_error(gemini_error),
+            )
 
             try:
+                
                 log_event("RUN", "Switching to Groq fallback")
 
                 groq_response = groq_client.chat.completions.create(
@@ -788,10 +794,12 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     max_tokens=300,
                     timeout=LLM_TIMEOUT_SECONDS,
                 )
-
+    
                 script = groq_response.choices[0].message.content.strip().replace("\n", " ")
                 provider_used = "groq"
                 model_used = "llama-3.3-70b-versatile"
+                print("✅ Groq fallback response generated")
+    
                 log_event("OK", "Lesson script generated", provider="groq", words=len(script.split()))
 
             except Exception as groq_error:
@@ -859,7 +867,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             # Validate voice or fallback
             selected_voice = voices.get_voice(data.voice_id)
-
+            
             rate = data.speech_rate if data.speech_rate else "+0%"
             pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
 
@@ -904,7 +912,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         try:
             log_event("RUN", "Trying D-ID avatar renderer")
 
-            avatar_video_url = await create_avatar_video(audio_path)
+            avatar_video_url = create_avatar_video(audio_path)
 
             log_event("OK", "D-ID avatar render completed")
 
@@ -949,6 +957,12 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 remove_failed_generation_cache(base_filename)
                 return
 
+            ffmpeg_command = (
+                f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
+                f'-i "{audio_path}" '
+                f'-map 0:v:0 -map 1:a:0 '
+                f'-c:v copy -c:a aac -shortest "{final_video}"'
+            )
             log_event("RUN", "Rendering lesson video with FFmpeg")
 
             ffmpeg_args = [
@@ -970,7 +984,6 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            stdout, stderr = await process.communicate()
 
             if process.returncode != 0:
                 error_msg = stderr.decode(errors="replace")
@@ -1046,6 +1059,10 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             log_event("WARN", "Video upload failed; using local proxy", error=short_error(cloud_err))
 
+        job_status[base_filename].update({
+            "status": "ready",
+            "cloudinary_url": cloudinary_url,
+        })
         # Upload subtitles to Cloudinary when available. Local static URLs remain
         # available as a fallback when video or subtitle upload fails.
         local_video_url = f"/video-stream/{base_filename}.mp4"
