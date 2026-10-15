@@ -20,3 +20,14 @@ export const submitQuizSchema = z.object({
   quizSessionId: z.string().min(1, "Quiz session ID is required"),
   answers: z.array(z.number().int().min(0).max(3)).length(4),
 });
+
+export const generateFlashcardsSchema = z.object({
+  courseId: z.coerce.number().int().positive(),
+  lessonId: z.coerce.number().int().positive(),
+  transcript: z.string().trim().min(1).max(30000),
+  count: z.coerce.number().int().min(5).max(10).default(5),
+});
+
+export const updateFlashcardMasterySchema = z.object({
+  mastered: z.boolean(),
+});

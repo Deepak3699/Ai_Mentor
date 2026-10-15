@@ -5,6 +5,22 @@
     <link rel="icon" type="image/png" href="/US.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>UptoSkills</title>
+    <script id="app-initial-theme">
+      (() => {
+        try {
+          const preference = localStorage.getItem("theme") || "auto";
+          const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+          const isDark = preference === "dark" || (preference === "auto" && systemDark);
+          document.documentElement.classList.toggle("dark", isDark);
+          document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+        } catch {
+          document.documentElement.classList.toggle(
+            "dark",
+            window.matchMedia("(prefers-color-scheme: dark)").matches,
+          );
+        }
+      })();
+    </script>
 
     <!-- Pre-Connect -->
     <link rel="preconnect" href="http://localhost:5000" />
@@ -14,6 +30,12 @@
 
     <!-- Pre-Load -->
     <link rel="preload" href="/US.png" as="image" />
+    <link
+      rel="preload"
+      href="/AI_Tutor_New_UI/Signup_login_page/uptoskills-logo.webp"
+      as="image"
+      fetchpriority="high"
+    />
     <link
       rel="preload"
       href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
@@ -27,122 +49,182 @@
   </head>
 
   <body>
-    <div id="root">
-      <style id="app-startup-loader-styles">
+    <style id="app-startup-loader-styles">
+      #app-startup-loader {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        box-sizing: border-box;
+        min-height: 100dvh;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: #ffffff;
+        color: #0f172a;
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        opacity: 1;
+        transition: none; /* loader reveal is intentionally immediate */
+      }
+      html.dark #app-startup-loader {
+        background: #0b1220;
+        color: #ffffff;
+      }
+
+      #app-startup-loader::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 520px;
+        height: 520px;
+        max-width: 90vw;
+        max-height: 90vw;
+        transform: translate(-50%, -50%);
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.08);
+        filter: blur(120px);
+        pointer-events: none;
+      }
+      html.dark #app-startup-loader::before {
+        background: rgba(59, 130, 246, 0.1);
+      }
+      #app-startup-loader,
+      #app-startup-loader::before,
+      #app-startup-loader *,
+      #app-startup-loader *::before,
+      #app-startup-loader *::after {
+        box-sizing: border-box;
+      }
+      .app-startup-loader__content {
+        position: relative;
+        display: grid;
+        grid-template-rows: 140px 36px 20px 44px;
+        row-gap: 16px;
+        width: min(360px, 88vw);
+        min-height: 288px;
+        align-items: center;
+        text-align: center;
+      }
+      .app-startup-loader__logo {
+        display: block;
+        width: min(350px, 86vw);
+        height: 140px;
+        margin: 0 auto;
+        object-fit: contain;
+      }
+      .app-startup-loader__title {
+        margin: 0;
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        font-size: 30px;
+        font-style: normal;
+        font-variant: normal;
+        font-weight: 700;
+        line-height: 36px;
+        letter-spacing: -0.025em;
+        text-rendering: geometricPrecision;
+        -webkit-font-smoothing: antialiased;
+      }
+      .app-startup-loader__letter-i {
+        display: inline-block;
+        box-sizing: border-box;
+        width: 4px;
+        height: 22px;
+        margin: 0 3px;
+        background: currentColor;
+        border: 0;
+        border-radius: 1px;
+        vertical-align: -1px;
+      }
+      .app-startup-loader__message {
+        margin: 0;
+        color: #64748b;
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        font-size: 14px;
+        font-style: normal;
+        font-variant: normal;
+        font-weight: 500;
+        line-height: 20px;
+        letter-spacing: 0;
+        -webkit-font-smoothing: antialiased;
+      }
+      html.dark .app-startup-loader__message {
+        color: #94a3b8;
+      }
+      .app-startup-loader__spinner {
+        box-sizing: border-box;
+        width: 44px;
+        min-width: 44px;
+        max-width: 44px;
+        height: 44px;
+        min-height: 44px;
+        max-height: 44px;
+        margin: 0 auto;
+        border: 3px solid #dbeafe;
+        border-top-color: #3b82f6;
+        border-radius: 999px;
+        animation: app-startup-spin 0.8s linear infinite;
+      }
+      html.dark .app-startup-loader__spinner {
+        border-color: #1e3a5f;
+        border-top-color: #60a5fa;
+      }
+      @keyframes app-startup-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
         #app-startup-loader {
-          position: fixed;
-          inset: 0;
-          z-index: 99999;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 100dvh;
-          padding: 24px;
-          background: #ffffff;
-          color: #0f172a;
-          font-family:
-            Manrope,
-            ui-sans-serif,
-            system-ui,
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-        }
-        #app-startup-loader::before {
-          content: "";
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          width: 520px;
-          height: 520px;
-          max-width: 90vw;
-          max-height: 90vw;
-          transform: translate(-50%, -50%);
-          border-radius: 999px;
-          background: rgba(59, 130, 246, 0.08);
-          filter: blur(120px);
-          pointer-events: none;
-        }
-        .app-startup-loader__content {
-          position: relative;
-          width: min(360px, 88vw);
-          text-align: center;
-        }
-        .app-startup-loader__logo {
-          display: block;
-          width: min(350px, 86vw);
-          height: auto;
-          margin: 0 auto;
-          object-fit: contain;
-        }
-        .app-startup-loader__title {
-          margin: 28px 0 0;
-          font-size: 30px;
-          line-height: 1.2;
-          font-weight: 700;
-          letter-spacing: -0.025em;
-        }
-        .app-startup-loader__message {
-          margin: 10px 0 0;
-          color: #64748b;
-          font-size: 14px;
-          font-weight: 500;
+          transition: none;
         }
         .app-startup-loader__spinner {
-          width: 44px;
-          height: 44px;
-          margin: 30px auto 0;
-          border: 3px solid #dbeafe;
-          border-top-color: #3b82f6;
-          border-radius: 999px;
-          animation: app-startup-spin 0.8s linear infinite;
+          animation: none;
         }
-        @keyframes app-startup-spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-        @media (prefers-color-scheme: dark) {
-          #app-startup-loader {
-            background: #0b1220;
-            color: #ffffff;
-          }
-          #app-startup-loader::before {
-            background: rgba(59, 130, 246, 0.1);
-          }
-          .app-startup-loader__message {
-            color: #94a3b8;
-          }
-          .app-startup-loader__spinner {
-            border-color: #1e3a5f;
-            border-top-color: #60a5fa;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .app-startup-loader__spinner {
-            animation: none;
-          }
-        }
-      </style>
-      <div
-        id="app-startup-loader"
-        role="status"
-        aria-live="polite"
-        aria-label="Loading UptoSkills AI Mentor"
-      >
-        <div class="app-startup-loader__content">
-          <img
-            class="app-startup-loader__logo"
-            src="/AI_Tutor_New_UI/Signup_login_page/uptoskills-logo.webp"
-            alt="UptoSkills"
-          />
-          <h1 class="app-startup-loader__title">AI Mentor</h1>
-          <p class="app-startup-loader__message">Preparing your workspace...</p>
-          <div class="app-startup-loader__spinner" aria-hidden="true"></div>
-        </div>
+      }
+    </style>
+    <div
+      id="app-startup-loader"
+      role="status"
+      aria-live="polite"
+      aria-label="Loading UptoSkills AI Mentor"
+    >
+      <div class="app-startup-loader__content">
+        <img
+          class="app-startup-loader__logo"
+          src="/AI_Tutor_New_UI/Signup_login_page/uptoskills-logo.webp"
+          alt="UptoSkills"
+          width="350"
+          height="140"
+          fetchpriority="high"
+          decoding="sync"
+        />
+        <h1 class="app-startup-loader__title" aria-label="AI Mentor">
+          <span aria-hidden="true">A<span class="app-startup-loader__letter-i"></span> Mentor</span>
+        </h1>
+        <p class="app-startup-loader__message">Preparing your workspace...</p>
+        <div class="app-startup-loader__spinner" aria-hidden="true"></div>
       </div>
     </div>
+    <div id="root"></div>
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
