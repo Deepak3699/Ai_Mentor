@@ -846,7 +846,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             
 
-                log_event("ERROR", "Groq lesson generation failed", error=short_error(groq_error))
+            log_event("ERROR", "Groq lesson generation failed", error=short_error(groq_error))
 
                 if base_filename not in shutdown_failed_jobs:
                     if base_filename in job_status:
