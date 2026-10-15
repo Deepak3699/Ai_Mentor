@@ -750,7 +750,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         script = ""
     
-           try:
+        try:
             print("⚡ Trying Gemini Primary Model...")
     
             log_event("RUN", "Generating lesson script with Gemini")
