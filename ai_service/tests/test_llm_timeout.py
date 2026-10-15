@@ -67,6 +67,7 @@ def test_generate_quiz_gemini_call_site_explicit_timeout():
                 "options": ["A", "B", "C", "D"],
                 "correct_index": 0,
                 "explanation": f"Exp{i}",
+                "topic": f"Topic{i}",
             }
             for i in range(4)
         ]
@@ -93,6 +94,7 @@ def test_generate_quiz_groq_call_site_explicit_timeout():
                 "options": ["A", "B", "C", "D"],
                 "correct_index": 0,
                 "explanation": f"Exp{i}",
+                "topic": f"Topic{i}",
             }
             for i in range(4)
         ]
@@ -127,7 +129,7 @@ async def test_process_lesson_gemini_call_site_explicit_timeout():
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subproc, \
          patch("builtins.open", MagicMock()), \
          patch("api.MP3", return_value=MagicMock(info=MagicMock(length=10.0))):
-        
+
         proc = MagicMock()
         proc.communicate = AsyncMock(return_value=(b"", b""))
         proc.returncode = 0
@@ -161,7 +163,7 @@ async def test_process_lesson_groq_call_site_explicit_timeout():
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subproc, \
          patch("builtins.open", MagicMock()), \
          patch("api.MP3", return_value=MagicMock(info=MagicMock(length=10.0))):
-        
+
         proc = MagicMock()
         proc.communicate = AsyncMock(return_value=(b"", b""))
         proc.returncode = 0
@@ -203,6 +205,7 @@ def test_quiz_timeout_triggers_groq_fallback():
                 "options": ["A", "B", "C", "D"],
                 "correct_index": 1,
                 "explanation": f"Exp{i}",
+                "topic": f"Topic{i}",
             }
             for i in range(4)
         ]

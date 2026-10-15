@@ -81,4 +81,3 @@ def test_missing_allowed_video_falls_back_to_modi(
     result = module["get_celebrity_video"]("srk")
 
     assert Path(result) == input_dir / "modi.mp4"
-

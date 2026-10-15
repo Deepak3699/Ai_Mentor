@@ -27,14 +27,14 @@ async def test_queued_metadata():
             }
         }
     }
-    
+
     data = LessonRequest(course="C", topic="T", celebrity="M")
-    
+
     # We mock Gemini to throw an error and Groq to throw an error so it fails fast
     with patch("api.gemini_client.models.generate_content", side_effect=Exception("Fail")), \
          patch("api.groq_client.chat.completions.create", side_effect=Exception("Fail")):
         await process_lesson(data, base_filename)
-        
+
     assert job_status[base_filename]["status"] == "failed"
     assert "started_at" in job_status[base_filename]["meta"]["timestamps"]
     assert "failed_at" in job_status[base_filename]["meta"]["timestamps"]
@@ -43,10 +43,10 @@ async def test_queued_metadata():
 async def test_gemini_metadata():
     base_filename = "test_gemini_123"
     data = LessonRequest(course="C", topic="T", celebrity="M")
-    
+
     mock_gemini_response = MagicMock()
     mock_gemini_response.text = "This is a five word script"
-    
+
     with patch("api.gemini_client.models.generate_content", return_value=mock_gemini_response), \
          patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, \
          patch("api.create_avatar_video", new_callable=AsyncMock) as mock_avatar, \
@@ -56,20 +56,20 @@ async def test_gemini_metadata():
          patch("api.os.makedirs") as mock_makedirs, \
          patch("api.os.remove"), \
          patch("builtins.open", side_effect=safe_open):
-        
+
         mock_makedirs.return_value = None
         mock_tts.return_value = None
-        
+
         # We need mock_get to return some bytes
         mock_response = MagicMock()
         mock_response.content = b"fake video data"
         mock_get.return_value = mock_response
         mock_avatar.return_value = "http://fake/video"
-        
+
         # Test unreadable audio metadata (MP3 fails because file is fake or doesn't exist)
         with patch("api.MP3", side_effect=Exception("No MP3")):
             await process_lesson(data, base_filename)
-            
+
     assert job_status[base_filename]["status"] == "ready"
     assert job_status[base_filename]["meta"]["provider"] == "gemini"
     assert job_status[base_filename]["meta"]["word_count"] == 6
@@ -97,11 +97,11 @@ def safe_open(file, *args, **kwargs):
 async def test_groq_metadata_and_mp3_duration():
     base_filename = "test_groq_123"
     data = LessonRequest(course="C", topic="T", celebrity="M")
-    
+
     mock_groq_response = MagicMock()
     mock_groq_response.choices = [MagicMock()]
     mock_groq_response.choices[0].message.content = "Groq fallback script"
-    
+
     with patch("api.gemini_client.models.generate_content", side_effect=Exception("Gemini failed")), \
          patch("api.groq_client.chat.completions.create", return_value=mock_groq_response), \
          patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, \
@@ -111,21 +111,21 @@ async def test_groq_metadata_and_mp3_duration():
          patch("api.os.makedirs") as mock_makedirs, \
          patch("api.os.remove"), \
          patch("builtins.open", side_effect=safe_open):
-         
+
         # Ensure makedirs doesn't raise an error
         mock_makedirs.return_value = None
         mock_tts.return_value = None
-        
+
         mock_process = MagicMock()
         mock_process.communicate = AsyncMock(return_value=(b"", b""))
         mock_process.returncode = 0
         mock_exec.return_value = mock_process
-        
+
         mock_mp3 = MagicMock()
         mock_mp3.info.length = 42.5
         with patch("api.MP3", return_value=mock_mp3):
             await process_lesson(data, base_filename)
-            
+
     assert job_status[base_filename]["status"] == "ready"
     assert job_status[base_filename]["meta"]["provider"] == "groq"
     assert job_status[base_filename]["meta"]["model"] == "llama-3.3-70b-versatile"

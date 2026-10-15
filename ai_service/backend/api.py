@@ -1,10 +1,11 @@
+from typing import Literal
 import os
 import datetime
 import re
-import traceback
 import asyncio
 import logging
 import subprocess
+import traceback
 from contextlib import asynccontextmanager
 from job_shutdown import wait_for_jobs_to_finish
 import edge_tts
@@ -165,6 +166,8 @@ class SyllabusRequest(BaseModel):
 
 class QuizRequest(BaseModel):
     lesson: str
+    difficulty: Literal["beginner", "intermediate", "advanced"] = "intermediate"
+    weak_topics: list[str] | None = None
 
 
 class QuizQuestion(BaseModel):
@@ -172,6 +175,7 @@ class QuizQuestion(BaseModel):
     options: list[str]
     correct_index: int
     explanation: str
+    topic: str
 
 
 class QuizResponse(BaseModel):
@@ -211,7 +215,11 @@ def get_celebrity_video(celebrity_name: str) -> str:
         os.path.join(BASE_DIR, "backend", "input")
     )
 
-    name = celebrity_name.strip().lower() if isinstance(celebrity_name, str) else ""
+    name = (
+        celebrity_name.strip().lower()
+        if isinstance(celebrity_name, str)
+        else ""
+    )
     if name not in ALLOWED_CELEBRITIES:
         name = "modi"
 
@@ -226,7 +234,9 @@ def get_celebrity_video(celebrity_name: str) -> str:
         print(f"[INFO] Renderer source selected | source={name}", flush=True)
         return candidate
 
-    fallback = os.path.realpath(os.path.join(input_video_dir, "modi.mp4"))
+    fallback = os.path.realpath(
+        os.path.join(input_video_dir, "modi.mp4")
+    )
     print("[INFO] Default renderer source selected | source=modi", flush=True)
     return fallback
 
@@ -288,9 +298,9 @@ def generate_syllabus(data: SyllabusRequest):
     prompt = f"""
     Create a highly structured course syllabus for a course titled '{data.course_title}'.
     Category: {data.category or 'General Education'}
-    
+
     You MUST respond with ONLY a valid JSON object. Do not include markdown formatting like ```json.
-    
+
     The JSON structure must match this exactly:
     {{
       "modules": [
@@ -306,7 +316,7 @@ def generate_syllabus(data: SyllabusRequest):
         }}
       ]
     }}
-    
+
     Requirements:
     - Create exactly 3 modules.
     - Each module should have exactly 2 lessons.
@@ -388,11 +398,42 @@ def get_voices():
 
 @app.post("/generate-quiz", response_model=QuizResponse)
 def generate_quiz(data: QuizRequest):
+    weak_topics_text = ", ".join(data.weak_topics or []) or "None provided"
+
+    difficulty_guidance = {
+        "beginner": """
+        Target difficulty: BEGINNER.
+        Focus on core concepts, definitions, recognition, and straightforward applications.
+        Keep questions accessible and encouraging for learners who are still building mastery.
+        """,
+        "intermediate": """
+        Target difficulty: INTERMEDIATE.
+        Test understanding and application of concepts using a balanced mix of conceptual and scenario-based questions.
+        Avoid questions that are purely recall-based.
+        """,
+        "advanced": """
+        Target difficulty: ADVANCED.
+        Test deep understanding, reasoning, edge cases, trade-offs, and multi-step application.
+        Prefer challenging scenario-based or deep-dive questions that distinguish strong mastery.
+        """
+    }[data.difficulty]
+
+    weak_topics_guidance = f"""
+    Previously weak topics: {weak_topics_text}
+
+    If previously weak topics are provided, include questions that reinforce those concepts.
+    Do not mention the learner's performance history in the questions.
+    """
+
     prompt = f"""
-    Generate a multiple-choice quiz for the following lesson:
+    Generate a multiple-choice quiz for the following lesson.
 
     Lesson:
     {data.lesson}
+
+    {difficulty_guidance}
+
+    {weak_topics_guidance}
 
     You MUST respond with ONLY a valid JSON object.
     Do not include markdown formatting or ```json code fences.
@@ -409,7 +450,8 @@ def generate_quiz(data: QuizRequest):
             "Option D"
           ],
           "correct_index": 0,
-          "explanation": "Explanation of why the answer is correct."
+          "explanation": "Explanation of why the answer is correct.",
+          "topic": "Specific concept/topic being tested"
         }}
       ]
     }}
@@ -419,6 +461,8 @@ def generate_quiz(data: QuizRequest):
     - Each question must have exactly 4 options.
     - correct_index must be an integer from 0 to 3.
     - Each question must have a clear explanation.
+    - Each question must include a concise "topic" identifying the specific concept being tested.
+    - The topic must be relevant to the lesson and useful for identifying weak areas.
     """
 
     for attempt in range(2):
@@ -561,11 +605,6 @@ def generate_flashcards(data: FlashcardRequest):
 # Generate Lesson Endpoint
 # --------------------------
 
-job_status = {}
-generation_cache = {}
-active_jobs = set()
-shutdown_failed_jobs = set()
-shutting_down = False
 # Job status cache:
 # - Entries expire automatically after 1 hour.
 # - Cache is limited to 1000 jobs.
@@ -597,9 +636,9 @@ def generate_lesson(
         str(data.gender),
         str(data.speech_rate),
         str(data.speech_pitch),
-        json.dumps(data.preferences, sort_keys=True, default=str), 
+        json.dumps(data.preferences, sort_keys=True, default=str),
     ])
-            
+
     cache_key = hashlib.sha256(
         cache_data.encode("utf-8")
     ).hexdigest()
@@ -664,6 +703,13 @@ def generate_lesson(
     }
 
 
+shutting_down = False
+generation_cache = TTLCache(maxsize=1000, ttl=3600)
+shutdown_failed_jobs = set()
+
+
+active_jobs = set()
+
 def remove_failed_generation_cache(base_filename: str) -> None:
     """Remove cache entries that still point to this failed job."""
     for key, cached_filename in list(generation_cache.items()):
@@ -681,9 +727,20 @@ async def run_tracked_lesson(data: LessonRequest, base_filename: str):
         active_jobs.discard(base_filename)
 
 
+def validate_lesson_script(value: object) -> str:
+    """Normalize and validate generated lesson narration before saving."""
+    if not isinstance(value, str):
+        raise ValueError("Generated lesson must be text.")
+    script = " ".join(value.split())
+    if not script:
+        raise ValueError("Generated lesson is empty.")
+    if len(script) > 10000:
+        raise ValueError("Generated lesson exceeds the maximum length.")
+    return script
+
+
 async def process_lesson(data: LessonRequest, base_filename: str):
     log_event("QUEUE", "Lesson request accepted", job=base_filename, topic=data.topic, source=data.celebrity)
-    
     start_time = time.time()
     provider_used = "unknown"
     model_used = "unknown"
@@ -749,10 +806,10 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         log_event("INFO", "Preferences loaded", configured=bool(data.preferences))
 
         script = ""
-    
+
         try:
             print("⚡ Trying Gemini Primary Model...")
-    
+
             log_event("RUN", "Generating lesson script with Gemini")
 
             response = gemini_client.models.generate_content(
@@ -762,8 +819,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     http_options=types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000)
                 ),
             )
-    
-            script = response.text.strip().replace("\n", " ")
+            script = validate_lesson_script(response.text)
             provider_used = "gemini"
             model_used = GEMINI_MODEL
             log_event("OK", "Lesson script generated", provider="gemini", words=len(script.split()))
@@ -779,7 +835,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             )
 
             try:
-                
+
                 log_event("RUN", "Switching to Groq fallback")
 
                 groq_response = groq_client.chat.completions.create(
@@ -794,12 +850,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     max_tokens=300,
                     timeout=LLM_TIMEOUT_SECONDS,
                 )
-    
-                script = groq_response.choices[0].message.content.strip().replace("\n", " ")
+                script = validate_lesson_script(groq_response.choices[0].message.content)
                 provider_used = "groq"
                 model_used = "llama-3.3-70b-versatile"
                 print("✅ Groq fallback response generated")
-    
+
                 log_event("OK", "Lesson script generated", provider="groq", words=len(script.split()))
 
             except Exception as groq_error:
@@ -867,12 +922,12 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             # Validate voice or fallback
             selected_voice = voices.get_voice(data.voice_id)
-            
+
             rate = data.speech_rate if data.speech_rate else "+0%"
             pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
 
             await generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch)
-            
+
             try:
                 audio = MP3(audio_path)
                 audio_seconds = audio.info.length
@@ -984,6 +1039,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
+            stdout, stderr = await process.communicate()
 
             if process.returncode != 0:
                 error_msg = stderr.decode(errors="replace")
@@ -1155,5 +1211,6 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         remove_failed_generation_cache(base_filename)
 
+        print("❌ Lesson generation failed.")
         log_event("ERROR", "Lesson generation failed", job=base_filename, error=short_error(e))
         traceback.print_exc()

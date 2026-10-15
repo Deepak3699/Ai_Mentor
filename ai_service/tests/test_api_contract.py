@@ -30,11 +30,11 @@ def test_request_models_expose_required_contract_fields():
     assert {"course", "topic", "celebrity"} <= class_fields("LessonRequest")
     assert {"preferences", "voice_id", "gender", "language", "speech_rate", "speech_pitch"} <= class_fields("LessonRequest")
     assert class_fields("SyllabusRequest") == {"course_title", "category"}
-    assert class_fields("QuizRequest") == {"lesson"}
+    assert class_fields("QuizRequest") == {"lesson", "difficulty", "weak_topics"}
 
 
 def test_quiz_response_contract_is_defined():
-    assert class_fields("QuizQuestion") == {"question", "options", "correct_index", "explanation"}
+    assert class_fields("QuizQuestion") == {"question", "options", "correct_index", "explanation", "topic"}
     assert class_fields("QuizResponse") == {"questions"}
 
 

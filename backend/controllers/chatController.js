@@ -110,7 +110,7 @@ export const chatWithAssistant = async (req, res) => {
         Learning Goal: ${preferences.learning_goal || "Unknown"}
 
         Experience Level: ${preferences.experience_level || "Unknown"}
-        
+
         Explanation Type: ${preferences.explanation_type || "Unknown"}
 
         Learning Style: ${preferences.learning_style || "Unknown"}
