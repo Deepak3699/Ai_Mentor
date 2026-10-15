@@ -926,6 +926,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 f'-i "{audio_path}" '
                 f'-map 0:v:0 -map 1:a:0 '
                 f'-c:v copy -c:a aac -shortest "{final_video}"'
+            )
             log_event("RUN", "Rendering lesson video with FFmpeg")
 
             ffmpeg_args = [
