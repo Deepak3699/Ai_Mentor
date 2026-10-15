@@ -14,7 +14,7 @@ def load_config(monkeypatch, **env):
         "DID_API_KEY",
         "DID_SOURCE_URL",
     ]:
-        monkeypatch.delenv(key, raising=False)
+        monkeypatch.setenv(key, "")
 
     for key, value in env.items():
         monkeypatch.setenv(key, value)

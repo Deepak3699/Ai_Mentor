@@ -8,6 +8,9 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
+# LLM call timeout in seconds
+LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "60") or "60")
+
 # Optional: Fallback AI provider
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
