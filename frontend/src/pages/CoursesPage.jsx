@@ -668,33 +668,102 @@ const CoursesPage = () => {
           </div>
 
           {displayedCourses.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-border bg-card px-6 py-16 text-center">
-              <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-blue-500/10 text-[#3867D6]">
-                <Filter className="h-6 w-6" />
-              </span>
-              <h3 className="mt-5 text-lg font-extrabold text-main">
-                {myCourses.length === 0 && activeTab === "my-courses"
-                  ? "Your learning journey starts here"
-                  : "No courses match these controls"}
-              </h3>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">
-                {myCourses.length === 0 && activeTab === "my-courses"
-                  ? "Explore the catalog and enroll in a course to build your personal learning space."
-                  : "Try clearing the search or resetting filters."}
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery("");
-                  setFilters({ category: [], level: [], price: [] });
-                  if (myCourses.length === 0) setActiveTab("explore");
-                }}
-                className={`${BLUE_BUTTON} mt-6`}
-              >
-                {myCourses.length === 0 && activeTab === "my-courses"
-                  ? "Explore courses"
-                  : "Clear controls"}
-              </button>
+            <div className="col-span-full flex w-full justify-center px-3 py-10 sm:px-6 sm:py-14">
+              <div className="flex w-full max-w-2xl flex-col items-center rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center shadow-sm sm:px-10 sm:py-10">
+                {myCourses.length === 0 && activeTab === "my-courses" ? (
+                  <>
+                    <svg
+                      viewBox="0 0 240 180"
+                      className="mb-5 h-36 w-48 sm:h-44 sm:w-56"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      role="img"
+                      aria-label="Books and graduation cap"
+                    >
+                      <path
+                        d="M48 132L120 153L192 132"
+                        stroke="#CBD5E1"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M58 92L109 78V132L58 145Z"
+                        fill="#60A5FA"
+                        stroke="#2563EB"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M109 78L157 92V145L109 132Z"
+                        fill="#2563EB"
+                        stroke="#1D4ED8"
+                        strokeWidth="2"
+                      />
+                      <path
+                        d="M69 102L98 94M69 113L98 105M69 124L98 116"
+                        stroke="white"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M119 91L146 99M119 103L146 111M119 115L146 123"
+                        stroke="#DBEAFE"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
+                      <path d="M83 67L126 53L171 68L128 84Z" fill="#1E3A8A" />
+                      <path d="M128 84V95" stroke="#1E3A8A" strokeWidth="4" strokeLinecap="round" />
+                      <path d="M171 68V87" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round" />
+                      <circle cx="171" cy="91" r="4" fill="#F59E0B" />
+                      <path d="M42 65L46 75L56 79L46 83L42 93L38 83L28 79L38 75Z" fill="#FBBF24" />
+                      <path
+                        d="M190 42L193 50L201 53L193 56L190 64L187 56L179 53L187 50Z"
+                        fill="#FBBF24"
+                      />
+                      <path
+                        d="M202 102L205 109L212 112L205 115L202 122L199 115L192 112L199 109Z"
+                        fill="#93C5FD"
+                      />
+                      <circle cx="63" cy="49" r="3" fill="#60A5FA" />
+                      <circle cx="182" cy="79" r="3" fill="#60A5FA" />
+                    </svg>
+                    <h3 className="text-xl font-bold text-slate-900 sm:text-2xl">
+                      You haven't enrolled in any courses yet.
+                    </h3>
+                    <p className="mt-3 max-w-lg text-sm leading-6 text-slate-500 sm:text-base">
+                      Explore our wide range of courses and start your learning journey today.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("explore")}
+                      className="mt-6 inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    >
+                      Browse Courses →
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-500/10 text-[#3867D6]">
+                      <Filter className="h-6 w-6" />
+                    </span>
+                    <h3 className="mt-5 text-lg font-extrabold text-main">
+                      No courses match these controls
+                    </h3>
+                    <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">
+                      Try clearing the search or resetting filters.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setFilters({ category: [], level: [], price: [] });
+                      }}
+                      className={`${BLUE_BUTTON} mt-6`}
+                    >
+                      Clear controls
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,320px),420px))] gap-5">

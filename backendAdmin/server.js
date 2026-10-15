@@ -8,6 +8,7 @@ import healthRoutes from "./routes/healthRoutes.js";
 import { connectDB } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import { securityHeaders } from "./config/securityHeaders.js";
+import requestContext from "./middleware/requestContext.js";
 
 dotenv.config();
 
@@ -21,6 +22,8 @@ const allowedOrigins = [
 ];
 
 app.use(securityHeaders());
+
+app.use(requestContext);
 
 app.use(
   cors({

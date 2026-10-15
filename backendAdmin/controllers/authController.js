@@ -5,6 +5,7 @@ import {
   adminRegisterSchema,
   changePasswordSchema,
 } from "../schemas/adminAuthSchema.js";
+import { sendServerError } from "../utils/apiError.js";
 
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "30d" });
@@ -29,8 +30,7 @@ export const registerAdmin = async (req, res) => {
     const admin = await Admin.create({ name, email, password, role: "admin" });
     res.status(201).json({ id: admin.id, name: admin.name, email: admin.email, role: admin.role });
   } catch (error) {
-    console.error("REGISTER ADMIN ERROR:", error.message);
-    res.status(500).json({ message: "Server Error" });
+    return sendServerError(req, res, error, "authController.registerAdmin");
   }
 };
 
@@ -67,8 +67,7 @@ export const loginAdmin = async (req, res) => {
       res.status(401).json({ message: "Invalid email or password" });
     }
   } catch (error) {
-    console.error("LOGIN ADMIN ERROR:", error.message);
-    res.status(500).json({ message: "Server Error" });
+    return sendServerError(req, res, error, "authController.loginAdmin");
   }
 };
 
@@ -100,8 +99,7 @@ export const deleteAdmin = async (req, res) => {
     await adminToDelete.destroy();
     res.json({ message: "Admin removed" });
   } catch (error) {
-    console.error("DELETE ADMIN ERROR:", error.message);
-    res.status(500).json({ message: "Server Error" });
+    return sendServerError(req, res, error, "authController.deleteAdmin");
   }
 };
 
@@ -113,8 +111,7 @@ export const getAllAdmins = async (req, res) => {
     });
     res.status(200).json({ success: true, data: admins });
   } catch (error) {
-    console.error("GET ADMINS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "authController.getAllAdmins");
   }
 };
 
@@ -157,8 +154,7 @@ export const changePassword = async (req, res) => {
 
     res.json({ message: "Password updated successfully" });
   } catch (error) {
-    console.error("CHANGE PASSWORD ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return sendServerError(req, res, error, "authController.changePassword");
   }
 };
 export const updateAdminStatus = async (req, res) => {
@@ -190,7 +186,6 @@ export const updateAdminStatus = async (req, res) => {
 
     res.status(200).json({ success: true, data: admin });
   } catch (error) {
-    console.error("UPDATE ADMIN STATUS ERROR:", error.message || error);
-    res.status(500).json({ success: false, message: "Server Error: " + error.message });
+    return sendServerError(req, res, error, "authController.updateAdminStatus");
   }
 };
