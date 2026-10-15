@@ -805,7 +805,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 model_used = "llama-3.3-70b-versatile"
                 print("✅ Groq fallback response generated")
     
-           except Exception as groq_error:
+            except Exception as groq_error:
                 print(f"❌ Groq also failed: {groq_error}")
 
                 job_status[base_filename] = {
