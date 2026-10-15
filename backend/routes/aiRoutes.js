@@ -18,8 +18,8 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
 
     // 🔐 Check purchase
     if (!hasCourseAccess(req.user, courseId)) {
-  return res.status(403).json({ message: "Course not purchased" });
-}
+      return res.status(403).json({ message: "Course not purchased" });
+    }
 
     // 🕵️ Check Cache First
     const cachedVideo = await AIVideo.findOne({
@@ -180,14 +180,14 @@ router.get("/status/:jobId", protect, async (req, res) => {
     }
 
     if (
-  req.user.role !== "admin" &&
-  req.user.role !== "superadmin" &&
-  String(videoJob.userId) !== String(req.user.id)
-) {
-  return res.status(403).json({
-    message: "You do not have access to this video job",
-  });
-}
+      req.user.role !== "admin" &&
+      req.user.role !== "superadmin" &&
+      String(videoJob.userId) !== String(req.user.id)
+    ) {
+      return res.status(403).json({
+        message: "You do not have access to this video job",
+      });
+    }
 
     if (videoJob.status === "failed") {
       return res.json({ status: "failed", error: videoJob.error });

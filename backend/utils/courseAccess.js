@@ -9,15 +9,11 @@ const hasCourseAccess = (user, courseId) => {
     return true;
   }
 
-  const purchasedCourses = Array.isArray(user.purchasedCourses)
-    ? user.purchasedCourses
-    : [];
+  const purchasedCourses = Array.isArray(user.purchasedCourses) ? user.purchasedCourses : [];
 
   return purchasedCourses.some((course) => {
     const purchasedCourseId =
-      course !== null && typeof course === "object"
-        ? course.courseId ?? course.id
-        : course;
+      course !== null && typeof course === "object" ? (course.courseId ?? course.id) : course;
 
     return String(purchasedCourseId) === String(courseId);
   });
