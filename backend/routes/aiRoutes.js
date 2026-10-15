@@ -130,9 +130,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
       where: { user_id: req.user.id },
     });
 
-    const userPreferences = preferencesRecord
-      ? preferencesRecord.toJSON()
-      : null;
+    const userPreferences = preferencesRecord ? preferencesRecord.toJSON() : null;
 
     if (aiVideo) {
       const claimed = await claimExistingVideo(aiVideo);
@@ -213,20 +211,24 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
     try {
       const queue = getVideoQueue();
 
-      const job = await queue.add("generate-video", {
-        aiVideoId: aiVideo.id,
-        courseId,
-        lessonId,
-        celebrity,
-        courseTitle,
-        lessonTitle,
-        userPreferences,
-        voice_id,
-        speech_rate,
-        speech_pitch,
-      }, {
-        jobId: aiVideo.id,
-      });
+      const job = await queue.add(
+        "generate-video",
+        {
+          aiVideoId: aiVideo.id,
+          courseId,
+          lessonId,
+          celebrity,
+          courseTitle,
+          lessonTitle,
+          userPreferences,
+          voice_id,
+          speech_rate,
+          speech_pitch,
+        },
+        {
+          jobId: aiVideo.id,
+        },
+      );
 
       console.log(`Job added to queue: ${job.id}, DB ID: ${aiVideo.id}`);
 
