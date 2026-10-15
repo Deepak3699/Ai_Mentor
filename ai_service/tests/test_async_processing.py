@@ -58,7 +58,13 @@ def test_tts_execution_awaited():
 
 
 def test_ffmpeg_execution_async_and_success():
-    """B & C. FFmpeg execution & success: Verify FFmpeg is invoked asynchronously and preserves behavior on success."""
+    """B & C. FFmpeg execution & success: Verify FFmpeg is invoked asynchronously and preserves behavior on success.
+
+    The pipeline now runs two FFmpeg processes:
+      1. Merge stock video + synthesised audio (uses -stream_loop / -shortest)
+      2. Burn AI-disclosure watermark into the merged video (uses -vf drawtext)
+    Both must be called; the first must carry the expected flags.
+    """
     req = LessonRequest(
         course="Python",
         topic="Asyncio",
@@ -83,13 +89,25 @@ def test_ffmpeg_execution_async_and_success():
 
         asyncio.run(process_lesson(req, base_filename))
 
-        # Verify asyncio.create_subprocess_exec was called asynchronously
-        mock_exec.assert_called_once()
-        args, kwargs = mock_exec.call_args
-        assert args[0] == "ffmpeg"
-        assert "-y" in args
-        assert "-stream_loop" in args
-        assert "-shortest" in args
+        # The pipeline calls create_subprocess_exec twice:
+        # call 1 = merge (stock video + audio), call 2 = watermark (drawtext)
+        assert mock_exec.call_count == 2, (
+            f"Expected 2 FFmpeg calls (merge + watermark), got {mock_exec.call_count}"
+        )
+
+        # --- Verify the first call (merge) carries expected flags ---
+        first_call_args = mock_exec.call_args_list[0][0]
+        assert first_call_args[0] == "ffmpeg"
+        assert "-y" in first_call_args
+        assert "-stream_loop" in first_call_args
+        assert "-shortest" in first_call_args
+
+        # --- Verify the second call (watermark) uses drawtext ---
+        second_call_args = mock_exec.call_args_list[1][0]
+        assert second_call_args[0] == "ffmpeg"
+        assert any("drawtext" in arg for arg in second_call_args), (
+            "Second FFmpeg call must apply the AI-disclosure drawtext filter"
+        )
 
         # Verify job status is ready
         assert job_status[base_filename]["status"] == "ready"

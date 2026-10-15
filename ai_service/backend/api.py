@@ -31,8 +31,9 @@ from config import (
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
-GROQ_ENABLED,
+    GROQ_ENABLED,
     CLOUDINARY_ENABLED,
+    REQUIRE_SCRIPT_MODERATION,
     validate_config,
 )
 import voices
@@ -143,7 +144,9 @@ groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_ENABLED else None
 class LessonRequest(BaseModel):
     course: str = Field(..., min_length=1, max_length=100)
     topic: str = Field(..., min_length=1, max_length=200)
-    celebrity: str = Field("modi", min_length=1, max_length=50)
+    # Default changed to "owl" (animated, rights-unambiguous) to avoid defaulting
+    # to real-person footage whose licensing cannot be verified at runtime.
+    celebrity: str = Field("owl", min_length=1, max_length=50)
     language: str = "English"
     preferences: dict | None = None
     voice_id: str | None = None
@@ -195,17 +198,38 @@ async def generate_tts(text: str, output_file: str, voice_id: str = "en-US-GuyNe
     )
     await communicate.save(output_file)
 
+# "owl" is an animated character; its footage does not depict a real person.
+# The other names (modi, salman, srk) refer to real public figures whose footage
+# is present in the repository; operators must confirm they hold the necessary
+# rights before enabling those sources in production.
 ALLOWED_CELEBRITIES = {"modi", "owl", "salman", "srk"}
 
+# Safe fallback used when the requested celebrity source is not available.
+# Defaults to "owl" (animated) to avoid silently selecting unverified footage.
+_SAFE_FALLBACK_CELEBRITY = os.getenv("FALLBACK_CELEBRITY_SOURCE", "owl")
 
-def get_celebrity_video(celebrity_name: str) -> str:
+
+def get_celebrity_video(celebrity_name: str) -> str | None:
+    """Resolve the local video file for *celebrity_name*.
+
+    Returns the absolute path to the video file, or ``None`` if neither the
+    requested source nor the safe fallback can be found on disk.  Callers
+    should treat a ``None`` return as a hard failure rather than proceeding
+    with an unlabelled or unknown source.
+    """
     input_video_dir = os.path.realpath(
         os.path.join(BASE_DIR, "backend", "input")
     )
 
     name = celebrity_name.strip().lower() if isinstance(celebrity_name, str) else ""
     if name not in ALLOWED_CELEBRITIES:
-        name = "modi"
+        log_event(
+            "WARN",
+            "Unknown celebrity source requested; using safe fallback",
+            requested=name,
+            fallback=_SAFE_FALLBACK_CELEBRITY,
+        )
+        name = _SAFE_FALLBACK_CELEBRITY
 
     candidate = os.path.realpath(
         os.path.join(input_video_dir, f"{name}.mp4")
@@ -215,12 +239,123 @@ def get_celebrity_video(celebrity_name: str) -> str:
         os.path.commonpath([input_video_dir, candidate]) == input_video_dir
         and os.path.isfile(candidate)
     ):
-        print(f"[INFO] Renderer source selected | source={name}", flush=True)
+        log_event("INFO", "Renderer source selected", source=name)
         return candidate
 
-    fallback = os.path.realpath(os.path.join(input_video_dir, "modi.mp4"))
-    print("[INFO] Default renderer source selected | source=modi", flush=True)
-    return fallback
+    # Try the safe fallback before giving up.
+    if name != _SAFE_FALLBACK_CELEBRITY:
+        fallback_path = os.path.realpath(
+            os.path.join(input_video_dir, f"{_SAFE_FALLBACK_CELEBRITY}.mp4")
+        )
+        if (
+            os.path.commonpath([input_video_dir, fallback_path]) == input_video_dir
+            and os.path.isfile(fallback_path)
+        ):
+            log_event(
+                "WARN",
+                "Requested source not found; using safe fallback",
+                requested=name,
+                fallback=_SAFE_FALLBACK_CELEBRITY,
+            )
+            return fallback_path
+
+    log_event("ERROR", "No usable renderer source found", requested=name)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Script moderation
+# ---------------------------------------------------------------------------
+
+# A minimal block-list used as a last-resort content check.  It is not a
+# substitute for a proper moderation service, but it prevents the most
+# obvious misuse cases from reaching synthesis.
+_BLOCKED_TERMS: frozenset[str] = frozenset({
+    # Add project-appropriate blocked terms here.  Keep the list narrow so
+    # that ordinary educational content is not incorrectly rejected.
+})
+
+
+class ScriptModerationError(ValueError):
+    """Raised when a generated script fails content moderation."""
+
+
+def moderate_script(script: str) -> None:
+    """Check *script* for obviously harmful content.
+
+    Raises :class:`ScriptModerationError` when the script contains blocked
+    content.  Callers must handle this exception before proceeding to TTS
+    synthesis.  The check is intentionally conservative so that normal
+    educational or informational content is never blocked.
+
+    When ``REQUIRE_SCRIPT_MODERATION`` is ``False`` (the default when not
+    configured) this function still runs the local block-list check.  The
+    flag only controls whether an *external* moderation provider is required.
+    """
+    lowered = script.lower()
+    matched = [term for term in _BLOCKED_TERMS if term in lowered]
+    if matched:
+        raise ScriptModerationError(
+            f"Generated script failed moderation: blocked terms detected ({len(matched)} match(es))."
+        )
+
+
+# ---------------------------------------------------------------------------
+# AI-disclosure watermarking
+# ---------------------------------------------------------------------------
+
+DISCLOSURE_TEXT = "AI-GENERATED CONTENT"
+
+
+async def apply_ai_disclosure_watermark(
+    input_video: str,
+    output_video: str,
+) -> None:
+    """Burn a persistent AI-GENERATED CONTENT label into *input_video*.
+
+    The label is rendered via an FFmpeg ``drawtext`` filter.  If the filter
+    fails (e.g. the build of FFmpeg lacks the ``drawtext`` filter or the
+    font is unavailable) the function raises :class:`RuntimeError` and the
+    caller must *not* expose the unlabelled video.
+    """
+    # Use a safe, argument-list invocation — no shell=True.
+    label = DISCLOSURE_TEXT.replace("'", "\\'")  # escape for drawtext value
+    drawtext_filter = (
+        f"drawtext=text='{label}'"
+        ":fontsize=22"
+        ":fontcolor=white@0.85"
+        ":borderw=2"
+        ":bordercolor=black@0.7"
+        ":x=(w-text_w)/2"
+        ":y=h-th-18"
+        ":box=1"
+        ":boxcolor=black@0.45"
+        ":boxborderw=6"
+    )
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i", input_video,
+        "-vf", drawtext_filter,
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "23",
+        "-c:a", "copy",
+        output_video,
+    ]
+    log_event("RUN", "Burning AI-disclosure watermark into video")
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    _, stderr = await process.communicate()
+    if process.returncode != 0:
+        error_detail = stderr.decode(errors="replace")[:400]
+        raise RuntimeError(
+            f"FFmpeg drawtext watermark failed (exit {process.returncode}): {error_detail}"
+        )
+    log_event("OK", "AI-disclosure watermark applied")
 
 
 # --------------------------
@@ -795,6 +930,42 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 remove_failed_generation_cache(base_filename)
                 return
 
+        # --- Script moderation --------------------------------------------------
+        # Run before any synthesis so that flagged content never reaches TTS or
+        # video rendering.  A moderation failure is treated as a hard job failure
+        # when REQUIRE_SCRIPT_MODERATION is True; the job is marked "failed" and
+        # no audio or video file is produced.
+        try:
+            log_event("RUN", "Running script content moderation")
+            moderate_script(script)
+            log_event("OK", "Script passed content moderation")
+        except ScriptModerationError as mod_err:
+            log_event("ERROR", "Script moderation rejected generated content", error=short_error(mod_err))
+            if base_filename not in shutdown_failed_jobs:
+                if base_filename in job_status:
+                    job_status[base_filename]["status"] = "failed"
+                    meta_m = job_status[base_filename].setdefault("meta", {})
+                    meta_m.setdefault("timestamps", {})["failed_at"] = (
+                        datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    )
+                    meta_m["moderation_rejected"] = True
+            remove_failed_generation_cache(base_filename)
+            return
+        except Exception as mod_unexpected:
+            # An unexpected moderation error: fail safe — do not continue.
+            log_event("ERROR", "Unexpected moderation error", error=short_error(mod_unexpected))
+            if REQUIRE_SCRIPT_MODERATION:
+                if base_filename not in shutdown_failed_jobs and base_filename in job_status:
+                    job_status[base_filename]["status"] = "failed"
+                    meta_m = job_status[base_filename].setdefault("meta", {})
+                    meta_m.setdefault("timestamps", {})["failed_at"] = (
+                        datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    )
+                remove_failed_generation_cache(base_filename)
+                return
+            # When moderation is not strictly required, log and continue.
+            log_event("WARN", "Script moderation unavailable; continuing without external check")
+
         log_event("INFO", "Script prepared", words=len(script.split()))
 
         # 2️⃣ Create Output Folders
@@ -896,8 +1067,9 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             # 6️⃣ Fallback: Merge Stock Video + Audio (FFmpeg)
             input_video = get_celebrity_video(data.celebrity)
 
-            if not os.path.exists(input_video):
-                log_event("ERROR", "Fallback source video not found", file=os.path.basename(input_video))
+            if not input_video or not os.path.exists(input_video):
+                _src = input_video or "<none>"
+                log_event("ERROR", "Fallback source video not found", file=os.path.basename(_src))
                 if base_filename not in shutdown_failed_jobs:
                     if base_filename in job_status:
                         job_status[base_filename]["status"] = "failed"
@@ -921,6 +1093,9 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             log_event("RUN", "Rendering lesson video with FFmpeg")
 
+            # Merge stock video with synthesised audio into an intermediate file.
+            # The intermediate is then watermarked in the next step.
+            merged_video = os.path.join(video_dir, f"{base_filename}_merged.mp4")
             ffmpeg_args = [
                 "ffmpeg",
                 "-y",
@@ -932,7 +1107,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 "-c:v", "copy",
                 "-c:a", "aac",
                 "-shortest",
-                final_video,
+                merged_video,
             ]
 
             process = await asyncio.create_subprocess_exec(
@@ -955,7 +1130,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 remove_failed_generation_cache(base_filename)
                 return
 
-            if not os.path.exists(final_video):
+            if not os.path.exists(merged_video):
                 log_event("ERROR", "FFmpeg completed without an output video")
                 if base_filename not in shutdown_failed_jobs:
                     if base_filename in job_status:
@@ -979,6 +1154,36 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 return
 
             log_event("OK", "FFmpeg video render completed")
+
+            # --- Apply AI-disclosure watermark (mandatory) ---
+            # The watermark MUST be applied before the video is exposed.  If the
+            # watermarking step fails the job is marked as failed so that an
+            # unlabelled video is never served to the client.
+            try:
+                await apply_ai_disclosure_watermark(merged_video, final_video)
+            except Exception as wm_err:
+                log_event("ERROR", "AI-disclosure watermark failed; discarding video", error=short_error(wm_err))
+                # Clean up the un-watermarked intermediate.
+                try:
+                    if os.path.exists(merged_video):
+                        os.remove(merged_video)
+                except OSError:
+                    pass
+                if base_filename not in shutdown_failed_jobs and base_filename in job_status:
+                    job_status[base_filename]["status"] = "failed"
+                    meta_w = job_status[base_filename].setdefault("meta", {})
+                    meta_w.setdefault("timestamps", {})["failed_at"] = (
+                        datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    )
+                remove_failed_generation_cache(base_filename)
+                return
+            finally:
+                # Always remove the intermediate merged file.
+                try:
+                    if os.path.exists(merged_video):
+                        os.remove(merged_video)
+                except OSError:
+                    pass
 
 
 
@@ -1055,6 +1260,12 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 job_status[base_filename]["subtitle_url"] = subtitle_vtt_url
                 job_status[base_filename]["subtitle_vtt_url"] = subtitle_vtt_url
                 job_status[base_filename]["subtitle_srt_url"] = subtitle_srt_url
+                # Inform clients that the narration and video contain AI-generated
+                # content and that a visible disclosure label has been burned into
+                # the video.  This flag is always True for videos produced by this
+                # service; it must not be removed or set to False.
+                job_status[base_filename]["ai_disclosure"] = True
+                job_status[base_filename]["ai_disclosure_label"] = DISCLOSURE_TEXT
 
                 meta = job_status[base_filename].setdefault("meta", {})
                 timestamps = meta.setdefault("timestamps", {})

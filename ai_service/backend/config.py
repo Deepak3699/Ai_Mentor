@@ -29,9 +29,15 @@ CLOUDINARY_ENABLED = all([
     CLOUDINARY_API_SECRET,
 ])
 
+# When True the script moderation step is mandatory: an unexpected error in the
+# moderation check will cause the job to fail rather than continue.  Set to
+# False (the default) during development when no external moderation provider
+# is configured.
+REQUIRE_SCRIPT_MODERATION = os.getenv("REQUIRE_SCRIPT_MODERATION", "false").lower() in (
+    "1", "true", "yes",
+)
+
 
 def validate_config():
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is required for the AI service.")
-
-
