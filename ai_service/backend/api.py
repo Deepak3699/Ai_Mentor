@@ -1247,7 +1247,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             else:
                 print("⚠️ Keeping local files on disk as a fallback proxy since Cloudinary upload failed.")
                 print("⚠️ Note: These files will remain until the server is restarted or manually cleaned.")
-                ).get("secure_url")
+               
                 log_event("OK", "Subtitle files uploaded")
             except Exception as sub_up_err:
                 log_event("WARN", "Subtitle upload failed; using local files", error=short_error(sub_up_err))
