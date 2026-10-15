@@ -805,14 +805,13 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 model_used = "llama-3.3-70b-versatile"
                 print("✅ Groq fallback response generated")
     
-            except Exception as groq_error:
+                       except Exception as groq_error:
                 print(f"❌ Groq also failed: {groq_error}")
-    
+
                 job_status[base_filename] = {
                     "status": "failed"
                 }
-    
-            return
+                return
     
            
             print(f"📝 Generated text: {script}")
@@ -845,7 +844,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
     
             log_event("OK", "Lesson script generated", provider="groq", words=len(script.split()))
 
-            except Exception as groq_error:
+            
 
                 log_event("ERROR", "Groq lesson generation failed", error=short_error(groq_error))
 
