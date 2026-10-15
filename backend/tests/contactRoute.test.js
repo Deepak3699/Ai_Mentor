@@ -7,6 +7,7 @@ process.env.NODE_ENV = "test";
 
 const { default: express } = await import("express");
 const { default: ContactMessage } = await import("../models/Contactmessage.js");
+const { default: User } = await import("../models/User.js");
 const { default: contactRoutes } = await import("../routes/contactus.js");
 
 let server;
@@ -27,11 +28,14 @@ after(async () => {
 });
 
 beforeEach(async () => {
-  // Clean up any test messages
-  await ContactMessage.destroy({ where: { email: "test@example.com" } });
+  // Reset logic if needed
 });
 
 test("POST /api/contactus - Anonymous submission stores userId as null", async () => {
+  // Mock ContactMessage.create to avoid needing a live DB connection
+  const originalCreate = ContactMessage.create;
+  ContactMessage.create = async (data) => ({ id: 1, ...data });
+
   const res = await fetch(baseUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -43,7 +47,10 @@ test("POST /api/contactus - Anonymous submission stores userId as null", async (
   });
 
   const data = await res.json();
+  ContactMessage.create = originalCreate;
+
   assert.strictEqual(res.status, 201);
+  assert.strictEqual(data.success, true);
   assert.strictEqual(data.data.userId, null);
 });
 
@@ -52,6 +59,13 @@ test("POST /api/contactus - Authenticated submission derives userId from token",
   const token = jwt.sign({ id: mockUserId }, process.env.JWT_SECRET || "your_jwt_secret", {
     expiresIn: "1h",
   });
+
+  // Mock User.findByPk so optionalProtect successfully validates the token/user
+  const originalFindByPk = User.findByPk;
+  User.findByPk = async (id) => ({ id, email: "authuser@example.com" });
+
+  const originalCreate = ContactMessage.create;
+  ContactMessage.create = async (data) => ({ id: 1, ...data });
 
   const res = await fetch(baseUrl, {
     method: "POST",
@@ -67,11 +81,18 @@ test("POST /api/contactus - Authenticated submission derives userId from token",
   });
 
   const data = await res.json();
+  User.findByPk = originalFindByPk;
+  ContactMessage.create = originalCreate;
+
   assert.strictEqual(res.status, 201);
+  assert.strictEqual(data.success, true);
   assert.strictEqual(data.data.userId, mockUserId);
 });
 
 test("POST /api/contactus - Spoofed-ID in request body is ignored", async () => {
+  const originalCreate = ContactMessage.create;
+  ContactMessage.create = async (data) => ({ id: 1, ...data });
+
   const res = await fetch(baseUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -84,11 +105,17 @@ test("POST /api/contactus - Spoofed-ID in request body is ignored", async () => 
   });
 
   const data = await res.json();
+  ContactMessage.create = originalCreate;
+
   assert.strictEqual(res.status, 201);
+  assert.strictEqual(data.success, true);
   assert.strictEqual(data.data.userId, null);
 });
 
 test("POST /api/contactus - Invalid token handles gracefully", async () => {
+  const originalCreate = ContactMessage.create;
+  ContactMessage.create = async (data) => ({ id: 1, ...data });
+
   const res = await fetch(baseUrl, {
     method: "POST",
     headers: {
@@ -102,10 +129,12 @@ test("POST /api/contactus - Invalid token handles gracefully", async () => {
     }),
   });
 
-  // Depending on optionalProtect implementation, it may allow request as guest or fail
+  ContactMessage.create = originalCreate;
+
   assert.ok(res.status === 201 || res.status === 401);
   if (res.status === 201) {
     const data = await res.json();
+    assert.strictEqual(data.success, true);
     assert.strictEqual(data.data.userId, null);
   }
 });

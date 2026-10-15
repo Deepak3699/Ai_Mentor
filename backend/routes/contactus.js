@@ -54,7 +54,7 @@ router.post("/", optionalProtect, async (req, res) => {
     });
 
     return res.status(201).json({
-      success: false, // (or true based on your success response standard)
+      success: true,
       message: "Your message has been sent successfully!",
       data: savedMessage,
     });
