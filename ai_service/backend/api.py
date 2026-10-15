@@ -771,21 +771,33 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             model_used = GEMINI_MODEL
             log_event("OK", "Lesson script generated", provider="gemini", words=len(script.split()))
 
-              except Exception as gemini_error:
-                print(f"❌ Gemini failed: {gemini_error}")
+              
+        except Exception as gemini_error:
+            print(f"❌ Gemini failed: {gemini_error}")
+            print("⚡ Switching to Groq fallback...")
 
-                print("⚡ Switching to Groq fallback...")
-
-                log_event(
+            log_event(
                 "WARN",
                 "Gemini lesson generation failed",
                 error=short_error(gemini_error),
             )
 
-                try:
-                    log_event("RUN", "Switching to Groq fallback")
+            try:
+                log_event("RUN", "Switching to Groq fallback")
 
-                    groq_response = groq_client.chat.completions.create(
+                groq_response = groq_client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt,
+                        }
+                    ],
+                    temperature=0.7,
+                    max_tokens=300,
+                    timeout=LLM_TIMEOUT_SECONDS,
+                )
+
                     model="llama-3.3-70b-versatile",
                     messages=[
                         {
