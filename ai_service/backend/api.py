@@ -798,17 +798,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     timeout=LLM_TIMEOUT_SECONDS,
                 )
 
-                    model="llama-3.3-70b-versatile",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    temperature=0.7,
-                    max_tokens=300,
-                    timeout=LLM_TIMEOUT_SECONDS,
-                )
+                    
     
                 script = groq_response.choices[0].message.content.strip().replace("\n", " ")
                 provider_used = "groq"
@@ -822,7 +812,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     "status": "failed"
                 }
     
-                return
+            return
     
                     return
     
