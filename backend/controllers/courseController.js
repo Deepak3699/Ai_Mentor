@@ -316,7 +316,6 @@ const addSubtopics = async (req, res) => {
   res.status(501).json({ message: "addSubtopics not implemented" });
 };
 
-
 const addLessons = async (req, res) => {
   try {
     const { courseId, moduleId } = req.params;
@@ -362,7 +361,6 @@ const addLessons = async (req, res) => {
     return res.status(500).json({ message: "Failed to add lessons" });
   }
 };
-
 
 const addModules = async (req, res) => {
   try {

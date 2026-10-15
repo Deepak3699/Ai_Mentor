@@ -451,7 +451,6 @@ test("addLessons route validation rejects invalid input before the controller ru
   assert.equal(nextCalled, false);
 });
 
-
 test("addLessons accepts a module belonging to the requested course", async () => {
   const { res, state } = response();
   const created = [];
@@ -470,10 +469,7 @@ test("addLessons accepts a module belonging to the requested course", async () =
     {
       params: { courseId: "1", moduleId: "10" },
       body: {
-        lessons: [
-          { title: "Lesson One" },
-          { title: "Lesson Two" },
-        ],
+        lessons: [{ title: "Lesson One" }, { title: "Lesson Two" }],
       },
     },
     res,
@@ -509,10 +505,7 @@ test("addLessons rejects a module belonging to another course", async () => {
   );
 
   assert.equal(state.statusCode, 404);
-  assert.equal(
-    state.body.message,
-    "Module not found for the specified course",
-  );
+  assert.equal(state.body.message, "Module not found for the specified course");
   assert.equal(maxCalled, false);
   assert.equal(createCalled, false);
 });
