@@ -929,7 +929,13 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 rate = data.speech_rate if data.speech_rate else "+0%"
                 pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
     
-                asyncio.run(generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch))
+                await generate_tts(
+                    script,
+                    audio_path,
+                    voice_id=selected_voice,
+                    rate=rate,
+                    pitch=pitch,
+)
     
                 print(f"✅ Audio saved: {audio_path}")
     
