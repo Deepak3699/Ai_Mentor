@@ -1,4 +1,5 @@
 import { User } from "../models/index.js";
+import { sendServerError } from "../utils/apiError.js";
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -50,11 +51,7 @@ export const getAllUsers = async (req, res) => {
       data: users.rows,
     });
   } catch (error) {
-    console.error("GET USERS ERROR:", error.message || error);
-    res.status(500).json({
-      success: false,
-      message: "Server Error: " + error.message,
-    });
+    return sendServerError(req, res, error, "userController.getAllUsers");
   }
 };
 
@@ -77,8 +74,7 @@ export const updateUserStatus = async (req, res) => {
 
     res.status(200).json({ success: true, data: user });
   } catch (error) {
-    console.error("UPDATE STATUS ERROR:", error.message || error);
-    res.status(500).json({ success: false, message: "Server Error: " + error.message });
+    return sendServerError(req, res, error, "userController.updateUserStatus");
   }
 };
 export const toggleUserBlock = async (req, res) => {
@@ -108,12 +104,7 @@ export const toggleUserBlock = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("TOGGLE USER BLOCK ERROR:", error.message || error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server Error: " + error.message,
-    });
+    return sendServerError(req, res, error, "userController.toggleUserBlock");
   }
 };
 export const deleteUser = async (req, res) => {
@@ -127,7 +118,6 @@ export const deleteUser = async (req, res) => {
     await user.destroy();
     res.status(200).json({ success: true, message: "User deleted successfully" });
   } catch (error) {
-    console.error("DELETE USER ERROR:", error.message || error);
-    res.status(500).json({ success: false, message: "Server Error: " + error.message });
+    return sendServerError(req, res, error, "userController.deleteUser");
   }
 };

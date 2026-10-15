@@ -177,7 +177,7 @@ async def _poll_for_video(talk_id: str) -> str:
 
         result = response.json()
         status = result.get("status")
-        print(f"🔄 D-ID status: {status}")
+        print(f"[INFO] D-ID status | state={status}", flush=True)
 
         if status == "done":
             video_url = result.get("result_url")
