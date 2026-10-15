@@ -573,6 +573,11 @@ def generate_lesson(
         data.topic,
         data.celebrity,
         data.language,
+        str(data.voice_id),
+        str(data.gender),
+        str(data.speech_rate),
+        str(data.speech_pitch),
+        json.dumps(data.preferences, sort_keys=True, default=str), 
     ])
             
     cache_key = hashlib.sha256(
@@ -583,15 +588,16 @@ def generate_lesson(
     ).strip().replace(" ", "_")
     topic_clean = topic_clean[:81]
     if force:
-        base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
+       base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
     else:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        base_filename = f"{topic_clean}_{timestamp}"
+        base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
 
     if not force and cache_key in generation_cache:
         base_filename = generation_cache[cache_key]
         existing_status = job_status.get(
             base_filename,
+
             {"status": "processing"}
         )
 
@@ -612,7 +618,7 @@ def generate_lesson(
         base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
     else:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        base_filename = f"{topic_clean}_{timestamp}"
+        base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
 
     if not force:
         generation_cache[cache_key] = base_filename
@@ -1023,10 +1029,10 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             log_event("WARN", "Video upload failed; using local proxy", error=short_error(cloud_err))
 
-        job_status[base_filename] = {
+        job_status[base_filename].update({
             "status": "ready",
             "cloudinary_url": cloudinary_url,
-        }
+        })
         # Upload subtitles to Cloudinary when available. Local static URLs remain
         # available as a fallback when video or subtitle upload fails.
         local_video_url = f"/video-stream/{base_filename}.mp4"
