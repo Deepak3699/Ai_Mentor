@@ -21,6 +21,7 @@ import uuid
 import time
 from mutagen.mp3 import MP3
 from google import genai
+from google.genai import types
 from groq import Groq
 from cachetools import TTLCache
 from subtitles import write_subtitles
@@ -28,6 +29,7 @@ from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
     GROQ_API_KEY,
+    LLM_TIMEOUT_SECONDS,
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
@@ -130,12 +132,18 @@ app.add_middleware(
 # --------------------------
 # GEMINI Client (Primary)
 # --------------------------
-gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+gemini_client = genai.Client(
+    api_key=GEMINI_API_KEY,
+    http_options=types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+) if GEMINI_API_KEY else None
 
 # --------------------------
 # GROQ Client (Fallback)
 # --------------------------
-groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_ENABLED else None
+groq_client = Groq(
+    api_key=GROQ_API_KEY,
+    timeout=LLM_TIMEOUT_SECONDS,
+) if GROQ_ENABLED else None
 
 # --------------------------
 # Request Model
@@ -309,7 +317,10 @@ def generate_syllabus(data: SyllabusRequest):
         log_event("RUN", "Generating syllabus with Gemini")
         response = gemini_client.models.generate_content(
             model=GEMINI_MODEL,
-            contents=prompt
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                http_options=types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000)
+            ),
         )
 
         text = response.text.strip()
@@ -337,6 +348,7 @@ def generate_syllabus(data: SyllabusRequest):
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7,
                 max_tokens=1000,
+                timeout=LLM_TIMEOUT_SECONDS,
             )
 
             text = groq_response.choices[0].message.content.strip()
@@ -417,7 +429,10 @@ def generate_quiz(data: QuizRequest):
                 log_event("RUN", "Trying Gemini")
                 response = gemini_client.models.generate_content(
                     model=GEMINI_MODEL,
-                    contents=prompt
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        http_options=types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000)
+                    ),
                 )
                 text = response.text.strip()
 
@@ -432,6 +447,7 @@ def generate_quiz(data: QuizRequest):
                     ],
                     temperature=0.7,
                     max_tokens=2000,
+                    timeout=LLM_TIMEOUT_SECONDS,
                 )
 
                 text = groq_response.choices[0].message.content.strip()
@@ -499,6 +515,9 @@ def generate_flashcards(data: FlashcardRequest):
                 response = gemini_client.models.generate_content(
                     model=GEMINI_MODEL,
                     contents=prompt,
+                    config=types.GenerateContentConfig(
+                        http_options=types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000)
+                    ),
                 )
                 text = response.text.strip()
             except Exception as gemini_error:
@@ -510,6 +529,7 @@ def generate_flashcards(data: FlashcardRequest):
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.4,
                     max_tokens=3000,
+                    timeout=LLM_TIMEOUT_SECONDS,
                 )
                 text = groq_response.choices[0].message.content.strip()
 
@@ -738,7 +758,10 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             response = gemini_client.models.generate_content(
                 model=GEMINI_MODEL,
-                contents=prompt
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    http_options=types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000)
+                ),
             )
 
             script = response.text.strip().replace("\n", " ")
@@ -763,6 +786,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     ],
                     temperature=0.7,
                     max_tokens=300,
+                    timeout=LLM_TIMEOUT_SECONDS,
                 )
 
                 script = groq_response.choices[0].message.content.strip().replace("\n", " ")
@@ -777,6 +801,12 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 if base_filename not in shutdown_failed_jobs:
                     if base_filename in job_status:
                         job_status[base_filename]["status"] = "failed"
+                        failure_reason = (
+                            f"LLM generation failed: primary provider (Gemini) failed: {gemini_error}; "
+                            f"fallback provider (Groq) failed: {groq_error}"
+                        )
+                        job_status[base_filename]["error"] = failure_reason
+                        job_status[base_filename]["reason"] = failure_reason
 
                         if "meta" not in job_status[base_filename]:
                             job_status[base_filename]["meta"] = {
