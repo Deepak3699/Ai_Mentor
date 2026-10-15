@@ -37,18 +37,12 @@ const CodeExplainer = () => {
   return (
     <div className="min-h-screen p-6 bg-canvas-alt">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold mb-2 text-main">
-          AI Code Explainer
-        </h1>
+        <h1 className="text-3xl font-bold mb-2 text-main">AI Code Explainer</h1>
 
-        <p className="text-muted mb-6">
-          Understand, debug, and improve your code with AI.
-        </p>
+        <p className="text-muted mb-6">Understand, debug, and improve your code with AI.</p>
 
         <div className="bg-card border border-border rounded-2xl p-6">
-          <label className="block font-semibold mb-2 text-main">
-            Programming Language
-          </label>
+          <label className="block font-semibold mb-2 text-main">Programming Language</label>
 
           <select
             value={language}
@@ -62,9 +56,7 @@ const CodeExplainer = () => {
             <option value="c">C</option>
           </select>
 
-          <label className="block font-semibold mb-2 text-main">
-            Select Mode
-          </label>
+          <label className="block font-semibold mb-2 text-main">Select Mode</label>
 
           <div className="flex flex-wrap gap-3 mb-5">
             {["explain", "debug", "optimize"].map((item) => (
@@ -82,9 +74,7 @@ const CodeExplainer = () => {
             ))}
           </div>
 
-          <label className="block font-semibold mb-2 text-main">
-            Your Code
-          </label>
+          <label className="block font-semibold mb-2 text-main">Your Code</label>
 
           <textarea
             value={code}
@@ -103,9 +93,7 @@ const CodeExplainer = () => {
             {loading ? "Processing..." : "Analyze Code"}
           </button>
 
-          {error && (
-            <p className="mt-4 text-red-500">{error}</p>
-          )}
+          {error && <p className="mt-4 text-red-500">{error}</p>}
 
           {result && (
             <div className="mt-8 space-y-5 text-main">
@@ -124,7 +112,23 @@ const CodeExplainer = () => {
                   {Array.isArray(result.explanation) ? (
                     <ul className="list-disc pl-6 space-y-1">
                       {result.explanation.map((item, index) => (
-                        <li key={index}>{item}</li>
+                        <li key={index}>
+                          {typeof item === "object" && item !== null ? (
+                            <div>
+                              {item.line != null && (
+                                <p className="font-semibold">Line: {item.line}</p>
+                              )}
+                              {item.code && (
+                                <pre className="overflow-x-auto rounded bg-slate-900 text-white p-2 my-1">
+                                  <code>{item.code}</code>
+                                </pre>
+                              )}
+                              {item.explanation && <p>{item.explanation}</p>}
+                            </div>
+                          ) : (
+                            <p>{String(item)}</p>
+                          )}
+                        </li>
                       ))}
                     </ul>
                   ) : (
@@ -139,7 +143,23 @@ const CodeExplainer = () => {
                   {Array.isArray(result.issues) ? (
                     <ul className="list-disc pl-6 space-y-1">
                       {result.issues.map((item, index) => (
-                        <li key={index}>{item}</li>
+                        <li key={index}>
+                          {typeof item === "object" && item !== null ? (
+                            <div>
+                              {item.line != null && (
+                                <p className="font-semibold">Line: {item.line}</p>
+                              )}
+                              {item.problem && <p>{item.problem}</p>}
+                              {item.suggestion && (
+                                <p>
+                                  <strong>Suggestion:</strong> {item.suggestion}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <p>{String(item)}</p>
+                          )}
+                        </li>
                       ))}
                     </ul>
                   ) : (
@@ -159,15 +179,13 @@ const CodeExplainer = () => {
 
               {result.time_complexity && (
                 <p>
-                  <strong>Time Complexity:</strong>{" "}
-                  {result.time_complexity}
+                  <strong>Time Complexity:</strong> {result.time_complexity}
                 </p>
               )}
 
               {result.space_complexity && (
                 <p>
-                  <strong>Space Complexity:</strong>{" "}
-                  {result.space_complexity}
+                  <strong>Space Complexity:</strong> {result.space_complexity}
                 </p>
               )}
             </div>

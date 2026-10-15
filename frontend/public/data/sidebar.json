@@ -12,10 +12,10 @@
     "path": "/courses"
   },
   {
-  "id": "code-explainer",
-  "icon": "/AI_Tutor_New_UI/Icons/my_courses.svg",
-  "label": "Code Explainer",
-  "path": "/code-explainer"
+    "id": "code-explainer",
+    "icon": "/AI_Tutor_New_UI/Icons/my_courses.svg",
+    "label": "Code Explainer",
+    "path": "/code-explainer"
   },
   {
     "id": "discussions",

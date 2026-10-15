@@ -1,5 +1,7 @@
+
 import importlib
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -17,7 +19,10 @@ def load_config(monkeypatch, **env):
     for key, value in env.items():
         monkeypatch.setenv(key, value)
 
-    sys.path.insert(0, "ai_service/backend")
+    backend_path = str(Path(__file__).resolve().parents[1])
+    if backend_path not in sys.path:
+        sys.path.insert(0, backend_path)
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "1")
     sys.modules.pop("config", None)
     return importlib.import_module("config")
 
@@ -30,7 +35,6 @@ def test_gemini_is_required(monkeypatch):
 
 def test_groq_and_cloudinary_are_optional(monkeypatch):
     config = load_config(monkeypatch, GEMINI_API_KEY="test-gemini")
-
     assert config.GROQ_ENABLED is False
     assert config.CLOUDINARY_ENABLED is False
 
@@ -44,6 +48,5 @@ def test_groq_and_cloudinary_enable_when_configured(monkeypatch):
         CLOUDINARY_API_KEY="test-key",
         CLOUDINARY_API_SECRET="test-secret",
     )
-
     assert config.GROQ_ENABLED is True
     assert config.CLOUDINARY_ENABLED is True
