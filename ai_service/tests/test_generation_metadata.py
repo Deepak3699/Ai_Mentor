@@ -54,6 +54,8 @@ async def test_gemini_metadata():
          patch("api.write_subtitles", return_value=("vtt", "srt")), \
          patch("api.cloudinary.uploader.upload", side_effect=Exception("Cloud fail")), \
          patch("api.os.makedirs") as mock_makedirs, \
+         patch("api.os.path.isfile", return_value=True), \
+         patch("api.os.path.getsize", return_value=1024), \
          patch("api.os.remove"), \
          patch("builtins.open", side_effect=safe_open):
 
@@ -108,6 +110,8 @@ async def test_groq_metadata_and_mp3_duration():
          patch("api.create_avatar_video", side_effect=Exception("Avatar failed")), \
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec, \
          patch("api.os.path.exists", side_effect=safe_exists), \
+         patch("api.os.path.isfile", return_value=True), \
+         patch("api.os.path.getsize", return_value=1024), \
          patch("api.os.makedirs") as mock_makedirs, \
          patch("api.os.remove"), \
          patch("builtins.open", side_effect=safe_open):
