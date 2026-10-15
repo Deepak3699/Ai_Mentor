@@ -736,9 +736,10 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         try:
             log_event("RUN", "Generating lesson script with Gemini")
 
-            response = gemini_client.models.generate_content(
+            response = await asyncio.to_thread(
+                gemini_client.models.generate_content,
                 model=GEMINI_MODEL,
-                contents=prompt
+                contents=prompt,
             )
 
             script = response.text.strip().replace("\n", " ")
@@ -753,7 +754,8 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             try:
                 log_event("RUN", "Switching to Groq fallback")
 
-                groq_response = groq_client.chat.completions.create(
+                groq_response = await asyncio.to_thread(
+                    groq_client.chat.completions.create,
                     model="llama-3.3-70b-versatile",
                     messages=[
                         {
@@ -836,7 +838,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             await generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch)
             
             try:
-                audio = MP3(audio_path)
+                audio = await asyncio.to_thread(MP3, audio_path)
                 audio_seconds = audio.info.length
             except Exception as e:
                 log_event("WARN", "Could not read audio duration", error=short_error(e))
@@ -878,7 +880,8 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             log_event("OK", "D-ID avatar render completed")
 
-            video_response = requests.get(
+            video_response = await asyncio.to_thread(
+                requests.get,
                 avatar_video_url,
                 timeout=120,
             )
@@ -985,9 +988,12 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         # 6.5 Generate subtitles (.vtt + .srt)
         vtt_path, srt_path = None, None
         try:
-            vtt_path, srt_path = write_subtitles(
-                script, audio_path, os.path.join(video_dir, base_filename)
-            )
+            vtt_path, srt_path = await asyncio.to_thread(
+                write_subtitles,
+                script,
+                audio_path,
+                os.path.join(video_dir, base_filename),
+)
             log_event("OK", "Subtitle files created")
         except Exception as sub_err:
             log_event("WARN", "Subtitle generation failed; video remains available", error=short_error(sub_err))
@@ -999,7 +1005,8 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         try:
             log_event("RUN", "Uploading lesson video")
 
-            upload_result = cloudinary.uploader.upload(
+            upload_result = await asyncio.to_thread(
+                cloudinary.uploader.upload,
                 final_video,
                 resource_type="video",
                 folder="ai_mentor/videos",
@@ -1025,20 +1032,24 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         if vtt_path and srt_path:
             try:
-                vtt_url = cloudinary.uploader.upload(
+                vtt_upload_result = await asyncio.to_thread(
+                    cloudinary.uploader.upload,
                     vtt_path,
                     resource_type="raw",
                     folder="ai_mentor/subtitles",
                     public_id=f"{base_filename}.vtt",
                     overwrite=True,
-                ).get("secure_url")
-                srt_url = cloudinary.uploader.upload(
+                )
+                vtt_url = vtt_upload_result.get("secure_url")
+                srt_upload_result = await asyncio.to_thread(
+                    cloudinary.uploader.upload,
                     srt_path,
                     resource_type="raw",
                     folder="ai_mentor/subtitles",
                     public_id=f"{base_filename}.srt",
                     overwrite=True,
-                ).get("secure_url")
+                )
+                srt_url = srt_upload_result.get("secure_url")
                 log_event("OK", "Subtitle files uploaded")
             except Exception as sub_up_err:
                 log_event("WARN", "Subtitle upload failed; using local files", error=short_error(sub_up_err))

@@ -85,14 +85,10 @@ def upload_audio(audio_path: str) -> str:
     return audio_url
 
 
-class AwaitableStr(str):
-    def __await__(self):
-        async def _wrapper():
-            return str(self)
-        return _wrapper().__await__()
 
 
-def create_avatar_video(audio_path: str) -> str:
+
+async def create_avatar_video(audio_path: str) -> str:
     """
     Create a talking-avatar video from a local audio file.
 
@@ -102,9 +98,12 @@ def create_avatar_video(audio_path: str) -> str:
     if not DID_SOURCE_URL:
         raise RuntimeError("DID_SOURCE_URL is not configured")
 
-    audio_url = upload_audio(audio_path)
+    # Run the synchronous audio upload outside the event loop.
+    audio_url = await asyncio.to_thread(upload_audio, audio_path)
 
-    response = requests.post(
+    # Run the synchronous D-ID creation request outside the event loop.
+    response = await asyncio.to_thread(
+        requests.post,
         f"{DID_API_URL}/talks",
         headers={
             "Authorization": _get_auth_header(),
@@ -129,25 +128,19 @@ def create_avatar_video(audio_path: str) -> str:
     try:
         payload = response.json()
     except ValueError as exc:
-        raise RuntimeError("D-ID creation response was not valid JSON") from exc
+        raise RuntimeError(
+            "D-ID creation response was not valid JSON"
+        ) from exc
 
     talk_id = payload.get("id")
     if not talk_id:
-        raise RuntimeError("D-ID creation response did not return a talk ID")
+        raise RuntimeError(
+            "D-ID creation response did not return a talk ID"
+        )
 
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
+    # Poll asynchronously instead of blocking the event loop.
+    return await _poll_for_video(talk_id)
 
-    if loop and loop.is_running():
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            video_url = executor.submit(asyncio.run, _poll_for_video(talk_id)).result()
-    else:
-        video_url = asyncio.run(_poll_for_video(talk_id))
-
-    return AwaitableStr(video_url)
 
 
 async def _poll_for_video(talk_id: str) -> str:
