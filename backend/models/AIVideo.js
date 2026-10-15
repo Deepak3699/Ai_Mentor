@@ -52,6 +52,18 @@ AIVideo.init(
       type: DataTypes.STRING,
       allowNull: true,
     },
+    status: {
+      type: DataTypes.ENUM("pending", "processing", "completed", "failed"),
+      defaultValue: "pending",
+    },
+    error: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    meta: {
+      type: DataTypes.JSON,
+      allowNull: true,
+    },
   },
   {
     sequelize,
@@ -69,7 +81,7 @@ AIVideo.init(
         fields: ["jobId"],
       },
     ],
-  }
+  },
 );
 
 export default AIVideo;

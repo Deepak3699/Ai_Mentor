@@ -1,4 +1,3 @@
-
 import AIVideo from "../models/AIVideo.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
@@ -7,389 +6,306 @@ import { generateVideoSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
 import hasCourseAccess from "../utils/courseAccess.js";
+import { getVideoQueue } from "../queues/videoQueue.js";
 import dotenv from "dotenv";
-
 dotenv.config();
 
 const router = express.Router();
 
-const isAdminUser = (user) => {
-  const role = String(user?.role || "").toLowerCase();
-  return role === "admin" || role === "superadmin";
-};
+router.post("/generate-video", protect, validate(generateVideoSchema), async (req, res) => {
+  try {
+    const { courseId, lessonId, celebrity, voice_id, speech_rate, speech_pitch } = req.body;
 
-const getVideoWhere = (courseId, lessonId, celebrity) => ({
-  courseId: Number(courseId),
-  lessonId: Number(lessonId),
-  celebrity: String(celebrity).toLowerCase(),
-});
+    // 🔐 Check purchase
+    if (!hasCourseAccess(req.user, courseId)) {
+  return res.status(403).json({ message: "Course not purchased" });
+}
 
-// Generate an AI video for a lesson.
-router.post(
-  "/generate-video",
-  protect,
-  validate(generateVideoSchema),
-  async (req, res) => {
-    let reservedVideo = null;
+    // 🕵️ Check Cache First
+    const cachedVideo = await AIVideo.findOne({
+      where: {
+        courseId: Number(courseId),
+        lessonId: String(lessonId),
+        celebrity: String(celebrity).toLowerCase(),
+      },
+    });
 
-    try {
-      const {
-        courseId,
-        lessonId,
-        celebrity,
-        voice_id,
-        speech_rate,
-        speech_pitch,
-      } = req.body;
-
-      // Verify course access before doing any generation work.
-      if (!hasCourseAccess(req.user, courseId)) {
-        return res.status(403).json({
-          message: "You do not have access to this course",
+    if (cachedVideo) {
+      let parsedUrl;
+      try {
+        parsedUrl = new URL(cachedVideo.videoUrl);
+      } catch {
+        parsedUrl = null;
+      }
+      if (
+        parsedUrl &&
+        parsedUrl.protocol === "https:" &&
+        parsedUrl.hostname.endsWith("res.cloudinary.com")
+      ) {
+        return res.json({
+          videoUrl: cachedVideo.videoUrl,
+          transcriptName: cachedVideo.transcriptName,
+          jobId: cachedVideo.jobId,
+          meta: cachedVideo.meta,
+          cached: true,
         });
       }
 
-      const videoWhere = getVideoWhere(courseId, lessonId, celebrity);
+      const filename = cachedVideo.videoUrl.split("/").pop();
 
-      // Check whether a video already exists for this lesson.
-      const cachedVideo = await AIVideo.findOne({
-        where: videoWhere,
-      });
-
-      if (cachedVideo) {
-        // A reservation or generation job is already in progress.
-        if (!cachedVideo.videoUrl) {
-          if (!cachedVideo.jobId) {
-            return res.status(409).json({
-              message:
-                "Video generation is already being started. Please try again shortly.",
-            });
-          }
-
-          if (
-            !isAdminUser(req.user) &&
-            String(cachedVideo.userId) !== String(req.user.id)
-          ) {
-            return res.status(409).json({
-              message:
-                "A video for this lesson is already being generated",
-            });
-          }
-
-          return res.json({
-            jobId: cachedVideo.jobId,
-            status: "processing",
-            message: "Video generation is already in progress",
-          });
-        }
-
-        // Cloudinary-hosted cached videos can be returned directly.
-        let parsedUrl;
-
-        try {
-          parsedUrl = new URL(cachedVideo.videoUrl);
-        } catch {
-          parsedUrl = null;
-        }
-
-        if (
-          parsedUrl &&
-          parsedUrl.protocol === "https:" &&
-          parsedUrl.hostname.endsWith("res.cloudinary.com")
-        ) {
-          return res.json({
-            videoUrl: cachedVideo.videoUrl,
-            transcriptName: cachedVideo.transcriptName,
-            jobId: cachedVideo.jobId,
-            cached: true,
-          });
-        }
-
-        // Verify videos hosted by the AI service still exist.
-        const filename = cachedVideo.videoUrl.split("/").pop();
-
-        const videoCheck = await fetch(
-          `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`,
-          { method: "HEAD" }
-        );
-
-        if (videoCheck.ok) {
-          return res.json({
-            videoUrl: cachedVideo.videoUrl,
-            transcriptName: cachedVideo.transcriptName,
-            jobId: cachedVideo.jobId,
-            cached: true,
-          });
-        }
-
-        // Remove an invalid cache entry before attempting regeneration.
-        await cachedVideo.destroy();
-      }
-
-      // Verify the requested course and lesson exist.
-      const titles = await getCourseAndLessonTitles(courseId, lessonId);
-
-      if (!titles) {
-        return res.status(404).json({
-          message: "Invalid course or lesson",
-        });
-      }
-
-      const { courseTitle, lessonTitle } = titles;
-
-      const userPreferencesRecord = await Preferences.findOne({
-        where: { user_id: req.user.id },
-      });
-
-      const userPreferences = userPreferencesRecord
-        ? userPreferencesRecord.toJSON()
-        : null;
-
-      // Reserve the unique video record before calling the AI service.
-      // The unique course/lesson/celebrity index prevents duplicate reservations.
-      const [videoRecord, created] = await AIVideo.findOrCreate({
-        where: videoWhere,
-        defaults: {
-          userId: req.user.id,
-          courseId: Number(courseId),
-          lessonId: Number(lessonId),
-          celebrity: String(celebrity).toLowerCase(),
-          videoUrl: "",
-          jobId: null,
-          transcriptName: null,
-        },
-      });
-
-      if (!created) {
-        // Never transfer a job with unknown or different ownership.
-        if (
-          !videoRecord.userId ||
-          String(videoRecord.userId) !== String(req.user.id)
-        ) {
-          return res.status(409).json({
-            message:
-              "A video for this lesson already exists and ownership cannot be verified",
-          });
-        }
-
-        return res.status(409).json({
-          message:
-            "A video for this lesson is already being generated",
-        });
-      }
-
-      reservedVideo = videoRecord;
-
-      // Ask the AI service to start generating the video.
-      const response = await fetch(
-        `${process.env.AI_SERVICE_URL}/generate`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            course: courseTitle,
-            topic: lessonTitle,
-            celebrity,
-            preferences: userPreferences,
-            voice_id,
-            speech_rate,
-            speech_pitch,
-          }),
-        }
+      const videoCheck = await fetch(
+        `${process.env.AI_SERVICE_URL}/video-stream/${filename}`,
+        { method: "HEAD" }, // lightweight check
       );
 
-      if (!response.ok) {
-        throw new Error("AI service request failed");
+      if (!videoCheck.ok) {
+        console.log("⚠️ Cached video missing. Removing from DB...");
+
+        await cachedVideo.destroy(); // delete bad cache
+      } else {
+        console.log("✅ Cached video verified.");
+
+        return res.json({
+          videoUrl: cachedVideo.videoUrl,
+          transcriptName: cachedVideo.transcriptName,
+          jobId: cachedVideo.jobId,
+          meta: cachedVideo.meta,
+          cached: true,
+        });
       }
-
-      const data = await response.json();
-
-      // No job was created, so remove the reservation.
-      if (!data.jobId) {
-        await reservedVideo.destroy();
-        reservedVideo = null;
-        return res.json(data);
-      }
-
-      // Save the job ID and transcript information against its owner.
-      reservedVideo.jobId = String(data.jobId);
-      reservedVideo.transcriptName = data.text_file || null;
-      await reservedVideo.save();
-
-      return res.json(data);
-    } catch (error) {
-      if (reservedVideo) {
-        try {
-          await reservedVideo.destroy();
-        } catch (cleanupError) {
-          console.error(
-            "Failed to remove AI video reservation:",
-            cleanupError.message
-          );
-        }
-      }
-
-      console.error("AI GENERATE ERROR:", error);
-      return res.status(500).json({
-        message: "Failed to generate AI video",
-      });
     }
-  }
-);
 
-// Proxy transcript content from the AI service.
+    // Get titles from JSON
+    const titles = await getCourseAndLessonTitles(courseId, lessonId);
+
+    if (!titles) {
+      return res.status(404).json({ message: "Invalid course or lesson" });
+    }
+
+    const { courseTitle, lessonTitle } = titles;
+
+    const userPreferencesRecord = await Preferences.findOne({
+      where: { user_id: req.user.id }, // 👈 FIX
+    });
+
+    const userPreferences = userPreferencesRecord ? userPreferencesRecord.toJSON() : null;
+
+    // Create DB record immediately as pending
+    const aiVideo = await AIVideo.create({
+      courseId: Number(courseId),
+      lessonId: String(lessonId),
+      celebrity: String(celebrity).toLowerCase(),
+      videoUrl: "",
+      transcriptName: "",
+      status: "pending",
+    });
+
+    // Add to queue
+    const videoQueue = getVideoQueue();
+    const job = await videoQueue.add("generate-video", {
+      aiVideoId: aiVideo.id,
+      courseId,
+      lessonId,
+      celebrity,
+      courseTitle,
+      lessonTitle,
+      userPreferences,
+      voice_id,
+      speech_rate,
+      speech_pitch,
+    });
+
+    console.log(`📥 Job added to queue: ${job.id}, DB ID: ${aiVideo.id}`);
+
+    return res.json({
+      jobId: aiVideo.id, // Frontend uses DB id to poll
+      status: "processing",
+      message: "Video generation started",
+    });
+  } catch (error) {
+    console.error("AI GENERATE ERROR:", error);
+    res.status(500).json({ message: "Failed to generate AI video" });
+  }
+});
+
+// ----------------------------------------------------
+// Proxy Transcript Content from Python
+// ----------------------------------------------------
 router.get("/transcript/:filename", async (req, res) => {
   try {
     const { filename } = req.params;
 
+    // 🕵️ Check Cache First
     const cachedVideo = await AIVideo.findOne({
       where: { transcriptName: filename },
     });
 
     if (cachedVideo && cachedVideo.transcript) {
+      console.log("🎯 Serving cached transcript for:", filename);
       return res.json({ content: cachedVideo.transcript });
     }
 
-    const response = await fetch(
-      `${process.env.AI_SERVICE_URL}/transcript/${encodeURIComponent(filename)}`
-    );
+    const pythonTranscriptUrl = `${process.env.AI_SERVICE_URL}/transcript/${filename}`;
+    const response = await fetch(pythonTranscriptUrl);
 
     if (!response.ok) {
-      return res.status(404).json({
-        error: "Transcript not found",
-      });
+      return res.status(404).json({ error: "Transcript not found" });
     }
 
     const data = await response.json();
 
+    // 💾 Save to Cache if we found the record
     if (cachedVideo) {
       cachedVideo.transcript = data.content;
       await cachedVideo.save();
+      console.log("💾 Transcript cached for:", filename);
     }
 
-    return res.json(data);
+    res.json(data);
   } catch (error) {
-    console.error("Transcript Proxy Error:", error.message);
-    return res.status(500).json({
-      error: "Failed to load transcript",
-    });
+    console.error("❌ Transcript Proxy Error:", error.message);
+    res.status(500).json({ error: "Failed to load transcript" });
   }
 });
 
-// Check a generation job's status only after verifying its owner.
 router.get("/status/:jobId", protect, async (req, res) => {
   try {
-    const { jobId } = req.params;
+    const { jobId } = req.params; // This is now aiVideo.id
 
-    const videoRecord = await AIVideo.findOne({
-      where: { jobId: String(jobId) },
-    });
+    // Check DB first
+    const videoJob = await AIVideo.findOne({ where: { id: jobId } });
 
-    if (!videoRecord) {
-      return res.status(404).json({
-        status: "not_found",
-      });
+    if (!videoJob) {
+      return res.status(404).json({ status: "not_found" });
     }
 
     if (
-      !isAdminUser(req.user) &&
-      String(videoRecord.userId) !== String(req.user.id)
-    ) {
-      return res.status(403).json({
-        message: "You do not have access to this video job",
+  req.user.role !== "admin" &&
+  req.user.role !== "superadmin" &&
+  String(videoJob.userId) !== String(req.user.id)
+) {
+  return res.status(403).json({
+    message: "You do not have access to this video job",
+  });
+}
+
+    if (videoJob.status === "failed") {
+      return res.json({ status: "failed", error: videoJob.error });
+    }
+
+    if (videoJob.status === "completed" && videoJob.videoUrl) {
+      return res.json({
+        status: "ready",
+        cloudinary_url: videoJob.videoUrl,
+        transcriptName: videoJob.transcriptName,
+        jobId: jobId, // return same ID to frontend
+        meta: videoJob.meta,
       });
     }
 
-    const response = await fetch(
-      `${process.env.AI_SERVICE_URL}/status/${encodeURIComponent(jobId)}`
-    );
+    if (videoJob.status === "pending") {
+      return res.json({ status: "processing", message: "In queue..." });
+    }
+
+    // If processing but no python jobId yet
+    if (!videoJob.jobId) {
+      return res.json({ status: "processing", message: "Starting..." });
+    }
+
+    // Poll Python service using the python jobId
+    const response = await fetch(`${process.env.AI_SERVICE_URL}/status/${videoJob.jobId}`);
 
     if (!response.ok) {
-      return res.status(404).json({
-        status: "not_found",
-      });
+      return res.json({ status: "processing" });
     }
 
     const data = await response.json();
 
-    // Persist the final video URL when generation completes.
-    if (data.status === "ready" && data.cloudinary_url) {
-      try {
-        const updated = await AIVideo.update(
-          { videoUrl: data.cloudinary_url },
-          { where: { jobId: String(jobId) } }
-        );
+    // 🌥️ If video is ready and Cloudinary URL is available, persist it to DB
+    const aiVideo = await AIVideo.findOne({
+      where: { jobId: String(jobId) },
+      attributes: ["courseId"],
+    });
 
-        if (updated[0] > 0) {
-          console.log(
-            `AIVideo DB updated with Cloudinary URL for jobId: ${jobId}`
-          );
-        }
-      } catch (dbError) {
-        console.error(
-          "Failed to update AIVideo with Cloudinary URL:",
-          dbError.message
-        );
-      }
+    if (data.status === "ready" && data.local_video_url && aiVideo) {
+      const filename = data.local_video_url.split("/").pop();
+      data.local_video_url = "/api/ai/video/" + aiVideo.courseId + "/" + filename;
     }
 
-    return res.json(data);
+    if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
+      try {
+        await AIVideo.update(
+          { videoUrl: data.cloudinary_url, status: "completed", meta: data.meta },
+          { where: { id: jobId } },
+        );
+        console.log(`☁️ AIVideo DB updated with Cloudinary URL for DB ID: ${jobId}`);
+      } catch (dbErr) {
+        console.error("⚠️ Failed to update AIVideo with Cloudinary URL:", dbErr.message);
+      }
+    } else if (data.status === "failed") {
+      await AIVideo.update(
+        { status: "failed", error: "Failed in AI service" },
+        { where: { id: jobId } },
+      );
+    }
+
+    data.jobId = jobId; // ensure frontend gets our DB id, not python id
+
+    res.json(data);
   } catch (error) {
-    console.error("Status Proxy Error:", error.message);
-    return res.status(500).json({
-      status: "error",
-    });
+    console.error("❌ Status Proxy Error:", error.message);
+    res.status(500).json({ status: "error" });
   }
 });
 
-// Proxy video streams from the AI service.
+// ----------------------------------------------------
+// 3. Proxy Video Stream from Python (The "Middleman")
+// ----------------------------------------------------
 router.get("/video/:courseId/:filename", protect, async (req, res) => {
   try {
     const { courseId, filename } = req.params;
     const numericCourseId = Number(courseId);
 
     if (!Number.isInteger(numericCourseId)) {
-      return res.status(404).json({
-        error: "Video not found",
-      });
+      return res.status(404).json({ error: "Video not found" });
     }
 
+    // 🔐 The user must be enrolled in the course named in the URL
     const isEnrolled = (req.user.purchasedCourses || []).some(
-      (course) => Number(course.courseId) === numericCourseId
+      (c) => Number(c.courseId) === numericCourseId,
     );
 
     if (!isEnrolled) {
-      return res.status(403).json({
-        error: "Course not purchased",
-      });
+      return res.status(403).json({ error: "Course not purchased" });
     }
 
+    // 🎯 The AI service names each video "<jobId>.mp4". Only serve a file that
+    // belongs to an AIVideo record of *this* course; anything else is a 404.
     if (!filename.endsWith(".mp4")) {
-      return res.status(404).json({
-        error: "Video not found",
-      });
+      return res.status(404).json({ error: "Video not found" });
     }
 
-    const jobId = filename.slice(0, -".mp4".length);
-
+    // The frontend sends <aiVideo.id>.mp4
+    const id = filename.slice(0, -".mp4".length);
     const video = await AIVideo.findOne({
-      where: {
-        courseId: numericCourseId,
-        jobId,
-      },
+      where: { courseId: numericCourseId, id: id },
     });
 
-    if (!video) {
-      return res.status(404).json({
-        error: "Video not found",
-      });
+    if (!video || !video.jobId) {
+      return res.status(404).json({ error: "Video not found" });
     }
 
-    const response = await fetch(
-      `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`
-    );
+    // Python service expects &lt;pythonJobId&gt;.mp4
+    const pythonFilename = `${video.jobId}.mp4`;
+    const pythonVideoUrl = `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(pythonFilename)}`;
+    const requestHeaders = {};
+    if (req.headers.range) {
+      requestHeaders.Range = req.headers.range;
+    }
+
+    const response = await fetch(pythonVideoUrl, {
+      headers: requestHeaders,
+    });
 
     if (!response.ok) {
       return res.status(404).json({
@@ -397,47 +313,46 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
       });
     }
 
+    const headersToForward = ["content-range", "content-length", "accept-ranges"];
+
     res.setHeader("Content-Type", "video/mp4");
 
-    const reader = response.body.getReader();
-
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        break;
+    for (const header of headersToForward) {
+      const value = response.headers.get(header);
+      if (value) {
+        res.setHeader(header, value);
       }
-
-      res.write(value);
     }
 
-    return res.end();
+    res.status(response.status);
+
+    if (!response.body) {
+      return res.status(502).json({
+        error: "Empty video response from AI service",
+      });
+    }
+    const { Readable } = await import("node:stream");
+    Readable.fromWeb(response.body).pipe(res);
   } catch (error) {
-    console.error("Proxy Error:", error.message);
-    return res.status(500).json({
+    console.error("❌ Proxy Error:", error.message);
+    res.status(500).json({
       error: "Failed to load video via proxy",
     });
   }
 });
 
-// Proxy available voices from the AI service.
+// ----------------------------------------------------
+// Proxy Voices from Python
+// ----------------------------------------------------
 router.get("/voices", protect, async (req, res) => {
   try {
-    const response = await fetch(
-      `${process.env.AI_SERVICE_URL}/voices`
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch voices");
-    }
-
+    const response = await fetch(`${process.env.AI_SERVICE_URL}/voices`);
+    if (!response.ok) throw new Error("Failed to fetch voices");
     const data = await response.json();
-    return res.json(data);
+    res.json(data);
   } catch (error) {
-    console.error("Voices Proxy Error:", error.message);
-    return res.status(500).json({
-      error: "Failed to fetch voices",
-    });
+    console.error("❌ Voices Proxy Error:", error.message);
+    res.status(500).json({ error: "Failed to fetch voices" });
   }
 });
 

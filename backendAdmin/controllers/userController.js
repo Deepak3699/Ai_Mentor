@@ -10,37 +10,37 @@ export const getAllUsers = async (req, res) => {
     const offset = (page - 1) * limit;
 
     const { search, status } = req.query;
-const { Op } = await import("sequelize");
+    const { Op } = await import("sequelize");
 
-const where = {};
+    const where = {};
 
-if (search) {
-  where[Op.or] = [
-    { name: { [Op.iLike]: `%${search}%` } },
-    { email: { [Op.iLike]: `%${search}%` } },
-  ];
-}
+    if (search) {
+      where[Op.or] = [
+        { name: { [Op.iLike]: `%${search}%` } },
+        { email: { [Op.iLike]: `%${search}%` } },
+      ];
+    }
 
-if (status && status !== "all") {
-  where.status = status;
-}
+    if (status && status !== "all") {
+      where.status = status;
+    }
 
-const users = await User.findAndCountAll({
-  attributes: [
-    "id",
-    "name",
-    "email",
-    "role",
-    "purchasedCourses",
-    "createdAt",
-    "status",
-    "isBlocked",
-  ],
-  where,
-  limit,
-  offset,
-  order: [["createdAt", "DESC"]],
-});
+    const users = await User.findAndCountAll({
+      attributes: [
+        "id",
+        "name",
+        "email",
+        "role",
+        "purchasedCourses",
+        "createdAt",
+        "status",
+        "isBlocked",
+      ],
+      where,
+      limit,
+      offset,
+      order: [["createdAt", "DESC"]],
+    });
 
     res.status(200).json({
       success: true,
@@ -99,9 +99,7 @@ export const toggleUserBlock = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: user.isBlocked
-        ? "User blocked successfully"
-        : "User unblocked successfully",
+      message: user.isBlocked ? "User blocked successfully" : "User unblocked successfully",
       data: {
         id: user.id,
         name: user.name,
