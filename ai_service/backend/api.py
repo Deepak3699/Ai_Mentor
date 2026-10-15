@@ -741,13 +741,16 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         except Exception as gemini_error:
             print(f"❌ Gemini failed: {gemini_error}")
-            try:
-                print("⚡ Switching to Groq fallback...")
-    
+            print("⚡ Switching to Groq fallback...")
 
-            log_event("WARN", "Gemini lesson generation failed", error=short_error(gemini_error))
+            log_event(
+                "WARN",
+                "Gemini lesson generation failed",
+                error=short_error(gemini_error),
+            )
 
             try:
+                
                 log_event("RUN", "Switching to Groq fallback")
 
                 groq_response = groq_client.chat.completions.create(
