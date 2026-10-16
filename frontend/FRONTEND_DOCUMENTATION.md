@@ -896,41 +896,28 @@ The API base URL is configured using the `VITE_API_BASE_URL` environment variabl
 
 ### Request Handling
 
-The `apiFetch(url, options = {})` helper:
+The `apiFetch(url, options = {})` helper is implemented in `frontend/src/lib/api.js`.
 
-1. Reads the JWT token from `localStorage` using the key `token`.
-2. Constructs the request URL using `API_BASE_URL` and the supplied URL.
-3. Sets `Content-Type: application/json` by default.
-4. Adds the `Authorization: Bearer <token>` header when a token exists.
-5. Preserves additional request options, such as the HTTP method and request body.
-6. Merges caller-supplied headers with the default headers. Caller-supplied headers take precedence when their keys match existing headers.
-7. Returns the fetch response for requests that do not receive an HTTP `401` status.
+1. Constructs the target URL using `API_BASE_URL` when the supplied URL starts with `/api/`.
+2. Reads the current JWT token from `localStorage`.
+3. Adds an `Authorization: Bearer <token>` header for protected API URLs when a token exists and the caller has not supplied an Authorization header.
+4. Sets `Content-Type: application/json` when the request body is a string and no Content-Type header has been supplied.
+5. Preserves the caller's request options and headers.
+6. Returns the Fetch API `Response` object, including when the response status is `401 Unauthorized`.
 
 ### Centralized 401 Handling
 
-When a request made through `apiFetch()` receives a `401 Unauthorized` response, the helper:
+When `apiFetch()` receives a `401 Unauthorized` response, it calls the shared `handleUnauthorized()` function.
 
-1. Removes `token` and `user` from `localStorage`.
-2. Displays `Session expired. Please login again.` using `react-hot-toast`.
-3. Redirects the browser to `/login` after a two-second delay.
-4. Returns `null` instead of the response.
+The handler performs authentication cleanup only when all relevant conditions are met:
 
-**Important:** This centralized `401` handling applies only to requests made through `apiFetch()`. Direct native `fetch()` and direct Axios requests do not automatically use this helper's behavior.
+- The URL belongs to a protected API endpoint. Requests under `/api/auth/` are excluded.
+- The request has an `Authorization` header beginning with `Bearer `.
+- The token in that header matches the current token stored in `localStorage`.
 
-### Example
+When these conditions are satisfied, the handler removes `token`, `user`, and `preferencesSkipped` from `localStorage` and dispatches the `auth:session-expired` browser event.
 
-```javascript
-import { apiFetch } from "../lib/api";
-
-const response = await apiFetch("/api/users/profile");
-
-if (response) {
-  const data = await response.json();
-  // Handle the response data.
-}
-```
-
-Callers should account for `apiFetch()` returning `null` when a `401 Unauthorized` response occurs.
+The handler does not unconditionally clear authentication state for every `401`. The `apiFetch()` helper preserves its `Response` return contract and does not return `null` simply because the response status is `401`.
 
 ## 2. Direct Native `fetch()` Calls
 
@@ -945,13 +932,19 @@ These requests do not automatically inherit the token attachment or centralized 
 
 ## 3. Direct Axios Calls
 
-Some frontend features use Axios directly.
-
-For example, `LoginPage.jsx` sends the email/password login request using Axios:
+Some frontend features use Axios directly. For example, `LoginPage.jsx` sends the email/password login request using Axios:
 
 - `POST /api/auth/login`
 
-Although Axios is included as a frontend dependency, there is no single Axios service or instance responsible for all frontend API communication.
+The shared API module, `frontend/src/lib/api.js`, installs a global Axios response interceptor.
+
+The interceptor inspects both successful Axios responses and rejected Axios responses. When a response has a `401 Unauthorized` status, it passes the request URL and Authorization header to the shared `handleUnauthorized()` function.
+
+The shared handler applies the same protected API URL, Bearer token, and current-token checks used by `apiFetch()`.
+
+Therefore, direct Axios requests do not automatically bypass centralized session-expiration handling. However, authentication cleanup occurs only when the shared handler's conditions are satisfied.
+
+The interceptor preserves successful Axios responses and re-rejects failed Axios requests after inspecting their responses.
 
 ### 4. Current API Architecture
 
@@ -969,7 +962,7 @@ apiFetch()      fetch()       Axios
            Backend REST APIs
 ```
 
-The frontend uses mixed HTTP communication patterns rather than a fully centralized client. URL construction, authentication, and error handling may differ depending on the request implementation.
+The frontend uses multiple HTTP request patterns, including `apiFetch()`, direct native `fetch()`, and direct Axios calls. The shared `apiFetch()` helper and the global Axios response interceptor both use `handleUnauthorized()` for eligible `401 Unauthorized` responses. Direct native `fetch()` calls do not automatically pass through either mechanism. URL construction, authentication headers, and other error handling depend on the individual request implementation.
 ---
 
 # Error Handling System
@@ -1159,13 +1152,16 @@ The current `frontend` application defines admin routes protected by `AdminRoute
 
 Current routes:
 
-- `/admin` → `Admin Dashboard` placeholder
-- `/admin/users` → `Manage Users` placeholder
-- `/admin/courses` → `Manage Courses` placeholder
+| Route | Description |
+|---|---|
+| `/admin` | Redirects to the admin dashboard at `/dashboard` |
+| `/admin/users` | Redirects to user management at `/users` |
+| `/admin/courses` | Redirects to course management at `/courses` |
 
+These routes hand off to the separate `frontendAdmin` application. Access is controlled by the learner frontend's admin route protection.
 These routes demonstrate the current routing and role-based access control (RBAC) structure. However, they should not be described as fully implemented admin dashboard pages.
 
-The repository also contains a separate `frontendAdmin/` application. The admin routes in the learner-facing `frontend` application are limited to their current placeholder implementation.
+The learner-facing `frontend` application provides protected admin handoff routes that redirect authorized administrators to the separate `frontendAdmin` application. The admin dashboard and management pages are implemented in `frontendAdmin/`, rather than as placeholder pages in the learner-facing frontend.
 
 ## Input Validation
 
