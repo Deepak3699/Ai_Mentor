@@ -93,6 +93,7 @@ JWT_SECRET=your_jwt_secret_key
 
 # Python AI service URL (use deployed AI service URL or local URL during development)
 AI_SERVICE_URL=http://127.0.0.1:8000
+# Queued video generation also requires Redis/Memurai on 127.0.0.1:6379
 
 # Frontend URL (for CORS and password reset emails)
 FRONTEND_URL=http://localhost:5173
@@ -105,7 +106,7 @@ CLOUDINARY_API_SECRET=your_api_secret
 
 ---
 
-> **Repository-root workflow:** For normal development, use `npm run setup` and `npm run dev:backend` from the repository root. Use `npm run dev` or `npm run dev:user` to coordinate the matching applications.
+> **Repository-root workflow:** Use `npm run setup` for the complete project or `npm run setup:ai` for AI only. Use `npm run dev` to start all five services, `npm run dev:user` for the learner application, `npm run dev:backend` for this API only, or `npm run dev:ai` for the AI service only.
 
 ## 🚀 Getting Started
 

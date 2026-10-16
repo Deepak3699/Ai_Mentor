@@ -109,7 +109,7 @@ User API / Admin API ─────────────┴──> AI servic
                               Cloudinary or local output
 ```
 
-The root development runner coordinates the four Node.js and React services. It starts frontends only after their matching APIs are healthy, reuses services already running, and stops only processes started by the current terminal. The Python AI service runs separately.
+The root development runner coordinates all five local services. It starts frontends only after their matching APIs are healthy, starts or reuses the Python AI service, and stops only processes started by the current terminal.
 
 ## Applications and local ports
 
@@ -165,55 +165,54 @@ Install the following before setting up the repository:
 
 ## Quick start
 
-### 1. Clone the repository
+### 1. Clone and configure
 
-```bash
-git clone https://github.com/Deepak3699/Ai_Mentor.git
-cd Ai_Mentor
-```
+Clone the repository, then copy each required `.env.example` file to `.env`. Use [`initalSetup.md`](./initalSetup.md) for the complete variable list. Never commit `.env` files or credentials.
 
-Contributors should clone their own fork and follow [`CONTRIBUTING.md`](./CONTRIBUTING.md).
-
-### 2. Configure environment files
-
-Create local `.env` files from the templates for each service that you intend to run:
-
-```text
-backend/.env.example                  -> backend/.env
-backendAdmin/.env.example             -> backendAdmin/.env
-frontend/.env.example                 -> frontend/.env
-frontendAdmin/.env.example            -> frontendAdmin/.env
-ai_service/backend/.env.example       -> ai_service/backend/.env
-```
-
-Use [`initalSetup.md`](./initalSetup.md) for the complete first-time setup. Never commit `.env` files or credentials.
-
-### 3. Install dependencies
-
-From the repository root:
+### 2. Install the complete project
 
 ```bash
 npm run setup
 ```
 
-The setup command installs root, backend, frontend, backend-admin, and frontend-admin Node dependencies. It also installs the Python AI-service requirements. Existing environment files are not created, changed, or printed.
+The complete setup command:
 
-### 4. Start the Node.js and React applications
+- installs dependencies for the root workspace and all four Node/React applications;
+- creates or reuses `ai_service/.venv`;
+- installs `ai_service/backend/requirements.txt`;
+- verifies Node.js, npm, Python, FFmpeg, AI configuration names, AI imports, and Redis/Memurai availability;
+- does not create, overwrite, or print secrets from `.env` files.
+
+To prepare only the AI service, use:
+
+```bash
+npm run setup:ai
+```
+
+### 3. Start development
 
 ```bash
 npm run dev
 ```
 
-This starts the user API, learner web application, admin API, and admin web application through the root development runner.
+This starts or reuses all five services: User API, learner web, Admin API, admin web, and AI API.
 
-### 5. Start the AI service separately
+To start only the AI service, use:
 
 ```bash
-cd ai_service/backend
-python graceful_server.py
+npm run dev:ai
 ```
 
-The AI service is available on `http://localhost:8000`. Interactive FastAPI documentation is available at `http://localhost:8000/docs` while the service is running.
+The runner labels AI output with `[AI/API]` and reports AI `Startup` and `Health` timing in the terminal dashboard. `Ctrl+C` stops only processes started by that terminal.
+
+## Unified setup and development workflow
+
+| Command            | Purpose                                                 |
+| ------------------ | ------------------------------------------------------- |
+| `npm run setup`    | Install and validate the complete project, including AI |
+| `npm run setup:ai` | Create/reuse and validate only the AI environment       |
+| `npm run dev`      | Start or reuse all five services                        |
+| `npm run dev:ai`   | Start or reuse only the AI service                      |
 
 ## Environment configuration
 
@@ -229,14 +228,18 @@ The following table summarizes the main variable groups. Use the committed `.env
 
 Both Node.js APIs must point to the same PostgreSQL database. For production database connections, follow the TLS requirements documented in the environment templates.
 
+Required AI configuration is `ai_service/backend/.env` with a real `GEMINI_API_KEY`. Groq, Cloudinary, and D-ID are optional. Missing required configuration stops setup with a clear error; missing optional configuration disables that provider or uses the supported fallback. Redis/Memurai is required for queued video generation, and FFmpeg is required for local video rendering.
+
 ## Development commands
 
 Run root commands from the repository root.
 
 | Command                      | Purpose                                                            |
 | ---------------------------- | ------------------------------------------------------------------ |
-| `npm run setup`              | Install dependencies for all detected services                     |
-| `npm run dev`                | Start user and admin API/web applications                          |
+| `npm run setup`              | Install and validate all Node/React and AI dependencies            |
+| `npm run setup:ai`           | Create/reuse and validate only the AI environment                  |
+| `npm run dev`                | Start or reuse User, Admin, and AI services                        |
+| `npm run dev:ai`             | Start or reuse only the AI service                                 |
 | `npm run dev:user`           | Start the user API and learner web application                     |
 | `npm run dev:admin`          | Start the admin API and admin web application                      |
 | `npm run dev:backend`        | Start only the user API                                            |

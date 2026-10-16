@@ -7,6 +7,7 @@ import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
 import { getVideoQueue } from "../queues/videoQueue.js";
 import { aiGenerationLimiter } from "../middleware/aiRateLimiter.js";
+import { Op } from "sequelize";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -18,71 +19,84 @@ const serveCachedVideo = async (req, res, next) => {
 
     // 🔐 Check purchase
     const purchasedCourse = (req.user?.purchasedCourses || []).find(
-      (c) => Number(c.courseId) === Number(courseId),
+      (course) => Number(course.courseId) === Number(courseId),
     );
 
     if (!purchasedCourse) {
       return res.status(403).json({ message: "Course not purchased" });
     }
 
-    // 🕵️ Check Cache First
-    const cachedVideo = await AIVideo.findOne({
-      where: {
-        courseId: Number(courseId),
-        lessonId: String(lessonId),
-        celebrity: String(celebrity).toLowerCase(),
-      },
-    });
+    const key = {
+      courseId: Number(courseId),
+      lessonId: Number(lessonId),
+      celebrity: String(celebrity).toLowerCase(),
+    };
 
-    if (cachedVideo) {
+    const aiVideo = await AIVideo.findOne({ where: key });
+
+    // Never delete or replace a record whose generation is in progress.
+    if (aiVideo && ["pending", "processing"].includes(aiVideo.status)) {
+      return res.json({
+        jobId: aiVideo.id,
+        status: "processing",
+        message: "Video generation is already in progress",
+      });
+    }
+
+    // Return a valid completed Cloudinary cache immediately.
+    if (aiVideo && (aiVideo.status === "completed" || !aiVideo.status) && aiVideo.videoUrl) {
       let parsedUrl;
+
       try {
-        parsedUrl = new URL(cachedVideo.videoUrl);
+        parsedUrl = new URL(aiVideo.videoUrl);
       } catch {
         parsedUrl = null;
       }
+
       if (
         parsedUrl &&
         parsedUrl.protocol === "https:" &&
         parsedUrl.hostname.endsWith("res.cloudinary.com")
       ) {
         return res.json({
-          videoUrl: cachedVideo.videoUrl,
-          transcriptName: cachedVideo.transcriptName,
-          jobId: cachedVideo.jobId,
-          meta: cachedVideo.meta,
+          videoUrl: aiVideo.videoUrl,
+          transcriptName: aiVideo.transcriptName,
+          jobId: aiVideo.jobId,
+          meta: aiVideo.meta,
           cached: true,
         });
       }
 
-      const filename = cachedVideo.videoUrl.split("/").pop();
+      // Verify a local video only when a URL exists.
+      if (aiVideo.videoUrl.trim()) {
+        const filename = aiVideo.videoUrl.split("/").pop();
 
-      const videoCheck = await fetch(
-        `${process.env.AI_SERVICE_URL}/video-stream/${filename}`,
-        { method: "HEAD" }, // lightweight check
-      );
+        try {
+          const check = await fetch(
+            `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`,
+            { method: "HEAD" },
+          );
 
-      if (!videoCheck.ok) {
-        console.log("⚠️ Cached video missing. Removing from DB...");
-        await cachedVideo.destroy(); // delete bad cache
-      } else {
-        console.log("✅ Cached video verified.");
-
-        return res.json({
-          videoUrl: cachedVideo.videoUrl,
-          transcriptName: cachedVideo.transcriptName,
-          jobId: cachedVideo.jobId,
-          meta: cachedVideo.meta,
-          cached: true,
-        });
+          if (check.ok) {
+            return res.json({
+              videoUrl: aiVideo.videoUrl,
+              transcriptName: aiVideo.transcriptName,
+              jobId: aiVideo.jobId,
+              meta: aiVideo.meta,
+              cached: true,
+            });
+          }
+        } catch (error) {
+          console.warn("Cached video verification failed:", error.message);
+        }
       }
     }
 
-    // Cache miss: proceed to rate limiter and generation
+    // Cache miss or needs generation: pass to rate limiter and generation handler
     return next();
   } catch (error) {
     console.error("AI GENERATE CACHE ERROR:", error);
-    res.status(500).json({ message: "Failed to check AI video cache" });
+    return res.status(500).json({ message: "Failed to check AI video cache" });
   }
 };
 
@@ -93,10 +107,111 @@ router.post(
   serveCachedVideo,
   aiGenerationLimiter,
   async (req, res) => {
+    let aiVideo;
+
     try {
       const { courseId, lessonId, celebrity, voice_id, speech_rate, speech_pitch } = req.body;
 
-      // Get titles from JSON
+      const purchasedCourse = (req.user?.purchasedCourses || []).find(
+        (course) => Number(course.courseId) === Number(courseId),
+      );
+
+      if (!purchasedCourse) {
+        return res.status(403).json({ message: "Course not purchased" });
+      }
+
+      const key = {
+        courseId: Number(courseId),
+        lessonId: Number(lessonId),
+        celebrity: String(celebrity).toLowerCase(),
+      };
+
+      const sendProcessing = (record, message = "Video generation is already in progress") =>
+        res.json({
+          jobId: record.id,
+          status: "processing",
+          message,
+        });
+
+      const resetVideoFields = {
+        videoUrl: "",
+        transcriptName: "",
+        jobId: null,
+        status: "pending",
+        error: null,
+        meta: null,
+      };
+
+      // Atomically claim only failed or completed records.
+      // A concurrent request cannot claim the same record twice.
+      const claimExistingVideo = async (record) => {
+        const [updatedCount] = await AIVideo.update(resetVideoFields, {
+          where: {
+            id: record.id,
+            status: { [Op.in]: ["failed", "completed"] },
+          },
+        });
+
+        await record.reload();
+        return updatedCount === 1;
+      };
+
+      aiVideo = await AIVideo.findOne({ where: key });
+
+      // Never delete or replace a record whose generation is in progress.
+      if (aiVideo && ["pending", "processing"].includes(aiVideo.status)) {
+        return sendProcessing(aiVideo);
+      }
+
+      // Return a valid completed Cloudinary cache immediately.
+      if (aiVideo && (aiVideo.status === "completed" || !aiVideo.status) && aiVideo.videoUrl) {
+        let parsedUrl;
+
+        try {
+          parsedUrl = new URL(aiVideo.videoUrl);
+        } catch {
+          parsedUrl = null;
+        }
+
+        if (
+          parsedUrl &&
+          parsedUrl.protocol === "https:" &&
+          parsedUrl.hostname.endsWith("res.cloudinary.com")
+        ) {
+          return res.json({
+            videoUrl: aiVideo.videoUrl,
+            transcriptName: aiVideo.transcriptName,
+            jobId: aiVideo.jobId,
+            meta: aiVideo.meta,
+            cached: true,
+          });
+        }
+
+        // Verify a local video only when a URL exists.
+        if (aiVideo.videoUrl.trim()) {
+          const filename = aiVideo.videoUrl.split("/").pop();
+
+          try {
+            const check = await fetch(
+              `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`,
+              { method: "HEAD" },
+            );
+
+            if (check.ok) {
+              return res.json({
+                videoUrl: aiVideo.videoUrl,
+                transcriptName: aiVideo.transcriptName,
+                jobId: aiVideo.jobId,
+                meta: aiVideo.meta,
+                cached: true,
+              });
+            }
+          } catch (error) {
+            console.warn("Cached video verification failed:", error.message);
+          }
+        }
+      }
+
       const titles = await getCourseAndLessonTitles(courseId, lessonId);
 
       if (!titles) {
@@ -105,52 +220,134 @@ router.post(
 
       const { courseTitle, lessonTitle } = titles;
 
-      const userPreferencesRecord = await Preferences.findOne({
-        where: { user_id: req.user.id }, // 👈 FIX
+      const preferencesRecord = await Preferences.findOne({
+        where: { user_id: req.user.id },
       });
 
-      const userPreferences = userPreferencesRecord ? userPreferencesRecord.toJSON() : null;
+      const userPreferences = preferencesRecord ? preferencesRecord.toJSON() : null;
 
-      // Create DB record immediately as pending
-      const aiVideo = await AIVideo.create({
-        courseId: Number(courseId),
-        lessonId: String(lessonId),
-        celebrity: String(celebrity).toLowerCase(),
-        videoUrl: "",
-        transcriptName: "",
-        status: "pending",
-      });
+      if (aiVideo) {
+        const claimed = await claimExistingVideo(aiVideo);
 
-      // Add to queue
-      const videoQueue = getVideoQueue();
-      const job = await videoQueue.add("generate-video", {
-        aiVideoId: aiVideo.id,
-        courseId,
-        lessonId,
-        celebrity,
-        courseTitle,
-        lessonTitle,
-        userPreferences,
-        voice_id,
-        speech_rate,
-        speech_pitch,
-      });
+        if (!claimed) {
+          if (["pending", "processing"].includes(aiVideo.status)) {
+            return sendProcessing(aiVideo);
+          }
 
-      console.log(`📥 Job added to queue: ${job.id}, DB ID: ${aiVideo.id}`);
+          return res.status(409).json({
+            message: "Video generation state changed. Please retry.",
+          });
+        }
+      } else {
+        try {
+          aiVideo = await AIVideo.create({
+            ...key,
+            videoUrl: "",
+            transcriptName: "",
+            status: "pending",
+          });
+        } catch (error) {
+          if (error.name !== "SequelizeUniqueConstraintError") {
+            throw error;
+          }
 
-      return res.json({
-        jobId: aiVideo.id, // Frontend uses DB id to poll
-        status: "processing",
-        message: "Video generation started",
-      });
+          // Another request may have created the same record concurrently.
+          aiVideo = await AIVideo.findOne({ where: key });
+
+          if (!aiVideo) {
+            throw error;
+          }
+
+          if (["pending", "processing"].includes(aiVideo.status)) {
+            return sendProcessing(aiVideo);
+          }
+
+          if (aiVideo && (aiVideo.status === "completed" || !aiVideo.status) && aiVideo.videoUrl) {
+            let parsedUrl;
+
+            try {
+              parsedUrl = new URL(aiVideo.videoUrl);
+            } catch {
+              parsedUrl = null;
+            }
+
+            if (
+              parsedUrl &&
+              parsedUrl.protocol === "https:" &&
+              parsedUrl.hostname.endsWith("res.cloudinary.com")
+            ) {
+              return res.json({
+                videoUrl: aiVideo.videoUrl,
+                transcriptName: aiVideo.transcriptName,
+                jobId: aiVideo.jobId,
+                meta: aiVideo.meta,
+                cached: true,
+              });
+            }
+
+            return sendProcessing(aiVideo, "An existing video record was found");
+          }
+
+          const claimed = await claimExistingVideo(aiVideo);
+
+          if (!claimed) {
+            if (["pending", "processing"].includes(aiVideo.status)) {
+              return sendProcessing(aiVideo);
+            }
+
+            return res.status(409).json({
+              message: "Video generation state changed. Please retry.",
+            });
+          }
+        }
+      }
+
+      try {
+        const queue = getVideoQueue();
+
+        const job = await queue.add(
+          "generate-video",
+          {
+            aiVideoId: aiVideo.id,
+            courseId,
+            lessonId,
+            celebrity,
+            courseTitle,
+            lessonTitle,
+            userPreferences,
+            voice_id,
+            speech_rate,
+            speech_pitch,
+          },
+          {
+            jobId: aiVideo.id,
+          },
+        );
+
+        console.log(`Job added to queue: ${job.id}, DB ID: ${aiVideo.id}`);
+
+        return res.json({
+          jobId: aiVideo.id,
+          status: "processing",
+          message: "Video generation started",
+        });
+      } catch (queueError) {
+        if (aiVideo?.update) {
+          await aiVideo.update({
+            status: "failed",
+            error: queueError.message,
+          });
+        }
+
+        throw queueError;
+      }
     } catch (error) {
       console.error("AI GENERATE ERROR:", error);
-      res.status(500).json({ message: "Failed to generate AI video" });
+      return res.status(500).json({ message: "Failed to generate AI video" });
     }
   },
 );
 
-// ----------------------------------------------------
 // Proxy Transcript Content from Python
 // ----------------------------------------------------
 router.get("/transcript/:filename", async (req, res) => {
@@ -307,7 +504,7 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
       return res.status(404).json({ error: "Video not found" });
     }
 
-    // Python service expects &lt;pythonJobId&gt;.mp4
+    // Python service expects <pythonJobId>.mp4
     const pythonFilename = `${video.jobId}.mp4`;
     const pythonVideoUrl = `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(pythonFilename)}`;
     const requestHeaders = {};
