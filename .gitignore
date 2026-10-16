@@ -67,3 +67,10 @@ backend/config/serviceAccountKey.json
 # Local Scripts
 # =====================
 start_ai.bat
+
+# Runtime user uploads
+/backend/uploads/*
+!/backend/uploads/.gitkeep
+
+# Local Python virtual environment
+ai_service/.venv/

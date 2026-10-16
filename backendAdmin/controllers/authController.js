@@ -1,63 +1,65 @@
 import jwt from "jsonwebtoken";
 import { Admin } from "../models/index.js";
-import { adminLoginSchema, adminRegisterSchema,changePasswordSchema } from "../schemas/adminAuthSchema.js";
+import {
+  adminLoginSchema,
+  adminRegisterSchema,
+  changePasswordSchema,
+} from "../schemas/adminAuthSchema.js";
+import { sendServerError } from "../utils/apiError.js";
 
 const generateToken = (id, role) => {
-  return jwt.sign(
-    { id, role },
-    process.env.JWT_SECRET,
-    { expiresIn: "30d" }
-  );
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "30d" });
 };
 
 export const registerAdmin = async (req, res) => {
   const validation = adminRegisterSchema.safeParse(req.body);
-  
+
   if (!validation.success) {
-    return res.status(400).json({ 
-      message: "Validation failed", 
-      errors: validation.error.errors 
+    return res.status(400).json({
+      message: "Validation failed",
+      errors: validation.error.errors,
     });
   }
 
   const { name, email, password } = req.body;
-  
+
   try {
     const adminExists = await Admin.findOne({ where: { email } });
     if (adminExists) return res.status(400).json({ message: "Admin already exists" });
-    
+
     const admin = await Admin.create({ name, email, password, role: "admin" });
     res.status(201).json({ id: admin.id, name: admin.name, email: admin.email, role: admin.role });
   } catch (error) {
-    console.error("REGISTER ADMIN ERROR:", error.message);
-    res.status(500).json({ message: "Server Error" });
+    return sendServerError(req, res, error, "authController.registerAdmin");
   }
 };
 
 export const loginAdmin = async (req, res) => {
   const validation = adminLoginSchema.safeParse(req.body);
-  
+
   if (!validation.success) {
-    return res.status(400).json({ 
-      message: "Validation failed", 
-      errors: validation.error.errors 
+    return res.status(400).json({
+      message: "Validation failed",
+      errors: validation.error.errors,
     });
   }
 
   const { email, password } = req.body;
-  
+
   try {
     const admin = await Admin.findOne({ where: { email } });
-    
+
     if (admin && (await admin.matchPassword(password))) {
       if (admin.status === "on-hold") {
-        return res.status(403).json({ message: "Your account has been suspended. Please contact a superadmin." });
+        return res
+          .status(403)
+          .json({ message: "Your account has been suspended. Please contact a superadmin." });
       }
-      res.json({ 
-        id: admin.id, 
-        name: admin.name, 
-        email: admin.email, 
-        role: admin.role, 
+      res.json({
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
         token: generateToken(admin.id, admin.role),
         status: admin.status,
       });
@@ -65,14 +67,19 @@ export const loginAdmin = async (req, res) => {
       res.status(401).json({ message: "Invalid email or password" });
     }
   } catch (error) {
-    console.error("LOGIN ADMIN ERROR:", error.message);
-    res.status(500).json({ message: "Server Error" });
+    return sendServerError(req, res, error, "authController.loginAdmin");
   }
 };
 
 export const getAdminProfile = async (req, res) => {
   if (req.admin) {
-    res.json({ id: req.admin.id, name: req.admin.name, email: req.admin.email, role: req.admin.role, status: req.admin.status });
+    res.json({
+      id: req.admin.id,
+      name: req.admin.name,
+      email: req.admin.email,
+      role: req.admin.role,
+      status: req.admin.status,
+    });
   } else {
     res.status(404).json({ message: "Admin not found" });
   }
@@ -87,33 +94,34 @@ export const deleteAdmin = async (req, res) => {
   try {
     const adminToDelete = await Admin.findByPk(id);
     if (!adminToDelete) return res.status(404).json({ message: "Admin not found" });
-    if (adminToDelete.id === req.admin.id) return res.status(400).json({ message: "You cannot delete yourself" });
+    if (adminToDelete.id === req.admin.id)
+      return res.status(400).json({ message: "You cannot delete yourself" });
     await adminToDelete.destroy();
     res.json({ message: "Admin removed" });
   } catch (error) {
-    console.error("DELETE ADMIN ERROR:", error.message);
-    res.status(500).json({ message: "Server Error" });
+    return sendServerError(req, res, error, "authController.deleteAdmin");
   }
 };
 
 export const getAllAdmins = async (req, res) => {
   try {
-    const admins = await Admin.findAll({ attributes: ["id", "name", "email", "role", "status", "createdAt"], order: [["createdAt", "DESC"]] });
+    const admins = await Admin.findAll({
+      attributes: ["id", "name", "email", "role", "status", "createdAt"],
+      order: [["createdAt", "DESC"]],
+    });
     res.status(200).json({ success: true, data: admins });
   } catch (error) {
-    console.error("GET ADMINS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "authController.getAllAdmins");
   }
 };
 
 export const changePassword = async (req, res) => {
+  const validation = changePasswordSchema.safeParse(req.body);
 
-    const validation = changePasswordSchema.safeParse(req.body);
-  
   if (!validation.success) {
-    return res.status(400).json({ 
-      message: "Validation failed", 
-      errors: validation.error.errors 
+    return res.status(400).json({
+      message: "Validation failed",
+      errors: validation.error.errors,
     });
   }
 
@@ -131,9 +139,7 @@ export const changePassword = async (req, res) => {
     }
 
     if (!admin.password) {
-      return res
-        .status(400)
-        .json({ message: "Password is not set for this account" });
+      return res.status(400).json({ message: "Password is not set for this account" });
     }
 
     const isMatch = await admin.matchPassword(currentPassword);
@@ -148,8 +154,7 @@ export const changePassword = async (req, res) => {
 
     res.json({ message: "Password updated successfully" });
   } catch (error) {
-    console.error("CHANGE PASSWORD ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return sendServerError(req, res, error, "authController.changePassword");
   }
 };
 export const updateAdminStatus = async (req, res) => {
@@ -171,7 +176,9 @@ export const updateAdminStatus = async (req, res) => {
     }
 
     if (admin.role === "superadmin") {
-      return res.status(400).json({ success: false, message: "Super admin status cannot be changed" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Super admin status cannot be changed" });
     }
 
     admin.status = status;
@@ -179,7 +186,6 @@ export const updateAdminStatus = async (req, res) => {
 
     res.status(200).json({ success: true, data: admin });
   } catch (error) {
-    console.error("UPDATE ADMIN STATUS ERROR:", error.message || error);
-    res.status(500).json({ success: false, message: "Server Error: " + error.message });
+    return sendServerError(req, res, error, "authController.updateAdminStatus");
   }
 };

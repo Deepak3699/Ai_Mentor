@@ -5,7 +5,8 @@ import jwt from "jsonwebtoken";
 process.env.NODE_ENV = "test";
 
 const { default: Admin } = await import("../models/Admin.js");
-const { anyAdmin, protectAdmin, superAdminOnly } = await import("../middleware/adminAuthMiddleware.js");
+const { anyAdmin, protectAdmin, superAdminOnly } =
+  await import("../middleware/adminAuthMiddleware.js");
 
 const SECRET = "admin-middleware-test-secret";
 const originalFindByPk = Admin.findByPk;
@@ -16,21 +17,38 @@ const invoke = async (middleware, { authorization, admin } = {}) => {
   if (authorization !== undefined) req.headers.authorization = authorization;
   const result = { statusCode: 200, body: undefined, nextCalls: 0 };
   const res = {
-    status(code) { result.statusCode = code; return this; },
-    json(body) { result.body = body; return this; },
+    status(code) {
+      result.statusCode = code;
+      return this;
+    },
+    json(body) {
+      result.body = body;
+      return this;
+    },
   };
-  await middleware(req, res, () => { result.nextCalls += 1; });
+  await middleware(req, res, () => {
+    result.nextCalls += 1;
+  });
   return { req, result };
 };
 
 const quietErrors = async (callback) => {
   const original = console.error;
   console.error = () => {};
-  try { return await callback(); } finally { console.error = original; }
+  try {
+    return await callback();
+  } finally {
+    console.error = original;
+  }
 };
 
-before(() => { process.env.JWT_SECRET = SECRET; });
-beforeEach(() => { Admin.findByPk = async () => null; process.env.JWT_SECRET = SECRET; });
+before(() => {
+  process.env.JWT_SECRET = SECRET;
+});
+beforeEach(() => {
+  Admin.findByPk = async () => null;
+  process.env.JWT_SECRET = SECRET;
+});
 after(() => {
   Admin.findByPk = originalFindByPk;
   if (originalSecret === undefined) delete process.env.JWT_SECRET;
@@ -76,7 +94,10 @@ test("protectAdmin attaches an active admin and calls next", async () => {
 });
 
 test("superAdminOnly permits only the superAdmin role", async () => {
-  assert.equal((await invoke(superAdminOnly, { admin: { role: "superAdmin" } })).result.nextCalls, 1);
+  assert.equal(
+    (await invoke(superAdminOnly, { admin: { role: "superAdmin" } })).result.nextCalls,
+    1,
+  );
   for (const admin of [undefined, { role: "admin" }, { role: "superadmin" }]) {
     const { result } = await invoke(superAdminOnly, { admin });
     assert.equal(result.statusCode, 403);
