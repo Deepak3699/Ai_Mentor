@@ -333,26 +333,24 @@ router.get("/status/:jobId", protect, async (req, res) => {
 
     const data = await response.json();
 
-    // 🌥️ If video is ready and Cloudinary URL is available, persist it to DB
-    const aiVideo = await AIVideo.findOne({
-      where: { jobId: String(jobId) },
-      attributes: ["courseId"],
-    });
-
-    if (data.status === "ready" && data.local_video_url && aiVideo) {
+    // Persist ready results by the database record ID. The Python job ID is only
+    // used for polling the AI service and must never be used as the DB identity.
+    if (data.status === "ready" && data.local_video_url) {
       const filename = data.local_video_url.split("/").pop();
-      data.local_video_url = "/api/ai/video/" + aiVideo.courseId + "/" + filename;
+      data.local_video_url = `/api/ai/video/${videoJob.courseId}/${jobId}/${filename}`;
     }
 
     if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
       try {
-        await AIVideo.update(
-          { videoUrl: data.cloudinary_url, status: "completed", meta: data.meta },
-          { where: { id: jobId } },
-        );
-        console.log(`☁️ AIVideo DB updated with Cloudinary URL for DB ID: ${jobId}`);
+        await videoJob.update({
+          videoUrl: data.cloudinary_url || data.local_video_url,
+          status: "completed",
+          meta: data.meta,
+          transcriptName: data.transcript_name || data.text_file || videoJob.transcriptName,
+        });
+        console.log(`☁️ AIVideo DB updated for DB ID: ${jobId}`);
       } catch (dbErr) {
-        console.error("⚠️ Failed to update AIVideo with Cloudinary URL:", dbErr.message);
+        console.error("⚠️ Failed to update AIVideo ready result:", dbErr.message);
       }
     } else if (data.status === "failed") {
       await AIVideo.update(
@@ -362,6 +360,8 @@ router.get("/status/:jobId", protect, async (req, res) => {
     }
 
     data.jobId = jobId; // ensure frontend gets our DB id, not python id
+    data.transcript_name =
+      data.transcript_name || data.text_file || videoJob.transcriptName || null;
 
     res.json(data);
   } catch (error) {
