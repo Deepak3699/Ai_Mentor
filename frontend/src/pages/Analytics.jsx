@@ -24,6 +24,7 @@ import {
   Flame,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import FloatingAssistant from "../components/common/FloatingAssistant";
