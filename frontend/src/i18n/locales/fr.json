@@ -197,6 +197,14 @@
     "progress_lessons": "Progrès",
     "welcome_back_user": "Bon retour, {{name}} !",
     "analytics_subtitle": "Voici vos progrès d'apprentissage et vos tâches à venir",
+    "units": {
+      "day_one": "{{count}} Jour",
+      "day_other": "{{count}} Jours",
+      "course_one": "{{count}} Cours",
+      "course_other": "{{count}} Cours",
+      "certificate_one": "{{count}} Certificat",
+      "certificate_other": "{{count}} Certificats"
+    },
     "enrolled_courses": "Cours Inscrits",
     "attendance_rate": "Taux de Présence",
     "current_streak_label": "Série Actuelle",

@@ -199,6 +199,14 @@
     "progress_lessons": "Progress",
     "welcome_back_user": "Welcome back, {{name}}!",
     "analytics_subtitle": "Here's your learning progress and upcoming tasks",
+    "units": {
+      "day_one": "{{count}} Day",
+      "day_other": "{{count}} Days",
+      "course_one": "{{count}} Course",
+      "course_other": "{{count}} Courses",
+      "certificate_one": "{{count}} Certificate",
+      "certificate_other": "{{count}} Certificates"
+    },
     "enrolled_courses": "Enrolled Courses",
     "attendance_rate": "Attendance Rate",
     "current_streak_label": "Current Streak",

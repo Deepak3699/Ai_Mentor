@@ -197,6 +197,14 @@
     "progress_lessons": "進捗",
     "welcome_back_user": "おかえりなさい、{{name}}さん！",
     "analytics_subtitle": "あなたの学習進捗と今後のタスクはこちらです",
+    "units": {
+      "day_one": "{{count}}日",
+      "day_other": "{{count}}日",
+      "course_one": "{{count}}コース",
+      "course_other": "{{count}}コース",
+      "certificate_one": "{{count}}件",
+      "certificate_other": "{{count}}件"
+    },
     "enrolled_courses": "登録済みコース",
     "attendance_rate": "出席率",
     "current_streak_label": "現在の継続日数",
