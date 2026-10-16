@@ -1,4 +1,4 @@
-import { test, before, after } from "node:test";
+import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 import jwt from "jsonwebtoken";
@@ -14,27 +14,97 @@ const { default: User } = await import("../models/User.js");
 const { default: aiRoutes } = await import("../routes/aiRoutes.js");
 
 // In-memory stand-ins for the database.
-const VIDEOS = [{ id: "video-1", courseId: 1, jobId: "Intro_20260101_120000" }];
+// Production-like UUIDs
+const ownerId = "11111111-1111-1111-1111-111111111111";
+const otherId = "22222222-2222-2222-2222-222222222222";
+const adminId = "33333333-3333-3333-3333-333333333333";
+const superAdminId = "44444444-4444-4444-4444-444444444444";
+
+const INITIAL_VIDEOS = [
+  {
+    id: "test-ai-id",
+    courseId: 1,
+    jobId: "Intro_20260101_120000",
+    userId: ownerId,
+    status: "processing",
+  },
+  {
+    id: "ownerless-ai-id",
+    courseId: 1,
+    jobId: "Ownerless_20260101_120000",
+    userId: null,
+    status: "processing",
+  },
+];
+const VIDEOS = [];
+const resetVideos = () => {
+  VIDEOS.length = 0;
+  for (const v of INITIAL_VIDEOS) {
+    VIDEOS.push({ ...v });
+  }
+};
+resetVideos();
+
 const USERS = {
-  1: { id: 1, purchasedCourses: [{ courseId: 1 }, { courseId: 2 }] },
-  2: { id: 2, purchasedCourses: [{ courseId: 2 }] },
+  [ownerId]: { id: ownerId, role: "user", purchasedCourses: [{ courseId: 1 }, { courseId: 2 }] },
+  [otherId]: { id: otherId, role: "user", purchasedCourses: [{ courseId: 2 }] },
+  [adminId]: { id: adminId, role: "admin", purchasedCourses: [] },
+  [superAdminId]: { id: superAdminId, role: "superadmin", purchasedCourses: [] },
 };
 const VIDEO_BYTES = Buffer.from("fake-mp4-bytes");
 
 const realFetch = globalThis.fetch;
 const upstreamCalls = [];
+const updateCalls = [];
 const originals = {
   findOne: AIVideo.findOne,
   findByPk: User.findByPk,
+  update: AIVideo.update,
 };
 
 let server;
 let baseUrl;
 
+const mockFindOne = async ({ where }) => {
+  if (where.courseId !== undefined && where.id !== undefined) {
+    return VIDEOS.find((v) => v.courseId === where.courseId && v.id === where.id) ?? null;
+  }
+  if (where.id !== undefined) {
+    return VIDEOS.find((v) => v.id === where.id) ?? null;
+  }
+  if (where.courseId !== undefined && where.jobId !== undefined) {
+    return VIDEOS.find((v) => v.courseId === where.courseId && v.jobId === where.jobId) ?? null;
+  }
+  if (where.jobId !== undefined) {
+    return VIDEOS.find((v) => v.jobId === where.jobId) ?? null;
+  }
+  return null;
+};
+
+const mockUpdate = async (values, options = {}) => {
+  updateCalls.push({ values, options, where: options?.where });
+  const where = options?.where;
+  if (!where || !where.id) {
+    return [0];
+  }
+  const target = VIDEOS.find((v) => {
+    if (v.id !== where.id) return false;
+    if (where.userId !== undefined && v.userId !== where.userId) return false;
+    return true;
+  });
+  if (!target) {
+    return [0];
+  }
+  Object.assign(target, values);
+  return [1];
+};
+
+const mockFindByPk = async (id) => USERS[id] ?? null;
+
 before(async () => {
-  AIVideo.findOne = async ({ where }) =>
-    VIDEOS.find((v) => v.courseId === where.courseId && v.id === where.id) ?? null;
-  User.findByPk = async (id) => USERS[id] ?? null;
+  AIVideo.findOne = mockFindOne;
+  AIVideo.update = mockUpdate;
+  User.findByPk = mockFindByPk;
 
   globalThis.fetch = async (url, opts) => {
     if (String(url).startsWith(process.env.AI_SERVICE_URL)) {
@@ -53,9 +123,19 @@ before(async () => {
 
 after(async () => {
   AIVideo.findOne = originals.findOne;
+  AIVideo.update = originals.update;
   User.findByPk = originals.findByPk;
   globalThis.fetch = realFetch;
   await new Promise((resolve) => server.close(resolve));
+});
+
+beforeEach(() => {
+  resetVideos();
+  AIVideo.findOne = mockFindOne;
+  AIVideo.update = mockUpdate;
+  User.findByPk = mockFindByPk;
+  upstreamCalls.length = 0;
+  updateCalls.length = 0;
 });
 
 const get = (path, userId) =>
@@ -67,14 +147,14 @@ const get = (path, userId) =>
 
 test("unauthenticated request returns 401 and never reaches the AI service", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/video/1/video-1.mp4");
+  const res = await get("/api/ai/video/1/test-ai-id.mp4");
   assert.equal(res.status, 401);
   assert.equal(upstreamCalls.length, 0);
 });
 
 test("enrolled user gets the video for the matching course", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/video/1/video-1.mp4", 1);
+  const res = await get("/api/ai/video/1/test-ai-id.mp4", ownerId);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get("content-type"), "video/mp4");
   assert.deepEqual(Buffer.from(await res.arrayBuffer()), VIDEO_BYTES);
@@ -85,28 +165,229 @@ test("enrolled user gets the video for the matching course", async () => {
 
 test("mismatched courseId returns 404 even if the user owns that course", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/video/2/Intro_20260101_120000.mp4", 1);
+  const res = await get("/api/ai/video/2/test-ai-id.mp4", ownerId);
   assert.equal(res.status, 404);
   assert.equal(upstreamCalls.length, 0);
 });
 
 test("user not enrolled in the course returns 403", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/video/1/video-1.mp4", 2);
+  const res = await get("/api/ai/video/1/test-ai-id.mp4", otherId);
   assert.equal(res.status, 403);
   assert.equal(upstreamCalls.length, 0);
 });
 
 test("filename with no matching AIVideo record returns 404", async () => {
   upstreamCalls.length = 0;
-  const res = await get("/api/ai/video/1/Somebody_Elses_20260101_120000.mp4", 1);
+  const res = await get("/api/ai/video/1/Somebody_Elses_20260101_120000.mp4", ownerId);
   assert.equal(res.status, 404);
   assert.equal(upstreamCalls.length, 0);
 });
 
 test("non-mp4 filenames and non-numeric courseIds return 404", async () => {
   upstreamCalls.length = 0;
-  assert.equal((await get("/api/ai/video/1/Intro_20260101_120000.txt", 1)).status, 404);
-  assert.equal((await get("/api/ai/video/abc/Intro_20260101_120000.mp4", 1)).status, 404);
+  assert.equal((await get("/api/ai/video/1/test-ai-id.txt", ownerId)).status, 404);
+  assert.equal((await get("/api/ai/video/abc/test-ai-id.mp4", ownerId)).status, 404);
   assert.equal(upstreamCalls.length, 0);
+});
+
+test("status route returns 404 for unknown job", async () => {
+  upstreamCalls.length = 0;
+  const res = await get("/api/ai/status/UnknownJob", ownerId);
+  assert.equal(res.status, 404);
+  assert.equal(upstreamCalls.length, 0);
+});
+
+test("status route allows the owner to view status and fetches upstream", async () => {
+  upstreamCalls.length = 0;
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/status/Intro_20260101_120000")) {
+      upstreamCalls.push(String(url));
+      return new Response(JSON.stringify({ status: "processing" }), { status: 200 });
+    }
+    return realFetch(url);
+  };
+  const res = await get("/api/ai/status/test-ai-id", ownerId);
+  assert.equal(res.status, 200);
+  assert.equal(upstreamCalls.length, 1);
+});
+
+test("status route returns 403 for different user", async () => {
+  upstreamCalls.length = 0;
+  const res = await get("/api/ai/status/test-ai-id", otherId);
+  assert.equal(res.status, 403);
+  assert.equal(upstreamCalls.length, 0);
+});
+
+test("status route allows admin to view any status", async () => {
+  upstreamCalls.length = 0;
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/status/Intro_20260101_120000")) {
+      upstreamCalls.push(String(url));
+      return new Response(JSON.stringify({ status: "processing" }), { status: 200 });
+    }
+    return realFetch(url);
+  };
+  const res = await get("/api/ai/status/test-ai-id", adminId);
+  assert.equal(res.status, 200);
+  assert.equal(upstreamCalls.length, 1);
+});
+
+test("status route allows superadmin to view any status", async () => {
+  upstreamCalls.length = 0;
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/status/Intro_20260101_120000")) {
+      upstreamCalls.push(String(url));
+      return new Response(JSON.stringify({ status: "processing" }), { status: 200 });
+    }
+    return realFetch(url);
+  };
+  const res = await get("/api/ai/status/test-ai-id", superAdminId);
+  assert.equal(res.status, 200);
+  assert.equal(upstreamCalls.length, 1);
+});
+
+test("status route fails closed for ownerless jobs accessed by normal users", async () => {
+  upstreamCalls.length = 0;
+  const res = await get("/api/ai/status/ownerless-ai-id", otherId);
+  assert.equal(res.status, 403);
+  assert.equal(upstreamCalls.length, 0);
+});
+
+test("status route allows admin to view ownerless jobs", async () => {
+  upstreamCalls.length = 0;
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/status/Ownerless_20260101_120000")) {
+      upstreamCalls.push(String(url));
+      return new Response(JSON.stringify({ status: "processing" }), { status: 200 });
+    }
+    return realFetch(url);
+  };
+  const res = await get("/api/ai/status/ownerless-ai-id", adminId);
+  assert.equal(res.status, 200);
+  assert.equal(upstreamCalls.length, 1);
+});
+
+test("status route updates completed status with owner boundary for normal user", async () => {
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/status/Intro_20260101_120000")) {
+      upstreamCalls.push(String(url));
+      return new Response(
+        JSON.stringify({
+          status: "ready",
+          cloudinary_url: "https://res.cloudinary.com/demo/video/upload/sample.mp4",
+        }),
+        { status: 200 },
+      );
+    }
+    return realFetch(url);
+  };
+  const res = await get("/api/ai/status/test-ai-id", ownerId);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.status, "ready");
+  assert.equal(data.jobId, "test-ai-id");
+  assert.equal(updateCalls.length, 1);
+  assert.deepEqual(updateCalls[0].where, { id: "test-ai-id", userId: ownerId });
+  assert.equal(updateCalls[0].values.status, "completed");
+  assert.equal(
+    updateCalls[0].values.videoUrl,
+    "https://res.cloudinary.com/demo/video/upload/sample.mp4",
+  );
+});
+
+test("status route updates failed status with owner boundary for normal user", async () => {
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/status/Intro_20260101_120000")) {
+      upstreamCalls.push(String(url));
+      return new Response(JSON.stringify({ status: "failed" }), { status: 200 });
+    }
+    return realFetch(url);
+  };
+  const res = await get("/api/ai/status/test-ai-id", ownerId);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.status, "failed");
+  assert.equal(updateCalls.length, 1);
+  assert.deepEqual(updateCalls[0].where, { id: "test-ai-id", userId: ownerId });
+  assert.equal(updateCalls[0].values.status, "failed");
+});
+
+test("status route allows admin update via administrative path without constraining by admin userId", async () => {
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/status/Intro_20260101_120000")) {
+      upstreamCalls.push(String(url));
+      return new Response(
+        JSON.stringify({
+          status: "ready",
+          cloudinary_url: "https://res.cloudinary.com/demo/video/upload/admin_sample.mp4",
+        }),
+        { status: 200 },
+      );
+    }
+    return realFetch(url);
+  };
+  const res = await get("/api/ai/status/test-ai-id", adminId);
+  assert.equal(res.status, 200);
+  assert.equal(updateCalls.length, 1);
+  assert.deepEqual(updateCalls[0].where, { id: "test-ai-id" });
+  assert.equal(updateCalls[0].values.status, "completed");
+});
+
+test("status route allows admin update on ownerless job via administrative path", async () => {
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/status/Ownerless_20260101_120000")) {
+      upstreamCalls.push(String(url));
+      return new Response(
+        JSON.stringify({
+          status: "ready",
+          cloudinary_url: "https://res.cloudinary.com/demo/video/upload/ownerless_sample.mp4",
+        }),
+        { status: 200 },
+      );
+    }
+    return realFetch(url);
+  };
+  const res = await get("/api/ai/status/ownerless-ai-id", adminId);
+  assert.equal(res.status, 200);
+  assert.equal(updateCalls.length, 1);
+  assert.deepEqual(updateCalls[0].where, { id: "ownerless-ai-id" });
+  assert.equal(updateCalls[0].values.status, "completed");
+});
+
+test("status route formats local_video_url using loaded videoJob record", async () => {
+  globalThis.fetch = async (url) => {
+    if (String(url).endsWith("/status/Intro_20260101_120000")) {
+      upstreamCalls.push(String(url));
+      return new Response(
+        JSON.stringify({
+          status: "ready",
+          local_video_url: "http://ai-service.test/video-stream/Intro_20260101_120000.mp4",
+        }),
+        { status: 200 },
+      );
+    }
+    return realFetch(url);
+  };
+  const res = await get("/api/ai/status/test-ai-id", ownerId);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.status, "ready");
+  assert.equal(data.local_video_url, "/api/ai/video/1/Intro_20260101_120000.mp4");
+  assert.equal(updateCalls.length, 1);
+  assert.deepEqual(updateCalls[0].where, { id: "test-ai-id", userId: ownerId });
+});
+
+test("update mock validates where clause and returns 0 when record or owner does not match", async () => {
+  const mismatchedOwnerResult = await AIVideo.update(
+    { status: "completed" },
+    { where: { id: "test-ai-id", userId: otherId } },
+  );
+  assert.deepEqual(mismatchedOwnerResult, [0]);
+
+  const nonExistentIdResult = await AIVideo.update(
+    { status: "completed" },
+    { where: { id: "non-existent-id" } },
+  );
+  assert.deepEqual(nonExistentIdResult, [0]);
 });

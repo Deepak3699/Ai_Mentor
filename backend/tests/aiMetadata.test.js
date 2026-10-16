@@ -1,8 +1,9 @@
-import { test, before } from "node:test";
+import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import AIVideo from "../models/AIVideo.js";
 
 test("AI Job Metadata Persistence", async (t) => {
+  const originalFindOne = AIVideo.findOne;
   before(async () => {
     AIVideo.findOne = async ({ where }) => {
       if (where.id === "test-job-id") {
@@ -27,6 +28,10 @@ test("AI Job Metadata Persistence", async (t) => {
       }
       return null;
     };
+  });
+
+  after(() => {
+    AIVideo.findOne = originalFindOne;
   });
 
   await t.test("should return metadata in cached ready status responses", async () => {

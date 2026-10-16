@@ -10,6 +10,10 @@ AIVideo.init(
       defaultValue: DataTypes.UUIDV4,
       primaryKey: true,
     },
+    userId: {
+      type: DataTypes.UUID,
+      allowNull: false,
+    },
     courseId: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -28,7 +32,7 @@ AIVideo.init(
     },
     videoUrl: {
       type: DataTypes.STRING,
-      allowNull: false,
+      allowNull: true,
     },
     transcript: {
       type: DataTypes.TEXT,
