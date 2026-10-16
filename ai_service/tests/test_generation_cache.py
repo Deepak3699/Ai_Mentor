@@ -138,3 +138,83 @@ def test_force_regeneration_does_not_replace_normal_cache_entry():
     assert forced["jobId"] != normal["jobId"]
     assert cached["cached"] is True
     assert cached["jobId"] == normal["jobId"]
+
+
+def generate_with_tasks(req, force=False):
+    tasks = BackgroundTasks()
+    result = api.generate_lesson(req, tasks, force=force)
+    return result, tasks
+
+
+@pytest.fixture(autouse=True)
+def clear_active_jobs():
+    api.active_jobs.clear()
+    yield
+    api.active_jobs.clear()
+
+
+def test_same_request_returns_cached_job():
+    first, _ = generate_with_tasks(make_request())
+    second, _ = generate_with_tasks(make_request())
+
+    assert first["cached"] is False
+    assert second["cached"] is True
+    assert second["jobId"] == first["jobId"]
+    assert second["filename"] == first["filename"]
+
+
+def test_cache_hit_does_not_queue_new_task():
+    _, first_tasks = generate_with_tasks(make_request())
+    _, second_tasks = generate_with_tasks(make_request())
+
+    assert len(first_tasks.tasks) == 1
+    assert len(second_tasks.tasks) == 0
+    assert len(api.job_status) == 1
+
+
+def test_different_topic_gets_new_job():
+    first, _ = generate_with_tasks(make_request())
+    second, _ = generate_with_tasks(make_request(topic="Another topic"))
+
+    assert second["cached"] is False
+    assert second["jobId"] != first["jobId"]
+
+
+def test_different_preferences_get_new_job():
+    first, _ = generate_with_tasks(make_request())
+    second, _ = generate_with_tasks(
+        make_request(preferences={"style": "detailed", "captions": False})
+    )
+
+    assert second["cached"] is False
+    assert second["jobId"] != first["jobId"]
+
+
+def test_force_bypasses_cache_and_keeps_original_cache_entry():
+    first, _ = generate_with_tasks(make_request())
+    forced, forced_tasks = generate_with_tasks(make_request(), force=True)
+
+    assert forced["cached"] is False
+    assert forced["jobId"] != first["jobId"]
+    assert len(forced_tasks.tasks) == 1
+
+    # A later normal request still hits the original cached job.
+    again, _ = generate_with_tasks(make_request())
+    assert again["cached"] is True
+    assert again["jobId"] == first["jobId"]
+
+
+def test_cached_response_reflects_current_job_status():
+    first, _ = generate_with_tasks(make_request())
+    api.job_status[first["jobId"]]["status"] = "completed"
+
+    second, _ = generate_with_tasks(make_request())
+
+    assert second["cached"] is True
+    assert second["status"] == "Completed"
+
+
+def test_job_id_is_sanitized_from_topic():
+    result, _ = generate_with_tasks(make_request(topic="Hello, World! #1"))
+
+    assert result["jobId"].startswith("Hello_World_1_")
