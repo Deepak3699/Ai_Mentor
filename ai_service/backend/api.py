@@ -1,4 +1,5 @@
 import os
+import sys
 import datetime
 import re
 import traceback
@@ -282,7 +283,8 @@ def check_ffmpeg_readiness() -> tuple[bool, str | None]:
 
 def check_gemini_key_readiness() -> tuple[bool, str | None]:
     """Verify that the primary Gemini API key is configured."""
-    key = getattr(config, "GEMINI_API_KEY", None)
+    current_config = sys.modules.get("config", config)
+    key = getattr(current_config, "GEMINI_API_KEY", getattr(config, "GEMINI_API_KEY", None))
     if not key or not str(key).strip():
         return False, "Gemini API key is missing"
     return True, None
@@ -311,11 +313,12 @@ def check_outputs_writable_readiness() -> tuple[bool, str | None]:
 
 def get_optional_integrations_status() -> dict[str, str]:
     """Report status of optional integrations without impacting readiness."""
-    groq_enabled = bool(getattr(config, "GROQ_ENABLED", False))
-    cloudinary_enabled = bool(getattr(config, "CLOUDINARY_ENABLED", False))
+    current_config = sys.modules.get("config", config)
+    groq_enabled = bool(getattr(current_config, "GROQ_ENABLED", getattr(config, "GROQ_ENABLED", False)))
+    cloudinary_enabled = bool(getattr(current_config, "CLOUDINARY_ENABLED", getattr(config, "CLOUDINARY_ENABLED", False)))
     did_enabled = bool(
-        getattr(config, "DID_ENABLED", False)
-        or (getattr(config, "DID_API_KEY", None) and getattr(config, "DID_SOURCE_URL", None))
+        getattr(current_config, "DID_ENABLED", getattr(config, "DID_ENABLED", False))
+        or (getattr(current_config, "DID_API_KEY", getattr(config, "DID_API_KEY", None)) and getattr(current_config, "DID_SOURCE_URL", getattr(config, "DID_SOURCE_URL", None)))
     )
     return {
         "groq": "enabled" if groq_enabled else "disabled",

@@ -157,6 +157,8 @@ def test_check_ffmpeg_readiness_detects_missing_command(monkeypatch):
 def test_check_gemini_key_readiness_detects_empty_key(monkeypatch):
     import config
     monkeypatch.setattr(config, "GEMINI_API_KEY", "")
+    if hasattr(api, "config"):
+        monkeypatch.setattr(api.config, "GEMINI_API_KEY", "")
     ok, reason = check_gemini_key_readiness()
     assert ok is False
     assert "missing" in reason.lower()
@@ -194,6 +196,10 @@ def test_get_optional_integrations_status_reflects_config(monkeypatch):
     monkeypatch.setattr(config, "GROQ_ENABLED", True)
     monkeypatch.setattr(config, "CLOUDINARY_ENABLED", False)
     monkeypatch.setattr(config, "DID_ENABLED", True)
+    if hasattr(api, "config"):
+        monkeypatch.setattr(api.config, "GROQ_ENABLED", True)
+        monkeypatch.setattr(api.config, "CLOUDINARY_ENABLED", False)
+        monkeypatch.setattr(api.config, "DID_ENABLED", True)
 
     status = get_optional_integrations_status()
     assert status == {
