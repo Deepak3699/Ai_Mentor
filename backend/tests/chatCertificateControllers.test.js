@@ -7,7 +7,8 @@ const { default: User } = await import("../models/User.js");
 const { default: Preference } = await import("../models/Preference.js");
 const { default: Course } = await import("../models/Course.js");
 const { getChatContext, chatWithAssistant } = await import("../controllers/chatController.js");
-const { getCertificates, generateCertificate } = await import("../controllers/certificateController.js");
+const { getCertificates, generateCertificate } =
+  await import("../controllers/certificateController.js");
 
 const originals = {
   userFindByPk: User.findByPk,
@@ -20,10 +21,21 @@ const response = () => {
   return {
     state,
     res: {
-      status(code) { state.statusCode = code; return this; },
-      json(body) { state.body = body; return this; },
-      setHeader(name, value) { state.headers[name] = value; },
-      send(body) { state.sent = body; return this; },
+      status(code) {
+        state.statusCode = code;
+        return this;
+      },
+      json(body) {
+        state.body = body;
+        return this;
+      },
+      setHeader(name, value) {
+        state.headers[name] = value;
+      },
+      send(body) {
+        state.sent = body;
+        return this;
+      },
     },
   };
 };
@@ -45,9 +57,18 @@ test("chat context is scoped to the authenticated user and supplies defaults", a
   let preferenceWhere;
   User.findByPk = async (id) => {
     userId = id;
-    return { id, name: "Learner", email: "learner@example.com", purchasedCourses: null, settings: null };
+    return {
+      id,
+      name: "Learner",
+      email: "learner@example.com",
+      purchasedCourses: null,
+      settings: null,
+    };
   };
-  Preference.findOne = async ({ where }) => { preferenceWhere = where; return null; };
+  Preference.findOne = async ({ where }) => {
+    preferenceWhere = where;
+    return null;
+  };
   const { state, res } = response();
   await getChatContext({ user: { id: "user-1" } }, res);
   assert.equal(userId, "user-1");
@@ -62,7 +83,9 @@ test("chat context is scoped to the authenticated user and supplies defaults", a
 
 test("chat rejects empty messages before loading user data", async () => {
   let lookups = 0;
-  User.findByPk = async () => { lookups += 1; };
+  User.findByPk = async () => {
+    lookups += 1;
+  };
   const { state, res } = response();
   await chatWithAssistant({ user: { id: "u" }, body: { message: "   " } }, res);
   assert.equal(state.statusCode, 400);
@@ -94,11 +117,17 @@ test("chat course and progress responses use only the authenticated user's cours
     ],
   });
   let outcome = response();
-  await chatWithAssistant({ user: { id: "u" }, body: { message: "What courses am I enrolled in?" } }, outcome.res);
+  await chatWithAssistant(
+    { user: { id: "u" }, body: { message: "What courses am I enrolled in?" } },
+    outcome.res,
+  );
   assert.match(outcome.state.body.reply, /1\. Node/);
   assert.match(outcome.state.body.reply, /2\. React/);
   outcome = response();
-  await chatWithAssistant({ user: { id: "u" }, body: { message: "Show my course progress" } }, outcome.res);
+  await chatWithAssistant(
+    { user: { id: "u" }, body: { message: "Show my course progress" } },
+    outcome.res,
+  );
   assert.match(outcome.state.body.reply, /Total completed lessons: 3/);
 });
 
@@ -116,19 +145,34 @@ test("chat exposes preferences, settings, and current lesson deterministically",
     weekly_commitment: "5 hours",
   });
   let outcome = response();
-  await chatWithAssistant({ user: { id: "u" }, body: { message: "Show my learning style" } }, outcome.res);
+  await chatWithAssistant(
+    { user: { id: "u" }, body: { message: "Show my learning style" } },
+    outcome.res,
+  );
   assert.match(outcome.state.body.reply, /Learning Goal: Backend/);
   outcome = response();
-  await chatWithAssistant({ user: { id: "u" }, body: { message: "What is my current lesson?" } }, outcome.res);
+  await chatWithAssistant(
+    { user: { id: "u" }, body: { message: "What is my current lesson?" } },
+    outcome.res,
+  );
   assert.match(outcome.state.body.reply, /lesson 4 in Node/);
   outcome = response();
-  await chatWithAssistant({ user: { id: "u" }, body: { message: "Show my settings" } }, outcome.res);
+  await chatWithAssistant(
+    { user: { id: "u" }, body: { message: "Show my settings" } },
+    outcome.res,
+  );
   assert.match(outcome.state.body.reply, /Theme: dark/);
   assert.match(outcome.state.body.reply, /Language: hi/);
 });
 
 test("certificate list calculates completed and in-progress course statistics", async () => {
-  Course.findByPk = async (id) => ({ id, title: `Course ${id}`, lessonsCount: id === 1 ? 2 : 3, image: null, category: "Development" });
+  Course.findByPk = async (id) => ({
+    id,
+    title: `Course ${id}`,
+    lessonsCount: id === 1 ? 2 : 3,
+    image: null,
+    category: "Development",
+  });
   const req = {
     user: {
       purchasedCourses: [
@@ -139,46 +183,74 @@ test("certificate list calculates completed and in-progress course statistics", 
   };
   const { state, res } = response();
   await getCertificates(req, res);
-  assert.deepEqual(state.body.stats, { totalEnrolled: 2, completed: 1, certificatesEarned: 1, inProgress: 1 });
+  assert.deepEqual(state.body.stats, {
+    totalEnrolled: 2,
+    completed: 1,
+    certificatesEarned: 1,
+    inProgress: 1,
+  });
   assert.equal(state.body.courses[0].isCompleted, true);
   assert.equal(state.body.courses[1].isCompleted, false);
 });
 
 test("certificate generation validates required course, ownership, name, and completion", async () => {
   let outcome = response();
-  await generateCertificate({ user: { name: "Neeraj Kumar Saini", purchasedCourses: [] }, query: {} }, outcome.res);
+  await generateCertificate(
+    { user: { name: "Neeraj Kumar Saini", purchasedCourses: [] }, query: {} },
+    outcome.res,
+  );
   assert.equal(outcome.state.statusCode, 400);
 
   outcome = response();
-  await generateCertificate({ user: { name: "Neeraj Kumar Saini", purchasedCourses: [] }, query: { courseId: "1" } }, outcome.res);
+  await generateCertificate(
+    { user: { name: "Neeraj Kumar Saini", purchasedCourses: [] }, query: { courseId: "1" } },
+    outcome.res,
+  );
   assert.equal(outcome.state.statusCode, 404);
 
   outcome = response();
-  await generateCertificate({
-    user: { name: "Neeraj Kumar Saini", purchasedCourses: [{ courseId: 1, progress: { completedLessons: [1] } }] },
-    query: { courseId: "1", enteredName: "Completely Different Person" },
-  }, outcome.res);
+  await generateCertificate(
+    {
+      user: {
+        name: "Neeraj Kumar Saini",
+        purchasedCourses: [{ courseId: 1, progress: { completedLessons: [1] } }],
+      },
+      query: { courseId: "1", enteredName: "Completely Different Person" },
+    },
+    outcome.res,
+  );
   assert.equal(outcome.state.statusCode, 400);
 
   Course.findByPk = async () => ({ lessonsCount: 2, title: "Node" });
   outcome = response();
-  await generateCertificate({
-    user: { name: "Neeraj Kumar Saini", purchasedCourses: [{ courseId: 1, progress: { completedLessons: [1] } }] },
-    query: { courseId: "1" },
-  }, outcome.res);
+  await generateCertificate(
+    {
+      user: {
+        name: "Neeraj Kumar Saini",
+        purchasedCourses: [{ courseId: 1, progress: { completedLessons: [1] } }],
+      },
+      query: { courseId: "1" },
+    },
+    outcome.res,
+  );
   assert.equal(outcome.state.statusCode, 403);
 });
 
 test("completed course generation returns a downloadable PDF", async () => {
   Course.findByPk = async () => ({ lessonsCount: 2, title: "Node" });
   const { state, res } = response();
-  await generateCertificate({
-    user: {
-      name: "Neeraj Kumar Saini",
-      purchasedCourses: [{ courseId: 1, courseTitle: "Node", progress: { completedLessons: [1, 2] } }],
+  await generateCertificate(
+    {
+      user: {
+        name: "Neeraj Kumar Saini",
+        purchasedCourses: [
+          { courseId: 1, courseTitle: "Node", progress: { completedLessons: [1, 2] } },
+        ],
+      },
+      query: { courseId: "1", enteredName: "Neeraj Kumar Saini" },
     },
-    query: { courseId: "1", enteredName: "Neeraj Kumar Saini" },
-  }, res);
+    res,
+  );
   assert.equal(state.headers["Content-Type"], "application/pdf");
   assert.equal(state.headers["Content-Disposition"], "attachment; filename=Certificate_1.pdf");
   assert.ok(Buffer.isBuffer(state.sent));

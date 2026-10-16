@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import API_BASE_URL, { apiFetch as fetch } from "../lib/api";
+import { createElement, useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
@@ -25,8 +26,47 @@ import {
   Ban,
   AlertTriangle,
   MoreVertical,
+  Scale,
 } from "lucide-react";
 import FloatingAssistant from "../components/common/FloatingAssistant";
+import LoadingSpinner from "../components/common/LoadingSpinner";
+import DiscussionSidebar from "../components/discussions/DiscussionSidebar";
+
+const COURSE_ARTWORK = {
+  "React Fundamentals": "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png",
+  "Python For AI": "/AI_Tutor_New_UI/Dashboard/python_for_ai.png",
+  "AI Ethics & Bias": "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png",
+  PostgreSQL: "/AI_Tutor_New_UI/Dashboard/postgresql.png",
+  "MongoDB Fundamentals": "/AI_Tutor_New_UI/Dashboard/MongoDB.png",
+};
+
+const CourseArtwork = ({ title, compact = false }) => {
+  const artwork = COURSE_ARTWORK[title];
+
+  if (!artwork) {
+    return (
+      <span
+        className={`grid shrink-0 place-items-center border border-border bg-blue-500/10 text-[#3867D6] shadow-sm ${
+          compact ? "h-12 w-12 rounded-xl" : "h-16 w-16 rounded-2xl"
+        }`}
+        aria-hidden="true"
+      >
+        <BookOpen className={compact ? "h-6 w-6" : "h-8 w-8"} />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`block shrink-0 overflow-hidden border border-border bg-canvas shadow-sm ${
+        compact ? "h-12 w-12 rounded-xl" : "h-16 w-16 rounded-2xl"
+      }`}
+      aria-hidden="true"
+    >
+      <img src={artwork} alt="" className="h-full w-full object-cover" />
+    </span>
+  );
+};
 
 //helpers
 const getRelativeTime = (dateStr) => {
@@ -42,7 +82,14 @@ const getRelativeTime = (dateStr) => {
   return d.toLocaleDateString();
 };
 
+const normalizeDiscussionAvatarUrl = (avatarUrl) => {
+  if (!avatarUrl || typeof avatarUrl !== "string") return null;
+  if (/^(https?:|data:|blob:)/i.test(avatarUrl)) return avatarUrl;
+  return `${API_BASE_URL.replace(/\/$/, "")}/${avatarUrl.replace(/^\//, "")}`;
+};
+
 const Avatar = ({ src, name, size = "w-10 h-10", isGoogle, googleId }) => {
+  const normalizedSrc = normalizeDiscussionAvatarUrl(src);
   const isGoogleUser = isGoogle || !!googleId;
   const fallback = isGoogleUser
     ? `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(name || "User")}`
@@ -50,12 +97,13 @@ const Avatar = ({ src, name, size = "w-10 h-10", isGoogle, googleId }) => {
 
   return (
     <img
-      src={src || fallback}
+      src={normalizedSrc || fallback}
       alt={name || "User"}
-      className={`${size} rounded-full object-cover shrink-0 ${!src && !isGoogleUser ? 'p-1.5 bg-slate-100 dark:bg-slate-800 border border-border' : ''}`}
+      className={`${size} rounded-full object-cover shrink-0 ${!normalizedSrc && !isGoogleUser ? "p-1.5 bg-slate-100 dark:bg-slate-800 border border-border" : ""}`}
       onError={(e) => {
         e.target.src = fallback;
-        if (!isGoogleUser) e.target.className += " p-1.5 bg-slate-100 dark:bg-slate-800 border border-border";
+        if (!isGoogleUser)
+          e.target.className += " p-1.5 bg-slate-100 dark:bg-slate-800 border border-border";
       }}
     />
   );
@@ -78,7 +126,7 @@ const CATEGORY_KEY_MAP = {
 };
 
 const categoryColorMap = {
-  "Course Discussion": "border-purple-500 text-purple-400",
+  "Course Discussion": "border-blue-500/30 text-[#3867D6]",
   General: "border-blue-500 text-blue-400",
   "Help & Support": "border-green-500 text-green-400",
   Feedback: "border-yellow-500 text-yellow-400",
@@ -90,8 +138,7 @@ const DiscussionsPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const getCategoryLabel = (cat) =>
-    t(`discussions.${CATEGORY_KEY_MAP[cat]}`, cat);
+  const getCategoryLabel = (cat) => t(`discussions.${CATEGORY_KEY_MAP[cat]}`, cat);
   const { user } = useAuth();
   const token = localStorage.getItem("token");
 
@@ -124,15 +171,18 @@ const DiscussionsPage = () => {
   const [globalSort, setGlobalSort] = useState("Recent");
   const [globalPage, setGlobalPage] = useState(1);
   const [globalTotalPages, setGlobalTotalPages] = useState(1);
-  const [globalCategoryFilter, setGlobalCategoryFilter] =
-    useState("All Categories");
+  const [globalCategoryFilter, setGlobalCategoryFilter] = useState("All Categories");
   const [globalContent, setGlobalContent] = useState("");
   const [globalCategory, setGlobalCategory] = useState("");
   const [expandedGlobalPost, setExpandedGlobalPost] = useState(null);
   const [globalReplyText, setGlobalReplyText] = useState("");
 
   // Reporting & moderation state
-  const [reportModal, setReportModal] = useState({ open: false, postId: null, replyId: null });
+  const [reportModal, setReportModal] = useState({
+    open: false,
+    postId: null,
+    replyId: null,
+  });
   const [reportDescription, setReportDescription] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reports, setReports] = useState([]);
@@ -149,7 +199,10 @@ const DiscussionsPage = () => {
   });
 
   // Editing state
-  const [editingReply, setEditingReply] = useState({ postId: null, replyId: null });
+  const [editingReply, setEditingReply] = useState({
+    postId: null,
+    replyId: null,
+  });
   const [editReplyText, setEditReplyText] = useState("");
 
   // postId of the post being edited (only for global posts, course panel posts are edited inline with a textarea)
@@ -170,7 +223,7 @@ const DiscussionsPage = () => {
   // Measure available space and decide open direction
   // Panel max height ≈ 210px. Only open upward when space below is tight
   // AND there is more room above than below.
-  const PANEL_HEIGHT = 220;
+  const PANEL_HEIGHT = 420;
 
   const openCategoryPicker = () => {
     setFilterPickerOpen(false);
@@ -178,9 +231,7 @@ const DiscussionsPage = () => {
       const rect = categoryPickerRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
-      setCategoryPickerPos(
-        spaceBelow < PANEL_HEIGHT && spaceAbove > spaceBelow ? "top" : "bottom"
-      );
+      setCategoryPickerPos(spaceBelow < PANEL_HEIGHT && spaceAbove > spaceBelow ? "top" : "bottom");
     }
     setCategoryPickerOpen((o) => !o);
   };
@@ -191,9 +242,7 @@ const DiscussionsPage = () => {
       const rect = filterPickerRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
-      setFilterPickerPos(
-        spaceBelow < PANEL_HEIGHT && spaceAbove > spaceBelow ? "top" : "bottom"
-      );
+      setFilterPickerPos(spaceBelow < PANEL_HEIGHT && spaceAbove > spaceBelow ? "top" : "bottom");
     }
     setFilterPickerOpen((o) => !o);
   };
@@ -229,7 +278,7 @@ const DiscussionsPage = () => {
     message,
     onConfirm,
     title = "Confirm Action",
-    confirmText = "Confirm"
+    confirmText = "Confirm",
   ) => {
     setPopupModal({
       open: true,
@@ -255,7 +304,7 @@ const DiscussionsPage = () => {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     }),
-    [token]
+    [token],
   );
 
   // Fetch all courses (from courses.json via API)
@@ -297,24 +346,24 @@ const DiscussionsPage = () => {
         setCoursePostsLoading(false);
       }
     },
-    [token]
+    [token],
   );
 
-const latestPostsByCourse = Object.values(
-  coursePosts
-    .filter((post) => isAdmin || !post.hiddenAt)
-    .reduce((acc, post) => {
-      if (!post.courseId) return acc;
+  const latestPostsByCourse = Object.values(
+    coursePosts
+      .filter((post) => isAdmin || !post.hiddenAt)
+      .reduce((acc, post) => {
+        if (!post.courseId) return acc;
 
-      // First occurrence = latest (because order based on createdAt attribute)
-      if (!acc[post.courseId]) {
-        acc[post.courseId] = post;
-      }
+        // First occurrence = latest (because order based on createdAt attribute)
+        if (!acc[post.courseId]) {
+          acc[post.courseId] = post;
+        }
 
-      return acc;
-    }, {})
-);
-  
+        return acc;
+      }, {}),
+  );
+
   // Course panel - posts for a specific course
   const fetchPanelPosts = useCallback(
     async (courseId, sort, page = 1) => {
@@ -357,7 +406,7 @@ const latestPostsByCourse = Object.values(
         setPanelLoading(false);
       }
     },
-    [token]
+    [token],
   );
 
   // Global posts
@@ -385,7 +434,7 @@ const latestPostsByCourse = Object.values(
         setGlobalLoading(false);
       }
     },
-    [token]
+    [token],
   );
 
   // Create post
@@ -461,18 +510,12 @@ const latestPostsByCourse = Object.values(
       // Update the appropriate post list
       if (activeView === "courseCommunity") {
         if (selectedCourse) {
-          setPanelPosts((prev) =>
-            prev.map((p) => (p.id === postId ? updated : p))
-          );
+          setPanelPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
         } else {
-          setCoursePosts((prev) =>
-            prev.map((p) => (p.id === postId ? updated : p))
-          );
+          setCoursePosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
         }
       } else {
-        setGlobalPosts((prev) =>
-          prev.map((p) => (p.id === postId ? updated : p))
-        );
+        setGlobalPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
       }
 
       setEditingReply({ postId: null, replyId: null });
@@ -495,18 +538,12 @@ const latestPostsByCourse = Object.values(
       // Update the appropriate post list
       if (activeView === "courseCommunity") {
         if (selectedCourse) {
-          setPanelPosts((prev) =>
-            prev.map((p) => (p.id === postId ? updated : p))
-          );
+          setPanelPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
         } else {
-          setCoursePosts((prev) =>
-            prev.map((p) => (p.id === postId ? updated : p))
-          );
+          setCoursePosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
         }
       } else {
-        setGlobalPosts((prev) =>
-          prev.map((p) => (p.id === postId ? updated : p))
-        );
+        setGlobalPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
       }
     } catch (err) {
       console.error("Delete reply error:", err);
@@ -528,17 +565,11 @@ const latestPostsByCourse = Object.values(
       // Update the appropriate post list
       if (activeView === "courseCommunity") {
         if (selectedCourse) {
-          setPanelPosts((prev) =>
-            prev.map((p) => (p.id === postId ? updated : p))
-          );
+          setPanelPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
         }
-        setCoursePosts((prev) =>
-          prev.map((p) => (p.id === postId ? updated : p))
-        );
+        setCoursePosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
       } else {
-        setGlobalPosts((prev) =>
-          prev.map((p) => (p.id === postId ? updated : p))
-        );
+        setGlobalPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
       }
 
       setEditingPost(null);
@@ -620,7 +651,7 @@ const latestPostsByCourse = Object.values(
         "Are you sure you want to delete this content?",
         () => executeModeration(reportId, action),
         "Confirm Delete",
-        "Delete"
+        "Delete",
       );
       return;
     }
@@ -644,13 +675,13 @@ const latestPostsByCourse = Object.values(
       const updatedPost = data.post;
       if (updatedPost?.id) {
         setCoursePosts((prev) =>
-          prev.map((p) => (String(p.id) === String(updatedPost.id) ? updatedPost : p))
+          prev.map((p) => (String(p.id) === String(updatedPost.id) ? updatedPost : p)),
         );
         setPanelPosts((prev) =>
-          prev.map((p) => (String(p.id) === String(updatedPost.id) ? updatedPost : p))
+          prev.map((p) => (String(p.id) === String(updatedPost.id) ? updatedPost : p)),
         );
         setGlobalPosts((prev) =>
-          prev.map((p) => (String(p.id) === String(updatedPost.id) ? updatedPost : p))
+          prev.map((p) => (String(p.id) === String(updatedPost.id) ? updatedPost : p)),
         );
       }
 
@@ -662,9 +693,10 @@ const latestPostsByCourse = Object.values(
 
   // Helper: get reports for a specific post/reply
   const getReportsForContent = (postId, replyId = null) =>
-    reports.filter((r) =>
-      String(r.postId) === String(postId) &&
-      (replyId ? String(r.replyId) === String(replyId) : !r.replyId)
+    reports.filter(
+      (r) =>
+        String(r.postId) === String(postId) &&
+        (replyId ? String(r.replyId) === String(replyId) : !r.replyId),
     );
 
   useEffect(() => {
@@ -740,7 +772,7 @@ const latestPostsByCourse = Object.values(
         pathname: location.pathname,
         search: nextSearch ? `?${nextSearch}` : "",
       },
-      { replace: true }
+      { replace: true },
     );
   }, [
     location.search,
@@ -764,8 +796,7 @@ const latestPostsByCourse = Object.values(
   }, [activeView, courseSort, coursePostsPage, fetchCoursePosts]);
 
   useEffect(() => {
-    if (activeView === "global")
-      fetchGlobalPosts(globalCategoryFilter, globalSort, globalPage);
+    if (activeView === "global") fetchGlobalPosts(globalCategoryFilter, globalSort, globalPage);
   }, [activeView, globalCategoryFilter, globalSort, globalPage, fetchGlobalPosts]);
 
   useEffect(() => {
@@ -797,9 +828,9 @@ const latestPostsByCourse = Object.values(
       }
     };
 
-    document.addEventListener('click', handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
     return () => {
-      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener("click", handleClickOutside);
     };
   }, [openDropdown]);
 
@@ -845,8 +876,7 @@ const latestPostsByCourse = Object.values(
   };
 
   const patchPost = (updated, source) => {
-    const replace = (list) =>
-      list.map((p) => (p.id === updated.id ? updated : p));
+    const replace = (list) => list.map((p) => (p.id === updated.id ? updated : p));
     if (source === "courseGrid") setCoursePosts(replace);
     if (source === "panel") setPanelPosts(replace);
     if (source === "global") setGlobalPosts(replace);
@@ -889,83 +919,99 @@ const latestPostsByCourse = Object.values(
   };
 
   /* helper: find course name from coursePosts for display */
-  const courseNameForPost = (post) =>
-    post.courseName || `Course #${post.courseId}`;
+  const courseNameForPost = (post) => post.courseName || `Course #${post.courseId}`;
 
   return (
     <>
-        <div className="relative overflow-hidden bg-linear-to-br from-teal-700 via-teal-600 to-teal-800 pt-14 sm:pt-16 pb-10 sm:pb-12 px-3 sm:px-6 md:px-8">
-          {/* grid pattern overlay */}
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage:
-                "linear-gradient(rgba(255,255,255,.15) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.15) 1px, transparent 1px)",
-              backgroundSize: "40px 40px",
-            }}
-          />
-          <div className="relative z-10 max-w-4xl mx-auto text-center space-y-4">
-            <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight">
-              {activeView === "courseCommunity" ? (
-                <>
-                  {t("discussions.course_communities").split(" ")[0]}{" "}
-                  <span className="text-yellow-400">
-                    {t("discussions.course_communities")
-                      .split(" ")
-                      .slice(1)
-                      .join(" ")}
-                  </span>
-                </>
-              ) : (
-                <span className="text-orange-400">
-                  {t("discussions.global_title")}
-                </span>
-              )}
-            </h1>
-            <p className="text-teal-100 text-xs sm:text-sm md:text-base max-w-md sm:max-w-xl mx-auto">
-              {t("discussions.global_subtitle")}
-            </p>
-            {/* Tabs */}
-            <div className="flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-3 pt-2 px-2 sm:px-4">
-              <button
-                onClick={() => setActiveView("courseCommunity")}
-                className={`flex items-center gap-2 px-4 sm:px-5 md:px-6 py-2 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all ${
-                  activeView === "courseCommunity"
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
-                    : "bg-black/30 text-white hover:bg-black/40"
-                }`}
-              >
-                <BookOpen className="w-4 h-4" />
-                {t("discussions.course_communities")}
-              </button>
-              <button
-                onClick={() => setActiveView("global")}
-                className={`flex items-center gap-2 px-4 sm:px-5 md:px-6 py-2 sm:py-2.5 rounded-full font-semibold text-xs sm:text-sm transition-all ${
-                  activeView === "global"
-                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
-                    : "bg-black/30 text-white hover:bg-black/40"
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                {t("discussions.global_btn")}
-              </button>
+      <section className="border-b border-border bg-card">
+        <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="max-w-2xl">
+              <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-bold text-[#3867D6]">
+                <MessageCircle className="h-3.5 w-3.5" /> Community workspace
+              </span>
+              <h1 className="text-3xl font-extrabold tracking-tight text-main sm:text-4xl">
+                Learn and build together
+              </h1>
+              <p className="mt-3 max-w-xl text-sm leading-6 text-muted sm:text-base">
+                Ask questions, exchange ideas, and connect with learners across your courses.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              {[
+                ["Communities", allCourses.length, BookOpen],
+                ["Course posts", coursePosts.length, MessageCircle],
+                ["Global posts", globalPosts.length, Users],
+              ].map(([label, value, Icon]) => (
+                <div
+                  key={label}
+                  className="min-w-0 rounded-2xl border border-border bg-canvas px-3 py-3 shadow-sm sm:min-w-[132px] sm:px-4"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="hidden h-9 w-9 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-[#3867D6] sm:grid">
+                      {createElement(Icon, { className: "h-4 w-4" })}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-lg font-extrabold leading-none text-main">{value}</p>
+                      <p className="mt-1 truncate text-[10px] font-semibold text-muted sm:text-xs">
+                        {label}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
+      </section>
 
-        <div className="flex-1 flex relative">
+      <section className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 rounded-xl bg-canvas-alt p-1">
+            <button
+              type="button"
+              onClick={() => setActiveView("courseCommunity")}
+              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition sm:px-4 ${
+                activeView === "courseCommunity"
+                  ? "bg-card text-[#3867D6] shadow-sm"
+                  : "text-muted hover:text-main"
+              }`}
+            >
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Course Communities</span>
+              <span className="sm:hidden">Courses</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView("global")}
+              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-bold transition sm:px-4 ${
+                activeView === "global"
+                  ? "bg-card text-[#3867D6] shadow-sm"
+                  : "text-muted hover:text-main"
+              }`}
+            >
+              <Users className="h-4 w-4" /> Global
+            </button>
+          </div>
+          <p className="hidden text-xs font-semibold text-muted md:block">
+            {activeView === "courseCommunity"
+              ? `${coursePosts.length} course discussions across ${allCourses.length} communities`
+              : `${globalPosts.length} global discussions`}
+          </p>
+        </div>
+      </section>
+
+      <div className="flex min-h-0 w-full bg-canvas-alt">
+        <div className="flex min-w-0 flex-1">
           {activeView === "courseCommunity" && (
-           <main className="flex-1 p-3 sm:p-5 md:p-6 overflow-y-auto">
-              <div
-                className={`max-w-full lg:max-w-5xl mx-auto px-1 sm:px-2 ${
-                  selectedCourse ? "xl:mr-105" : ""
-                }`}
-              >
+            <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+              <div className={`mx-auto w-full max-w-[1500px] ${selectedCourse ? "xl:mr-105" : ""}`}>
                 {/* header row */}
-                <div className="flex items-center justify-between mb-6">
+                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2">
-                    <MessageCircle className="w-5 h-5 text-indigo-500" />
-                    <h2 className="text-xl font-bold text-main">
+                    <MessageCircle className="w-5 h-5 text-[#3867D6]" />
+                    <h2 className="text-xl font-extrabold tracking-tight text-main">
                       {t("discussions.recent")}{" "}
                       <span className="text-muted font-normal text-base">
                         ({coursePosts.length})
@@ -983,8 +1029,8 @@ const latestPostsByCourse = Object.values(
                         }}
                         className={`px-4 py-1.5 text-sm rounded-md font-medium transition-colors ${
                           courseSort === s
-                            ? "bg-red-500 text-white"
-                            : "bg-card border border-border text-muted hover:text-main"
+                            ? "bg-card text-[#3867D6] shadow-sm"
+                            : "text-muted hover:text-main"
                         }`}
                       >
                         {s === "Recent"
@@ -998,38 +1044,73 @@ const latestPostsByCourse = Object.values(
                 {/* grid of discussion cards */}
                 {coursePostsLoading ? (
                   <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                    <LoadingSpinner
+                      variant="compact"
+                      label={t("discussions.loading")}
+                      className="mb-4"
+                    />
                     <p className="text-muted">{t("discussions.loading")}</p>
                   </div>
                 ) : coursePosts.length === 0 ? (
-                  <div className="text-center py-12 text-muted">
-                    {t("discussions.no_course")}
-                    <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {allCourses.map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => {
-                            setPanelPage(1);
-                            setSelectedCourse({
-                              courseId: c.id,
-                              courseName: c.title,
-                            });
-                          }}
-                          className="bg-card border border-border rounded-xl p-4 text-left hover:border-indigo-500 transition-colors"
-                        >
-                          <h3 className="font-semibold text-main">{c.title}</h3>
-                          <p className="text-xs text-muted mt-1">
-                            {c.category}
-                          </p>
-                        </button>
-                      ))}
+                  <div className="space-y-8">
+                    <div className="rounded-3xl border border-dashed border-border bg-card px-6 py-10 text-center">
+                      <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-blue-500/10 text-[#3867D6]">
+                        <MessageCircle className="h-7 w-7" />
+                      </span>
+                      <h3 className="mt-4 text-lg font-extrabold text-main">
+                        No course discussions yet
+                      </h3>
+                      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">
+                        Open one of your course communities below to ask the first question or share
+                        an idea.
+                      </p>
                     </div>
+
+                    <section>
+                      <div className="mb-4 flex items-end justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-[#3867D6]">
+                            Your learning network
+                          </p>
+                          <h3 className="mt-1 text-xl font-extrabold tracking-tight text-main">
+                            Course communities
+                          </h3>
+                          <p className="mt-1 text-sm text-muted">
+                            Choose a course to view messages or start a discussion.
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-blue-500/10 px-3 py-1 text-xs font-bold text-[#3867D6]">
+                          {allCourses.length} available
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {allCourses.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => {
+                              setPanelPage(1);
+                              setSelectedCourse({ courseId: c.id, courseName: c.title });
+                            }}
+                            className="group flex min-h-28 items-center gap-4 rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#3867D6]/40 hover:shadow-md"
+                          >
+                            <CourseArtwork title={c.title} />
+                            <div className="min-w-0 flex-1">
+                              <h4 className="line-clamp-2 font-extrabold text-main">{c.title}</h4>
+                              <p className="mt-1 text-xs text-muted">{c.category || "General"}</p>
+                              <span className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-[#3867D6]">
+                                Open community{" "}
+                                <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
                   </div>
                 ) : (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                      {latestPostsByCourse
-                        .map((post) => (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      {latestPostsByCourse.map((post) => (
                         <div
                           key={post.id}
                           onClick={() => {
@@ -1039,7 +1120,7 @@ const latestPostsByCourse = Object.values(
                               courseName: courseNameForPost(post),
                             });
                           }}
-                          className={`bg-card border border-border rounded-xl p-3 sm:p-4 md:p-5 shadow-sm hover:border-indigo-500/50 cursor-pointer transition-colors ${
+                          className={`group cursor-pointer rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#3867D6]/40 hover:shadow-md ${
                             post.hiddenAt ? "opacity-60" : ""
                           }`}
                         >
@@ -1059,13 +1140,21 @@ const latestPostsByCourse = Object.values(
                             </div>
                           )}
                           <div className="flex items-start gap-3 mb-3">
-                            <Avatar src={post.author?.avatar_url} name={post.author?.name} isGoogle={post.author?.isGoogleUser} googleId={post.author?.googleId} />
+                            <Avatar
+                              src={
+                                post.author?.avatar_url ||
+                                (String(post.userId) === String(user?.id) ? user?.avatar_url : null)
+                              }
+                              name={post.author?.name}
+                              isGoogle={post.author?.isGoogleUser}
+                              googleId={post.author?.googleId}
+                            />
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-semibold text-main text-sm">
                                   {post.author?.name || "Unknown"}
                                 </span>
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-600 text-white truncate max-w-35">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#3867D6] text-white truncate max-w-35">
                                   {courseNameForPost(post)}
                                 </span>
                               </div>
@@ -1074,9 +1163,7 @@ const latestPostsByCourse = Object.values(
                               </span>
                             </div>
                           </div>
-                          <p className="text-sm text-muted line-clamp-2 mb-3">
-                            {post.content}
-                          </p>
+                          <p className="text-sm text-muted line-clamp-2 mb-3">{post.content}</p>
                           <div className="border-t border-border pt-3 flex items-center gap-4 text-muted text-xs">
                             <span className="flex items-center gap-1">
                               <ThumbsUp className="w-3.5 h-3.5" />
@@ -1113,11 +1200,11 @@ const latestPostsByCourse = Object.values(
                     </div>
 
                     {/* quick-start: select a course to start new discussion */}
-                    <div className="mt-8">
-                      <h3 className="text-sm font-semibold text-muted mb-3 uppercase tracking-wide">
+                    <div className="mt-8 rounded-3xl border border-border bg-card p-5 shadow-sm">
+                      <h3 className="mb-4 text-xs font-extrabold uppercase tracking-[0.14em] text-[#3867D6]">
                         {t("discussions.start_in_course")}
                       </h3>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         {allCourses.map((c) => (
                           <button
                             key={c.id}
@@ -1128,9 +1215,17 @@ const latestPostsByCourse = Object.values(
                                 courseName: c.title,
                               });
                             }}
-                            className="px-4 py-2 bg-card border border-border rounded-lg text-sm text-main hover:border-indigo-500 transition-colors"
+                            className="group flex items-center gap-3 rounded-2xl border border-border bg-canvas-alt p-3 text-left transition hover:border-[#3867D6]/40"
                           >
-                            {c.title}
+                            <CourseArtwork title={c.title} compact />
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm font-semibold text-main line-clamp-1">
+                                {c.title}
+                              </h3>
+                              <p className="text-[10px] text-muted mt-0.5 line-clamp-1">
+                                {c.category || "General"}
+                              </p>
+                            </div>
                           </button>
                         ))}
                       </div>
@@ -1142,25 +1237,22 @@ const latestPostsByCourse = Object.values(
               {selectedCourse && (
                 <div
                   ref={panelRef}
-                   className="fixed top-16 sm:top-18 right-0 h-[calc(100%-64px)] sm:h-[calc(100%-72px)] w-full sm:w-96 md:w-[420px] lg:w-[480px] bg-card border-l border-border shadow-2xl z-50 flex flex-col"
+                  className="fixed bottom-0 right-0 top-[4.5rem] z-50 flex w-full flex-col border-l border-border bg-card shadow-2xl sm:w-[420px] lg:w-[480px]"
                 >
                   {/* panel header */}
-                  <div className="p-3 sm:p-4 border-b border-border flex items-center justify-between shrink-0">
+                  <div className="flex shrink-0 items-center justify-between border-b border-border bg-card p-4 sm:p-5">
                     <div>
                       <div className="flex items-center gap-2">
-                        <MessageCircle className="w-5 h-5 text-indigo-500" />
+                        <MessageCircle className="w-5 h-5 text-[#3867D6]" />
                         <h3 className="font-bold text-main">Community</h3>
                       </div>
                       <p className="text-xs text-muted mt-0.5">
-                        {selectedCourse.courseName} &bull; {panelPosts.length}{" "}
-                        messages
+                        {selectedCourse.courseName} &bull; {panelPosts.length} messages
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() =>
-                          fetchPanelPosts(selectedCourse.courseId, panelSort)
-                        }
+                        onClick={() => fetchPanelPosts(selectedCourse.courseId, panelSort)}
                         className="p-1.5 rounded-lg hover:bg-canvas-alt text-muted"
                       >
                         <RefreshCw className="w-4 h-4" />
@@ -1175,7 +1267,7 @@ const latestPostsByCourse = Object.values(
                   </div>
 
                   {/* panel sort tabs */}
-                  <div className="flex border-b border-border shrink-0">
+                  <div className="mx-4 mt-3 flex shrink-0 rounded-xl bg-canvas-alt p-1">
                     {["Recent", "Popular"].map((s) => (
                       <button
                         key={s}
@@ -1183,9 +1275,9 @@ const latestPostsByCourse = Object.values(
                           setPanelSort(s);
                           setPanelPage(1);
                         }}
-                        className={`flex-1 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                        className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition-colors ${
                           panelSort === s
-                            ? "bg-indigo-600/10 text-indigo-500 border-b-2 border-indigo-500"
+                            ? "bg-card text-[#3867D6] shadow-sm"
                             : "text-muted hover:text-main"
                         }`}
                       >
@@ -1204,20 +1296,28 @@ const latestPostsByCourse = Object.values(
                   {/* panel messages */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-4">
                     {panelRequiresEnrollment ? (
-                      <div className="flex flex-col items-center justify-center h-full py-12">
-                        <div className="text-center space-y-4">
-                          <div className="inline-flex items-center justify-center w-16 h-16 bg-orange-500/20 rounded-full">
-                            <BookOpen className="w-8 h-8 text-orange-500" />
+                      <div className="flex h-full items-center justify-center px-4 py-8">
+                        <div className="w-full max-w-sm space-y-4 rounded-3xl border border-border bg-canvas-alt p-6 text-center">
+                          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10">
+                            <BookOpen className="w-8 h-8 text-[#3867D6]" />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-main mb-2">Enroll to Access Community</h3>
+                            <h3 className="font-semibold text-main mb-2">
+                              Enroll to Access Community
+                            </h3>
                             <p className="text-sm text-muted mb-4">
-                              You must be enrolled in <span className="font-medium">{selectedCourse.courseName}</span> to view and participate in discussions.
+                              You must be enrolled in{" "}
+                              <span className="font-medium">{selectedCourse.courseName}</span> to
+                              view and participate in discussions.
                             </p>
                           </div>
                           <button
-                            onClick={() => navigate(`/courses`, { state: { activeTab: "explore" } })}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors font-medium"
+                            onClick={() =>
+                              navigate(`/courses`, {
+                                state: { activeTab: "explore" },
+                              })
+                            }
+                            className="inline-flex items-center gap-2 rounded-xl bg-[#3867D6] px-4 py-2 font-bold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#315BC0]"
                           >
                             Explore Courses
                             <ArrowRight className="w-4 h-4" />
@@ -1226,7 +1326,11 @@ const latestPostsByCourse = Object.values(
                       </div>
                     ) : panelLoading ? (
                       <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-3"></div>
+                        <LoadingSpinner
+                          variant="compact"
+                          label={t("common.loading")}
+                          className="mb-3"
+                        />
                         <p className="text-muted text-sm">{t("common.loading")}</p>
                       </div>
                     ) : panelPosts.length === 0 ? (
@@ -1237,422 +1341,495 @@ const latestPostsByCourse = Object.values(
                       panelPosts
                         .filter((post) => isAdmin || !post.hiddenAt)
                         .map((post) => (
-                        <div
-                          key={post.id}
-                          data-post-id={post.id}
-                          className={`space-y-2 ${post.hiddenAt ? "opacity-50" : ""}`}
-                        >
-                          {/* Admin: hidden badge */}
-                          {isAdmin && post.hiddenAt && (
-                            <div className="flex items-center gap-2 text-xs text-yellow-500">
-                              <EyeOff className="w-3 h-3" />
-                              Hidden by moderator
-                              <button
-                                onClick={() => handleUnhide(post.id)}
-                                className="px-2 py-0.5 text-[10px] rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-                              >
-                                Unhide
-                              </button>
-                            </div>
-                          )}
-                          {/* Admin: report badge for panel post */}
-                          {isAdmin && getReportsForContent(post.id).length > 0 && (
-                            <div>
-                              <button
-                                onClick={() => setActiveModeration(activeModeration === `panel-post-${post.id}` ? null : `panel-post-${post.id}`)}
-                                className="flex items-center gap-1 px-2 py-0.5 bg-orange-500/20 text-orange-400 text-[10px] font-medium rounded-md hover:bg-orange-500/30 transition-colors"
-                              >
-                                <Shield className="w-2.5 h-2.5" />
-                                {getReportsForContent(post.id).length} report{getReportsForContent(post.id).length > 1 ? "s" : ""}
-                              </button>
-                              {activeModeration === `panel-post-${post.id}` && (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-[10px] text-muted">
-                                    {getReportsForContent(post.id).length} pending reports
-                                  </span>
-                                  <button onClick={() => handleModerate(getReportsForContent(post.id)[0]?.id, "hidden")} className="p-0.5 text-yellow-500 hover:bg-yellow-500/20 rounded disabled:opacity-50" title="Hide" disabled={!getReportsForContent(post.id)[0]?.id}>
-                                    <EyeOff className="w-3 h-3" />
-                                  </button>
-                                  <button onClick={() => handleModerate(getReportsForContent(post.id)[0]?.id, "deleted")} className="p-0.5 text-red-500 hover:bg-red-500/20 rounded disabled:opacity-50" title="Delete" disabled={!getReportsForContent(post.id)[0]?.id}>
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                  <button onClick={() => handleModerate(getReportsForContent(post.id)[0]?.id, "dismissed")} className="p-0.5 text-gray-400 hover:bg-gray-500/20 rounded disabled:opacity-50" title="Dismiss" disabled={!getReportsForContent(post.id)[0]?.id}>
-                                    <XCircle className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          <div className="flex items-start gap-3">
-                            <Avatar src={post.author?.avatar_url} name={post.author?.name} size="w-9 h-9" isGoogle={post.author?.isGoogleUser} googleId={post.author?.googleId} />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-semibold text-main text-sm">
-                                    {post.author?.name || "Unknown"}
-                                  </span>
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-600/20 text-indigo-400 flex items-center gap-0.5">
-                                    <Users className="w-2.5 h-2.5" />
-                                    {courseNameForPost(post)}
-                                  </span>
-                                  <span className="text-[11px] text-muted">
-                                    {getRelativeTime(post.createdAt)}
-                                  </span>
-                                </div>
-                                {/* Three dots menu for all users */}
-                                <div className="relative">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setOpenDropdown(openDropdown === `post-${post.id}` ? null : `post-${post.id}`);
-                                    }}
-                                    className="text-muted hover:text-orange-500 p-0.5 transition-colors"
-                                    title="More options"
-                                  >
-                                    <MoreVertical className="w-4 h-4" />
-                                  </button>
-                                  {/* Dropdown Menu */}
-                                  {openDropdown === `post-${post.id}` && (
-                                    <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg py-1 z-10 min-w-[120px] sm:min-w-[140px]">
-                                      {post.userId === user?.id ? (
-                                        <>
-                                          {/* Edit and Delete options for post owner */}
+                          <div
+                            key={post.id}
+                            data-post-id={post.id}
+                            className={`space-y-2 ${post.hiddenAt ? "opacity-50" : ""}`}
+                          >
+                            {/* Admin: hidden badge */}
+                            {isAdmin && post.hiddenAt && (
+                              <div className="flex items-center gap-2 text-xs text-yellow-500">
+                                <EyeOff className="w-3 h-3" />
+                                Hidden by moderator
+                                <button
+                                  onClick={() => handleUnhide(post.id)}
+                                  className="px-2 py-0.5 text-[10px] rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+                                >
+                                  Unhide
+                                </button>
+                              </div>
+                            )}
+                            {/* Admin: report badge for panel post */}
+                            {isAdmin && getReportsForContent(post.id).length > 0 && (
+                              <div>
+                                <button
+                                  onClick={() =>
+                                    setActiveModeration(
+                                      activeModeration === `panel-post-${post.id}`
+                                        ? null
+                                        : `panel-post-${post.id}`,
+                                    )
+                                  }
+                                  className="flex items-center gap-1 px-2 py-0.5 bg-orange-500/20 text-orange-400 text-[10px] font-medium rounded-md hover:bg-orange-500/30 transition-colors"
+                                >
+                                  <Shield className="w-2.5 h-2.5" />
+                                  {getReportsForContent(post.id).length} report
+                                  {getReportsForContent(post.id).length > 1 ? "s" : ""}
+                                </button>
+                                {activeModeration === `panel-post-${post.id}` && (
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-[10px] text-muted">
+                                      {getReportsForContent(post.id).length} pending reports
+                                    </span>
+                                    <button
+                                      onClick={() =>
+                                        handleModerate(
+                                          getReportsForContent(post.id)[0]?.id,
+                                          "hidden",
+                                        )
+                                      }
+                                      className="p-0.5 text-yellow-500 hover:bg-yellow-500/20 rounded disabled:opacity-50"
+                                      title="Hide"
+                                      disabled={!getReportsForContent(post.id)[0]?.id}
+                                    >
+                                      <EyeOff className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleModerate(
+                                          getReportsForContent(post.id)[0]?.id,
+                                          "deleted",
+                                        )
+                                      }
+                                      className="p-0.5 text-red-500 hover:bg-red-500/20 rounded disabled:opacity-50"
+                                      title="Delete"
+                                      disabled={!getReportsForContent(post.id)[0]?.id}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleModerate(
+                                          getReportsForContent(post.id)[0]?.id,
+                                          "dismissed",
+                                        )
+                                      }
+                                      className="p-0.5 text-gray-400 hover:bg-gray-500/20 rounded disabled:opacity-50"
+                                      title="Dismiss"
+                                      disabled={!getReportsForContent(post.id)[0]?.id}
+                                    >
+                                      <XCircle className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex items-start gap-3">
+                              <Avatar
+                                src={
+                                  post.author?.avatar_url ||
+                                  (String(post.userId) === String(user?.id)
+                                    ? user?.avatar_url
+                                    : null)
+                                }
+                                name={post.author?.name}
+                                size="w-9 h-9"
+                                isGoogle={post.author?.isGoogleUser}
+                                googleId={post.author?.googleId}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-main text-sm">
+                                      {post.author?.name || "Unknown"}
+                                    </span>
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-[#3867D6] flex items-center gap-0.5">
+                                      <Users className="w-2.5 h-2.5" />
+                                      {courseNameForPost(post)}
+                                    </span>
+                                    <span className="text-[11px] text-muted">
+                                      {getRelativeTime(post.createdAt)}
+                                    </span>
+                                  </div>
+                                  {/* Three dots menu for all users */}
+                                  <div className="relative">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setOpenDropdown(
+                                          openDropdown === `post-${post.id}`
+                                            ? null
+                                            : `post-${post.id}`,
+                                        );
+                                      }}
+                                      className="text-muted hover:text-[#3867D6] p-0.5 transition-colors"
+                                      title="More options"
+                                    >
+                                      <MoreVertical className="w-4 h-4" />
+                                    </button>
+                                    {/* Dropdown Menu */}
+                                    {openDropdown === `post-${post.id}` && (
+                                      <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg py-1 z-10 min-w-[120px] sm:min-w-[140px]">
+                                        {post.userId === user?.id ? (
+                                          <>
+                                            {/* Edit and Delete options for post owner */}
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditingPost(post.id);
+                                                setEditPostText(post.content || "");
+                                                setOpenDropdown(null);
+                                              }}
+                                              className="w-full px-3 py-2 text-left text-sm text-main hover:bg-surface-light transition-colors flex items-center gap-2"
+                                            >
+                                              <Edit className="w-3.5 h-3.5" />
+                                              Edit
+                                            </button>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeletePost(post.id);
+                                                setOpenDropdown(null);
+                                              }}
+                                              className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-surface-light transition-colors flex items-center gap-2"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                              Delete
+                                            </button>
+                                          </>
+                                        ) : (
+                                          /* Report option for other users */
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              setEditingPost(post.id);
-                                              setEditPostText(post.content || "");
+                                              setReportModal({
+                                                open: true,
+                                                postId: post.id,
+                                                replyId: null,
+                                              });
                                               setOpenDropdown(null);
                                             }}
                                             className="w-full px-3 py-2 text-left text-sm text-main hover:bg-surface-light transition-colors flex items-center gap-2"
                                           >
-                                            <Edit className="w-3.5 h-3.5" />
-                                            Edit
+                                            <Flag className="w-3.5 h-3.5" />
+                                            Report
                                           </button>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleDeletePost(post.id);
-                                              setOpenDropdown(null);
-                                            }}
-                                            className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-surface-light transition-colors flex items-center gap-2"
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                            Delete
-                                          </button>
-                                        </>
-                                      ) : (
-                                        /* Report option for other users */
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setReportModal({ open: true, postId: post.id, replyId: null });
-                                            setOpenDropdown(null);
-                                          }}
-                                          className="w-full px-3 py-2 text-left text-sm text-main hover:bg-surface-light transition-colors flex items-center gap-2"
-                                        >
-                                          <Flag className="w-3.5 h-3.5" />
-                                          Report
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              {editingPost === post.id ? (
-                                <div className="mt-1">
-                                  <textarea
-                                    value={editPostText}
-                                    onChange={(e) => setEditPostText(e.target.value)}
-                                    rows={3}
-                                    className="w-full px-2 py-1 text-sm bg-surface-light border border-border-light rounded focus:outline-none focus:ring-1 focus:ring-purple-500 resize-none"
-                                    autoFocus
-                                  />
-                                  <div className="flex gap-2 mt-1">
-                                    <button
-                                      onClick={() => handleEditPost(post.id, editPostText)}
-                                      className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-700 rounded"
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      onClick={() => {
-                                        setEditingPost(null);
-                                        setEditPostText("");
-                                      }}
-                                      className="px-3 py-1 text-xs bg-surface-light hover:bg-surface-lighter rounded"
-                                    >
-                                      Cancel
-                                    </button>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
-                              ) : (
-                                <p className="text-sm text-muted mt-1">{post.content}</p>
-                              )}
-                              <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 text-xs text-muted">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleLike(post.id, "panel");
-                                  }}
-                                  className={`flex items-center gap-1 hover:text-indigo-500 ${
-                                    post.likes?.some(
-                                      (l) => l.userId === user?.id
-                                    )
-                                      ? "text-indigo-500"
-                                      : ""
-                                  }`}
-                                >
-                                  <ThumbsUp className="w-3.5 h-3.5" />
-                                  {post.likes?.length || 0}
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDislike(post.id, "panel");
-                                  }}
-                                  className={`flex items-center gap-1 hover:text-red-500 ${
-                                    post.dislikes?.some(
-                                      (d) => d.userId === user?.id
-                                    )
-                                      ? "text-red-500"
-                                      : ""
-                                  }`}
-                                >
-                                  <ThumbsDown className="w-3.5 h-3.5" />
-                                  {post.dislikes?.length || 0}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setPanelReplyingTo(
-                                      panelReplyingTo === post.id
-                                        ? null
-                                        : post.id
-                                    );
-                                    setPanelReplyInputText("");
-                                  }}
-                                  className="hover:text-main cursor-pointer bg-transparent p-0 border-0"
-                                  aria-expanded={panelReplyingTo === post.id}
-                                  aria-controls={`panel-reply-${post.id}`}
-                                >
-                                  {t("discussions.reply")} (
-                                  {post.replies?.length || 0})
-                                </button>
-                              </div>
+                                {editingPost === post.id ? (
+                                  <div className="mt-1">
+                                    <textarea
+                                      value={editPostText}
+                                      onChange={(e) => setEditPostText(e.target.value)}
+                                      rows={3}
+                                      className="w-full px-2 py-1 text-sm bg-surface-light border border-border-light rounded focus:outline-none focus:ring-1 focus:ring-[#3867D6] resize-none"
+                                      autoFocus
+                                    />
+                                    <div className="flex gap-2 mt-1">
+                                      <button
+                                        onClick={() => handleEditPost(post.id, editPostText)}
+                                        className="px-3 py-1 text-xs bg-[#3867D6] hover:bg-[#315BC0] rounded"
+                                      >
+                                        Save
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setEditingPost(null);
+                                          setEditPostText("");
+                                        }}
+                                        className="px-3 py-1 text-xs bg-surface-light hover:bg-surface-lighter rounded"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-muted mt-1">{post.content}</p>
+                                )}
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 text-xs text-muted">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleLike(post.id, "panel");
+                                    }}
+                                    className={`flex items-center gap-1 hover:text-[#3867D6] ${
+                                      post.likes?.some((l) => l.userId === user?.id)
+                                        ? "text-[#3867D6]"
+                                        : ""
+                                    }`}
+                                  >
+                                    <ThumbsUp className="w-3.5 h-3.5" />
+                                    {post.likes?.length || 0}
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDislike(post.id, "panel");
+                                    }}
+                                    className={`flex items-center gap-1 hover:text-red-500 ${
+                                      post.dislikes?.some((d) => d.userId === user?.id)
+                                        ? "text-red-500"
+                                        : ""
+                                    }`}
+                                  >
+                                    <ThumbsDown className="w-3.5 h-3.5" />
+                                    {post.dislikes?.length || 0}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPanelReplyingTo(
+                                        panelReplyingTo === post.id ? null : post.id,
+                                      );
+                                      setPanelReplyInputText("");
+                                    }}
+                                    className="hover:text-main cursor-pointer bg-transparent p-0 border-0"
+                                    aria-expanded={panelReplyingTo === post.id}
+                                    aria-controls={`panel-reply-${post.id}`}
+                                  >
+                                    {t("discussions.reply")} ({post.replies?.length || 0})
+                                  </button>
+                                </div>
 
-                              {/* Reply Input */}
-                              {panelReplyingTo === post.id && (
-                                <div
-                                  className="mt-2 flex items-center gap-2"
-                                  id={`panel-reply-${post.id}`}
-                                >
-                                  <input
-                                    type="text"
-                                    placeholder="Write a reply..."
-                                    value={panelReplyInputText}
-                                    onChange={(e) =>
-                                      setPanelReplyInputText(e.target.value)
-                                    }
-                                    onKeyDown={async (e) => {
-                                      if (e.key === "Enter" && !e.shiftKey) {
-                                        e.preventDefault();
+                                {/* Reply Input */}
+                                {panelReplyingTo === post.id && (
+                                  <div
+                                    className="mt-2 flex items-center gap-2"
+                                    id={`panel-reply-${post.id}`}
+                                  >
+                                    <input
+                                      type="text"
+                                      placeholder="Write a reply..."
+                                      value={panelReplyInputText}
+                                      onChange={(e) => setPanelReplyInputText(e.target.value)}
+                                      onKeyDown={async (e) => {
+                                        if (e.key === "Enter" && !e.shiftKey) {
+                                          e.preventDefault();
+                                          const text = panelReplyInputText.trim();
+                                          if (!text) {
+                                            return;
+                                          }
+                                          try {
+                                            await handleReplySubmit(post.id, text, "panel");
+                                            setPanelReplyInputText("");
+                                            setPanelReplyingTo(null);
+                                          } catch (err) {
+                                            // Keep input/UI open so the user doesn't lose their text
+                                            console.error(
+                                              "Failed to submit reply from panel input:",
+                                              err,
+                                            );
+                                          }
+                                        }
+                                      }}
+                                      className="flex-1 px-3 py-1.5 bg-input border border-border rounded-lg text-xs text-main placeholder-muted focus:outline-none focus:ring-2 focus:ring-[#3867D6]"
+                                      autoFocus
+                                    />
+                                    <button
+                                      onClick={async () => {
                                         const text = panelReplyInputText.trim();
                                         if (!text) {
                                           return;
                                         }
                                         try {
-                                          await handleReplySubmit(
-                                            post.id,
-                                            text,
-                                            "panel"
-                                          );
+                                          await handleReplySubmit(post.id, text, "panel");
                                           setPanelReplyInputText("");
                                           setPanelReplyingTo(null);
                                         } catch (err) {
                                           // Keep input/UI open so the user doesn't lose their text
                                           console.error(
-                                            "Failed to submit reply from panel input:",
-                                            err
+                                            "Failed to submit reply from panel button:",
+                                            err,
                                           );
                                         }
-                                      }
-                                    }}
-                                    className="flex-1 px-3 py-1.5 bg-input border border-border rounded-lg text-xs text-main placeholder-muted focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    autoFocus
-                                  />
-                                  <button
-                                    onClick={async () => {
-                                      const text = panelReplyInputText.trim();
-                                      if (!text) {
-                                        return;
-                                      }
-                                      try {
-                                        await handleReplySubmit(
-                                          post.id,
-                                          text,
-                                          "panel"
-                                        );
-                                        setPanelReplyInputText("");
-                                        setPanelReplyingTo(null);
-                                      } catch (err) {
-                                        // Keep input/UI open so the user doesn't lose their text
-                                        console.error(
-                                          "Failed to submit reply from panel button:",
-                                          err
-                                        );
-                                      }
-                                    }}
-                                    className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1"
-                                  >
-                                    <Send className="w-3 h-3" />
-                                    Reply
-                                  </button>
-                                </div>
-                              )}
-
-                              {/* Replies */}
-                              {post.replies?.length > 0 && (
-                                <div className="mt-3 space-y-2 border-l-2 border-border pl-3">
-                                  {post.replies.filter((r) => isAdmin || !r.hidden).map((r) => (
-                                    <div
-                                      key={r.id}
-                                      data-reply-id={r.id}
-                                      data-parent-post-id={post.id}
-                                      className="flex items-start gap-2 group/panelreply"
+                                      }}
+                                      className="px-3 py-1.5 bg-[#3867D6] text-white text-xs font-medium rounded-lg hover:bg-[#315BC0] transition-colors flex items-center gap-1"
                                     >
-                                      <Avatar src={r.userAvatar} name={r.userName} size="w-6 h-6" isGoogle={r.isGoogleUser} googleId={r.googleId} />
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-1">
-                                          <span className="text-xs font-medium text-main">
-                                            {r.userName || "Unknown"}
-                                          </span>
-                                          <span className="text-[10px] text-muted ml-1">
-                                            {getRelativeTime(r.createdAt)}
-                                          </span>
-                                          {r.edited && (
-                                            <span className="text-[9px] text-muted italic">(edited)</span>
-                                          )}
-                                          {isAdmin && r.hidden && (
-                                            <>
-                                              <span className="text-[9px] text-yellow-500">Hidden</span>
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleUnhide(post.id, r.id);
-                                                }}
-                                                className="px-1.5 py-0.5 text-[9px] rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-                                              >
-                                                Unhide
-                                              </button>
-                                            </>
-                                          )}
-                                          {/* Three dots menu for all users */}
-                                          <div className="relative inline-block">
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setOpenDropdown(openDropdown === `reply-${r.id}` ? null : `reply-${r.id}`);
-                                              }}
-                                              className="text-muted hover:text-orange-500 transition-all p-0.5 ml-1"
-                                              title="More options"
-                                            >
-                                              <MoreVertical className="w-2.5 h-2.5" />
-                                            </button>
-                                            {/* Dropdown Menu */}
-                                            {openDropdown === `reply-${r.id}` && (
-                                              <div className="absolute left-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg py-1 z-10 min-w-30">
-                                                {r.userId === user?.id ? (
-                                                  <>
-                                                    {/* Edit and Delete options for reply owner */}
-                                                    <button
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setEditingReply({ postId: post.id, replyId: r.id });
-                                                        setEditReplyText(r.text);
-                                                        setOpenDropdown(null);
-                                                      }}
-                                                      className="w-full px-3 py-2 text-left text-xs text-main hover:bg-surface-light transition-colors flex items-center gap-2"
-                                                    >
-                                                      <Edit className="w-3 h-3" />
-                                                      Edit
-                                                    </button>
-                                                    <button
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteReply(post.id, r.id);
-                                                        setOpenDropdown(null);
-                                                      }}
-                                                      className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-surface-light transition-colors flex items-center gap-2"
-                                                    >
-                                                      <Trash2 className="w-3 h-3" />
-                                                      Delete
-                                                    </button>
-                                                  </>
-                                                ) : (
-                                                  /* Report option for other users */
+                                      <Send className="w-3 h-3" />
+                                      Reply
+                                    </button>
+                                  </div>
+                                )}
+
+                                {/* Replies */}
+                                {post.replies?.length > 0 && (
+                                  <div className="mt-3 space-y-2 border-l-2 border-border pl-3">
+                                    {post.replies
+                                      .filter((r) => isAdmin || !r.hidden)
+                                      .map((r) => (
+                                        <div
+                                          key={r.id}
+                                          data-reply-id={r.id}
+                                          data-parent-post-id={post.id}
+                                          className="flex items-start gap-2 group/panelreply"
+                                        >
+                                          <Avatar
+                                            src={
+                                              r.userAvatar ||
+                                              (String(r.userId) === String(user?.id)
+                                                ? user?.avatar_url
+                                                : null)
+                                            }
+                                            name={r.userName}
+                                            size="w-6 h-6"
+                                            isGoogle={r.isGoogleUser}
+                                            googleId={r.googleId}
+                                          />
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-1">
+                                              <span className="text-xs font-medium text-main">
+                                                {r.userName || "Unknown"}
+                                              </span>
+                                              <span className="text-[10px] text-muted ml-1">
+                                                {getRelativeTime(r.createdAt)}
+                                              </span>
+                                              {r.edited && (
+                                                <span className="text-[9px] text-muted italic">
+                                                  (edited)
+                                                </span>
+                                              )}
+                                              {isAdmin && r.hidden && (
+                                                <>
+                                                  <span className="text-[9px] text-yellow-500">
+                                                    Hidden
+                                                  </span>
                                                   <button
                                                     onClick={(e) => {
                                                       e.stopPropagation();
-                                                      setReportModal({ open: true, postId: post.id, replyId: r.id });
-                                                      setOpenDropdown(null);
+                                                      handleUnhide(post.id, r.id);
                                                     }}
-                                                    className="w-full px-3 py-2 text-left text-xs text-main hover:bg-surface-light transition-colors flex items-center gap-2"
+                                                    className="px-1.5 py-0.5 text-[9px] rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
                                                   >
-                                                    <Flag className="w-3 h-3" />
-                                                    Report
+                                                    Unhide
                                                   </button>
+                                                </>
+                                              )}
+                                              {/* Three dots menu for all users */}
+                                              <div className="relative inline-block">
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setOpenDropdown(
+                                                      openDropdown === `reply-${r.id}`
+                                                        ? null
+                                                        : `reply-${r.id}`,
+                                                    );
+                                                  }}
+                                                  className="text-muted hover:text-[#3867D6] transition-all p-0.5 ml-1"
+                                                  title="More options"
+                                                >
+                                                  <MoreVertical className="w-2.5 h-2.5" />
+                                                </button>
+                                                {/* Dropdown Menu */}
+                                                {openDropdown === `reply-${r.id}` && (
+                                                  <div className="absolute left-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg py-1 z-10 min-w-30">
+                                                    {r.userId === user?.id ? (
+                                                      <>
+                                                        {/* Edit and Delete options for reply owner */}
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingReply({
+                                                              postId: post.id,
+                                                              replyId: r.id,
+                                                            });
+                                                            setEditReplyText(r.text);
+                                                            setOpenDropdown(null);
+                                                          }}
+                                                          className="w-full px-3 py-2 text-left text-xs text-main hover:bg-surface-light transition-colors flex items-center gap-2"
+                                                        >
+                                                          <Edit className="w-3 h-3" />
+                                                          Edit
+                                                        </button>
+                                                        <button
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteReply(post.id, r.id);
+                                                            setOpenDropdown(null);
+                                                          }}
+                                                          className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-surface-light transition-colors flex items-center gap-2"
+                                                        >
+                                                          <Trash2 className="w-3 h-3" />
+                                                          Delete
+                                                        </button>
+                                                      </>
+                                                    ) : (
+                                                      /* Report option for other users */
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setReportModal({
+                                                            open: true,
+                                                            postId: post.id,
+                                                            replyId: r.id,
+                                                          });
+                                                          setOpenDropdown(null);
+                                                        }}
+                                                        className="w-full px-3 py-2 text-left text-xs text-main hover:bg-surface-light transition-colors flex items-center gap-2"
+                                                      >
+                                                        <Flag className="w-3 h-3" />
+                                                        Report
+                                                      </button>
+                                                    )}
+                                                  </div>
                                                 )}
                                               </div>
+                                            </div>
+                                            {editingReply.postId === post.id &&
+                                            editingReply.replyId === r.id ? (
+                                              <div className="mt-1">
+                                                <input
+                                                  type="text"
+                                                  value={editReplyText}
+                                                  onChange={(e) => setEditReplyText(e.target.value)}
+                                                  className="w-full px-2 py-1 text-xs bg-surface-light border border-border-light rounded focus:outline-none focus:ring-1 focus:ring-[#3867D6]"
+                                                  autoFocus
+                                                />
+                                                <div className="flex gap-1 mt-1">
+                                                  <button
+                                                    onClick={() =>
+                                                      handleEditReply(post.id, r.id, editReplyText)
+                                                    }
+                                                    className="px-2 py-0.5 text-[10px] bg-[#3867D6] hover:bg-[#315BC0] rounded"
+                                                  >
+                                                    Save
+                                                  </button>
+                                                  <button
+                                                    onClick={() => {
+                                                      setEditingReply({
+                                                        postId: null,
+                                                        replyId: null,
+                                                      });
+                                                      setEditReplyText("");
+                                                    }}
+                                                    className="px-2 py-0.5 text-[10px] bg-surface-light hover:bg-surface-lighter rounded"
+                                                  >
+                                                    Cancel
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <p className="text-xs text-muted mt-0.5">{r.text}</p>
                                             )}
                                           </div>
                                         </div>
-                                        {editingReply.postId === post.id && editingReply.replyId === r.id ? (
-                                          <div className="mt-1">
-                                            <input
-                                              type="text"
-                                              value={editReplyText}
-                                              onChange={(e) => setEditReplyText(e.target.value)}
-                                              className="w-full px-2 py-1 text-xs bg-surface-light border border-border-light rounded focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                              autoFocus
-                                            />
-                                            <div className="flex gap-1 mt-1">
-                                              <button
-                                                onClick={() => handleEditReply(post.id, r.id, editReplyText)}
-                                                className="px-2 py-0.5 text-[10px] bg-purple-600 hover:bg-purple-700 rounded"
-                                              >
-                                                Save
-                                              </button>
-                                              <button
-                                                onClick={() => {
-                                                  setEditingReply({ postId: null, replyId: null });
-                                                  setEditReplyText("");
-                                                }}
-                                                className="px-2 py-0.5 text-[10px] bg-surface-light hover:bg-surface-lighter rounded"
-                                              >
-                                                Cancel
-                                              </button>
-                                            </div>
-                                          </div>
-                                        ) : (
-                                          <p className="text-xs text-muted mt-0.5">
-                                            {r.text}
-                                          </p>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))
+                        ))
                     )}
                   </div>
 
                   {/* panel pagination controls */}
-                  <div className="flex items-center justify-center gap-3 py-3 border-t border-border shrink-0 bg-canvas-alt/50">
+                  <div
+                    className={`shrink-0 items-center justify-center gap-3 border-t border-border bg-canvas-alt/50 py-3 ${panelLoading || panelRequiresEnrollment ? "hidden" : "flex"}`}
+                  >
                     <button
                       disabled={panelPage === 1 || panelLoading}
                       onClick={() => setPanelPage(panelPage - 1)}
@@ -1673,7 +1850,9 @@ const latestPostsByCourse = Object.values(
                   </div>
 
                   {/* panel input */}
-                  <div className="p-2 sm:p-3 border-t border-border shrink-0">
+                  <div
+                    className={`shrink-0 border-t border-border p-2 sm:p-3 ${panelLoading || panelRequiresEnrollment ? "hidden" : "block"}`}
+                  >
                     <div className="flex items-center gap-2">
                       <Smile className="w-5 h-5 text-muted shrink-0" />
                       <input
@@ -1681,8 +1860,7 @@ const latestPostsByCourse = Object.values(
                         placeholder={t("discussions.share_thoughts")}
                         value={panelReplyText}
                         onChange={(e) => {
-                          if (e.target.value.length <= 1000)
-                            setPanelReplyText(e.target.value);
+                          if (e.target.value.length <= 1000) setPanelReplyText(e.target.value);
                         }}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
@@ -1690,11 +1868,11 @@ const latestPostsByCourse = Object.values(
                             handlePanelPost(panelReplyText);
                           }
                         }}
-                        className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-input border border-border rounded-lg text-xs sm:text-sm text-main placeholder-muted focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 bg-input border border-border rounded-lg text-xs sm:text-sm text-main placeholder-muted focus:outline-none focus:ring-2 focus:ring-[#3867D6]"
                       />
                       <button
                         onClick={() => handlePanelPost(panelReplyText)}
-                        className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1.5"
+                        className="px-4 py-2 bg-[#3867D6] text-white text-sm font-medium rounded-lg hover:bg-[#315BC0] transition-colors flex items-center gap-1.5"
                       >
                         <Send className="w-3.5 h-3.5" />
                         {t("discussions.send")}
@@ -1706,27 +1884,27 @@ const latestPostsByCourse = Object.values(
                   </div>
                 </div>
               )}
-              <FloatingAssistant/>
+              <FloatingAssistant />
             </main>
           )}
 
           {activeView === "global" && (
-            <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
-              <div className="max-w-full sm:max-w-3xl md:max-w-4xl mx-auto space-y-4 sm:space-y-6 px-2">
+            <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8">
+              <div className="mx-auto w-full max-w-[1500px] space-y-6">
                 {/* Welcome Banner */}
                 {showWelcome && (
-                  <div className="relative bg-linear-to-r from-red-900/30 to-orange-900/30 border border-orange-500/30 rounded-xl p-5">
+                  <div className="relative rounded-2xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
                     {/* Close Button */}
                     <button
                       onClick={() => setShowWelcome(false)}
-                      className="absolute top-3 right-3 text-white hover:text-orange-300 transition-colors"
+                      className="absolute top-3 right-3 text-white hover:text-main transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
 
                     <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 rounded-full bg-linear-to-br from-orange-500 to-red-500 flex items-center justify-center shrink-0">
-                        <Users className="w-6 h-6 text-white" />
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#3867D6]">
+                        <Users className="h-5 w-5 text-white" />
                       </div>
 
                       <div>
@@ -1735,8 +1913,7 @@ const latestPostsByCourse = Object.values(
                         </h3>
 
                         <p className="text-muted text-sm mt-1">
-                          Connect, share insights, find partners, and discuss
-                          anything globally.
+                          Connect, share insights, find partners, and discuss anything globally.
                         </p>
 
                         <div ref={wrapperRef} className="relative inline-block">
@@ -1748,29 +1925,16 @@ const latestPostsByCourse = Object.values(
                             Community Guidelines
                           </button>
 
-                          <div className={`absolute left-0 top-full mt-2 md:w-96 w-60 bg-[#1E1E24] border border-orange-500/30 rounded-lg p-3 text-xs text-gray-300 shadow-lg z-50 transition-all duration-200 ${showGuidelines ? "opacity-100 visible" : "opacity-0 invisible"}`}>
+                          <div
+                            className={`absolute left-0 top-full mt-2 md:w-96 w-60 bg-card border border-border rounded-2xl p-4 text-xs text-muted shadow-xl z-50 transition-all duration-200 ${showGuidelines ? "opacity-100 visible" : "opacity-0 invisible"}`}
+                          >
                             <ul className="space-y-1">
-                              <li>
-                                - Be respectful and courteous to all members.
-                              </li>
-                              <li>
-                                - Avoid spam, promotions, or irrelevant links.
-                              </li>
-                              <li>
-                                - Keep discussions related to learning and
-                                courses.
-                              </li>
-                              <li>
-                                - Respect different opinions and perspectives.
-                              </li>
-                              <li>
-                                - Do not share personal or sensitive
-                                information.
-                              </li>
-                              <li>
-                                - Help maintain a positive and supportive
-                                community.
-                              </li>
+                              <li>- Be respectful and courteous to all members.</li>
+                              <li>- Avoid spam, promotions, or irrelevant links.</li>
+                              <li>- Keep discussions related to learning and courses.</li>
+                              <li>- Respect different opinions and perspectives.</li>
+                              <li>- Do not share personal or sensitive information.</li>
+                              <li>- Help maintain a positive and supportive community.</li>
                             </ul>
                           </div>
                         </div>
@@ -1782,58 +1946,72 @@ const latestPostsByCourse = Object.values(
                 {/* Post Composer */}
                 <form
                   onSubmit={handleGlobalPost}
-                  className="bg-card border border-border rounded-xl p-5 shadow-sm"
+                  className="rounded-2xl border border-border bg-card p-4 shadow-sm"
                 >
                   <div className="flex items-start gap-3">
-                    <Avatar src={user?.avatar_url} name={user?.name} isGoogle={user?.isGoogleUser} googleId={user?.googleId} />
+                    <Avatar
+                      src={user?.avatar_url}
+                      name={user?.name}
+                      isGoogle={user?.isGoogleUser}
+                      googleId={user?.googleId}
+                    />
                     <textarea
                       value={globalContent}
                       onChange={(e) => {
-                        if (e.target.value.length <= 1000)
-                          setGlobalContent(e.target.value);
+                        if (e.target.value.length <= 1000) setGlobalContent(e.target.value);
                       }}
                       placeholder={t("discussions.post_placeholder")}
-                      rows={4}
-                     className="flex-1 px-3 sm:px-4 py-2 sm:py-3 bg-input border border-border rounded-lg text-xs sm:text-sm text-main placeholder-muted focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                      rows={2}
+                      className="min-h-[88px] flex-1 px-3 sm:px-4 py-2 sm:py-3 bg-input border border-border rounded-lg text-xs sm:text-sm text-main placeholder-muted focus:outline-none focus:ring-2 focus:ring-[#3867D6] resize-none"
                     />
                   </div>
                   <div className="flex items-center justify-between mt-3 flex-wrap gap-3">
                     <div className="flex items-center gap-3">
                       {/* ── Category picker (post composer) ── */}
-                      <div className="relative" ref={categoryPickerRef}>
+                      <div className="relative w-56" ref={categoryPickerRef}>
                         {/* Trigger button */}
                         <button
                           type="button"
                           onClick={() => openCategoryPicker()}
-                          className={`flex items-center gap-2 pl-4 pr-3 py-2.5 rounded-xl border text-sm font-semibold transition-all duration-200 min-w-[160px] justify-between
-                            ${globalCategory
-                              ? "bg-teal-500/10 border-teal-500/40 text-teal-600 dark:text-teal-400 hover:bg-teal-500/20"
-                              : "bg-input border-border text-muted hover:border-primary hover:text-main"
+                          className={`flex items-center gap-2 pl-4 pr-3 py-2.5 rounded-xl border text-sm font-semibold w-full justify-between transition-all duration-200
+                            ${
+                              globalCategory
+                                ? "bg-blue-500/10 border-blue-500/40 text-[#3867D6] hover:bg-blue-500/15"
+                                : "bg-card border-border text-muted hover:border-[#3867D6]/40 hover:text-main"
                             }`}
                         >
                           <span className="truncate">{globalCategory || "Select Category *"}</span>
-                          <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${categoryPickerOpen ? "rotate-180" : ""}`} />
+                          <ChevronDown
+                            className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${categoryPickerOpen ? "rotate-180" : ""}`}
+                          />
                         </button>
 
                         {/* Floating pill panel */}
                         {categoryPickerOpen && (
-                          <div className={`absolute left-0 z-50 w-64 animate-in fade-in zoom-in-95 duration-200 ${
-                            categoryPickerPos === "top"
-                              ? "bottom-full mb-2 slide-in-from-bottom-2"
-                              : "top-full mt-2 slide-in-from-top-2"
-                          }`}>
-                            <div className="bg-card/95 dark:bg-slate-900/95 backdrop-blur-xl border border-border dark:border-teal-500/20 rounded-2xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_40px_-8px_rgba(13,148,136,0.2)] p-4">
-                              <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-3">Select Category</p>
-                              <div className="flex flex-wrap gap-2">
+                          <div
+                            className={`absolute left-0 z-50 w-full animate-in fade-in zoom-in-95 duration-200 ${
+                              categoryPickerPos === "top"
+                                ? "bottom-full mb-2 slide-in-from-bottom-2"
+                                : "top-full mt-2 slide-in-from-top-2"
+                            }`}
+                          >
+                            <div className="rounded-2xl border border-border bg-card p-2 shadow-xl">
+                              <p className="px-2 pb-1 pt-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                                Select Category
+                              </p>
+                              <div className="space-y-1">
                                 {GLOBAL_CATEGORIES.map((c) => (
                                   <button
                                     key={c}
                                     type="button"
-                                    onClick={() => { setGlobalCategory(c); setCategoryPickerOpen(false); }}
-                                    className={`px-3.5 py-1.5 text-xs rounded-xl font-bold transition-all duration-200 ${
+                                    onClick={() => {
+                                      setGlobalCategory(c);
+                                      setCategoryPickerOpen(false);
+                                    }}
+                                    className={`flex w-full items-center rounded-xl px-3 py-2 text-left text-sm transition-colors ${
                                       globalCategory === c
-                                        ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md shadow-teal-500/25 scale-[1.03]"
-                                        : "bg-canvas-alt dark:bg-teal-900/30 text-main dark:text-teal-100 hover:bg-teal-500/15 border border-border dark:border-teal-500/30 hover:border-teal-500/50"
+                                        ? "bg-blue-500/10 font-bold text-[#3867D6]"
+                                        : "text-main hover:bg-canvas-alt"
                                     }`}
                                   >
                                     {c}
@@ -1843,8 +2021,11 @@ const latestPostsByCourse = Object.values(
                               {globalCategory && (
                                 <button
                                   type="button"
-                                  onClick={() => { setGlobalCategory(""); setCategoryPickerOpen(false); }}
-                                  className="mt-3 w-full text-[10px] font-black uppercase tracking-wider text-red-400 hover:text-red-300 transition-colors bg-red-400/10 hover:bg-red-400/20 px-3 py-1.5 rounded-lg"
+                                  onClick={() => {
+                                    setGlobalCategory("");
+                                    setCategoryPickerOpen(false);
+                                  }}
+                                  className="mt-1 w-full rounded-xl px-3 py-2 text-left text-xs font-bold text-red-500 transition-colors hover:bg-red-500/10"
                                 >
                                   Clear
                                 </button>
@@ -1855,9 +2036,7 @@ const latestPostsByCourse = Object.values(
                       </div>
                       <span
                         className={`text-sm ${
-                          globalContent.length > 900
-                            ? "text-red-400"
-                            : "text-muted"
+                          globalContent.length > 900 ? "text-red-400" : "text-muted"
                         }`}
                       >
                         {globalContent.length}/1000
@@ -1866,7 +2045,7 @@ const latestPostsByCourse = Object.values(
                     <button
                       type="submit"
                       disabled={!globalContent.trim() || !globalCategory}
-                      className="px-6 py-2.5 bg-linear-to-r from-orange-500 to-red-500 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-6 py-2.5 bg-[#3867D6] text-white font-semibold rounded-lg hover:bg-[#315BC0] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Send className="w-4 h-4" />
                       {t("discussions.post_btn")}
@@ -1877,8 +2056,8 @@ const latestPostsByCourse = Object.values(
                 {/* Global Discussions List Header */}
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-2">
-                    <MessageCircle className="w-5 h-5 text-orange-500" />
-                    <h2 className="text-xl font-bold text-main">
+                    <MessageCircle className="w-5 h-5 text-[#3867D6]" />
+                    <h2 className="text-xl font-extrabold tracking-tight text-main">
                       {t("discussions.global_list")}{" "}
                       <span className="text-muted font-normal text-base">
                         ({globalPosts.length})
@@ -1887,15 +2066,16 @@ const latestPostsByCourse = Object.values(
                   </div>
                   <div className="flex items-center gap-2">
                     {/* ── Category filter picker ── */}
-                    <div className="relative" ref={filterPickerRef}>
+                    <div className="relative w-56" ref={filterPickerRef}>
                       {/* Trigger button */}
                       <button
                         type="button"
                         onClick={() => openFilterPicker()}
-                        className={`flex items-center gap-2 pl-3 pr-2.5 py-1.5 rounded-xl border text-sm font-semibold transition-all duration-200
-                          ${globalCategoryFilter !== "All Categories"
-                            ? "bg-teal-500/10 border-teal-500/40 text-teal-600 dark:text-teal-400 hover:bg-teal-500/20"
-                            : "bg-input border-border text-muted hover:border-primary hover:text-main"
+                        className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-all duration-200
+                          ${
+                            globalCategoryFilter !== "All Categories"
+                              ? "bg-blue-500/10 border-blue-500/40 text-[#3867D6] hover:bg-blue-500/15"
+                              : "bg-card border-border text-muted hover:border-[#3867D6]/40 hover:text-main"
                           }`}
                       >
                         <span className="max-w-[120px] truncate text-xs">
@@ -1903,27 +2083,37 @@ const latestPostsByCourse = Object.values(
                             ? t("discussions.all_categories")
                             : getCategoryLabel(globalCategoryFilter)}
                         </span>
-                        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 ${filterPickerOpen ? "rotate-180" : ""}`} />
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 flex-shrink-0 transition-transform duration-200 ${filterPickerOpen ? "rotate-180" : ""}`}
+                        />
                       </button>
 
                       {/* Floating pill panel */}
                       {filterPickerOpen && (
-                        <div className={`absolute right-0 z-50 w-56 animate-in fade-in zoom-in-95 duration-200 ${
-                          filterPickerPos === "top"
-                            ? "bottom-full mb-2 slide-in-from-bottom-2"
-                            : "top-full mt-2 slide-in-from-top-2"
-                        }`}>
-                          <div className="bg-card/95 dark:bg-slate-900/95 backdrop-blur-xl border border-border dark:border-teal-500/20 rounded-2xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_40px_-8px_rgba(13,148,136,0.2)] p-4">
-                            <p className="text-[10px] font-black text-muted uppercase tracking-widest mb-3">Filter by Category</p>
-                            <div className="flex flex-wrap gap-2">
+                        <div
+                          className={`absolute right-0 z-50 w-full animate-in fade-in zoom-in-95 duration-200 ${
+                            filterPickerPos === "top"
+                              ? "bottom-full mb-2 slide-in-from-bottom-2"
+                              : "top-full mt-2 slide-in-from-top-2"
+                          }`}
+                        >
+                          <div className="rounded-2xl border border-border bg-card p-2 shadow-xl">
+                            <p className="px-2 pb-1 pt-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-muted">
+                              Filter by Category
+                            </p>
+                            <div className="space-y-1">
                               {/* All option */}
                               <button
                                 type="button"
-                                onClick={() => { setGlobalCategoryFilter("All Categories"); setGlobalPage(1); setFilterPickerOpen(false); }}
-                                className={`px-3.5 py-1.5 text-xs rounded-xl font-bold transition-all duration-200 ${
+                                onClick={() => {
+                                  setGlobalCategoryFilter("All Categories");
+                                  setGlobalPage(1);
+                                  setFilterPickerOpen(false);
+                                }}
+                                className={`flex w-full items-center rounded-xl px-3 py-2 text-left text-sm transition-colors ${
                                   globalCategoryFilter === "All Categories"
-                                    ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md shadow-teal-500/25 scale-[1.03]"
-                                    : "bg-canvas-alt dark:bg-teal-900/30 text-main dark:text-teal-100 hover:bg-teal-500/15 border border-border dark:border-teal-500/30 hover:border-teal-500/50"
+                                    ? "bg-blue-500/10 font-bold text-[#3867D6]"
+                                    : "text-main hover:bg-canvas-alt"
                                 }`}
                               >
                                 {t("discussions.all_categories")}
@@ -1932,11 +2122,15 @@ const latestPostsByCourse = Object.values(
                                 <button
                                   key={c}
                                   type="button"
-                                  onClick={() => { setGlobalCategoryFilter(c); setGlobalPage(1); setFilterPickerOpen(false); }}
-                                  className={`px-3.5 py-1.5 text-xs rounded-xl font-bold transition-all duration-200 ${
+                                  onClick={() => {
+                                    setGlobalCategoryFilter(c);
+                                    setGlobalPage(1);
+                                    setFilterPickerOpen(false);
+                                  }}
+                                  className={`flex w-full items-center rounded-xl px-3 py-2 text-left text-sm transition-colors ${
                                     globalCategoryFilter === c
-                                      ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-md shadow-teal-500/25 scale-[1.03]"
-                                      : "bg-canvas-alt dark:bg-teal-900/30 text-main dark:text-teal-100 hover:bg-teal-500/15 border border-border dark:border-teal-500/30 hover:border-teal-500/50"
+                                      ? "bg-blue-500/10 font-bold text-[#3867D6]"
+                                      : "text-main hover:bg-canvas-alt"
                                   }`}
                                 >
                                   {getCategoryLabel(c)}
@@ -1947,468 +2141,592 @@ const latestPostsByCourse = Object.values(
                         </div>
                       )}
                     </div>
-                    <TrendingUp className="w-4 h-4 text-muted" />
-                    {["Recent", "Popular"].map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => {
-                          setGlobalSort(s);
-                          setGlobalPage(1);
-                        }}
-                        className={`px-4 py-1.5 text-sm rounded-md font-medium transition-colors ${
-                          globalSort === s
-                            ? "bg-red-500 text-white"
-                            : "bg-card border border-border text-muted hover:text-main"
-                        }`}
-                      >
-                        {s === "Recent"
-                          ? t("discussions.sort_recent")
-                          : t("discussions.sort_popular")}
-                      </button>
-                    ))}
+                    <div className="flex rounded-xl bg-canvas-alt p-1">
+                      {["Recent", "Popular"].map((sortOption) => (
+                        <button
+                          key={sortOption}
+                          type="button"
+                          onClick={() => {
+                            setGlobalSort(sortOption);
+                            setGlobalPage(1);
+                          }}
+                          className={`rounded-lg px-4 py-1.5 text-sm font-bold transition-colors ${
+                            globalSort === sortOption
+                              ? "bg-card text-[#3867D6] shadow-sm"
+                              : "text-muted hover:text-main"
+                          }`}
+                        >
+                          {sortOption === "Recent"
+                            ? t("discussions.sort_recent")
+                            : t("discussions.sort_popular")}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {/* Global Posts */}
                 {globalLoading ? (
                   <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                    <LoadingSpinner
+                      variant="compact"
+                      label={t("discussions.loading")}
+                      className="mb-4"
+                    />
                     <p className="text-muted">{t("discussions.loading")}</p>
                   </div>
                 ) : globalPosts.length === 0 ? (
-                  <div className="text-center py-12 text-muted">
-                    {t("discussions.no_global")}
+                  <div className="rounded-3xl border border-dashed border-border bg-card px-6 py-10 text-center">
+                    <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-blue-500/10 text-[#3867D6]">
+                      <MessageCircle className="h-7 w-7" />
+                    </span>
+                    <h3 className="mt-4 text-lg font-extrabold text-main">
+                      No global discussions yet
+                    </h3>
+                    <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">
+                      Share a question or idea in the composer above to start the conversation.
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {globalPosts
                       .filter((post) => isAdmin || !post.hiddenAt)
                       .map((post) => (
-                      <div
-                        key={post.id}
-                        data-post-id={post.id}
-                        className={`bg-card border border-border rounded-xl p-5 shadow-sm ${post.hiddenAt ? "opacity-50" : ""}`}
-                      >
-                        {/* Admin: hidden badge */}
-                        {isAdmin && post.hiddenAt && (
-                          <div className="flex items-center gap-2 text-xs text-yellow-500 mb-2">
-                            <EyeOff className="w-3 h-3" />
-                            Hidden by moderator
-                            <button
-                              onClick={() => handleUnhide(post.id)}
-                              className="px-2 py-0.5 text-[10px] rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-                            >
-                              Unhide
-                            </button>
-                          </div>
-                        )}
-                        {/* Admin: report badge for post */}
-                        {isAdmin && getReportsForContent(post.id).length > 0 && (
-                          <div className="mb-2">
-                            <button
-                              onClick={() => setActiveModeration(activeModeration === `post-${post.id}` ? null : `post-${post.id}`)}
-                              className="flex items-center gap-1 px-2 py-1 bg-orange-500/20 text-orange-400 text-xs font-medium rounded-md hover:bg-orange-500/30 transition-colors"
-                            >
-                              <Shield className="w-3 h-3" />
-                              {getReportsForContent(post.id).length} report{getReportsForContent(post.id).length > 1 ? "s" : ""}
-                            </button>
-                            {activeModeration === `post-${post.id}` && (
-                              <div className="flex items-center gap-2 mt-2">
-                                <span className="text-[10px] text-muted">
-                                  {getReportsForContent(post.id).length} pending reports
-                                </span>
-                                <button onClick={() => handleModerate(getReportsForContent(post.id)[0]?.id, "hidden")} className="p-1 text-yellow-500 hover:bg-yellow-500/20 rounded disabled:opacity-50" title="Hide" disabled={!getReportsForContent(post.id)[0]?.id}>
-                                  <EyeOff className="w-3 h-3" />
-                                </button>
-                                <button onClick={() => handleModerate(getReportsForContent(post.id)[0]?.id, "deleted")} className="p-1 text-red-500 hover:bg-red-500/20 rounded disabled:opacity-50" title="Delete" disabled={!getReportsForContent(post.id)[0]?.id}>
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                                <button onClick={() => handleModerate(getReportsForContent(post.id)[0]?.id, "dismissed")} className="p-1 text-gray-400 hover:bg-gray-500/20 rounded disabled:opacity-50" title="Dismiss" disabled={!getReportsForContent(post.id)[0]?.id}>
-                                  <XCircle className="w-3 h-3" />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-start gap-3">
-                            <Avatar src={post.author?.avatar_url} name={post.author?.name} isGoogle={post.author?.isGoogleUser} googleId={post.author?.googleId} />
-                            <div>
-                              <div className="font-semibold text-main text-sm">
-                                {post.author?.name || "Unknown"}
-                              </div>
-                              <div className="text-xs text-muted">
-                                {getRelativeTime(post.createdAt)}
+                        <div
+                          key={post.id}
+                          data-post-id={post.id}
+                          className={`rounded-3xl border border-border bg-card p-5 shadow-sm transition hover:border-[#3867D6]/30 ${post.hiddenAt ? "opacity-50" : ""}`}
+                        >
+                          {/* Admin: hidden badge */}
+                          {isAdmin && post.hiddenAt && (
+                            <div className="flex items-center gap-2 text-xs text-yellow-500 mb-2">
+                              <EyeOff className="w-3 h-3" />
+                              Hidden by moderator
+                              <button
+                                onClick={() => handleUnhide(post.id)}
+                                className="px-2 py-0.5 text-[10px] rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
+                              >
+                                Unhide
+                              </button>
+                            </div>
+                          )}
+                          {/* Admin: report badge for post */}
+                          {isAdmin && getReportsForContent(post.id).length > 0 && (
+                            <div className="mb-2">
+                              <button
+                                onClick={() =>
+                                  setActiveModeration(
+                                    activeModeration === `post-${post.id}`
+                                      ? null
+                                      : `post-${post.id}`,
+                                  )
+                                }
+                                className="flex items-center gap-1 px-2 py-1 bg-orange-500/20 text-orange-400 text-xs font-medium rounded-md hover:bg-orange-500/30 transition-colors"
+                              >
+                                <Shield className="w-3 h-3" />
+                                {getReportsForContent(post.id).length} report
+                                {getReportsForContent(post.id).length > 1 ? "s" : ""}
+                              </button>
+                              {activeModeration === `post-${post.id}` && (
+                                <div className="flex items-center gap-2 mt-2">
+                                  <span className="text-[10px] text-muted">
+                                    {getReportsForContent(post.id).length} pending reports
+                                  </span>
+                                  <button
+                                    onClick={() =>
+                                      handleModerate(getReportsForContent(post.id)[0]?.id, "hidden")
+                                    }
+                                    className="p-1 text-yellow-500 hover:bg-yellow-500/20 rounded disabled:opacity-50"
+                                    title="Hide"
+                                    disabled={!getReportsForContent(post.id)[0]?.id}
+                                  >
+                                    <EyeOff className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleModerate(
+                                        getReportsForContent(post.id)[0]?.id,
+                                        "deleted",
+                                      )
+                                    }
+                                    className="p-1 text-red-500 hover:bg-red-500/20 rounded disabled:opacity-50"
+                                    title="Delete"
+                                    disabled={!getReportsForContent(post.id)[0]?.id}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleModerate(
+                                        getReportsForContent(post.id)[0]?.id,
+                                        "dismissed",
+                                      )
+                                    }
+                                    className="p-1 text-gray-400 hover:bg-gray-500/20 rounded disabled:opacity-50"
+                                    title="Dismiss"
+                                    disabled={!getReportsForContent(post.id)[0]?.id}
+                                  >
+                                    <XCircle className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-start gap-3">
+                              <Avatar
+                                src={
+                                  post.author?.avatar_url ||
+                                  (String(post.userId) === String(user?.id)
+                                    ? user?.avatar_url
+                                    : null)
+                                }
+                                name={post.author?.name}
+                                isGoogle={post.author?.isGoogleUser}
+                                googleId={post.author?.googleId}
+                              />
+                              <div>
+                                <div className="font-semibold text-main text-sm">
+                                  {post.author?.name || "Unknown"}
+                                </div>
+                                <div className="text-xs text-muted">
+                                  {getRelativeTime(post.createdAt)}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {post.category && (
-                              <span
-                                className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                                  categoryColorMap[post.category] ||
-                                  "border-gray-500 text-gray-400"
-                                }`}
-                              >
-                                {post.category}
-                              </span>
-                            )}
-                            {/* Three dots menu for all users */}
-                            <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenDropdown(openDropdown === `global-post-${post.id}` ? null : `global-post-${post.id}`);
-                                }}
-                                className="text-muted hover:text-orange-500 p-0.5 transition-colors"
-                                title="More options"
-                              >
-                                <MoreVertical className="w-4 h-4" />
-                              </button>
-                              {/* Dropdown Menu */}
-                              {openDropdown === `global-post-${post.id}` && (
-                                <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg py-1 z-10 min-w-30">
-                                  {post.userId === user?.id ? (
-                                    <>
-                                      {/* Edit and Delete options for post owner */}
+                            <div className="flex items-center gap-2">
+                              {post.category && (
+                                <span
+                                  className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                                    categoryColorMap[post.category] ||
+                                    "border-gray-500 text-gray-400"
+                                  }`}
+                                >
+                                  {post.category}
+                                </span>
+                              )}
+                              {/* Three dots menu for all users */}
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenDropdown(
+                                      openDropdown === `global-post-${post.id}`
+                                        ? null
+                                        : `global-post-${post.id}`,
+                                    );
+                                  }}
+                                  className="text-muted hover:text-[#3867D6] p-0.5 transition-colors"
+                                  title="More options"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+                                {/* Dropdown Menu */}
+                                {openDropdown === `global-post-${post.id}` && (
+                                  <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg py-1 z-10 min-w-30">
+                                    {post.userId === user?.id ? (
+                                      <>
+                                        {/* Edit and Delete options for post owner */}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingPost(post.id);
+                                            setEditPostText(post.content || "");
+                                            setOpenDropdown(null);
+                                          }}
+                                          className="w-full px-3 py-2 text-left text-sm text-main hover:bg-surface-light transition-colors flex items-center gap-2"
+                                        >
+                                          <Edit className="w-3.5 h-3.5" />
+                                          Edit
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeletePost(post.id);
+                                            setOpenDropdown(null);
+                                          }}
+                                          className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-surface-light transition-colors flex items-center gap-2"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                          Delete
+                                        </button>
+                                      </>
+                                    ) : (
+                                      /* Report option for other users */
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          setEditingPost(post.id);
-                                          setEditPostText(post.content || "");
+                                          setReportModal({
+                                            open: true,
+                                            postId: post.id,
+                                            replyId: null,
+                                          });
                                           setOpenDropdown(null);
                                         }}
                                         className="w-full px-3 py-2 text-left text-sm text-main hover:bg-surface-light transition-colors flex items-center gap-2"
                                       >
-                                        <Edit className="w-3.5 h-3.5" />
-                                        Edit
+                                        <Flag className="w-3.5 h-3.5" />
+                                        Report
                                       </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleDeletePost(post.id);
-                                          setOpenDropdown(null);
-                                        }}
-                                        className="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-surface-light transition-colors flex items-center gap-2"
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {editingPost === post.id ? (
+                            <div className="mb-4">
+                              <textarea
+                                value={editPostText}
+                                onChange={(e) => setEditPostText(e.target.value)}
+                                rows={4}
+                                className="w-full px-3 py-2 text-sm bg-surface-light border border-border-light rounded-lg focus:outline-none focus:ring-1 focus:ring-[#3867D6] resize-none"
+                                autoFocus
+                              />
+                              <div className="flex gap-2 mt-2">
+                                <button
+                                  onClick={() => handleEditPost(post.id, editPostText)}
+                                  className="px-3 py-1 text-xs bg-orange-600 hover:bg-orange-700 rounded"
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditingPost(null);
+                                    setEditPostText("");
+                                  }}
+                                  className="px-3 py-1 text-xs bg-surface-light hover:bg-surface-lighter rounded"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p
+                              className={`text-sm text-muted mb-4 ${
+                                expandedGlobalPost === post.id ? "" : "line-clamp-2"
+                              }`}
+                            >
+                              {post.content}
+                            </p>
+                          )}
+
+                          <div className="border-t border-border pt-3 flex items-center justify-between">
+                            <div className="flex items-center gap-5 text-xs text-muted">
+                              <button
+                                onClick={() => handleLike(post.id, "global")}
+                                className={`flex items-center gap-1 hover:text-[#3867D6] transition-colors ${
+                                  post.likes?.some((l) => l.userId === user?.id)
+                                    ? "text-[#3867D6]"
+                                    : ""
+                                }`}
+                              >
+                                <ThumbsUp className="w-3.5 h-3.5" />
+                                {post.likes?.length || 0}
+                              </button>
+                              <button
+                                onClick={() => handleDislike(post.id, "global")}
+                                className={`flex items-center gap-1 hover:text-red-500 transition-colors ${
+                                  post.dislikes?.some((d) => d.userId === user?.id)
+                                    ? "text-red-500"
+                                    : ""
+                                }`}
+                              >
+                                <ThumbsDown className="w-3.5 h-3.5" />
+                                {post.dislikes?.length || 0}
+                              </button>
+                              <span className="flex items-center gap-1">
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                {post.replies?.length || 0}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() =>
+                                  setExpandedGlobalPost(
+                                    expandedGlobalPost === post.id ? null : post.id,
+                                  )
+                                }
+                                className="px-3 py-1.5 border border-blue-500/30 text-[#3867D6] text-xs font-medium rounded-lg hover:bg-blue-500/10 transition-colors flex items-center gap-1"
+                              >
+                                <ArrowRight className="w-3 h-3" />
+                                {expandedGlobalPost === post.id ? "Collapse" : "View Replies"}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Expanded: show replies + reply input */}
+                          {expandedGlobalPost === post.id && (
+                            <div className="mt-4 space-y-3 border-t border-border pt-4">
+                              {post.replies?.length > 0 && (
+                                <div className="space-y-3 pl-3 border-l-2 border-border">
+                                  {post.replies
+                                    .filter((r) => isAdmin || !r.hidden)
+                                    .map((r) => (
+                                      <div
+                                        key={r.id}
+                                        data-reply-id={r.id}
+                                        data-parent-post-id={post.id}
+                                        className="flex items-start gap-2 group/reply"
                                       >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                        Delete
-                                      </button>
-                                    </>
-                                  ) : (
-                                    /* Report option for other users */
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setReportModal({ open: true, postId: post.id, replyId: null });
-                                        setOpenDropdown(null);
-                                      }}
-                                      className="w-full px-3 py-2 text-left text-sm text-main hover:bg-surface-light transition-colors flex items-center gap-2"
-                                    >
-                                      <Flag className="w-3.5 h-3.5" />
-                                      Report
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {editingPost === post.id ? (
-                          <div className="mb-4">
-                            <textarea
-                              value={editPostText}
-                              onChange={(e) => setEditPostText(e.target.value)}
-                              rows={4}
-                              className="w-full px-3 py-2 text-sm bg-surface-light border border-border-light rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-500 resize-none"
-                              autoFocus
-                            />
-                            <div className="flex gap-2 mt-2">
-                              <button
-                                onClick={() => handleEditPost(post.id, editPostText)}
-                                className="px-3 py-1 text-xs bg-orange-600 hover:bg-orange-700 rounded"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setEditingPost(null);
-                                  setEditPostText("");
-                                }}
-                                className="px-3 py-1 text-xs bg-surface-light hover:bg-surface-lighter rounded"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <p
-                            className={`text-sm text-muted mb-4 ${
-                              expandedGlobalPost === post.id ? "" : "line-clamp-2"
-                            }`}
-                          >
-                            {post.content}
-                          </p>
-                        )}
-
-                        <div className="border-t border-border pt-3 flex items-center justify-between">
-                          <div className="flex items-center gap-5 text-xs text-muted">
-                            <button
-                              onClick={() => handleLike(post.id, "global")}
-                              className={`flex items-center gap-1 hover:text-indigo-500 transition-colors ${
-                                post.likes?.some((l) => l.userId === user?.id)
-                                  ? "text-indigo-500"
-                                  : ""
-                              }`}
-                            >
-                              <ThumbsUp className="w-3.5 h-3.5" />
-                              {post.likes?.length || 0}
-                            </button>
-                            <button
-                              onClick={() => handleDislike(post.id, "global")}
-                              className={`flex items-center gap-1 hover:text-red-500 transition-colors ${
-                                post.dislikes?.some(
-                                  (d) => d.userId === user?.id
-                                )
-                                  ? "text-red-500"
-                                  : ""
-                              }`}
-                            >
-                              <ThumbsDown className="w-3.5 h-3.5" />
-                              {post.dislikes?.length || 0}
-                            </button>
-                            <span className="flex items-center gap-1">
-                              <MessageCircle className="w-3.5 h-3.5" />
-                              {post.replies?.length || 0}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() =>
-                                setExpandedGlobalPost(
-                                  expandedGlobalPost === post.id
-                                    ? null
-                                    : post.id
-                                )
-                              }
-                              className="px-3 py-1.5 border border-purple-500 text-purple-400 text-xs font-medium rounded-lg hover:bg-purple-500/10 transition-colors flex items-center gap-1"
-                            >
-                              <ArrowRight className="w-3 h-3" />
-                              {expandedGlobalPost === post.id
-                                ? "Collapse"
-                                : "View Replies"}
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Expanded: show replies + reply input */}
-                        {expandedGlobalPost === post.id && (
-                          <div className="mt-4 space-y-3 border-t border-border pt-4">
-                            {post.replies?.length > 0 && (
-                              <div className="space-y-3 pl-3 border-l-2 border-border">
-                                {post.replies.filter((r) => isAdmin || !r.hidden).map((r) => (
-                                  <div
-                                    key={r.id}
-                                    data-reply-id={r.id}
-                                    data-parent-post-id={post.id}
-                                    className="flex items-start gap-2 group/reply"
-                                  >
-                                    <Avatar src={r.userAvatar} name={r.userName} size="w-7 h-7" isGoogle={r.isGoogleUser} googleId={r.googleId} />
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs font-medium text-main">
-                                          {r.userName || "Unknown"}
-                                        </span>
-                                        <span className="text-[10px] text-muted">
-                                          {getRelativeTime(r.createdAt)}
-                                        </span>
-                                        {r.edited && (
-                                          <span className="text-[9px] text-muted italic">(edited)</span>
-                                        )}
-                                        {isAdmin && r.hidden && (
-                                          <>
-                                            <span className="text-[9px] text-yellow-500">Hidden</span>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleUnhide(post.id, r.id);
-                                              }}
-                                              className="px-1.5 py-0.5 text-[9px] rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-                                            >
-                                              Unhide
-                                            </button>
-                                          </>
-                                        )}
-                                        {/* Three dots menu for all users */}
-                                        <div className="relative inline-block">
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              setOpenDropdown(openDropdown === `global-reply-${r.id}` ? null : `global-reply-${r.id}`);
-                                            }}
-                                            className="text-muted hover:text-orange-500 transition-all p-0.5 ml-1"
-                                            title="More options"
-                                          >
-                                            <MoreVertical className="w-3 h-3" />
-                                          </button>
-                                          {/* Dropdown Menu */}
-                                          {openDropdown === `global-reply-${r.id}` && (
-                                            <div className="absolute left-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg py-1 z-10 min-w-30">
-                                              {r.userId === user?.id ? (
-                                                <>
-                                                  {/* Edit and Delete options for reply owner */}
-                                                  <button
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      setEditingReply({ postId: post.id, replyId: r.id });
-                                                      setEditReplyText(r.text);
-                                                      setOpenDropdown(null);
-                                                    }}
-                                                    className="w-full px-3 py-2 text-left text-xs text-main hover:bg-surface-light transition-colors flex items-center gap-2"
-                                                  >
-                                                    <Edit className="w-3 h-3" />
-                                                    Edit
-                                                  </button>
-                                                  <button
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      handleDeleteReply(post.id, r.id);
-                                                      setOpenDropdown(null);
-                                                    }}
-                                                    className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-surface-light transition-colors flex items-center gap-2"
-                                                  >
-                                                    <Trash2 className="w-3 h-3" />
-                                                    Delete
-                                                  </button>
-                                                </>
-                                              ) : (
-                                                /* Report option for other users */
+                                        <Avatar
+                                          src={
+                                            r.userAvatar ||
+                                            (String(r.userId) === String(user?.id)
+                                              ? user?.avatar_url
+                                              : null)
+                                          }
+                                          name={r.userName}
+                                          size="w-7 h-7"
+                                          isGoogle={r.isGoogleUser}
+                                          googleId={r.googleId}
+                                        />
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs font-medium text-main">
+                                              {r.userName || "Unknown"}
+                                            </span>
+                                            <span className="text-[10px] text-muted">
+                                              {getRelativeTime(r.createdAt)}
+                                            </span>
+                                            {r.edited && (
+                                              <span className="text-[9px] text-muted italic">
+                                                (edited)
+                                              </span>
+                                            )}
+                                            {isAdmin && r.hidden && (
+                                              <>
+                                                <span className="text-[9px] text-yellow-500">
+                                                  Hidden
+                                                </span>
                                                 <button
                                                   onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setReportModal({ open: true, postId: post.id, replyId: r.id });
-                                                    setOpenDropdown(null);
+                                                    handleUnhide(post.id, r.id);
                                                   }}
-                                                  className="w-full px-3 py-2 text-left text-xs text-main hover:bg-surface-light transition-colors flex items-center gap-2"
+                                                  className="px-1.5 py-0.5 text-[9px] rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
                                                 >
-                                                  <Flag className="w-3 h-3" />
-                                                  Report
+                                                  Unhide
                                                 </button>
+                                              </>
+                                            )}
+                                            {/* Three dots menu for all users */}
+                                            <div className="relative inline-block">
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setOpenDropdown(
+                                                    openDropdown === `global-reply-${r.id}`
+                                                      ? null
+                                                      : `global-reply-${r.id}`,
+                                                  );
+                                                }}
+                                                className="text-muted hover:text-[#3867D6] transition-all p-0.5 ml-1"
+                                                title="More options"
+                                              >
+                                                <MoreVertical className="w-3 h-3" />
+                                              </button>
+                                              {/* Dropdown Menu */}
+                                              {openDropdown === `global-reply-${r.id}` && (
+                                                <div className="absolute left-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg py-1 z-10 min-w-30">
+                                                  {r.userId === user?.id ? (
+                                                    <>
+                                                      {/* Edit and Delete options for reply owner */}
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setEditingReply({
+                                                            postId: post.id,
+                                                            replyId: r.id,
+                                                          });
+                                                          setEditReplyText(r.text);
+                                                          setOpenDropdown(null);
+                                                        }}
+                                                        className="w-full px-3 py-2 text-left text-xs text-main hover:bg-surface-light transition-colors flex items-center gap-2"
+                                                      >
+                                                        <Edit className="w-3 h-3" />
+                                                        Edit
+                                                      </button>
+                                                      <button
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          handleDeleteReply(post.id, r.id);
+                                                          setOpenDropdown(null);
+                                                        }}
+                                                        className="w-full px-3 py-2 text-left text-xs text-red-400 hover:bg-surface-light transition-colors flex items-center gap-2"
+                                                      >
+                                                        <Trash2 className="w-3 h-3" />
+                                                        Delete
+                                                      </button>
+                                                    </>
+                                                  ) : (
+                                                    /* Report option for other users */
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setReportModal({
+                                                          open: true,
+                                                          postId: post.id,
+                                                          replyId: r.id,
+                                                        });
+                                                        setOpenDropdown(null);
+                                                      }}
+                                                      className="w-full px-3 py-2 text-left text-xs text-main hover:bg-surface-light transition-colors flex items-center gap-2"
+                                                    >
+                                                      <Flag className="w-3 h-3" />
+                                                      Report
+                                                    </button>
+                                                  )}
+                                                </div>
                                               )}
                                             </div>
-                                          )}
-                                        </div>
-                                        {/* Admin: report badge for reply */}
-                                        {isAdmin && getReportsForContent(post.id, r.id).length > 0 && (
-                                          <span className="flex items-center gap-0.5 text-[10px] text-orange-400">
-                                            <Shield className="w-2.5 h-2.5" />
-                                            {getReportsForContent(post.id, r.id).length}
-                                          </span>
-                                        )}
-                                      </div>
-                                      {editingReply.postId === post.id && editingReply.replyId === r.id ? (
-                                        <div className="mt-1">
-                                          <input
-                                            type="text"
-                                            value={editReplyText}
-                                            onChange={(e) => setEditReplyText(e.target.value)}
-                                            className="w-full px-2 py-1 text-xs bg-surface-light border border-border-light rounded focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                            autoFocus
-                                          />
-                                          <div className="flex gap-1 mt-1">
-                                            <button
-                                              onClick={() => handleEditReply(post.id, r.id, editReplyText)}
-                                              className="px-2 py-0.5 text-[10px] bg-purple-600 hover:bg-purple-700 rounded"
-                                            >
-                                              Save
-                                            </button>
-                                            <button
-                                              onClick={() => {
-                                                setEditingReply({ postId: null, replyId: null });
-                                                setEditReplyText("");
-                                              }}
-                                              className="px-2 py-0.5 text-[10px] bg-surface-light hover:bg-surface-lighter rounded"
-                                            >
-                                              Cancel
-                                            </button>
+                                            {/* Admin: report badge for reply */}
+                                            {isAdmin &&
+                                              getReportsForContent(post.id, r.id).length > 0 && (
+                                                <span className="flex items-center gap-0.5 text-[10px] text-orange-400">
+                                                  <Shield className="w-2.5 h-2.5" />
+                                                  {getReportsForContent(post.id, r.id).length}
+                                                </span>
+                                              )}
                                           </div>
+                                          {editingReply.postId === post.id &&
+                                          editingReply.replyId === r.id ? (
+                                            <div className="mt-1">
+                                              <input
+                                                type="text"
+                                                value={editReplyText}
+                                                onChange={(e) => setEditReplyText(e.target.value)}
+                                                className="w-full px-2 py-1 text-xs bg-surface-light border border-border-light rounded focus:outline-none focus:ring-1 focus:ring-[#3867D6]"
+                                                autoFocus
+                                              />
+                                              <div className="flex gap-1 mt-1">
+                                                <button
+                                                  onClick={() =>
+                                                    handleEditReply(post.id, r.id, editReplyText)
+                                                  }
+                                                  className="px-2 py-0.5 text-[10px] bg-[#3867D6] hover:bg-[#315BC0] rounded"
+                                                >
+                                                  Save
+                                                </button>
+                                                <button
+                                                  onClick={() => {
+                                                    setEditingReply({
+                                                      postId: null,
+                                                      replyId: null,
+                                                    });
+                                                    setEditReplyText("");
+                                                  }}
+                                                  className="px-2 py-0.5 text-[10px] bg-surface-light hover:bg-surface-lighter rounded"
+                                                >
+                                                  Cancel
+                                                </button>
+                                              </div>
+                                            </div>
+                                          ) : (
+                                            <p className="text-xs text-muted mt-0.5">{r.text}</p>
+                                          )}
+                                          {/* Admin: moderation actions for reply */}
+                                          {isAdmin &&
+                                            getReportsForContent(post.id, r.id).length > 0 &&
+                                            activeModeration === `reply-${r.id}` && (
+                                              <div className="flex items-center gap-2 mt-1">
+                                                <span className="text-[10px] text-muted">
+                                                  {getReportsForContent(post.id, r.id).length}{" "}
+                                                  pending reports
+                                                </span>
+                                                <button
+                                                  onClick={() =>
+                                                    handleModerate(
+                                                      getReportsForContent(post.id, r.id)[0]?.id,
+                                                      "hidden",
+                                                    )
+                                                  }
+                                                  className="p-0.5 text-yellow-500 hover:bg-yellow-500/20 rounded disabled:opacity-50"
+                                                  title="Hide"
+                                                  disabled={
+                                                    !getReportsForContent(post.id, r.id)[0]?.id
+                                                  }
+                                                >
+                                                  <EyeOff className="w-3 h-3" />
+                                                </button>
+                                                <button
+                                                  onClick={() =>
+                                                    handleModerate(
+                                                      getReportsForContent(post.id, r.id)[0]?.id,
+                                                      "deleted",
+                                                    )
+                                                  }
+                                                  className="p-0.5 text-red-500 hover:bg-red-500/20 rounded disabled:opacity-50"
+                                                  title="Delete"
+                                                  disabled={
+                                                    !getReportsForContent(post.id, r.id)[0]?.id
+                                                  }
+                                                >
+                                                  <Trash2 className="w-3 h-3" />
+                                                </button>
+                                                <button
+                                                  onClick={() =>
+                                                    handleModerate(
+                                                      getReportsForContent(post.id, r.id)[0]?.id,
+                                                      "dismissed",
+                                                    )
+                                                  }
+                                                  className="p-0.5 text-gray-400 hover:bg-gray-500/20 rounded disabled:opacity-50"
+                                                  title="Dismiss"
+                                                  disabled={
+                                                    !getReportsForContent(post.id, r.id)[0]?.id
+                                                  }
+                                                >
+                                                  <XCircle className="w-3 h-3" />
+                                                </button>
+                                              </div>
+                                            )}
+                                          {isAdmin &&
+                                            getReportsForContent(post.id, r.id).length > 0 &&
+                                            activeModeration !== `reply-${r.id}` && (
+                                              <button
+                                                onClick={() => setActiveModeration(`reply-${r.id}`)}
+                                                className="mt-1 text-[10px] text-orange-400 hover:underline"
+                                              >
+                                                Moderate
+                                              </button>
+                                            )}
                                         </div>
-                                      ) : (
-                                        <p className="text-xs text-muted mt-0.5">
-                                          {r.text}
-                                        </p>
-                                      )}
-                                      {/* Admin: moderation actions for reply */}
-                                      {isAdmin && getReportsForContent(post.id, r.id).length > 0 && activeModeration === `reply-${r.id}` && (
-                                        <div className="flex items-center gap-2 mt-1">
-                                          <span className="text-[10px] text-muted">
-                                            {getReportsForContent(post.id, r.id).length} pending reports
-                                          </span>
-                                          <button onClick={() => handleModerate(getReportsForContent(post.id, r.id)[0]?.id, "hidden")} className="p-0.5 text-yellow-500 hover:bg-yellow-500/20 rounded disabled:opacity-50" title="Hide" disabled={!getReportsForContent(post.id, r.id)[0]?.id}>
-                                            <EyeOff className="w-3 h-3" />
-                                          </button>
-                                          <button onClick={() => handleModerate(getReportsForContent(post.id, r.id)[0]?.id, "deleted")} className="p-0.5 text-red-500 hover:bg-red-500/20 rounded disabled:opacity-50" title="Delete" disabled={!getReportsForContent(post.id, r.id)[0]?.id}>
-                                            <Trash2 className="w-3 h-3" />
-                                          </button>
-                                          <button onClick={() => handleModerate(getReportsForContent(post.id, r.id)[0]?.id, "dismissed")} className="p-0.5 text-gray-400 hover:bg-gray-500/20 rounded disabled:opacity-50" title="Dismiss" disabled={!getReportsForContent(post.id, r.id)[0]?.id}>
-                                            <XCircle className="w-3 h-3" />
-                                          </button>
-                                        </div>
-                                      )}
-                                      {isAdmin && getReportsForContent(post.id, r.id).length > 0 && activeModeration !== `reply-${r.id}` && (
-                                        <button
-                                          onClick={() => setActiveModeration(`reply-${r.id}`)}
-                                          className="mt-1 text-[10px] text-orange-400 hover:underline"
-                                        >
-                                          Moderate
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                placeholder="Write a reply..."
-                                value={globalReplyText}
-                                onChange={(e) =>
-                                  setGlobalReplyText(e.target.value)
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleReplySubmit(
-                                      post.id,
-                                      globalReplyText,
-                                      "global"
-                                    );
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="Write a reply..."
+                                  value={globalReplyText}
+                                  onChange={(e) => setGlobalReplyText(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                      e.preventDefault();
+                                      handleReplySubmit(post.id, globalReplyText, "global");
+                                      setGlobalReplyText("");
+                                    }
+                                  }}
+                                  className="flex-1 px-3 py-2 bg-input border border-border rounded-lg text-sm text-main placeholder-muted focus:outline-none focus:ring-2 focus:ring-[#3867D6]"
+                                />
+                                <button
+                                  onClick={() => {
+                                    handleReplySubmit(post.id, globalReplyText, "global");
                                     setGlobalReplyText("");
-                                  }
-                                }}
-                                className="flex-1 px-3 py-2 bg-input border border-border rounded-lg text-sm text-main placeholder-muted focus:outline-none focus:ring-2 focus:ring-orange-500"
-                              />
-                              <button
-                                onClick={() => {
-                                  handleReplySubmit(
-                                    post.id,
-                                    globalReplyText,
-                                    "global"
-                                  );
-                                  setGlobalReplyText("");
-                                }}
-                                className="px-4 py-2 bg-linear-to-r from-orange-500 to-red-500 text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
-                              >
-                                <Send className="w-3.5 h-3.5" />
-                                Reply
-                              </button>
+                                  }}
+                                  className="px-4 py-2 bg-[#3867D6] text-white text-sm font-medium rounded-lg hover:bg-[#315BC0] transition-colors flex items-center gap-1"
+                                >
+                                  <Send className="w-3.5 h-3.5" />
+                                  Reply
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+                        </div>
+                      ))}
                   </div>
                 )}
 
@@ -2439,10 +2757,12 @@ const latestPostsByCourse = Object.values(
             </main>
           )}
         </div>
+        {activeView === "global" && <DiscussionSidebar />}
+      </div>
 
       {/* Popup Modal */}
       {popupModal.open && (
-        <div className="fixed inset-0 z-160 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4">
+        <div className="fixed inset-0 z-160 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 ui-overlay-motion">
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-xs sm:max-w-sm md:max-w-md">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <h3 className="font-bold text-main text-base">{popupModal.title || "Notice"}</h3>
@@ -2483,7 +2803,7 @@ const latestPostsByCourse = Object.values(
         </div>
       )}
       {reportModal.open && (
-        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md">
             {/* Header */}
             <div className="px-5 pt-5 pb-1">
@@ -2494,14 +2814,14 @@ const latestPostsByCourse = Object.values(
             </div>
 
             {/* Body */}
-            
+
             <div className="px-5 py-4">
               <textarea
                 value={reportDescription}
                 onChange={(e) => setReportDescription(e.target.value)}
                 placeholder="Describe the issue (spam, harassment, inappropriate content, etc.)"
                 rows={4}
-                className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-main placeholder-muted focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none"
+                className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-main placeholder-muted focus:outline-none focus:ring-2 focus:ring-[#3867D6] resize-none"
               />
             </div>
 
@@ -2523,7 +2843,7 @@ const latestPostsByCourse = Object.values(
               >
                 {reportSubmitting ? (
                   <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <LoadingSpinner variant="compact" light label="Submitting report" />
                     Submitting...
                   </>
                 ) : (
@@ -2536,7 +2856,7 @@ const latestPostsByCourse = Object.values(
       )}
 
       {reportSuccess && (
-        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -2554,13 +2874,11 @@ const latestPostsByCourse = Object.values(
               {/* Illustration */}
               <div className="flex justify-center">
                 <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center">
-                  <Flag className="w-8 h-8 text-orange-500" />
+                  <Flag className="w-8 h-8 text-[#3867D6]" />
                 </div>
               </div>
 
-              <h4 className="text-base font-bold text-main">
-                Thanks for helping our community
-              </h4>
+              <h4 className="text-base font-bold text-main">Thanks for helping our community</h4>
               <p className="text-xs text-muted">
                 Your report helps us protect the community from harmful content.
               </p>
@@ -2576,7 +2894,8 @@ const latestPostsByCourse = Object.values(
                     <Ban className="w-3.5 h-3.5 text-red-500" />
                   </div>
                   <p className="text-[11px] text-muted leading-relaxed">
-                    If this commenter has serious or repeated violations, we may temporarily restrict their ability to leave comments.
+                    If this commenter has serious or repeated violations, we may temporarily
+                    restrict their ability to leave comments.
                   </p>
                 </div>
               </div>
@@ -2596,7 +2915,7 @@ const latestPostsByCourse = Object.values(
       )}
 
       {reportAlreadyExists && (
-        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm">
             <div className="px-5 py-6 text-center space-y-3">
               <div className="flex justify-center">
@@ -2604,9 +2923,7 @@ const latestPostsByCourse = Object.values(
                   <AlertTriangle className="w-7 h-7 text-yellow-500" />
                 </div>
               </div>
-              <h4 className="text-base font-bold text-main">
-                Already Reported
-              </h4>
+              <h4 className="text-base font-bold text-main">Already Reported</h4>
               <p className="text-sm text-muted">
                 You have already reported this content. Our team will review it shortly.
               </p>

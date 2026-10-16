@@ -36,18 +36,9 @@ test("registerSchema rejects invalid names, email, and weak passwords", () => {
 });
 
 test("auth request schemas enforce required fields", () => {
-  assert.equal(
-    loginSchema.safeParse({ email: "a@example.com", password: "x" }).success,
-    true,
-  );
-  assert.equal(
-    loginSchema.safeParse({ email: "bad", password: "" }).success,
-    false,
-  );
+  assert.equal(loginSchema.safeParse({ email: "a@example.com", password: "x" }).success, true);
+  assert.equal(loginSchema.safeParse({ email: "bad", password: "" }).success, false);
   assert.equal(forgotPasswordSchema.safeParse({ email: "bad" }).success, false);
-  assert.equal(
-    resetPasswordSchema.safeParse({ password: "StrongPass1!" }).success,
-    true,
-  );
+  assert.equal(resetPasswordSchema.safeParse({ password: "StrongPass1!" }).success, true);
   assert.equal(googleLoginSchema.safeParse({ idToken: "" }).success, false);
 });

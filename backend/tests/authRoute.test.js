@@ -37,7 +37,7 @@ const MOCK_USERS = [
     isProfileComplete: true,
     purchasedCourses: [],
     matchPassword: async (pwd) => pwd === "CorrectPassword123!",
-  }
+  },
 ];
 
 const originals = {
@@ -54,7 +54,10 @@ before(async () => {
     return MOCK_USERS.find((u) => u.email === where.email) ?? null;
   };
 
-  Notification.create = async (notificationData) => ({ id: "test-notification", ...notificationData });
+  Notification.create = async (notificationData) => ({
+    id: "test-notification",
+    ...notificationData,
+  });
 
   User.create = async (userData) => {
     const newUser = {

@@ -14,9 +14,9 @@ describe("admin API client", () => {
       json: vi.fn().mockResolvedValue({ success: true }),
     });
 
-    await expect(
-      callApi("/courses", { headers: { "X-Trace": "trace" } }),
-    ).resolves.toEqual({ success: true });
+    await expect(callApi("/courses", { headers: { "X-Trace": "trace" } })).resolves.toEqual({
+      success: true,
+    });
     expect(fetch).toHaveBeenCalledWith(
       "/api/courses",
       expect.objectContaining({
@@ -41,8 +41,6 @@ describe("admin API client", () => {
       status: 500,
       json: vi.fn().mockRejectedValue(new Error("not json")),
     });
-    await expect(callApi("/broken")).rejects.toThrow(
-      "Request failed with status 500",
-    );
+    await expect(callApi("/broken")).rejects.toThrow("Request failed with status 500");
   });
 });

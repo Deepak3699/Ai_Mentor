@@ -1,3 +1,4 @@
+import { apiFetch as fetch } from "../../lib/api";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import API_BASE_URL from "../../lib/api";
@@ -50,7 +51,9 @@ function BreakdownBar({ star, count, total }) {
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span className="w-2 text-right shrink-0 font-medium text-slate-500 dark:text-slate-400">{star}</span>
+      <span className="w-2 text-right shrink-0 font-medium text-slate-500 dark:text-slate-400">
+        {star}
+      </span>
       <Star className="w-3 h-3 fill-amber-400 text-amber-400 shrink-0" />
       <div className="flex-1 bg-slate-200 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
         <div
@@ -77,7 +80,11 @@ function ReviewCard({ review, isOwn, onEdit, onDelete }) {
   ];
   const colorIdx = initial.charCodeAt(0) % colors.length;
   const date = review.updatedAt
-    ? new Date(review.updatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    ? new Date(review.updatedAt).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
     : "";
 
   return (
@@ -92,32 +99,51 @@ function ReviewCard({ review, isOwn, onEdit, onDelete }) {
       <div className="flex items-start gap-3">
         {/* Avatar */}
         {review.userAvatar ? (
-          <img src={review.userAvatar} alt={review.userName} className="w-9 h-9 rounded-full object-cover shrink-0 border-2 border-white dark:border-slate-700 shadow-sm" onError={e => { e.currentTarget.style.display = "none"; }} />
+          <img
+            src={review.userAvatar}
+            alt={review.userName}
+            className="w-9 h-9 rounded-full object-cover shrink-0 border-2 border-white dark:border-slate-700 shadow-sm"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
         ) : (
-          <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${colors[colorIdx]} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm`}>
+          <div
+            className={`w-9 h-9 rounded-full bg-gradient-to-br ${colors[colorIdx]} flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm`}
+          >
             {initial}
           </div>
         )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{review.userName || "Anonymous"}</span>
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              {review.userName || "Anonymous"}
+            </span>
             <Stars value={review.rating} size={13} />
             <span className="text-xs text-slate-400 dark:text-slate-500 ml-auto">{date}</span>
           </div>
 
           {review.review && (
-            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{review.review}</p>
+            <p className="mt-1.5 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+              {review.review}
+            </p>
           )}
 
           {/* Edit / Delete — only for own review */}
           {isOwn && (
             <div className="flex items-center gap-2 mt-2">
-              <button onClick={() => onEdit?.(review)} className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors">
+              <button
+                onClick={() => onEdit?.(review)}
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
+              >
                 <Edit3 className="w-3 h-3" /> Edit
               </button>
               <span className="text-slate-300 dark:text-slate-600">·</span>
-              <button onClick={() => onDelete?.()} className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+              <button
+                onClick={() => onDelete?.()}
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+              >
                 <Trash2 className="w-3 h-3" /> Delete
               </button>
             </div>
@@ -131,7 +157,12 @@ function ReviewCard({ review, isOwn, onEdit, onDelete }) {
 /* ────────────────────────────
    Main export
 ──────────────────────────────*/
-export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuccess, onDeleteSuccess }) {
+export default function CourseFeedback({
+  courseId,
+  formOnly = false,
+  onSubmitSuccess,
+  onDeleteSuccess,
+}) {
   const { user } = useAuth();
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
@@ -146,7 +177,8 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
   const [draftReview, setDraftReview] = useState("");
 
   const isEnrolled =
-    user && Array.isArray(user.purchasedCourses) &&
+    user &&
+    Array.isArray(user.purchasedCourses) &&
     user.purchasedCourses.some((c) => Number(c.courseId) === Number(courseId));
 
   /* ── fetch all reviews ── */
@@ -194,7 +226,10 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!draftRating) { toast.error("Please select a star rating."); return; }
+    if (!draftRating) {
+      toast.error("Please select a star rating.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/courses/${courseId}/feedback`, {
@@ -247,7 +282,13 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
       <div className="mt-6 rounded-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden bg-white dark:bg-slate-900 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
         {/* ── Header ── */}
         <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-5">
-          <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
+          <div
+            className="absolute inset-0 opacity-5"
+            style={{
+              backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
+              backgroundSize: "20px 20px",
+            }}
+          />
           <div className="relative flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-xl bg-amber-400/20 ring-1 ring-amber-400/30">
@@ -256,7 +297,9 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
               <div>
                 <h2 className="text-base font-bold text-white">Rate this Course</h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {myFeedback ? "Update your submitted feedback" : "Share your feedback to help others"}
+                  {myFeedback
+                    ? "Update your submitted feedback"
+                    : "Share your feedback to help others"}
                 </p>
               </div>
             </div>
@@ -278,7 +321,9 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
               </h3>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium uppercase tracking-wide">Your rating *</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium uppercase tracking-wide">
+                    Your rating *
+                  </p>
                   <div className="flex items-center gap-3">
                     <Stars value={draftRating} size={30} interactive onRate={setDraftRating} />
                     {draftRating > 0 && (
@@ -289,16 +334,20 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
                   </div>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium uppercase tracking-wide">Your review <span className="font-normal normal-case">(optional)</span></p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium uppercase tracking-wide">
+                    Your review <span className="font-normal normal-case">(optional)</span>
+                  </p>
                   <textarea
                     value={draftReview}
-                    onChange={e => setDraftReview(e.target.value)}
+                    onChange={(e) => setDraftReview(e.target.value)}
                     rows={4}
                     maxLength={1000}
                     placeholder="What did you enjoy? What could be better?"
                     className="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent resize-none transition-shadow"
                   />
-                  <p className="text-right text-xs text-slate-400 mt-1">{draftReview.length}/1000</p>
+                  <p className="text-right text-xs text-slate-400 mt-1">
+                    {draftReview.length}/1000
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -329,11 +378,16 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
 
   return (
     <div className="mt-8 rounded-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
-
       {/* ── Header ── */}
       <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-6 py-5">
         {/* decorative dots */}
-        <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
+        <div
+          className="absolute inset-0 opacity-5"
+          style={{
+            backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
+            backgroundSize: "20px 20px",
+          }}
+        />
         <div className="relative flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-amber-400/20 ring-1 ring-amber-400/30">
@@ -342,7 +396,9 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
             <div>
               <h2 className="text-base font-bold text-white">Student Reviews</h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                {total > 0 ? `${total} review${total !== 1 ? "s" : ""}` : "No reviews yet — be the first!"}
+                {total > 0
+                  ? `${total} review${total !== 1 ? "s" : ""}`
+                  : "No reviews yet — be the first!"}
               </p>
             </div>
           </div>
@@ -357,7 +413,7 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
               </button>
             )}
             <button
-              onClick={() => setExpanded(v => !v)}
+              onClick={() => setExpanded((v) => !v)}
               className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
             >
               {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -368,19 +424,20 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
 
       {expanded && (
         <div className="p-5 space-y-5">
-
           {/* ── Aggregate section ── */}
           {!loading && total > 0 && (
             <div className="flex flex-col sm:flex-row gap-5 p-5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50">
               {/* Big score */}
               <div className="flex flex-col items-center justify-center gap-2 sm:w-32 shrink-0">
-                <span className="text-5xl font-black text-slate-900 dark:text-white leading-none">{avg.toFixed(1)}</span>
+                <span className="text-5xl font-black text-slate-900 dark:text-white leading-none">
+                  {avg.toFixed(1)}
+                </span>
                 <Stars value={avg} size={16} />
                 <span className="text-xs text-slate-400 mt-0.5">out of 5</span>
               </div>
               {/* Bars */}
               <div className="flex-1 space-y-2 py-1 min-w-0">
-                {[5, 4, 3, 2, 1].map(s => (
+                {[5, 4, 3, 2, 1].map((s) => (
                   <BreakdownBar key={s} star={s} count={breakdown[s] || 0} total={total} />
                 ))}
               </div>
@@ -402,7 +459,9 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Star picker */}
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium uppercase tracking-wide">Your rating *</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium uppercase tracking-wide">
+                    Your rating *
+                  </p>
                   <div className="flex items-center gap-3">
                     <Stars value={draftRating} size={30} interactive onRate={setDraftRating} />
                     {draftRating > 0 && (
@@ -414,16 +473,20 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
                 </div>
                 {/* Text area */}
                 <div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium uppercase tracking-wide">Your review <span className="font-normal normal-case">(optional)</span></p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium uppercase tracking-wide">
+                    Your review <span className="font-normal normal-case">(optional)</span>
+                  </p>
                   <textarea
                     value={draftReview}
-                    onChange={e => setDraftReview(e.target.value)}
+                    onChange={(e) => setDraftReview(e.target.value)}
                     rows={4}
                     maxLength={1000}
                     placeholder="What did you enjoy? What could be better?"
                     className="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent resize-none transition-shadow"
                   />
-                  <p className="text-right text-xs text-slate-400 mt-1">{draftReview.length}/1000</p>
+                  <p className="text-right text-xs text-slate-400 mt-1">
+                    {draftReview.length}/1000
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -434,7 +497,11 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
                     <Send className="w-3.5 h-3.5" />
                     {submitting ? "Saving…" : myFeedback ? "Update" : "Submit"}
                   </button>
-                  <button type="button" onClick={() => setShowForm(false)} className="px-4 py-2.5 rounded-xl text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-black/5 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => setShowForm(false)}
+                    className="px-4 py-2.5 rounded-xl text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-black/5 transition-colors"
+                  >
                     Cancel
                   </button>
                 </div>
@@ -459,8 +526,11 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
           {/* ── Reviews list ── */}
           {loading ? (
             <div className="space-y-3">
-              {[0, 1, 2].map(i => (
-                <div key={i} className="h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="h-20 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse"
+                />
               ))}
             </div>
           ) : reviews.length === 0 ? (
@@ -468,11 +538,13 @@ export default function CourseFeedback({ courseId, formOnly = false, onSubmitSuc
               <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-3">
                 <MessageSquare className="w-6 h-6 text-slate-400" />
               </div>
-              <p className="text-sm text-slate-400">No reviews yet. Be the first to share your thoughts!</p>
+              <p className="text-sm text-slate-400">
+                No reviews yet. Be the first to share your thoughts!
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {reviews.map(review => (
+              {reviews.map((review) => (
                 <ReviewCard
                   key={review.id}
                   review={review}
