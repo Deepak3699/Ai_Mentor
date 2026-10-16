@@ -85,6 +85,7 @@ Create `ai_service/backend/.env` from `ai_service/backend/.env.example`.
 | `DID_API_KEY`           | Optional                                        | D-ID avatar rendering is unavailable                   |
 | `DID_API_URL`           | Optional                                        | Uses the service default when omitted                  |
 | `DID_SOURCE_URL`        | Optional                                        | D-ID rendering falls back to the local FFmpeg renderer |
+| `AI_SERVICE_LOG_LEVEL`  | Optional                                        | Uses `INFO` by default; supports `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL` |
 
 Setup output reports only variable names and `<configured>` markers. Do not commit `.env` files or share credential values.
 
@@ -149,6 +150,27 @@ Use the running service's FastAPI documentation for the current request and resp
 10. Return asset metadata and remove temporary local media after successful cloud delivery.
 
 The Node.js backend uses Redis or Memurai to queue and track video-generation work.
+
+## Logging and sensitive data
+
+The AI service uses Python's standard logging system. Configure logging verbosity through the `AI_SERVICE_LOG_LEVEL` environment variable in the AI service environment. The default level is `INFO`.
+
+For example, add the following to `ai_service/backend/.env`:
+
+```env
+AI_SERVICE_LOG_LEVEL=INFO
+```
+
+Supported levels are `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL`.
+
+### Logging safety
+
+- Do not log full request payloads, user learning preferences, generated lesson scripts, or other user-provided content.
+- Do not log raw provider exception messages, which may contain request or response data.
+- Prefer safe operational metadata, such as job identifiers, provider names, processing stages, statuses, and word counts.
+- Keep failure messages generic; do not expose internal exception details to API clients.
+- Review both log messages and their metadata for sensitive values when adding logging statements.
+- Add log-capture regression tests when changing logging or error handling.
 
 ## Testing
 

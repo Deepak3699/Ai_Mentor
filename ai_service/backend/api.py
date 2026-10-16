@@ -1,7 +1,6 @@
 import os
 import datetime
 import re
-import traceback
 import asyncio
 import logging
 import subprocess
@@ -53,16 +52,60 @@ if CLOUDINARY_ENABLED:
 # --------------------------
 # FastAPI App
 # --------------------------
+
+LOG_LEVEL = os.getenv("AI_SERVICE_LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 logger = logging.getLogger(__name__)
+
+SAFE_LOG_FIELDS = {
+    "job",
+    "provider",
+    "model",
+    "stage",
+    "status",
+    "configured",
+    "words",
+    "duration",
+    "audio",
+    "delivery",
+    "attempt",
+    "code",
+}
+
 
 
 def log_event(level: str, message: str, **details):
-    """Write compact, scan-friendly service logs without exposing payloads or URLs."""
-    suffix = ""
-    visible = [f"{key}={value}" for key, value in details.items() if value not in (None, "")]
-    if visible:
-        suffix = " | " + " | ".join(visible)
-    print(f"[{level}] {message}{suffix}", flush=True)
+    """Log approved operational metadata only."""
+    if not isinstance(message, str) or not message.isascii():
+        message = "Log event omitted: invalid message"
+
+    safe_details = {
+        key: value
+        for key, value in details.items()
+        if key in SAFE_LOG_FIELDS
+        and isinstance(value, (str, int, float, bool))
+        and value not in (None, "")
+    }
+
+    suffix = (
+        " | " + " | ".join(
+            f"{key}={value}" for key, value in safe_details.items()
+        )
+        if safe_details
+        else ""
+    )
+
+    log_method = getattr(
+        logger,
+        "warning" if level.lower() == "warn" else level.lower(),
+        logger.info,
+    )
+    log_method("%s%s", message, suffix)
+
+
 
 
 def short_error(error: Exception, limit: int = 180) -> str:
@@ -437,7 +480,7 @@ def generate_quiz(data: QuizRequest):
                 text = response.text.strip()
 
             except Exception as gemini_error:
-                log_event("WARN", "Gemini lesson generation failed", error=short_error(gemini_error))
+                log_event("WARN", "Gemini lesson generation failed", provider="gemini")
                 log_event("RUN", "Trying Groq fallback")
 
                 groq_response = groq_client.chat.completions.create(
@@ -682,7 +725,7 @@ async def run_tracked_lesson(data: LessonRequest, base_filename: str):
 
 
 async def process_lesson(data: LessonRequest, base_filename: str):
-    log_event("QUEUE", "Lesson request accepted", job=base_filename, topic=data.topic, source=data.celebrity)
+    log_event("QUEUE", "Lesson request accepted", job=base_filename)
     
     start_time = time.time()
     provider_used = "unknown"
@@ -708,7 +751,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         job_status[base_filename]["meta"]["timestamps"]["started_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     try:
-        log_event("START", "Lesson generation started", job=base_filename, topic=data.topic, source=data.celebrity)
+        log_event("START", "Lesson generation started", job=base_filename, stage="lesson_generation")
 
         preferences_text = ""
 
@@ -744,8 +787,6 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         - Match the explanation style with the user's preferred learning style.
         """
 
-        print("\n📊 USER PREFERENCES:\n")
-        print(data.preferences if data.preferences else "No preferences provided")
         log_event("INFO", "Preferences loaded", configured=bool(data.preferences))
 
         script = ""
@@ -769,13 +810,13 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             log_event("OK", "Lesson script generated", provider="gemini", words=len(script.split()))
 
         except Exception as gemini_error:
-            print(f"❌ Gemini failed: {gemini_error}")
+            log_event("WARN", "Gemini lesson generation failed", provider="gemini")
             print("⚡ Switching to Groq fallback...")
 
             log_event(
                 "WARN",
                 "Gemini lesson generation failed",
-                error=short_error(gemini_error),
+                provider="gemini",
             )
 
             try:
@@ -804,14 +845,13 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
             except Exception as groq_error:
 
-                log_event("ERROR", "Groq lesson generation failed", error=short_error(groq_error))
+                log_event("ERROR", "Groq lesson generation failed", provider="groq")
 
                 if base_filename not in shutdown_failed_jobs:
                     if base_filename in job_status:
                         job_status[base_filename]["status"] = "failed"
                         failure_reason = (
-                            f"LLM generation failed: primary provider (Gemini) failed: {gemini_error}; "
-                            f"fallback provider (Groq) failed: {groq_error}"
+                            "Lesson generation failed: Gemini primary provider and Groq fallback provider failed."
                         )
                         job_status[base_filename]["error"] = failure_reason
                         job_status[base_filename]["reason"] = failure_reason
@@ -1156,4 +1196,9 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         remove_failed_generation_cache(base_filename)
 
         log_event("ERROR", "Lesson generation failed", job=base_filename, error=short_error(e))
-        traceback.print_exc()
+        log_event(
+            "ERROR",
+            "Unexpected lesson generation failure",
+            job=base_filename,
+            stage="lesson_generation",
+        )
