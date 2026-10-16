@@ -52,16 +52,60 @@ if CLOUDINARY_ENABLED:
 # --------------------------
 # FastAPI App
 # --------------------------
+
+LOG_LEVEL = os.getenv("AI_SERVICE_LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 logger = logging.getLogger(__name__)
+
+SAFE_LOG_FIELDS = {
+    "job",
+    "provider",
+    "model",
+    "stage",
+    "status",
+    "configured",
+    "words",
+    "duration",
+    "audio",
+    "delivery",
+    "attempt",
+    "code",
+}
+
 
 
 def log_event(level: str, message: str, **details):
-    """Write compact, scan-friendly service logs without exposing payloads or URLs."""
-    suffix = ""
-    visible = [f"{key}={value}" for key, value in details.items() if value not in (None, "")]
-    if visible:
-        suffix = " | " + " | ".join(visible)
-    print(f"[{level}] {message}{suffix}", flush=True)
+    """Log approved operational metadata only."""
+    if not isinstance(message, str) or not message.isascii():
+        message = "Log event omitted: invalid message"
+
+    safe_details = {
+        key: value
+        for key, value in details.items()
+        if key in SAFE_LOG_FIELDS
+        and isinstance(value, (str, int, float, bool))
+        and value not in (None, "")
+    }
+
+    suffix = (
+        " | " + " | ".join(
+            f"{key}={value}" for key, value in safe_details.items()
+        )
+        if safe_details
+        else ""
+    )
+
+    log_method = getattr(
+        logger,
+        "warning" if level.lower() == "warn" else level.lower(),
+        logger.info,
+    )
+    log_method("%s%s", message, suffix)
+
+
 
 
 def short_error(error: Exception) -> str:
