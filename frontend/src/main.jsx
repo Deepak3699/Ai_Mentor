@@ -27,3 +27,22 @@ createRoot(document.getElementById("root")).render(
     </HelmetProvider>
   </StrictMode>,
 );
+
+const hideStartupLoader = () => {
+  const loader = document.getElementById("app-startup-loader");
+  const styles = document.getElementById("app-startup-loader-styles");
+  if (!loader) return;
+
+  loader.remove();
+  styles?.remove();
+};
+
+const isInitialDashboardRoute = window.location.pathname === "/dashboard";
+
+if (isInitialDashboardRoute) {
+  window.addEventListener("app:initial-content-ready", hideStartupLoader, { once: true });
+} else {
+  window.addEventListener("app:initial-route-ready", hideStartupLoader, { once: true });
+}
+
+window.setTimeout(hideStartupLoader, 10000);

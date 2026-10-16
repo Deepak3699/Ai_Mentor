@@ -6,6 +6,7 @@ import {
   ChevronRight,
   LogOut,
   Settings,
+  Rocket,
   LayoutDashboard,
   BookOpen,
   MessageSquare,
@@ -20,6 +21,16 @@ import { useSidebar } from "../context/SidebarContext";
 import { useTranslation } from "react-i18next";
 
 const Sidebar = ({ activePage = "dashboard" }) => {
+  const [showProCard, setShowProCard] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("ai-mentor-pro-card-dismissed") !== "true";
+  });
+
+  const dismissProCard = () => {
+    setShowProCard(false);
+    window.localStorage.setItem("ai-mentor-pro-card-dismissed", "true");
+  };
+
   const { t } = useTranslation();
 
   const { sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed } = useSidebar();
@@ -119,14 +130,14 @@ const Sidebar = ({ activePage = "dashboard" }) => {
       {/* ================= MOBILE OVERLAY ================= */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden ui-overlay-motion"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* ================= LOGOUT CONFIRMATION ================= */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 ui-overlay-motion">
           <div className="bg-card border border-border/50 rounded-2xl shadow-2xl p-6 w-full max-w-xs text-center">
             <LogOut className="w-9 h-9 text-red-500 mx-auto mb-3" />
 
@@ -214,7 +225,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
 
         {/* --- LOGO SECTION --- */}
         <div
-          className={`pt-5 px-3 pb-2 transition-all duration-300 ${sidebarCollapsed ? "flex justify-center" : ""}`}
+          className={`shrink-0 pt-5 px-3 pb-2 transition-all duration-300 ${sidebarCollapsed ? "flex justify-center" : ""}`}
         >
           <div
             className={`border border-border/50 rounded-2xl p-4 flex flex-col items-center justify-center bg-card shadow-sm w-full ${sidebarCollapsed ? "hidden" : "flex"}`}
@@ -236,7 +247,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
         </div>
 
         {/* ================= MAIN NAVIGATION ================= */}
-        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 py-4">
+        <nav className="min-h-0 flex-1 overflow-y-auto scrollbar-hide px-3 py-4">
           <div className="space-y-2">
             {navigationItems.map((item) => {
               const isActive = activePage === item.id;
@@ -330,10 +341,48 @@ const Sidebar = ({ activePage = "dashboard" }) => {
               );
             })}
           </div>
+
+          {/* ================= UPGRADE TO PRO CARD ================= */}
+          {showProCard && !sidebarCollapsed && (
+            <aside className="relative mt-4 rounded-xl border border-purple-500/20 bg-purple-500/[0.07] p-3">
+              <button
+                type="button"
+                onClick={dismissProCard}
+                aria-label="Dismiss Upgrade to Pro promotion"
+                title="Dismiss"
+                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-base leading-none text-muted transition-colors hover:bg-purple-500/10 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-400"
+              >
+                ×
+              </button>
+
+              <div className="flex items-start gap-3 pr-7">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-500/15">
+                  <Rocket className="h-4 w-4 text-purple-300" aria-hidden="true" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold leading-5 text-foreground">
+                    Upgrade to Pro
+                  </h3>
+                  <p className="mt-0.5 text-[11px] leading-4 text-muted">
+                    Unlock every course with one subscription.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                role="status"
+                aria-label="Pro subscriptions are coming soon"
+                className="mt-3 flex h-9 w-full items-center justify-center rounded-lg border border-purple-400/20 bg-purple-500/10 px-3 text-xs font-semibold text-purple-200/80"
+              >
+                Coming soon
+              </div>
+            </aside>
+          )}
         </nav>
 
         {/* ================= BOTTOM SECTION ================= */}
-        <div className="px-3 pb-5">
+        <div className="shrink-0 px-3 pb-5">
           {/* ================= USER PROFILE ================= */}
           <div className="relative mt-3 pt-3 border-t border-border/70" ref={profileRef}>
             {profilePopupOpen && (

@@ -12,7 +12,7 @@ def load_config(monkeypatch, **env):
         "CLOUDINARY_API_KEY",
         "CLOUDINARY_API_SECRET",
     ]:
-        monkeypatch.delenv(key, raising=False)
+        monkeypatch.setenv(key, "")
 
     for key, value in env.items():
         monkeypatch.setenv(key, value)
