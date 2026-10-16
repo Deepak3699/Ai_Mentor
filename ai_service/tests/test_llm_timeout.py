@@ -127,7 +127,7 @@ async def test_process_lesson_gemini_call_site_explicit_timeout():
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subproc, \
          patch("builtins.open", MagicMock()), \
          patch("api.MP3", return_value=MagicMock(info=MagicMock(length=10.0))):
-        
+
         proc = MagicMock()
         proc.communicate = AsyncMock(return_value=(b"", b""))
         proc.returncode = 0
@@ -161,7 +161,7 @@ async def test_process_lesson_groq_call_site_explicit_timeout():
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subproc, \
          patch("builtins.open", MagicMock()), \
          patch("api.MP3", return_value=MagicMock(info=MagicMock(length=10.0))):
-        
+
         proc = MagicMock()
         proc.communicate = AsyncMock(return_value=(b"", b""))
         proc.returncode = 0
