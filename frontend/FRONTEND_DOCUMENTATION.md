@@ -15,7 +15,9 @@ The frontend communicates with the Node.js backend API and provides:
 - Theme and language customization
 - Guarded handoff to the separate Frontend Admin application
 
-The frontend is designed using a modular React architecture with reusable UI components, centralized context management, protected routing, API service abstraction, and responsive Tailwind based layouts.
+The frontend is designed using a modular React architecture with reusable UI components, React Context-based state management, protected routing, and responsive Tailwind-based layouts.
+
+API communication currently uses multiple request patterns rather than a single centralized HTTP client. These include the shared `apiFetch` helper, direct native `fetch` calls, and direct Axios calls. The documentation below describes these patterns as they are currently implemented.
 
 ---
 
@@ -41,9 +43,13 @@ The frontend is designed using a modular React architecture with reusable UI com
         └──────────────────────┼──────────────────────┘
                                │
                                ▼
-                    ┌──────────────────────┐
-                    │    Axios Services    │
-                    └──────────┬───────────┘
+                 ┌──────────────────────────────┐
+                 │   API Communication Layer    │
+                 │                              │
+                 │  • apiFetch helper           │
+                 │  • Native fetch              │
+                 │  • Direct Axios              │
+                 └─────────────┬────────────────┘
                                │
                                ▼
                     ┌──────────────────────┐
@@ -81,7 +87,8 @@ Frontend Application
 | Routing              | React Router DOM      |
 | Styling              | Tailwind CSS          |
 | State Management     | React Context API     |
-| HTTP Client          | Axios                 |
+| HTTP Communication   | Native fetch, apiFetch|
+|                      | helper, and Axios     |
 | Authentication       | Firebase Google OAuth |
 | Charts               | Recharts              |
 | Icons                | Lucide React          |
@@ -226,110 +233,216 @@ The frontend supports:
 
 # Authentication Architecture
 
+The frontend supports multiple authentication flows and request mechanisms.
+
+**Email/Password Login**
+
+The login page validates the credentials using Zod and sends the login request directly through Axios.
+
 ```text
 Login Form
-    │
-    ▼
-Axios API Request
-    │
-    ▼
+    |
+    v
+Zod Validation
+    |
+    v
+Direct Axios Request
+    |
+    v
+POST /api/auth/login
+    |
+    v
 Backend Authentication
-    │
-    ▼
-JWT Token Response
-    │
-    ▼
-LocalStorage Storage
-    │
-    ▼
-Protected Route Access
+    |
+    v
+JWT Token + User Data
+    |
+    v
+AuthContext.login()
+    |
+    v
+localStorage
+    |
+    v
+Protected Routes
 ```
-
 ---
 
 # AuthContext
 
-`AuthContext.jsx` manages global authentication state.
+`AuthContext.jsx` manages the frontend authentication state.
 
 Responsibilities:
 
-- Store authenticated user
-- Store JWT token
-- Login/logout methods
-- Session persistence
-- Auto authentication restore
+* Store the authenticated user
+* Store authentication state
+* Persist the JWT token and user information in `localStorage`
+* Provide login and logout functions
+* Restore authentication state from `localStorage`
+* Fetch the authenticated user's profile
+* Update user information
+* Integrate Firebase sign-out during logout
 
-The context prevents prop drilling across components.
+## Authentication Persistence
 
+On application initialization, `AuthContext` checks for:
+
+* `token` in `localStorage`
+* `user` in `localStorage`
+
+When both are available, the frontend restores the authenticated state.
+
+## Login
+
+The `login()` method:
+
+1. Receives user data from an authentication flow.
+2. Stores the JWT token in `localStorage`.
+3. Stores serialized user information in `localStorage`.
+4. Updates the React authentication state.
+
+## User Profile Fetch
+
+After authentication, `AuthContext` can retrieve the current user profile through the shared API helper.
+
+```text
+AuthContext
+    |
+    v
+apiFetch("/api/users/profile")
+    |
+    v
+Backend User Profile API
+    |
+    v
+Updated User Data
+    |
+    v
+React State + localStorage
+```
 ---
 
 # Google OAuth Flow
 
 The frontend integrates Firebase Google authentication.
 
-Flow:
-
+Google authentication uses Firebase for the Google sign-in popup. After Firebase returns an ID token, the frontend sends that token to the backend using a native `fetch` request.
 ```text
-Google Login Button
-        │
-        ▼
-Firebase Authentication Popup
-        │
-        ▼
-Google Account Verification
-        │
-        ▼
-Firebase Token
-        │
-        ▼
-Backend API Verification
-        │
-        ▼
-JWT Authentication
+Google Sign-In
+    │
+    ▼
+Firebase Authentication
+    │
+    ▼
+Firebase ID Token
+    │
+    ▼
+Native fetch()
+    │
+    ▼
+POST /api/auth/google-login
+    │
+    ▼
+Backend Token Verification
+    │
+    ▼
+Application JWT
+    │
+    ▼
+AuthContext.login()
+    │
+    ▼
+Protected Routes
 ```
-
 ---
 
 # ProtectedRoute Component
 
-The `ProtectedRoute` component prevents unauthorized access.
+`ProtectedRoute.jsx` controls access to authenticated routes using the authentication state and profile-completion status provided by `AuthContext`.
 
 Responsibilities:
 
-- Verify authentication token
-- Redirect unauthenticated users
-- Render child routes for authenticated users
+- Check whether the user is authenticated.
+- Redirect unauthenticated users to `/login`.
+- Redirect authenticated users with an incomplete profile to `/complete-profile`.
+- Allow authenticated users to access protected routes through React Router's `Outlet`.
+- Redirect users with completed profiles from `/complete-profile` to `/dashboard`.
 
-Example:
+## Route Access Logic
+
+### Unauthenticated User
+
+If `isAuthenticated` is false, the user is redirected to `/login`.
+
+### Authenticated User with an Incomplete Profile
+
+If the user is authenticated but their profile is incomplete, they are redirected to `/complete-profile`, unless they are already on that route.
+
+### Authenticated User with a Completed Profile
+
+If the user is authenticated and their profile is complete, they can access protected routes. If they are on `/complete-profile`, they are redirected to `/dashboard`.
 
 ```text
-If token exists → Render page
-If token missing → Redirect to login
+Protected Route
+      |
+      v
+Authenticated?
+  |           |
+  No          Yes
+  |            |
+  v            v
+/login    Profile Complete?
+              |         |
+              No        Yes
+              |          |
+              v          v
+     /complete-profile  Allow Protected Route
 ```
 
+Implementation: `ProtectedRoute.jsx` uses `Navigate` for redirects and `Outlet` to render nested routes. It also uses `useNavigate` in an effect to redirect users whose profiles are complete, where applicable.
 ---
 
 # AdminRoute Component
 
-The `AdminRoute` component protects learner-side admin entry points and hands authorized admins off to the dedicated Frontend Admin application.
+`AdminRoute.jsx` provides role-based protection for admin routes.
 
-Checks include:
+The component performs the following checks:
 
-- Authentication check
-- Role validation for `admin` and `superadmin`
-- Redirect unauthenticated users to `/login`
-- Redirect normal users away from admin entry points
-- Redirect authorized admins to `frontendAdmin`
+1. If the user is not authenticated, redirect to `/login`.
+2. If the authenticated user has not yet loaded, display a loading state.
+3. Only users with one of the following roles are allowed:
+   * `admin`
+   * `superadmin`
+4. Other authenticated users are redirected to `/`.
 
-Default handoff targets:
-
+## Admin Route Access Logic
 | Learner Route  | Frontend Admin Target |
 | -------------- | --------------------- |
 | /admin         | /dashboard            |
 | /admin/users   | /users                |
 | /admin/courses | /courses              |
 
-The learner frontend does not render duplicate or placeholder admin pages.
+```text id="7d3q1x"
+User
+  │
+  ▼
+Authenticated?
+  ├── No ───────► /login
+  │
+  └── Yes
+       │
+       ▼
+User Loaded?
+  ├── No ───────► Loading...
+  │
+  └── Yes
+       │
+       ▼
+Role = admin or superadmin?
+  ├── No ───────► /
+  │
+  └── Yes ──────► Admin Route
+```
 
 ---
 
@@ -564,7 +677,7 @@ Discussion Page
 Community Components
        │
        ▼
-Axios Requests
+HTTP API Requests
        │
        ▼
 Backend Community APIs
@@ -620,7 +733,10 @@ The analytics module provides:
 Backend Analytics Data
           │
           ▼
-Axios Fetch Requests
+HTTP API Requests
+          │
+          ▼
+Analytics Data Processing
           │
           ▼
 Recharts Visualization
@@ -763,41 +879,96 @@ Responsive techniques:
 
 # API Communication Layer
 
-The frontend communicates with backend APIs using Axios.
+The frontend uses multiple HTTP communication patterns to interact with the backend REST APIs. There is no single centralized HTTP client used by every request.
 
-Responsibilities:
+The currently observed patterns are:
 
-- GET requests
-- POST requests
-- PUT requests
-- DELETE requests
-- Authentication headers
+- Shared `apiFetch` helper
+- Direct native `fetch()` calls
+- Direct Axios calls
 
----
+These patterns reflect the current implementation. No migration to a single centralized HTTP client is documented as part of this change.
 
-# Axios Architecture
+## 1. Shared `apiFetch` Helper
+
+The shared API helper is located at `frontend/src/lib/api.js`. It wraps the browser's native `fetch()` API and provides common request headers, JWT token attachment, and centralized handling of HTTP `401 Unauthorized` responses.
+
+### Base URL Configuration
+
+The API base URL is configured using the `VITE_API_BASE_URL` environment variable.
+
+- If `VITE_API_BASE_URL` is defined, its value is used.
+- Otherwise, the helper defaults to `http://localhost:5000`.
+
+### Request Handling
+
+The `apiFetch(url, options = {})` helper is implemented in `frontend/src/lib/api.js`.
+
+1. Constructs the target URL using `API_BASE_URL` when the supplied URL starts with `/api/`.
+2. Reads the current JWT token from `localStorage`.
+3. Adds an `Authorization: Bearer <token>` header for protected API URLs when a token exists and the caller has not supplied an Authorization header.
+4. Sets `Content-Type: application/json` when the request body is a string and no Content-Type header has been supplied.
+5. Preserves the caller's request options and headers.
+6. Returns the Fetch API `Response` object, including when the response status is `401 Unauthorized`.
+
+### Centralized 401 Handling
+
+When `apiFetch()` receives a `401 Unauthorized` response, it calls the shared `handleUnauthorized()` function.
+
+The handler performs authentication cleanup only when all relevant conditions are met:
+
+- The URL belongs to a protected API endpoint. Requests under `/api/auth/` are excluded.
+- The request has an `Authorization` header beginning with `Bearer `.
+- The token in that header matches the current token stored in `localStorage`.
+
+When these conditions are satisfied, the handler removes `token`, `user`, and `preferencesSkipped` from `localStorage` and dispatches the `auth:session-expired` browser event.
+
+The handler does not unconditionally clear authentication state for every `401`. The `apiFetch()` helper preserves its `Response` return contract and does not return `null` simply because the response status is `401`.
+
+## 2. Direct Native `fetch()` Calls
+
+Some frontend features use the browser's native `fetch()` API directly instead of using `apiFetch()`.
+
+Examples include:
+
+- Registration: `POST /api/auth/register`
+- Google login: `POST /api/auth/google-login`
+
+These requests do not automatically inherit the token attachment or centralized `401` handling implemented in `apiFetch()`. Their URL construction, headers, and error handling depend on their individual implementations.
+
+## 3. Direct Axios Calls
+
+Some frontend features use Axios directly. For example, `LoginPage.jsx` sends the email/password login request using Axios:
+
+- `POST /api/auth/login`
+
+The shared API module, `frontend/src/lib/api.js`, installs a global Axios response interceptor.
+
+The interceptor inspects both successful Axios responses and rejected Axios responses. When a response has a `401 Unauthorized` status, it passes the request URL and Authorization header to the shared `handleUnauthorized()` function.
+
+The shared handler applies the same protected API URL, Bearer token, and current-token checks used by `apiFetch()`.
+
+Therefore, direct Axios requests do not automatically bypass centralized session-expiration handling. However, authentication cleanup occurs only when the shared handler's conditions are satisfied.
+
+The interceptor preserves successful Axios responses and re-rejects failed Axios requests after inspecting their responses.
+
+### 4. Current API Architecture
 
 ```text
 React Components
-        │
-        ▼
-Axios Service Layer
-        │
-        ▼
-Backend REST APIs
+       |
+   +---+----------+
+   |              |
+   v              v
+apiFetch()      fetch()       Axios
+   |              |             |
+   +--------------+-------------+
+                  |
+                  v
+           Backend REST APIs
 ```
 
----
-
-# Axios Features
-
-Features include:
-
-- Base URL configuration
-- Token attachment
-- Error interception
-- Centralized requests
-
+The frontend uses multiple HTTP request patterns, including `apiFetch()`, direct native `fetch()`, and direct Axios calls. The shared `apiFetch()` helper and the global Axios response interceptor both use `handleUnauthorized()` for eligible `401 Unauthorized` responses. Direct native `fetch()` calls do not automatically pass through either mechanism. URL construction, authentication headers, and other error handling depend on the individual request implementation.
 ---
 
 # Error Handling System
@@ -842,7 +1013,11 @@ Improve user experience during asynchronous operations.
 
 # Environment Variables
 
-## Required Variables
+The frontend uses Vite environment variables for backend and Firebase configuration.
+
+## Variables Validated During Startup
+
+The Vite configuration validates the following variables:
 
 ```env
 VITE_API_BASE_URL=
@@ -854,14 +1029,7 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 ```
 
-## Optional Variables
-
-```env
-VITE_ADMIN_APP_URL=http://localhost:5174
-```
-
-`VITE_ADMIN_APP_URL` controls where authorized learner `/admin` handoff routes send administrators. If it is not set, the learner frontend defaults to `http://localhost:5174`, which is the local development URL for the `frontendAdmin` application.
-
+All required values must be configured according to the validation rules in `frontend/vite.config.js`.
 ---
 
 # Vite Configuration
@@ -876,21 +1044,21 @@ VITE_ADMIN_APP_URL=http://localhost:5174
 ---
 
 # API Proxy System
+During local development, Vite can proxy matching relative `/api` requests to the configured backend.
 
 ```text
 Frontend Request
-      │
-      ▼
-Vite Proxy
-      │
-      ▼
+      |
+      v
+Vite Development Server
+      |
+      v
 Backend API
 ```
 
-Purpose:
+The proxy applies only to requests sent to the Vite development server using matching relative URLs. Requests sent directly to an absolute backend URL bypass the Vite proxy.
 
-Prevent CORS issues during local development.
-
+The proxy can help avoid browser cross-origin issues during local development, but it does not automatically apply to every API request.
 ---
 
 # Firebase Integration
@@ -968,7 +1136,13 @@ Techniques include:
 
 ## JWT Protection
 
-Tokens are attached to protected requests.
+The shared `apiFetch()` helper reads the JWT from `localStorage` and adds it to the `Authorization` header when a token exists.
+
+```http
+Authorization: Bearer <token>
+```
+
+This behavior applies to requests made through `apiFetch()`. Other request implementations may handle authentication separately.
 
 ---
 
@@ -977,6 +1151,23 @@ Tokens are attached to protected requests.
 Unauthorized users cannot access protected pages.
 
 ---
+
+## Current Admin Frontend Status
+
+The current `frontend` application defines admin routes protected by `AdminRoute`, but their route elements are currently placeholders.
+
+Current routes:
+
+| Route | Description |
+|---|---|
+| `/admin` | Redirects to the admin dashboard at `/dashboard` |
+| `/admin/users` | Redirects to user management at `/users` |
+| `/admin/courses` | Redirects to course management at `/courses` |
+
+These routes hand off to the separate `frontendAdmin` application. Access is controlled by the learner frontend's admin route protection.
+These routes demonstrate the current routing and role-based access control (RBAC) structure. However, they should not be described as fully implemented admin dashboard pages.
+
+The learner-facing `frontend` application provides protected admin handoff routes that redirect authorized administrators to the separate `frontendAdmin` application. The admin dashboard and management pages are implemented in `frontendAdmin/`, rather than as placeholder pages in the learner-facing frontend.
 
 ## Input Validation
 
@@ -997,7 +1188,47 @@ Frontend validates:
 cd frontend
 npm install
 ```
+## Vite API Proxy
 
+Vite is configured with a development proxy for requests beginning with `/api`.
+
+The development server runs on `http://localhost:5173`.
+
+In `frontend/vite.config.js`, requests beginning with `/api` are proxied to the backend URL configured by `VITE_API_BASE_URL`.
+
+### Proxy Configuration
+
+```javascript
+proxy: {
+  "/api": {
+    target: env.VITE_API_BASE_URL,
+    changeOrigin: true,
+  },
+}
+```
+
+### Request Flow
+
+```text
+Browser
+   |
+   | Relative /api request
+   v
+Vite Development Server
+   |
+   v
+Backend API
+```
+
+### Important Distinction
+
+The Vite proxy is a development-server configuration. It handles requests sent to the Vite development server using relative `/api` URLs.
+
+- **Relative URLs:** A request such as `fetch('/api/auth/register')` uses the Vite proxy when sent to the Vite development server.
+- **Absolute URLs:** A request using a full backend URL communicates directly with that backend and bypasses the Vite proxy.
+- **`apiFetch()`:** The helper in `frontend/src/lib/api.js` constructs request URLs using `API_BASE_URL`. It defaults to `http://localhost:5000` when `VITE_API_BASE_URL` is not set, so these requests bypass the Vite proxy.
+
+The actual request path depends on how each API call constructs its URL.
 ---
 
 # Development Server
