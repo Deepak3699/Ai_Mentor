@@ -1,31 +1,7 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/db.js";
+import { defineCourse } from "../../packages/shared-models/Course.js";
 
-const Course = sequelize.define(
-  "Course",
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
-    title: DataTypes.STRING,
-    category: DataTypes.STRING,
-    priceValue: DataTypes.FLOAT,
-    currency: DataTypes.STRING,
-    status: {
-      type: DataTypes.STRING,
-      defaultValue: "published",
-      validate: {
-        isIn: [["published", "disabled", "deleted"]],
-      },
-    },
-  },
-  {
-    timestamps: true,
-    tableName: "Courses",
-    sync: { alter: false },
-  }
-);
+const Course = defineCourse(sequelize, DataTypes);
 
 export default Course;

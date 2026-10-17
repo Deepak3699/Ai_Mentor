@@ -23,9 +23,28 @@ export const getAllCourses = async (req, res) => {
 
     const courses = await Course.findAll({
       where,
-      attributes: ["id", "title", "category", "priceValue", "currency", "status", "createdAt", "updatedAt"],
+      attributes: [
+        "id",
+        "title",
+        "category",
+        "categoryColor",
+        "lessons",
+        "lessonsCount",
+        "level",
+        "price",
+        "priceValue",
+        "currency",
+        "rating",
+        "students",
+        "studentsCount",
+        "image",
+        "status",
+        "createdAt",
+        "updatedAt",
+      ],
       order: [["createdAt", "DESC"]],
     });
+
     res.status(200).json({ success: true, data: courses });
   } catch (error) {
     console.error("GET COURSES ERROR:", error.message);
@@ -40,15 +59,62 @@ export const getAllCourses = async (req, res) => {
  */
 export const createCourse = async (req, res) => {
   try {
-    const { title, category, priceValue, currency } = req.body;
-    if (!title) return res.status(400).json({ success: false, message: "Title is required" });
-    const course = await Course.create({
+    const {
       title,
       category,
-      priceValue: parseFloat(priceValue) || 0,
+      categoryColor,
+      lessons,
+      lessonsCount,
+      level,
+      price,
+      priceValue,
+      currency,
+      rating,
+      students,
+      studentsCount,
+      image,
+    } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Title is required",
+      });
+    }
+
+    if (!category || !category.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Category is required",
+      });
+    }
+
+    const parsedPrice = Number(priceValue ?? 0);
+
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Price value must be a valid non-negative number",
+      });
+    }
+
+    const course = await Course.create({
+      title: title.trim(),
+      category: category.trim(),
+      categoryColor,
+      lessons,
+      lessonsCount,
+      level,
+      price,
+      priceValue: parsedPrice,
       currency: currency || "INR",
+      rating,
+      students,
+      studentsCount,
+      image,
       status: "published",
     });
+
     res.status(201).json({ success: true, data: course });
   } catch (error) {
     console.error("CREATE COURSE ERROR:", error.message);
