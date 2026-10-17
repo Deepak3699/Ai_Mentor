@@ -326,3 +326,9 @@ See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the complete workflow, commit-mes
 ## Project context
 
 AI Mentor was developed as part of an internship project. Rights remain with the respective authors and organization.
+## Python version
+Tested with Python 3.12.
+
+## Installing dependencies
+- Production: pip install -r requirements.txt
+- Development and tests: pip install -r requirements-dev.txt
