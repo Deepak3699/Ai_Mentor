@@ -1,6 +1,5 @@
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
 import { sequelize } from "../config/db.js";
-
 /* =========================
    HELPERS
 ========================= */
@@ -316,21 +315,54 @@ const addSubtopics = async (req, res) => {
   res.status(501).json({ message: "addSubtopics not implemented" });
 };
 
+const hasValidItems = (items) =>
+  Array.isArray(items) &&
+  items.every(
+    (item) =>
+      item !== null &&
+      typeof item === "object" &&
+      !Array.isArray(item) &&
+      typeof item.title === "string" &&
+      item.title.trim().length > 0
+  ) &&
+  new Set(
+    items.map((item) => item.title.trim().toLowerCase())
+  ).size === items.length;
+
+
+const hasValidLessons = (lessons) =>
+  hasValidItems(lessons) &&
+  lessons.every(
+    (lesson) =>
+      (lesson.duration === undefined ||
+        typeof lesson.duration === "string") &&
+      (lesson.type === undefined || typeof lesson.type === "string")
+  );
+
 const addLessons = async (req, res) => {
   try {
     const { moduleId } = req.params;
-    const { lessons } = req.body;
 
-    const createdLessons = await sequelize.transaction(async (transaction) => {
-      const maxOrder =
-        (await Lesson.max("order", {
-          where: { moduleId },
-          transaction,
-        })) || 0;
+    const lessons = req.body?.lessons;
 
-      return Promise.all(
-        lessons.map((lesson, index) =>
-          Lesson.create(
+    if (!hasValidLessons(lessons)) {
+      return res.status(400).json({
+        message: "Invalid lessons payload",
+      });
+    }
+
+    const createdLessons = await sequelize.transaction(
+      async (transaction) => {
+        const maxOrder =
+          (await Lesson.max("order", {
+            where: { moduleId },
+            transaction,
+          })) || 0;
+
+        const results = [];
+
+        for (const [index, lesson] of lessons.entries()) {
+          const createdLesson = await Lesson.create(
             {
               moduleId,
               title: lesson.title,
@@ -338,40 +370,74 @@ const addLessons = async (req, res) => {
               type: lesson.type || "video",
               order: maxOrder + index + 1,
             },
-            { transaction },
-          ),
-        ),
-      );
-    });
+            { transaction }
+          );
 
-    res.status(201).json(createdLessons);
-  } catch {
-    res.status(500).json({ message: "Failed to add lessons" });
+          results.push(createdLesson);
+        }
+
+        return results;
+      }
+    );
+
+    return res.status(201).json(createdLessons);
+  } catch (error) {
+    console.error("Failed to add lessons:", error);
+    return res.status(500).json({
+      message: "Failed to add lessons",
+    });
   }
 };
 
 const addModules = async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { modules } = req.body;
+    const modules = req.body?.modules;
 
-    const maxOrder = (await Module.max("order", { where: { courseId } })) || 0;
 
-    const createdModules = await Promise.all(
-      modules.map((m, index) =>
-        Module.create({
-          courseId,
-          title: m.title,
-          order: maxOrder + index + 1,
-        }),
-      ),
+    if (!hasValidItems(modules)) {
+      return res.status(400).json({
+        message: "Invalid modules payload",
+      });
+    }
+
+    const createdModules = await sequelize.transaction(
+      async (transaction) => {
+        const maxOrder =
+          (await Module.max("order", {
+            where: { courseId },
+            transaction,
+          })) || 0;
+
+        const results = [];
+
+        for (const [index, module] of modules.entries()) {
+          const createdModule = await Module.create(
+            {
+              courseId,
+              title: module.title,
+              order: maxOrder + index + 1,
+            },
+            { transaction }
+          );
+
+          results.push(createdModule);
+        }
+
+        return results;
+      }
     );
 
-    res.status(201).json(createdModules);
-  } catch {
-    res.status(500).json({ message: "Failed to add modules" });
+    return res.status(201).json(createdModules);
+  } catch (error) {
+    console.error("Failed to add modules:", error);
+    return res.status(500).json({
+      message: "Failed to add modules",
+    });
+
   }
 };
+
 
 const generateCourseSyllabusWithAI = async (req, res) => {
   try {
