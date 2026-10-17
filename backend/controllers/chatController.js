@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import Lesson from "../models/Lesson.js";
 import Preference from "../models/Preference.js";
 // import { GoogleGenAI } from "@google/genai";
 import { detectIntent } from "../services/intentService.js";
@@ -9,7 +10,6 @@ import { detectNavigation } from "../services/navigationService.js";
 // const ai = new GoogleGenAI({
 //   apiKey: process.env.GEMINI_API_KEY,
 // });
-
 
 export const getChatContext = async (req, res) => {
   try {
@@ -33,7 +33,6 @@ export const getChatContext = async (req, res) => {
 
       preferences: preferences || {},
     });
-
   } catch (error) {
     console.error(error);
 
@@ -91,9 +90,7 @@ export const chatWithAssistant = async (req, res) => {
         });
       }
 
-      const list = courses
-        .map((course, index) => `${index + 1}. ${course.courseTitle}`)
-        .join("\n");
+      const list = courses.map((course, index) => `${index + 1}. ${course.courseTitle}`).join("\n");
 
       return res.json({
         reply: `Hi ${userName}, you are currently enrolled in:\n\n${list}`,
@@ -110,19 +107,25 @@ export const chatWithAssistant = async (req, res) => {
 
       return res.json({
         reply: `
-        Learning Goal: ${preferences.learning_goal}
+        Learning Goal: ${preferences.learning_goal || "Unknown"}
 
-        Experience Level: ${preferences.experience_level}
+        Experience Level: ${preferences.experience_level || "Unknown"}
+        
+        Explanation Type: ${preferences.explanation_type || "Unknown"}
 
-        Learning Style: ${preferences.learning_style}
+        Learning Style: ${preferences.learning_style || "Unknown"}
 
-        Weekly Commitment: ${preferences.weekly_commitment}
-                `,
+        Teaching Pace: ${preferences.teaching_pace || "Unknown"}
+
+        Example Type: ${preferences.example_type || "Unknown"}
+
+        Focus Area: ${preferences.focus_area || "Unknown"}
+        `,
       });
     }
 
     //recommendation
-    if(intent.type === "recommendation") {
+    if (intent.type === "recommendation") {
       const courses = user.purchasedCourses || [];
       if (!courses.length) {
         return res.json({
@@ -130,31 +133,44 @@ export const chatWithAssistant = async (req, res) => {
         });
       }
 
-      const course= courses[0];
+      const course = courses[0];
       return res.json({
         reply: `I recommend continuing ${course.courseTitle}.`,
       });
     }
 
-    //current lesson
-    if(intent.type === "current_lesson"){
+    // Current lesson and resume navigation
+    if (intent.type === "current_lesson") {
       const courses = user.purchasedCourses || [];
-
-      const activeCourse = courses.find(
-        (c) => c.progress?.currentLesson
-      );
+      const activeCourse = courses.find((course) => course.progress?.currentLesson);
 
       if (!activeCourse) {
-        return res.json({
-          reply: "I couldn't find an active lesson.",
-        });
+        return res.json({ reply: "I couldn't find an active lesson." });
       }
 
-       return res.json({
-        reply: `You were last studying lesson ${activeCourse.progress.currentLesson} in ${activeCourse.courseTitle}.`,
+      const savedLesson = activeCourse.progress.currentLesson;
+      const lessonId =
+        typeof savedLesson === "object" && savedLesson !== null
+          ? (savedLesson.lessonId ?? savedLesson.id)
+          : null;
+
+      let lessonTitle =
+        typeof savedLesson === "object" && savedLesson !== null ? savedLesson.title : null;
+
+      if (lessonId && !lessonTitle) {
+        const lesson = await Lesson.findByPk(lessonId);
+        lessonTitle = lesson?.title;
+      }
+
+      const displayLesson =
+        lessonTitle || (lessonId ? `lesson ${lessonId}` : `lesson ${savedLesson}`);
+
+      return res.json({
+        reply: `You were last studying ${displayLesson} in ${activeCourse.courseTitle}.`,
+        route: activeCourse.courseId && lessonId ? `/learning/${activeCourse.courseId}` : null,
+        lessonId: lessonId || null,
       });
     }
-
     // Settings
     if (intent.type === "settings_info") {
       return res.json({
@@ -173,21 +189,18 @@ export const chatWithAssistant = async (req, res) => {
       const courseProgress = [];
 
       courses.forEach((course) => {
-        const completed =
-          course.progress?.completedLessons?.length || 0;
+        const completed = course.progress?.completedLessons?.length || 0;
 
         completedLessons += completed;
 
-        courseProgress.push(
-          `${course.courseTitle}: ${completed} completed lessons`
-        );
+        courseProgress.push(`${course.courseTitle}: ${completed} completed lessons`);
       });
 
       return res.json({
         reply: `Hi ${userName},
         You are enrolled in ${courses.length} course(s).
         Total completed lessons: ${completedLessons}
-        ${courseProgress.join("\n")}`
+        ${courseProgress.join("\n")}`,
       });
     }
 
@@ -200,42 +213,31 @@ export const chatWithAssistant = async (req, res) => {
       });
     }
 
-    const context = buildUserContext(
-      user,
-      preferences
-    );
+    const context = buildUserContext(user, preferences);
 
-    const geminiReply = await askGemini(
-      context,
-      message
-    );
+    const geminiReply = await askGemini(context, message);
 
     // Check if Gemini returned a route
     let route = null;
 
-    const routeMatch = geminiReply.match(
-      /ROUTE:(.+)/i
-    );
+    const routeMatch = geminiReply.match(/ROUTE:(.+)/i);
 
     if (routeMatch) {
       route = routeMatch[1].trim();
     }
 
     // Remove ROUTE from visible message
-    const cleanedReply = geminiReply.replace(
-      /ROUTE:.*/i,
-      ""
-    ).trim();
+    const cleanedReply = geminiReply.replace(/ROUTE:.*/i, "").trim();
 
     return res.json({
       reply: cleanedReply,
       route,
     });
-    } catch (error) {
-      console.error("CHAT ERROR:", error);
+  } catch (error) {
+    console.error("CHAT ERROR:", error);
 
-      res.status(500).json({
-        message: "Failed to process chat",
-      });
-    }
+    res.status(500).json({
+      message: "Failed to process chat",
+    });
+  }
 };

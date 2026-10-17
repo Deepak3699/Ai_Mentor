@@ -1,7 +1,7 @@
 import { DataTypes, Model } from "sequelize";
 import { sequelize } from "../config/db.js";
 
-class Payment extends Model { }
+class Payment extends Model {}
 
 Payment.init(
   {
@@ -102,7 +102,7 @@ Payment.init(
       { fields: ["razorpayOrderId"] },
       { fields: ["status"] },
     ],
-  }
+  },
 );
 
 export default Payment;

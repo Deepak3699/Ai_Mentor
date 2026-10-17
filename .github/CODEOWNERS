@@ -26,3 +26,6 @@
 /README.md              @Deepak3699 @Mugdha-Naik @NeerajSaini271
 /CONTRIBUTING.md        @Deepak3699 @Mugdha-Naik @NeerajSaini271
 /initalSetup.md         @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/.gitleaks.toml         @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/.gitleaksignore        @Deepak3699 @Mugdha-Naik @NeerajSaini271
+/scripts/test-secret-scan.sh @Deepak3699 @Mugdha-Naik @NeerajSaini271

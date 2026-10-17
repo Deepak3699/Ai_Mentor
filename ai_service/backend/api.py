@@ -3,6 +3,10 @@ import datetime
 import re
 import traceback
 import asyncio
+import logging
+import subprocess
+from contextlib import asynccontextmanager
+from job_shutdown import wait_for_jobs_to_finish
 import edge_tts
 import cloudinary
 import cloudinary.uploader
@@ -12,7 +16,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import json
+import hashlib
+import uuid
+import time
+from mutagen.mp3 import MP3
 from google import genai
+from google.genai import types
 from groq import Groq
 from cachetools import TTLCache
 
@@ -20,6 +29,7 @@ from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
     GROQ_API_KEY,
+    LLM_TIMEOUT_SECONDS,
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
@@ -35,18 +45,85 @@ from avatar_service import create_avatar_video
 # --------------------------
 # Cloudinary Config
 # --------------------------
-cloudinary.config(
-    cloud_name=CLOUDINARY_CLOUD_NAME,
-    api_key=CLOUDINARY_API_KEY,
-    api_secret=CLOUDINARY_API_SECRET,
-    secure=True,
-)
+if CLOUDINARY_ENABLED:
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+        secure=True,
+    )
 
 
 # --------------------------
 # FastAPI App
 # --------------------------
-app = FastAPI(title="AI Lesson Generator")
+logger = logging.getLogger(__name__)
+
+
+def log_event(level: str, message: str, **details):
+    """Write compact, scan-friendly service logs without exposing payloads or URLs."""
+    suffix = ""
+    visible = [f"{key}={value}" for key, value in details.items() if value not in (None, "")]
+    if visible:
+        suffix = " | " + " | ".join(visible)
+    print(f"[{level}] {message}{suffix}", flush=True)
+
+
+def short_error(error: Exception, limit: int = 180) -> str:
+    message = " ".join(str(error).split())
+    return message if len(message) <= limit else f"{message[: limit - 3]}..."
+
+
+def check_ffmpeg() -> None:
+    """Verify that FFmpeg is available before starting the service."""
+    try:
+        subprocess.run(
+            ["ffmpeg", "-version"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        logger.info("FFmpeg is available.")
+    except FileNotFoundError:
+        logger.error(
+            "FFmpeg is not installed or not available in PATH. "
+            "Install FFmpeg before starting the AI service."
+        )
+        raise RuntimeError(
+            "FFmpeg is required to start the AI service but was not found in PATH."
+        )
+    except subprocess.CalledProcessError as exc:
+        logger.error(
+            "FFmpeg availability check failed with exit code %s.",
+            exc.returncode,
+        )
+        raise RuntimeError(
+            "FFmpeg is required to start the AI service but the availability check failed."
+        ) from exc
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global shutting_down
+
+    check_ffmpeg()
+    shutting_down = False
+    yield
+
+    shutting_down = True
+    await wait_for_jobs_to_finish(
+        active_jobs=active_jobs,
+        job_status=job_status,
+        shutdown_failed_jobs=shutdown_failed_jobs,
+        timeout_seconds=0,
+    )
+
+
+app = FastAPI(
+    title="AI Lesson Generator",
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -61,26 +138,33 @@ app.add_middleware(
 # GEMINI Client (Primary)
 # --------------------------
 gemini_client = genai.Client(
-    api_key=GEMINI_API_KEY
-)
+    api_key=GEMINI_API_KEY,
+    http_options=types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000),
+) if GEMINI_API_KEY else None
 
 
 # --------------------------
 # GROQ Client (Fallback)
 # --------------------------
 groq_client = Groq(
-    api_key=GROQ_API_KEY
-)
+    api_key=GROQ_API_KEY,
+    timeout=LLM_TIMEOUT_SECONDS,
+) if GROQ_ENABLED else None
 
 
 # --------------------------
 # Request Model
 # --------------------------
 class LessonRequest(BaseModel):
-    course: str
-    topic: str
-    celebrity: str
+    course: str = Field(..., min_length=1, max_length=100)
+    topic: str = Field(..., min_length=1, max_length=200)
+    celebrity: str = Field("modi", min_length=1, max_length=50)
+    language: str = "English"
     preferences: dict | None = None
+    voice_id: str | None = None
+    gender: str | None = None
+    speech_rate: str | None = "+0%"
+    speech_pitch: str | None = "+0Hz"
 
 
 class SyllabusRequest(BaseModel):
@@ -97,9 +181,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 async def generate_tts(text: str, output_file: str):
     communicate = edge_tts.Communicate(
         text=text,
-        voice="en-US-GuyNeural",
-        rate="+0%",
-        pitch="+0Hz"
+        voice=voice_id,
+        rate=rate,
+        pitch=pitch
     )
     await communicate.save(output_file)
 
@@ -396,12 +480,11 @@ def generate_syllabus(data: SyllabusRequest):
     """
 
     prompt = f"""
-    
     Create a highly structured course syllabus for a course titled '{data.course_title}'.
     Category: {data.category or 'General Education'}
-    
+
     You MUST respond with ONLY a valid JSON object. Do not include markdown formatting like ```json.
-    
+
     The JSON structure must match this exactly:
     {{
       "modules": [
@@ -417,7 +500,7 @@ def generate_syllabus(data: SyllabusRequest):
         }}
       ]
     }}
-    
+
     Requirements:
     - Create exactly 3 modules.
     - Each module should have exactly 2 lessons.
@@ -430,8 +513,11 @@ def generate_syllabus(data: SyllabusRequest):
         )
 
         response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
+            model=GEMINI_MODEL,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                http_options=types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000)
+            ),
         )
 
         text = response.text.strip()
@@ -463,6 +549,7 @@ def generate_syllabus(data: SyllabusRequest):
                 ],
                 temperature=0.7,
                 max_tokens=1000,
+                timeout=LLM_TIMEOUT_SECONDS,
             )
 
             text = (
@@ -531,7 +618,8 @@ def generate_lesson(
         "filename": f"{base_filename}.mp4",
         "text_file": f"{base_filename}.txt",
         "audio_file": f"{base_filename}.mp3",
-        "jobId": base_filename
+        "jobId": base_filename,
+        "cached": False,
     }
 
 
@@ -543,8 +631,32 @@ def process_lesson(
     base_filename: str
 ):
 
-    print("\n📥 RAW REQUEST DATA:")
-    print(data.dict())
+
+async def process_lesson(data: LessonRequest, base_filename: str):
+    log_event("QUEUE", "Lesson request accepted", job=base_filename, topic=data.topic, source=data.celebrity)
+
+    start_time = time.time()
+    provider_used = "unknown"
+    model_used = "unknown"
+    audio_seconds = 0.0
+
+    # INITIALIZE job_status ENTRY IF IT DOESN'T EXIST (For Tests)
+    if base_filename not in job_status:
+        job_status[base_filename] = {
+            "status": "processing",
+            "meta": {
+                "timestamps": {
+                    "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                }
+            }
+        }
+    else:
+        job_status[base_filename]["status"] = "processing"
+        if "meta" not in job_status[base_filename]:
+            job_status[base_filename]["meta"] = {"timestamps": {}}
+        if "timestamps" not in job_status[base_filename]["meta"]:
+            job_status[base_filename]["meta"]["timestamps"] = {}
+        job_status[base_filename]["meta"]["timestamps"]["started_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     try:
         print(
@@ -557,11 +669,11 @@ def process_lesson(
         if data.preferences:
             preferences_text = f"""
         User Preferences:
-        - Learning Goal: {data.preferences.get("learning_goal", "Not specified")}
-        - Interested Topics: {", ".join(data.preferences.get("interested_topics", [])) if isinstance(data.preferences.get("interested_topics"), list) else data.preferences.get("interested_topics", "Not specified")}
-        - Experience Level: {data.preferences.get("experience_level", "Not specified")}
-        - Weekly Commitment: {data.preferences.get("weekly_commitment", "Not specified")}
+        - Explanation Type: {data.preferences.get("explanation_type", "Not specified")}
         - Learning Style: {data.preferences.get("learning_style", "Not specified")}
+        - Teaching Pace: {data.preferences.get("teaching_pace", "Not specified")}
+        - Example Type: {data.preferences.get("example_type", "Not specified")}
+        - Focus Area: {data.preferences.get("focus_area", "Not specified")}
         """
         else:
             preferences_text = (
@@ -572,9 +684,7 @@ def process_lesson(
         Create a 50 word educational explanation about '{data.topic}' in the subject '{data.course}'.
 
         Rules:
-        - 100% English only
-        - No Hindi
-        - No Hinglish
+        - {data.language or "English"} only
         - Simple classroom teaching tone
         - Between 45 and 60 words
 
@@ -583,9 +693,11 @@ def process_lesson(
         {preferences_text}
 
         Instructions:
-        - Adapt explanation based on user's experience level
-        - Adjust depth based on learning goal
-        - Match explanation style with preferred learning style
+        - Adapt the explanation to the user's preferred explanation type.
+        - Adjust the teaching speed and depth to match the user's preferred teaching pace.
+        - Use examples that match the user's preferred example type.
+        - Focus the explanation on the user's selected focus area.
+        - Match the explanation style with the user's preferred learning style.
         """
 
         print("\n📊 USER PREFERENCES:\n")
@@ -603,8 +715,11 @@ def process_lesson(
             )
 
             response = gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
+                model=GEMINI_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    http_options=types.HttpOptions(timeout=LLM_TIMEOUT_SECONDS * 1000)
+                ),
             )
 
             script = (
@@ -638,6 +753,7 @@ def process_lesson(
                     ],
                     temperature=0.7,
                     max_tokens=300,
+                    timeout=LLM_TIMEOUT_SECONDS,
                 )
 
                 script = (
@@ -770,12 +886,28 @@ def process_lesson(
                 "failed"
             )
 
+                    if "meta" not in job_status[base_filename]:
+                        job_status[base_filename]["meta"] = {
+                            "timestamps": {}
+                        }
+
+                    if "timestamps" not in job_status[base_filename]["meta"]:
+                        job_status[base_filename]["meta"]["timestamps"] = {}
+
+                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                        datetime.datetime.now(
+                            datetime.timezone.utc
+                        ).isoformat()
+                    )
+
+            remove_failed_generation_cache(base_filename)
             return
 
         # --------------------------
         # Try AI Avatar Video
         # --------------------------
         avatar_video_url = None
+        renderer_used = "did"
 
         try:
             print(
@@ -977,6 +1109,23 @@ def process_lesson(
             )
 
     except Exception as e:
+        if base_filename not in shutdown_failed_jobs:
+            if base_filename in job_status:
+                job_status[base_filename]["status"] = "failed"
+
+                if "meta" not in job_status[base_filename]:
+                    job_status[base_filename]["meta"] = {
+                        "timestamps": {}
+                    }
+
+                if "timestamps" not in job_status[base_filename]["meta"]:
+                    job_status[base_filename]["meta"]["timestamps"] = {}
+
+                job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
+                    datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat()
+                )
 
         update_job_status(
             base_filename,
@@ -987,4 +1136,5 @@ def process_lesson(
             f"❌ Error generating lesson: {e}"
         )
 
+        log_event("ERROR", "Lesson generation failed", job=base_filename, error=short_error(e))
         traceback.print_exc()
