@@ -1,0 +1,3 @@
+-r requirements.txt
+pytest==X.Y.Z
+pytest-asyncio==X.Y.Z
