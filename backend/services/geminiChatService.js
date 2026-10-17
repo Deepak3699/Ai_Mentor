@@ -59,7 +59,21 @@ Rules:
 
     return response.text;
   } catch (error) {
-    console.error("Gemini API error:", error);
+    const rawStatus = error?.status ?? error?.code;
+    const status = Number(rawStatus);
+    const errMsg = error?.message ?? "";
+
+    console.error(`GEMINI ERROR [status: ${rawStatus ?? "unknown"}]:`, errMsg);
+
+    // Rate limit (429) or quota exceeded
+    if (status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(errMsg)) {
+      return "I am receiving too many requests right now. Please wait a moment and ask me again!";
+    }
+
+    // Gemini outage (500/503)
+    if (status >= 500 || /UNAVAILABLE|overloaded/i.test(errMsg)) {
+      return "The AI service is temporarily unavailable. Please try again shortly.";
+    }
 
     return "The AI Assistant is currently unavailable. Please try again later.";
   }
