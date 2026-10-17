@@ -489,7 +489,16 @@ const updateUserProfile = async (req, res) => {
 
     // Avatar Upload Handling
     if (req.file) {
+      const previousAvatar = user.avatar_url;
       user.avatar_url = `/uploads/${req.file.filename}`;
+      if (previousAvatar?.startsWith("/uploads/")) {
+        const oldFilename = path.basename(previousAvatar);
+        const uploadRoot = path.resolve("uploads");
+        const oldPath = path.resolve(uploadRoot, oldFilename);
+        if (path.dirname(oldPath) === uploadRoot) {
+          fs.promises.unlink(oldPath).catch(() => {});
+        }
+      }
     }
 
     // Update text fields
@@ -529,6 +538,9 @@ const updateUserProfile = async (req, res) => {
       purchasedCourses: user.purchasedCourses,
     });
   } catch (error) {
+    if (req.file?.path) {
+      fs.promises.unlink(req.file.path).catch(() => {});
+    }
     console.error("UPDATE PROFILE ERROR:", error);
     res.status(500).json({ message: "Server error" });
   }
@@ -603,6 +615,9 @@ const completeProfile = async (req, res) => {
 
     // Prevent re-completion for already completed profiles
     if (user.isProfileComplete) {
+      if (req.file?.path) {
+        fs.promises.unlink(req.file.path).catch(() => {});
+      }
       // Return gracefully instead of erroring, letting the frontend handle redirection
       return res.json({
         id: user.id,
@@ -685,6 +700,9 @@ const completeProfile = async (req, res) => {
       purchasedCourses: user.purchasedCourses,
     });
   } catch (error) {
+    if (req.file?.path) {
+      fs.promises.unlink(req.file.path).catch(() => {});
+    }
     console.error("COMPLETE PROFILE ERROR:", error);
 
     res.status(500).json({
