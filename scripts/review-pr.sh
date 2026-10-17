@@ -20,15 +20,29 @@
 #   ./review-pr.sh 123            # review PR number 123
 #   ./review-pr.sh feature/foo    # review a branch you already have locally
 #   BASE_REF=upstream/main ./review-pr.sh 123   # compare against another base
+#   NO_FETCH=1 ./review-pr.sh 123               # do not fetch the base first
 #
 # REQUIREMENTS
 #   - GitHub CLI:  https://cli.github.com   (run: gh auth login)
 #   - Run it from the repository root
 #   - npm install done in every service you want linted/built (npm run setup)
 #
+# BASE BRANCH
+#   The base is BASE_REF, or upstream/main when an `upstream` remote exists,
+#   otherwise origin/main. It is fetched first so a stale local copy is never
+#   used, and the exact base commit is printed. With NO_FETCH=1 (or a base that
+#   is not a remote branch) nothing is fetched and the verdict carries a warning.
+#
+# YOUR LOCAL WORK IS NEVER TOUCHED
+#   If you have uncommitted changes or untracked files (ignored files such as
+#   node_modules are fine) the script stops before switching branches.
+#   Your original branch (or detached commit) is restored on exit, on Ctrl+C,
+#   and when a check fails; if it cannot be restored the script exits 1.
+#
 # EXIT CODES
 #   0  every required check ran and passed, no warnings
-#   1  a check failed, or the review could not be run (bad input, no checkout)
+#   1  a check failed, or the review could not be run (bad input, uncommitted
+#      work, fetch or checkout failure, original branch not restored)
 #   2  incomplete or warnings: a required check was skipped (for example
 #      node_modules missing), or there are warnings a human must read.
 #      This is never a safe-to-merge result.
@@ -61,9 +75,22 @@ fi
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
 
-BASE_REF="${BASE_REF:-origin/main}"
 ORIGINAL_REF=$(git symbolic-ref -q --short HEAD || git rev-parse HEAD)
+
+# Refuse to switch branches over local work (tracked changes or untracked files)
+DIRTY=$(git status --porcelain)
+if [ -n "$DIRTY" ]; then
+  echo "${RED}You have uncommitted or untracked files. Nothing was changed.${RST}"
+  head -20 <<<"$DIRTY" | sed 's/^/  /'
+  echo "  Commit, stash (git stash -u) or move them, then run this again."
+  exit 1
+fi
+
+if [ -z "${BASE_REF:-}" ]; then
+  if git remote get-url upstream >/dev/null 2>&1; then BASE_REF=upstream/main; else BASE_REF=origin/main; fi
+fi
 TMP_DIR=""
+SWITCHED=0
 
 # Results of every check, so the summary can say exactly what happened
 N_PASS=0; N_FAIL=0; N_WARN=0; N_SKIP=0
@@ -81,13 +108,21 @@ record() {
 
 cleanup() {
   local status=$?
-  echo
-  echo "${BLU}Returning to branch:${RST} $ORIGINAL_REF"
-  git checkout "$ORIGINAL_REF" >/dev/null 2>&1 || echo "${YEL}Could not return to $ORIGINAL_REF${RST}"
+  trap - EXIT
+  if [ "$SWITCHED" -eq 1 ]; then
+    echo
+    echo "${BLU}Returning to:${RST} $ORIGINAL_REF"
+    if ! git checkout -q "$ORIGINAL_REF" >/dev/null 2>&1; then
+      echo "${RED}Could not return to $ORIGINAL_REF. Run: git checkout $ORIGINAL_REF${RST}" >&2
+      [ "$status" -ge 128 ] || status=1
+    fi
+  fi
   rm -rf "$TMP_DIR"
   exit "$status"
 }
 trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM HUP
 
 TMP_DIR=$(mktemp -d)
 
@@ -97,9 +132,31 @@ head2() { echo; echo "${BLD}${BLU}$1${RST}"; hr; }
 # changed_matches <regex> — true if any changed file matches
 changed_matches() { grep -qE "$1" <<<"$CHANGED"; }
 
+# fetch_base — make sure BASE_REF is current, or say clearly that it is not
+fetch_base() {
+  local remote="${BASE_REF%%/*}" branch="${BASE_REF#*/}"
+  if [ "$remote" = "$BASE_REF" ] || ! grep -qxF -- "$remote" <<<"$(git remote)"; then
+    echo "  ${YEL}Base '$BASE_REF' is not a remote branch, so it was not fetched.${RST}"
+    record WARN "base $BASE_REF not fetched (not a remote branch)"
+  elif [ "${NO_FETCH:-0}" = "1" ]; then
+    echo "  ${YEL}NO_FETCH=1: using the local copy of $BASE_REF, which may be stale.${RST}"
+    record WARN "base $BASE_REF not fetched (NO_FETCH=1)"
+  elif git fetch --quiet "$remote" "$branch" 2>"$TMP_DIR/fetch.err"; then
+    echo "  Fetched $BASE_REF"
+  else
+    echo "${RED}Could not fetch $BASE_REF:${RST}"
+    sed 's/^/  /' "$TMP_DIR/fetch.err"
+    echo "  Check your network and remote, or set NO_FETCH=1 to use the local copy."
+    exit 1
+  fi
+}
+
 # -----------------------------------------------------------------------------
 head2 "1. GETTING THE CODE"
 # -----------------------------------------------------------------------------
+
+fetch_base
+SWITCHED=1
 
 if [[ "$TARGET" =~ ^[0-9]+$ ]]; then
   if ! command -v gh >/dev/null 2>&1; then
@@ -130,6 +187,9 @@ if ! BASE=$(git merge-base "$BASE_REF" HEAD 2>/dev/null); then
   echo "  Fetch it first (git fetch) or set BASE_REF, e.g. BASE_REF=upstream/main"
   exit 1
 fi
+BASE_TIP=$(git rev-parse "$BASE_REF")
+echo "  Base: $BASE_REF = ${BASE_TIP:0:12}"
+echo "  Merge base with this branch: ${BASE:0:12}"
 CHANGED=$(git diff --name-only "$BASE"...HEAD)
 
 if [ -z "$CHANGED" ]; then

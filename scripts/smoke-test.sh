@@ -25,6 +25,11 @@
 #   2  warnings only: nothing failed, but at least one check gave an
 #      unexpected or unclear result (see the WARN lines)
 #
+# Transcript and path-traversal checks: these 4xx codes count as a safe
+# rejection: 400, 401, 403, 404. Success (2xx) on a missing file warns, and on
+# a traversal attempt fails; 5xx fails; no response, redirects (3xx),
+# informational (1xx) and any other 4xx are warnings, never passes.
+#
 # --quick runs only the service checks; the summary says the API checks were
 # not run.
 # -----------------------------------------------------------------------------
@@ -76,6 +81,20 @@ status() {
 }
 
 hr() { printf '%s\n' "--------------------------------------------------------------"; }
+
+# Safe 4xx rejections for the transcript checks
+SAFE_REJECTIONS="400 401 403 404"
+
+# classify_status <code> -> none | rejected | success | error | other
+classify_status() {
+  local c="$1"
+  if [ "$c" = "000" ]; then echo none
+  elif [[ " $SAFE_REJECTIONS " == *" $c "* ]]; then echo rejected
+  elif [[ "$c" == 2* ]]; then echo success
+  elif [[ "$c" == 5* ]]; then echo error
+  else echo other
+  fi
+}
 
 # finish — print the summary and exit with the documented code (0 / 1 / 2)
 finish() {
@@ -208,31 +227,25 @@ else
   warn "Swagger docs returned HTTP $code"
 fi
 
-# Transcript endpoint — must not serve files it should not
+# Transcript endpoint — a missing file must be rejected cleanly
 code=$(status "$AISERVICE/transcript/does-not-exist.txt")
-if [ "$code" = "400" ] || [ "$code" = "401" ] || [ "$code" = "403" ] || [ "$code" = "404" ]; then
-  ok "Transcript endpoint rejects a missing file ($code)"
-elif [ "$code" = "200" ]; then
-  warn "Transcript endpoint returned 200 for a non-existent file" "Check the transcript route validates the filename"
-elif [ "$code" = "000" ]; then
-  warn "Transcript endpoint did not respond" "$AISERVICE/transcript/does-not-exist.txt"
-elif [[ "$code" == 5* ]]; then
-  bad "Transcript endpoint returned a server error ($code) for a missing file" "Expected a 4xx rejection — check the AI service logs"
-else
-  warn "Transcript endpoint returned unexpected HTTP $code for a missing file" "Expected 400, 401, 403 or 404"
-fi
+case "$(classify_status "$code")" in
+  rejected) ok "Transcript endpoint rejects a missing file ($code)" ;;
+  none)     warn "Transcript endpoint did not respond" "$AISERVICE/transcript/does-not-exist.txt" ;;
+  success)  warn "Transcript endpoint returned $code for a non-existent file" "Check the transcript route validates the filename" ;;
+  error)    bad "Transcript endpoint returned a server error ($code) for a missing file" "Expected a 4xx rejection — check the AI service logs" ;;
+  *)        warn "Transcript endpoint returned unexpected HTTP $code for a missing file" "Expected one of: $SAFE_REJECTIONS" ;;
+esac
 
-# Path traversal attempt
+# Path traversal attempt — must be rejected, never served
 code=$(status "$AISERVICE/transcript/..%2F..%2F.env")
-if [ "$code" = "200" ]; then
-  bad "PATH TRAVERSAL WORKS — /transcript/..%2F..%2F.env returned 200" "CRITICAL: filename is not validated. Server files are readable."
-elif [ "$code" = "000" ]; then
-  warn "Path traversal check did not get a response" "$AISERVICE/transcript/..%2F..%2F.env"
-elif [[ "$code" == 5* ]]; then
-  bad "Path traversal attempt caused a server error ($code)" "Expected a clean 4xx rejection — check the AI service logs"
-else
-  ok "Path traversal blocked (returned $code)"
-fi
+case "$(classify_status "$code")" in
+  rejected) ok "Path traversal blocked (returned $code)" ;;
+  none)     warn "Path traversal check did not get a response" "$AISERVICE/transcript/..%2F..%2F.env" ;;
+  success)  bad "PATH TRAVERSAL WORKS — /transcript/..%2F..%2F.env returned $code" "CRITICAL: filename is not validated. Server files are readable." ;;
+  error)    bad "Path traversal attempt caused a server error ($code)" "Expected a clean 4xx rejection — check the AI service logs" ;;
+  *)        warn "Path traversal attempt returned unexpected HTTP $code" "Expected one of: $SAFE_REJECTIONS" ;;
+esac
 
 # -----------------------------------------------------------------------------
 echo
