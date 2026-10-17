@@ -2,39 +2,21 @@ import crypto from "crypto";
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import { Op } from "sequelize";
-import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
-import admin from "firebase-admin";
-import { authServices } from "../services/authExternalServices.js";
 
-// Initialize Firebase Admin only outside tests and only when real keys are provided.
-if (process.env.NODE_ENV !== "test") {
-  if (
-    !admin.apps.length &&
-    process.env.FIREBASE_PRIVATE_KEY &&
-    process.env.FIREBASE_PRIVATE_KEY.length > 50
-  ) {
-    try {
-      admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-        }),
-      });
-      console.log("🔥 Firebase initialized successfully");
-    } catch {
-      console.warn("⚠️ Firebase failed to initialize. Google Login will not work.");
-    }
-  } else {
-    console.warn("⚠️ No valid Firebase keys found in .env. Skipping Firebase init.");
-  }
-}
+import sendEmail from "../utils/sendEmail.js";
+import {
+  ensureProfileCompleteness,
+  formatFullName,
+} from "../utils/userUtils.js";
+import cloudinary from "../config/cloudinary.js";
+import admin from "../config/firebase.js";
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: "30d",
   });
 };
+
 
 // Centralized logic moved to userUtils.js
 const register = async (req, res) => {

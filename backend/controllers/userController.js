@@ -317,8 +317,8 @@ const getWatchedVideos = async (req, res) => {
         const watchHistory = lesson.watchHistory;
 
         const safeProgress = Number(
-          Math.max(0, Math.min(100, watchHistory.progressPercent || 0)).toFixed(1),
-        );
+  Math.max(0, Math.min(100, watchHistory.progressPercent || 0)).toFixed(1),
+);
         watchedVideos.push({
           lessonId,
           courseId: course.courseId,
@@ -342,21 +342,74 @@ const getWatchedVideos = async (req, res) => {
         }
 
         if (watchHistory.status === "completed" || safeProgress >= 80) {
-          completedCount++;
+           completedCount++;
+           } 
         }
       });
     });
 
-    const uniqueDays = new Set();
+    // Calculate consecutive learning-day streak
+   const learningDates = new Set();
 
-    watchedVideos.forEach((video) => {
-      if (video.lastWatched) {
-        const day = new Date(video.lastWatched).toDateString();
-        uniqueDays.add(day);
+watchedVideos.forEach((video) => {
+  if (!video.lastWatched || Number(video.currentTime) <= 0) {
+    return;
+  }
+
+  const date = new Date(video.lastWatched);
+
+  if (Number.isNaN(date.getTime())) {
+    return;
+  }
+
+  const dayKey = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  learningDates.add(dayKey);
+});
+
+    const sortedDates = [...learningDates].sort();
+
+    let learningStreak = 0;
+
+    if (sortedDates.length > 0) {
+      const today = new Date();
+
+      const formatDateKey = (date) =>
+        [
+          date.getFullYear(),
+          String(date.getMonth() + 1).padStart(2, "0"),
+          String(date.getDate()).padStart(2, "0"),
+        ].join("-");
+
+      const todayKey = formatDateKey(today);
+
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const yesterdayKey = formatDateKey(yesterday);
+
+      const latestDate = sortedDates[sortedDates.length - 1];
+
+      // Streak is active only if the user learned today or yesterday.
+      if (latestDate === todayKey || latestDate === yesterdayKey) {
+        let checkDate =
+          latestDate === todayKey ? new Date(today) : new Date(yesterday);
+
+        while (learningDates.has(formatDateKey(checkDate))) {
+          learningStreak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        }
       }
-    });
+    }
 
-    const avgSeconds = watchedVideos.length > 0 ? totalSeconds / watchedVideos.length : 0;
+    const avgSeconds =
+      watchedVideos.length > 0
+        ? totalSeconds / watchedVideos.length
+        : 0;
 
     const avgMinutes = Math.floor(avgSeconds / 60);
     const avgRemainingSeconds = Math.floor(avgSeconds % 60);
@@ -365,7 +418,7 @@ const getWatchedVideos = async (req, res) => {
       totalHours: (totalSeconds / 60).toFixed(1),
       videosCompleted: completedCount,
       avgSession: `${avgMinutes}m ${avgRemainingSeconds}s`,
-      learningStreak: `${uniqueDays.size} days`,
+      learningStreak,
     };
 
     res.json({
@@ -497,7 +550,11 @@ const updateUserProfile = async (req, res) => {
     user.lastName = req.body.lastName ?? user.lastName;
     user.name = formatFullName(user.firstName, user.lastName);
     // Check email change
-    if (req.body.email && req.body.email.trim().toLowerCase() !== user.email.trim().toLowerCase()) {
+    if (
+      req.body.email &&
+      req.body.email.trim().toLowerCase() !==
+        user.email.trim().toLowerCase()
+    ) {
       const emailExists = await User.findOne({
         where: {
           email: req.body.email.trim().toLowerCase(),
