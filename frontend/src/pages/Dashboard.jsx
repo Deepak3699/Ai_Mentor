@@ -21,6 +21,7 @@ import LoadingSpinner from "../components/common/LoadingSpinner";
 import CourseCardMeta from "../components/common/CourseCardMeta";
 import LearningActivityCard from "../components/dashboard/LearningActivityCard";
 import DashboardHero from "../components/DashboardHero";
+import AIMentorCard from "../components/common/AIMentorCard";
 import UpcomingLiveSession from "../components/UpcomingLiveSession";
 import RecommendedForYou from "../components/RecommendedForYou";
 import { Helmet } from "react-helmet-async";
@@ -131,6 +132,17 @@ const Dashboard = () => {
     if (continueCourse) navigate(`/learning/${continueCourse.id}`);
     else navigate("/courses", { state: { activeTab: "explore" } });
   };
+  const handleAskMentor = () => {
+  navigate("/ai-mentor");
+};
+
+const handleGenerateLesson = () => {
+  navigate("/ai-mentor", {
+    state: {
+      action: "generate-lesson",
+    },
+  });
+};
 
   const enrollAndPreview = async (course) => {
     if (!user) return navigate("/login");
@@ -193,8 +205,603 @@ const Dashboard = () => {
               key={label}
               className="dashboard-summary-card rounded-2xl border border-border bg-card p-4 shadow-sm"
             >
-              <div className={`dashboard-summary-icon dashboard-summary-icon--${tone}`}>
-                {React.createElement(icon, { className: "h-5 w-5" })}
+              {coursesData.allCourses
+                .slice(0, 10)
+                .map((course, index) => (
+                  <div
+                    key={index}
+                    className="bg-card rounded-xl border border-border w-64 flex-shrink-0 shadow-sm transition-all duration-300 ease-out hover:shadow-xl hover:-translate-y-2 hover:scale-[1.03] hover:border-teal-400/50"
+                  >
+                    <div className="relative h-40">
+                      <img
+                        src={
+                          course.title ===
+                          "React Fundamentals"
+                            ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                            : course.title ===
+                                "Python For AI"
+                              ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
+                              : course.title ===
+                                  "AI Ethics & Bias"
+                                ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
+                                : course.title ===
+                                    "MongoDB Fundamentals"
+                                  ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                                  : course.title ===
+                                      "PostgreSQL"
+                                    ? "/AI_Tutor_New_UI/Dashboard/logo.png"
+                                    : "/AI_Tutor_New_UI/Dashboard/logo.png"
+                        }
+                        alt={course.title}
+                        className="w-full h-full object-cover rounded-t-xl"
+                      />
+
+                      <div className="absolute bottom-2 right-2">
+                        <CourseCardMeta
+                          courseId={course.id}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-4 space-y-2">
+                      <h3 className="text-sm font-semibold text-main line-clamp-2">
+                        {course.title}
+                      </h3>
+
+                      <p className="text-xs text-muted">
+                        {course.lessons} •{" "}
+                        {course.level}
+                      </p>
+
+                      {(() => {
+                        const isEnrolled =
+                          Array.isArray(
+                            user?.purchasedCourses
+                          ) &&
+                          user.purchasedCourses.some(
+                            (c) =>
+                              String(
+                                c?.id ??
+                                  c?.courseId ??
+                                  c?.course?.id
+                              ) ===
+                              String(course.id)
+                          );
+
+                        return (
+                          <div className="flex justify-between items-center mt-2">
+                            <span className="font-bold text-green-500">
+                              {course.priceValue ===
+                              0
+                                ? "Free"
+                                : `₹${course.priceValue}`}
+                            </span>
+
+                            <button
+                              onClick={() =>
+                                enrollAndPreview(
+                                  course
+                                )
+                              }
+                              disabled={
+                                isEnrolled
+                              }
+                              className={`px-3 py-1.5 text-xs rounded-lg ${
+                                isEnrolled
+                                  ? "bg-emerald-100 text-emerald-700 cursor-default"
+                                  : "bg-teal-500 text-white hover:bg-teal-600"
+                              }`}
+                            >
+                              {isEnrolled
+                                ? "Enrolled"
+                                : t(
+                                    "dashboard.enroll"
+                                  )}
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          {/* =================================================
+              MY COURSES
+              ================================================= */}
+
+          <div className="xl:col-span-2 flex flex-col">
+            <h2 className="text-xl font-bold text-main mb-6">
+              {t(
+                "dashboard.my_courses"
+              )}
+            </h2>
+
+            <div className="bg-card rounded-xl border border-border overflow-hidden">
+              <div className="overflow-x-auto">
+                {filteredMyCourses.length !==
+                0 ? (
+                  <table className="w-full">
+                    <thead className="bg-canvas-alt">
+                      <tr>
+                        <th className="px-4 py-4 text-left text-sm font-medium text-muted">
+                          {t(
+                            "dashboard.course"
+                          )}
+                        </th>
+
+                        <th className="px-4 py-4 text-left text-sm font-medium text-muted">
+                          {t(
+                            "dashboard.progress"
+                          )}
+                        </th>
+
+                        <th className="px-4 py-4 text-left text-sm font-medium text-muted">
+                          {t(
+                            "dashboard.lessons"
+                          )}
+                        </th>
+
+                        <th className="px-4 py-4 text-left text-sm font-medium text-muted">
+                          {t(
+                            "dashboard.level"
+                          )}
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-gray-200">
+                      {filteredMyCourses.map(
+                        (
+                          course,
+                          index
+                        ) => (
+                          <tr
+                            key={index}
+                            className="hover:bg-canvas-alt"
+                          >
+                            <td className="px-4 py-4">
+                              <Link
+                                to={`/learning/${course.id}`}
+                                className="flex items-center"
+                              >
+                                <img
+                                  src={
+                                    course.title ===
+                                    "React Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                                      : course.title ===
+                                          "Python For AI"
+                                        ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
+                                        : course.title ===
+                                            "AI Ethics & Bias"
+                                          ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
+                                          : course.title ===
+                                              "PostgreSQL"
+                                            ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                                            : course.title ===
+                                                "MongoDB Fundamentals"
+                                              ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                                              : "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                                  }
+                                  alt={
+                                    course.title
+                                  }
+                                  className="w-12 h-12 rounded-lg mr-4"
+                                  loading="lazy"
+                                />
+
+                                <div>
+                                  <div className="font-medium text-main hover:text-indigo-600">
+                                    {
+                                      course.title
+                                    }
+                                  </div>
+
+                                  <div className="text-sm text-muted">
+                                    {
+                                      course.subtitle
+                                    }
+                                  </div>
+                                </div>
+                              </Link>
+                            </td>
+
+                            <td className="px-4 py-4">
+                              <div className="w-20 bg-border rounded-full h-2 mb-1">
+                                <div
+                                  className={`h-2 rounded-full ${course.progressColor}`}
+                                  style={{
+                                    width: `${course.progress}%`,
+                                  }}
+                                />
+                              </div>
+
+                              <div className="text-sm text-muted">
+                                {
+                                  course.progress
+                                }
+                                %
+                              </div>
+                            </td>
+
+                            <td className="px-4 py-4 text-muted">
+                              {
+                                course.lessons
+                              }
+                            </td>
+
+                            <td className="px-4 py-4">
+                              <span
+                                className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${course.levelColor}`}
+                              >
+                                {
+                                  course.level
+                                }
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                ) : normalizedSearchQuery &&
+                  filteredAllCourses.length >
+                    0 ? (
+                  <div className="p-6">
+                    <p className="text-center text-muted mb-4">
+                      {t(
+                        "dashboard.fallbackMatchingCourses"
+                      )}
+                    </p>
+
+                    <div className="space-y-3">
+                      {filteredAllCourses
+                        .slice(0, 6)
+                        .map(
+                          (course) => (
+                            <div
+                              key={
+                                course.id
+                              }
+                              className="flex items-center justify-between p-3 rounded-lg border border-border bg-canvas-alt"
+                            >
+                              <div className="flex items-center min-w-0">
+                                <img
+                                  src={
+                                    course.title ===
+                                    "React Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                                      : course.title ===
+                                          "Python For AI"
+                                        ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
+                                        : course.title ===
+                                            "AI Ethics & Bias"
+                                          ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
+                                          : course.title ===
+                                              "MongoDB Fundamentals"
+                                            ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                                            : "/AI_Tutor_New_UI/Dashboard/logo.png"
+                                  }
+                                  alt={
+                                    course.title
+                                  }
+                                  className="w-12 h-12 object-cover rounded-lg mr-3"
+                                />
+
+                                <div className="min-w-0">
+                                  <div className="font-medium text-main truncate">
+                                    {
+                                      course.title
+                                    }
+                                  </div>
+
+                                  <div className="text-sm text-muted truncate">
+                                    {
+                                      course.category
+                                    }{" "}
+                                    •{" "}
+                                    {
+                                      course.level
+                                    }
+                                  </div>
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() =>
+                                  enrollAndPreview(
+                                    course
+                                  )
+                                }
+                                className="ml-3 px-3 py-2 bg-teal-500 text-white text-xs font-medium rounded-lg hover:bg-teal-600"
+                              >
+                                {t(
+                                  "dashboard.view"
+                                )}
+                              </button>
+                            </div>
+                          )
+                        )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 text-center text-muted">
+                    <p>
+                      {normalizedSearchQuery
+                        ? t(
+                            "dashboard.no_courses_search"
+                          )
+                        : t(
+                            "dashboard.no_courses_enrolled"
+                          )}
+                    </p>
+
+                    <button
+                      className="mt-4 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600"
+                      onClick={
+                        handleBrowseCourses
+                      }
+                    >
+                      {t(
+                        "dashboard.browse_courses"
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Continue Learning + AI Mentor */}
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  {/* Continue Learning */}
+  <div>
+    {filteredContinueLearning.length !== 0 ? (
+      <div>
+        <h2 className="text-xl font-bold text-main mt-6 mb-6">
+          {t("dashboard.continue_learning")}
+        </h2>
+
+        <div className="space-y-4">
+          {filteredContinueLearning.map((item, index) => (
+            <div
+              key={index}
+              className="bg-card rounded-xl p-4 border border-border shadow-sm hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-center">
+                <Link
+                  to={`/course-preview/${item.id}`}
+                  className="flex items-center flex-1 min-w-0"
+                >
+                  <img
+                    src={
+                      item.title === "React Fundamentals"
+                        ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                        : item.title === "Python For AI"
+                        ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
+                        : item.title === "AI Ethics & Bias"
+                        ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
+                        : item.title === "PostgreSQL"
+                        ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                        : item.title === "MongoDB Fundamentals"
+                        ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                        : "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                    }
+                    alt={item.title}
+                    className="w-12 h-12 rounded-lg mr-4 object-cover flex-shrink-0"
+                    loading="lazy"
+                  />
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-main mb-1 hover:text-teal-600 truncate">
+                      {item.title}
+                    </h3>
+
+                    <p className="text-sm text-muted mb-2 truncate">
+                      {item.lesson}
+                    </p>
+
+                    <div className="w-full bg-border rounded-full h-2 mb-2">
+                      <div
+                        className={`h-2 rounded-full ${item.progressColor}`}
+                        style={{ width: `${item.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                </Link>
+
+                <Link
+                  to={`/learning/${item.id}`}
+                  className="ml-4 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600 flex-shrink-0"
+                >
+                  {t("dashboard.continue")}
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div className="mt-6">
+        <h2 className="text-xl font-bold text-main mb-6">
+          {t("dashboard.continue_learning")}
+        </h2>
+
+        <div className="bg-card rounded-xl border border-border p-6 text-center text-muted">
+          No courses currently in progress.
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* AI Mentor */}
+  <div className="mt-6 lg:mt-0">
+    <AIMentorCard
+      onAskMentor={handleAskMentor}
+      onGenerateLesson={handleGenerateLesson}
+    />
+  </div>
+
+</div>
+            {/* =================================================
+                CONTINUE LEARNING
+                ================================================= */}
+
+            {filteredContinueLearning.length !==
+              0 && (
+              <div>
+                <h2 className="text-xl font-bold text-main mt-6 mb-6">
+                  {t(
+                    "dashboard.continue_learning"
+                  )}
+                </h2>
+
+                <div className="space-y-4">
+                  {filteredContinueLearning.map(
+                    (
+                      item,
+                      index
+                    ) => (
+                      <div
+                        key={index}
+                        className="bg-card rounded-xl p-4 border border-border shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        <div className="flex items-center">
+                          <Link
+                            to={`/course-preview/${item.id}`}
+                            className="flex items-center flex-1"
+                          >
+                            <img
+                              src={
+                                item.title ===
+                                "React Fundamentals"
+                                  ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                                  : item.title ===
+                                      "Python For AI"
+                                    ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
+                                    : item.title ===
+                                        "AI Ethics & Bias"
+                                      ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
+                                      : item.title ===
+                                          "PostgreSQL"
+                                        ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                                        : item.title ===
+                                            "MongoDB Fundamentals"
+                                          ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                                          : "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
+                              }
+                              alt={
+                                item.title
+                              }
+                              className="w-12 h-12 rounded-lg mr-4"
+                              loading="lazy"
+                            />
+
+                            <div className="flex-1">
+                              <h3 className="font-medium text-main mb-1 hover:text-teal-600">
+                                {
+                                  item.title
+                                }
+                              </h3>
+
+                              <p className="text-sm text-muted mb-2">
+                                {
+                                  item.lesson
+                                }
+                              </p>
+
+                              <div className="w-full bg-border rounded-full h-2 mb-2">
+                                <div
+                                  className={`h-2 rounded-full ${item.progressColor}`}
+                                  style={{
+                                    width: `${item.progress}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </Link>
+
+                          <Link
+                            to={`/learning/${item.id}`}
+                            className="ml-4 px-4 py-2 bg-teal-500 text-white text-sm font-medium rounded-lg hover:bg-teal-600"
+                          >
+                            {t(
+                              "dashboard.continue"
+                            )}
+                          </Link>
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* =================================================
+                LATEST AI LESSONS
+                EXACT DESIGN + WORKING BUTTONS
+                ================================================= */}
+
+            <div className="mt-8 flex justify-end">
+              <div
+                className="
+                  w-full
+                  max-w-[390px]
+                  bg-white
+                  rounded-[16px]
+                  border
+                  border-[#dce5f1]
+                  px-[14px]
+                  py-[13px]
+                  shadow-[0_2px_10px_rgba(34,80,130,0.08)]
+                "
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between mb-[8px]">
+                  <div className="flex items-center gap-[7px]">
+                    <span className="text-[15px] leading-none">
+                      ✨
+                    </span>
+
+                    <h2 className="text-[11px] font-bold text-[#1f2d43]">
+                      Latest AI Lessons
+                    </h2>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleViewAllLessons}
+                    className="
+                      text-[9px]
+                      font-medium
+                      text-[#4388f7]
+                      hover:text-[#2472e8]
+                      transition-colors
+                      cursor-pointer
+                    "
+                  >
+                    View All →
+                  </button>
+                </div>
+
+                {/* Lesson List */}
+                <div className="space-y-[2px]">
+                  {latestLessons.map(
+                    (lesson) => (
+                      <LessonItem
+                        key={lesson.id}
+                        lesson={lesson}
+                        onPlay={() =>
+                          handlePlayLesson(
+                            lesson
+                          )
+                        }
+                      />
+                    )
+                  )}
+                </div>
               </div>
               <p className="mt-4 text-3xl font-extrabold tracking-tight text-main">{value}</p>
               <p className="mt-1 text-sm font-semibold text-muted">{label}</p>
