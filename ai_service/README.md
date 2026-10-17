@@ -1,4 +1,4 @@
-# AI Mentor AI Service Backend
+﻿# AI Mentor AI Service Backend
 
 The AI service is a FastAPI application used by AI Mentor to generate lesson scripts, narration audio, lesson videos, subtitles, transcripts, syllabi, quizzes, and flashcards.
 
@@ -27,6 +27,8 @@ ai_service/
 |   |-- graceful_server.py
 |   |-- avatar_service.py
 |   |-- requirements.txt
+|   |-- requirements-dev.txt
+|   |-- requirements-dev.txt
 |   |-- .env.example
 |   `-- input/
 |-- outputs/
@@ -60,7 +62,7 @@ npm run setup:ai
 The command:
 
 - creates or reuses `ai_service/.venv`;
-- installs `ai_service/backend/requirements.txt`;
+- installs `ai_service/backend/requirements-dev.txt` (which includes `requirements.txt`);
 - validates Python, FFmpeg, AI configuration names, AI imports, and Redis or Memurai availability;
 - never prints secret values or overwrites an existing `.env` file.
 

@@ -179,7 +179,7 @@ The complete setup command:
 
 - installs dependencies for the root workspace and all four Node/React applications;
 - creates or reuses `ai_service/.venv`;
-- installs `ai_service/backend/requirements.txt`;
+- installs `ai_service/backend/requirements-dev.txt` (which includes `requirements.txt`);
 - verifies Node.js, npm, Python, FFmpeg, AI configuration names, AI imports, and Redis/Memurai availability;
 - does not create, overwrite, or print secrets from `.env` files.
 
