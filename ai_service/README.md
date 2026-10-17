@@ -174,6 +174,311 @@ For API exploration, start the service and open the FastAPI documentation at `ht
 
 ## Security notes
 
+```bash
+cp backend/.env.example backend/.env
+```
+
+Then edit `backend/.env`:
+
+```env
+# Google Gemini API key
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Cloudinary credentials (for cloud video hosting)
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+```
+
+> **Get a Gemini API key:** [Google AI Studio](https://aistudio.google.com/app/apikey) â€” free tier available.
+>
+> **Get Cloudinary credentials:** [Cloudinary Console](https://cloudinary.com/console) â€” free tier available.
+
+### Input Videos (Celebrity Sources)
+
+Place source video files in `ai_service/backend/input/`:
+
+- File names must match the celebrity name (lowercase): e.g., `modi.mp4`, `elon.mp4`
+- **`modi.mp4` is required** â€” it is used as the default fallback if a requested celebrity video is not found.
+
+The video is looped silently and merged with the TTS audio.
+
+---
+
+## ðŸƒ Running the Service
+
+```bash
+# Activate your virtual environment first (see above)
+
+# From the ai_service/ directory:
+cd backend
+python graceful_server.py
+```
+
+The service will be available at **http://localhost:8000**.
+
+> âš ï¸ The Node.js backend must be configured with `AI_SERVICE_URL=http://127.0.0.1:8000` to communicate with this service.
+
+---
+
+## ðŸ“¡ API Reference
+
+### `GET /`
+
+Health check.
+
+**Response:**
+
+```json
+{ "message": "AI Lesson Generator Backend Running" }
+```
+
+---
+
+### `GET /health/live`
+Liveness probe confirming the AI service process is running. Always returns HTTP 200.
+
+**Response:**
+```json
+{
+  "status": "alive"
+}
+```
+
+---
+
+### `GET /health/ready`
+Readiness probe verifying runtime dependencies:
+- **FFmpeg availability** (required)
+- **Gemini API key configured** (`GEMINI_API_KEY`) (required)
+- **Default input video** (`backend/input/modi.mp4`) (required)
+- **Outputs storage writable** (`outputs/` folder) (required)
+- **Optional integrations** (`groq`, `cloudinary`, `did` reported as `enabled` or `disabled` without failing readiness)
+
+**Success Response (200 OK):**
+```json
+{
+  "status": "ready",
+  "checks": {
+    "ffmpeg": "available",
+    "gemini_api_key": "configured",
+    "default_input_video": "available",
+    "outputs_writable": "writable"
+  },
+  "optional": {
+    "groq": "enabled",
+    "cloudinary": "disabled",
+    "did": "disabled"
+  }
+}
+```
+
+**Failure Response (503 Service Unavailable):**
+```json
+{
+  "status": "not_ready",
+  "reason": "Gemini API key is missing",
+  "reasons": [
+    "Gemini API key is missing"
+  ],
+  "checks": {
+    "ffmpeg": "available",
+    "gemini_api_key": "missing",
+    "default_input_video": "available",
+    "outputs_writable": "writable"
+  },
+  "optional": {
+    "groq": "disabled",
+    "cloudinary": "disabled",
+    "did": "disabled"
+  }
+}
+```
+
+---
+
+### `POST /generate`
+
+Generates an AI lesson video **asynchronously** (runs in background).
+
+**Request Body:**
+
+```json
+{
+  "course": "ReactJS",
+  "topic": "Introduction to Components",
+  "celebrity": "modi"
+}
+```
+
+**Response (immediately):**
+
+```json
+{
+  "status": "Processing",
+  "filename": "Introduction_to_Components_20240101_120000.mp4",
+  "text_file": "Introduction_to_Components_20240101_120000.txt",
+  "audio_file": "Introduction_to_Components_20240101_120000.mp3",
+  "jobId": "Introduction_to_Components_20240101_120000"
+}
+```
+
+Use the `jobId` to poll `/status/:jobId` for completion.
+
+---
+
+### `GET /status/{job_id}`
+
+Polls the status of a generation job.
+
+**Response (while processing):**
+
+```json
+{ "status": "processing" }
+```
+
+**Response (on completion):**
+
+```json
+{
+  "status": "ready",
+  "cloudinary_url": "https://res.cloudinary.com/..."
+}
+```
+
+**Response (on failure):**
+
+```json
+{ "status": "failed" }
+```
+
+---
+
+### `GET /transcript/{filename}`
+
+Returns the text content of a generated lesson script.
+
+**Response:**
+
+```json
+{ "content": "Welcome students! Today we will learn about..." }
+```
+
+---
+
+### `POST /generate-syllabus`
+
+Generates a structured course syllabus using AI. This endpoint is **synchronous** and may take several seconds to complete. It tries Gemini first and falls back to Groq if Gemini fails.
+
+**Request Body:**
+
+```json
+{
+  "course_title": "ReactJS",
+  "category": "Programming"
+}
+```
+
+**Success Response:**
+
+```json
+{
+  "modules": [
+    {
+      "title": "Module 1: Introduction",
+      "lessons": [
+        {
+          "title": "Lesson 1: Basics",
+          "duration": "5 mins",
+          "type": "video"
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Failure Response:**
+
+```json
+{
+  "error": "Failed to generate syllabus"
+}
+```
+
+---
+
+| Mount Path                      | Directory Served | Description                        |
+| ------------------------------- | ---------------- | ---------------------------------- |
+| `/video-stream/{filename}`      | `outputs/video/` | Serves generated `.mp4` videos     |
+| `/transcript-stream/{filename}` | `outputs/text/`  | Serves raw transcript `.txt` files |
+
+## ðŸ”„ Generation Pipeline
+
+```
+POST /generate
+     â”‚
+     â”œâ”€ 1. Gemini API â†’ generates 50-word lesson script
+     â”‚
+     â”œâ”€ 2. pyttsx3 â†’ converts script to .mp3 audio
+     â”‚
+     â”œâ”€ 3. FFmpeg â†’ loops celebrity .mp4 + merges .mp3 audio â†’ final .mp4
+     â”‚
+     â””â”€ 4. Cloudinary â†’ uploads final .mp4 â†’ stores secure_url in job_status
+```
+
+Jobs run in FastAPI **BackgroundTasks**, so `/generate` returns immediately while processing happens in the background.
+
+---
+
+## ðŸ§ª Testing with Swagger
+
+FastAPI auto-generates interactive API documentation:
+
+1. Start the server (see above).
+2. Open **[http://localhost:8000/docs](http://localhost:8000/docs)** in your browser.
+3. Click **POST /generate â†’ Try it out**, enter a request body, and click **Execute**.
+
+---
+
+## ðŸ›  Troubleshooting
+
+| Problem                          | Solution                                                                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `FFmpeg not found`               | Install FFmpeg and ensure its `bin/` folder is in your system PATH. Restart your terminal after adding it.               |
+| `GEMINI_API_KEY not found`       | Ensure `backend/.env` exists with a valid `GEMINI_API_KEY`.                                                              |
+| `Cloudinary credentials missing` | All three Cloudinary vars (`CLOUD_NAME`, `API_KEY`, `API_SECRET`) must be set in `backend/.env`.                         |
+| PowerShell activation error      | Run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` then try `.\venv\Scripts\Activate.ps1` again. |
+| Video status stays `processing`  | Check the terminal for FFmpeg or TTS errors. Ensure the input celebrity video exists in `backend/input/`.                |
+
+## Configuration Modes
+
+- **Required:** `GEMINI_API_KEY`  -  the primary AI provider.
+- **Optional:** `GROQ_API_KEY`  -  enables Groq fallback when configured. If omitted, Gemini remains the only AI provider.
+- **Optional:** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`  -  enables Cloudinary video hosting when all three are configured.
+- If Cloudinary is unavailable, generated videos remain available through the local-storage path.
+- The service can run in reduced mode without Groq and/or Cloudinary credentials. Startup configuration reports which optional integrations are enabled.
+
+### Development and Production Behavior
+
+For development, only `GEMINI_API_KEY` is required to start the AI service. Groq and Cloudinary can be omitted when their features are not needed.
+
+For production, configure Groq and Cloudinary when their fallback and cloud-hosting features are required. Missing optional credentials do not prevent the service from starting; the corresponding integration is disabled.
+
+### Celebrity Video Security
+
+Only the following celebrity names are approved for video selection:
+
+- `modi`
+- `owl`
+- `salman`
+- `srk`
+
+Place the corresponding video files in `ai_service/backend/input/` using lowercase filenames, such as `modi.mp4` and `srk.mp4`.
+
+For security, unapproved names and path traversal attempts—including absolute paths and URL-encoded traversal strings—fall back to `modi.mp4`. Video selection resolves the file path and verifies that the selected file is inside the approved input directory. Logs display the selected celebrity name rather than the absolute video path.
+
+**Fallback requirement:** Keep `modi.mp4` in the input directory so it is available when a requested celebrity is invalid or its video is missing.
 - Never commit `.env` files, provider keys, database credentials, or generated authentication tokens.
 - Do not print raw request objects, generated secrets, full credential values, or provider authorization headers.
 - Keep celebrity source selection restricted to validated files inside the configured input directory.

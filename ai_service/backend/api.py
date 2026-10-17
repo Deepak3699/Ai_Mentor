@@ -1,4 +1,5 @@
 import os
+import sys
 import datetime
 import re
 import traceback
@@ -12,6 +13,7 @@ import cloudinary
 import cloudinary.uploader
 import requests
 from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -25,6 +27,7 @@ from google.genai import types
 from groq import Groq
 from cachetools import TTLCache
 from subtitles import write_subtitles
+import config
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
@@ -33,8 +36,11 @@ from config import (
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
-GROQ_ENABLED,
+    DID_API_KEY,
+    DID_SOURCE_URL,
+    GROQ_ENABLED,
     CLOUDINARY_ENABLED,
+    DID_ENABLED,
     validate_config,
 )
 import voices
@@ -311,6 +317,135 @@ app.mount("/transcript-stream", StaticFiles(directory=text_output_path), name="t
 @app.get("/")
 def home():
     return {"message": "AI Lesson Generator Backend Running"}
+
+
+# --------------------------
+# Health Check Helpers & Routes
+# --------------------------
+def check_ffmpeg_readiness() -> tuple[bool, str | None]:
+    """Verify that FFmpeg is available and executable."""
+    try:
+        subprocess.run(
+            ["ffmpeg", "-version"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        return True, None
+    except FileNotFoundError:
+        return False, "FFmpeg is not installed or not available in PATH"
+    except subprocess.CalledProcessError as exc:
+        return False, f"FFmpeg availability check failed with returncode {exc.returncode}"
+    except Exception as exc:
+        return False, f"FFmpeg check failed: {exc}"
+
+
+def check_gemini_key_readiness() -> tuple[bool, str | None]:
+    """Verify that the primary Gemini API key is configured."""
+    current_config = sys.modules.get("config", config)
+    key = getattr(current_config, "GEMINI_API_KEY", getattr(config, "GEMINI_API_KEY", None))
+    if not key or not str(key).strip():
+        return False, "Gemini API key is missing"
+    return True, None
+
+
+def check_default_input_video_readiness() -> tuple[bool, str | None]:
+    """Verify that the default input video (input/modi.mp4) is present."""
+    input_video_path = os.path.join(BASE_DIR, "backend", "input", "modi.mp4")
+    if not os.path.isfile(input_video_path):
+        return False, "Default input video (input/modi.mp4) is absent"
+    return True, None
+
+
+def check_outputs_writable_readiness() -> tuple[bool, str | None]:
+    """Verify that the outputs/ directory exists and is writable."""
+    try:
+        os.makedirs(base_output_path, exist_ok=True)
+        probe_path = os.path.join(base_output_path, f".write_probe_{uuid.uuid4().hex}.tmp")
+        with open(probe_path, "w", encoding="utf-8") as f:
+            f.write("ready")
+        os.remove(probe_path)
+        return True, None
+    except Exception as exc:
+        return False, f"Outputs directory is not writable: {exc}"
+
+
+def get_optional_integrations_status() -> dict[str, str]:
+    """Report status of optional integrations without impacting readiness."""
+    current_config = sys.modules.get("config", config)
+    groq_enabled = bool(getattr(current_config, "GROQ_ENABLED", getattr(config, "GROQ_ENABLED", False)))
+    cloudinary_enabled = bool(getattr(current_config, "CLOUDINARY_ENABLED", getattr(config, "CLOUDINARY_ENABLED", False)))
+    did_enabled = bool(
+        getattr(current_config, "DID_ENABLED", getattr(config, "DID_ENABLED", False))
+        or (getattr(current_config, "DID_API_KEY", getattr(config, "DID_API_KEY", None)) and getattr(current_config, "DID_SOURCE_URL", getattr(config, "DID_SOURCE_URL", None)))
+    )
+    return {
+        "groq": "enabled" if groq_enabled else "disabled",
+        "cloudinary": "enabled" if cloudinary_enabled else "disabled",
+        "did": "enabled" if did_enabled else "disabled",
+    }
+
+
+@app.get("/health/live")
+def health_live():
+    """Liveness probe: confirms the AI service process is running."""
+    return {"status": "alive"}
+
+
+@app.get("/health/ready")
+def health_ready():
+    """Readiness probe: reports FFmpeg, API-key, storage, and optional integration status."""
+    reasons: list[str] = []
+    checks: dict[str, str] = {}
+
+    ffmpeg_ok, ffmpeg_reason = check_ffmpeg_readiness()
+    if ffmpeg_ok:
+        checks["ffmpeg"] = "available"
+    else:
+        checks["ffmpeg"] = "unavailable"
+        reasons.append(ffmpeg_reason or "FFmpeg is unavailable")
+
+    gemini_ok, gemini_reason = check_gemini_key_readiness()
+    if gemini_ok:
+        checks["gemini_api_key"] = "configured"
+    else:
+        checks["gemini_api_key"] = "missing"
+        reasons.append(gemini_reason or "Gemini API key is missing")
+
+    video_ok, video_reason = check_default_input_video_readiness()
+    if video_ok:
+        checks["default_input_video"] = "available"
+    else:
+        checks["default_input_video"] = "absent"
+        reasons.append(video_reason or "Default input video (input/modi.mp4) is absent")
+
+    outputs_ok, outputs_reason = check_outputs_writable_readiness()
+    if outputs_ok:
+        checks["outputs_writable"] = "writable"
+    else:
+        checks["outputs_writable"] = "not_writable"
+        reasons.append(outputs_reason or "Outputs directory is not writable")
+
+    optional = get_optional_integrations_status()
+
+    if reasons:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "reason": "; ".join(reasons),
+                "reasons": reasons,
+                "checks": checks,
+                "optional": optional,
+            },
+        )
+
+    return {
+        "status": "ready",
+        "checks": checks,
+        "optional": optional,
+    }
 
 @app.get("/transcript/{filename}")
 def get_transcript(filename: str):
