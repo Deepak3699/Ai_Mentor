@@ -275,6 +275,14 @@
     "progress_lessons": "Fortschritt",
     "welcome_back_user": "Willkommen zurück, {{name}}!",
     "analytics_subtitle": "Hier ist Ihr Lernfortschritt und Ihre bevorstehenden Aufgaben",
+    "units": {
+      "day_one": "{{count}} Tag",
+      "day_other": "{{count}} Tage",
+      "course_one": "{{count}} Kurs",
+      "course_other": "{{count}} Kurse",
+      "certificate_one": "{{count}} Zertifikat",
+      "certificate_other": "{{count}} Zertifikate"
+    },
     "enrolled_courses": "Eingeschriebene Kurse",
     "attendance_rate": "Anwesenheitsrate",
     "current_streak_label": "Aktuelle Serie",
