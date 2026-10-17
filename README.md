@@ -1,9 +1,9 @@
-<div align="center">
+﻿<div align="center">
   <img src="./docs/images/uptoskills-logo.png" alt="UptoSkills" width="220" />
 
   <h1>AI Mentor</h1>
 
-  <p><strong>Learn smarter · Manage better · Build with AI</strong></p>
+  <p><strong>Learn smarter Â· Manage better Â· Build with AI</strong></p>
 
   <p>
     A multi-service learning platform for learners and administrators, combining course discovery,
@@ -11,9 +11,9 @@
   </p>
 
   <p>
-    <a href="#quick-start"><strong>Quick Start</strong></a> ·
-    <a href="#architecture"><strong>Architecture</strong></a> ·
-    <a href="#documentation"><strong>Documentation</strong></a> ·
+    <a href="#quick-start"><strong>Quick Start</strong></a> Â·
+    <a href="#architecture"><strong>Architecture</strong></a> Â·
+    <a href="#documentation"><strong>Documentation</strong></a> Â·
     <a href="#contributing"><strong>Contributing</strong></a>
   </p>
 
@@ -98,14 +98,14 @@ The user and administrator APIs share the same PostgreSQL database. The Node.js 
 ## Architecture
 
 ```text
-Learner browser (:5173) ──> User API (:5000) ───────┐
-                                                     ├──> PostgreSQL
-Admin browser (:5174) ───> Admin API (:5001) ───────┘
-                                  │
-User API / Admin API ─────────────┴──> AI service (:8000)
-                                          │
+Learner browser (:5173) â”€â”€> User API (:5000) â”€â”€â”€â”€â”€â”€â”€â”
+                                                     â”œâ”€â”€> PostgreSQL
+Admin browser (:5174) â”€â”€â”€> Admin API (:5001) â”€â”€â”€â”€â”€â”€â”€â”˜
+                                  â”‚
+User API / Admin API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€> AI service (:8000)
+                                          â”‚
                          Gemini / Groq / TTS / FFmpeg
-                                          │
+                                          â”‚
                               Cloudinary or local output
 ```
 
@@ -138,17 +138,17 @@ The root development runner coordinates all five local services. It starts front
 
 ```text
 Ai_Mentor/
-├── .github/                 GitHub templates and CI workflows
-├── ai_service/              Python FastAPI AI generation service
-├── backend/                 Learner-facing Node.js API
-├── backendAdmin/            Administrative Node.js API
-├── frontend/                Learner React application
-├── frontendAdmin/           Administrator React application
-├── scripts/                 Root dependency installer and development runner
-├── CONTRIBUTING.md          Contribution and security workflow
-├── initalSetup.md           First-time environment setup
-├── package.json             Root commands and development tooling
-└── README.md                Repository overview
+â”œâ”€â”€ .github/                 GitHub templates and CI workflows
+â”œâ”€â”€ ai_service/              Python FastAPI AI generation service
+â”œâ”€â”€ backend/                 Learner-facing Node.js API
+â”œâ”€â”€ backendAdmin/            Administrative Node.js API
+â”œâ”€â”€ frontend/                Learner React application
+â”œâ”€â”€ frontendAdmin/           Administrator React application
+â”œâ”€â”€ scripts/                 Root dependency installer and development runner
+â”œâ”€â”€ CONTRIBUTING.md          Contribution and security workflow
+â”œâ”€â”€ initalSetup.md           First-time environment setup
+â”œâ”€â”€ package.json             Root commands and development tooling
+â””â”€â”€ README.md                Repository overview
 ```
 
 ## Prerequisites
