@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { isAdmin } from "../utils/roles.js";
 
 const protect = async (req, res, next) => {
   let token;
@@ -50,11 +51,16 @@ const protect = async (req, res, next) => {
 
 export { protect };
 
+
 const admin = (req, res, next) => {
-  if (req.user && req.user.role === "admin") {
+  if (isAdmin(req.user)) {
     return next();
   }
-  return res.status(403).json({ message: "Not authorized, admin access required" });
+
+  return res.status(403).json({
+    message: "Not authorized, admin access required",
+  });
 };
+
 
 export { admin };

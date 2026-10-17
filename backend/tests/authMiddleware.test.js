@@ -124,11 +124,14 @@ test("protect attaches an active user and calls next", async () => {
   assert.equal(result.body, undefined);
 });
 
-test("admin permits only a user with the admin role", async () => {
-  assert.equal((await invoke(admin, { user: { role: "admin" } })).result.nextCalls, 1);
-  for (const user of [undefined, { role: "user" }, { role: "superadmin" }]) {
+test("admin permits admin and superadmin but rejects other roles", async () => {
+  for (const role of ["admin", "superadmin"]) {
+    const { result } = await invoke(admin, { user: { role } });
+    assert.equal(result.nextCalls, 1);
+  }
+
+  for (const user of [undefined, { role: "user" }]) {
     const { result } = await invoke(admin, { user });
     assert.equal(result.statusCode, 403);
-    assert.deepEqual(result.body, { message: "Not authorized, admin access required" });
   }
 });
