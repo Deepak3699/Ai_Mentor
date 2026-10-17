@@ -179,3 +179,17 @@ For API exploration, start the service and open the FastAPI documentation at `ht
 - Never commit `.env` files, provider keys, database credentials, or generated authentication tokens.
 - Do not print raw request objects, generated secrets, full credential values, or provider authorization headers.
 - Keep celebrity source selection restricted to validated files inside the configured input directory.
+
+## Setup
+
+Requires Python 3.10 or newer (CI runs on Python 3.11).
+
+From the repository root:
+
+    python -m pip install -r ai_service/backend/requirements.txt
+    python -m pip install -r ai_service/backend/requirements-dev.txt
+
+Run the tests the way CI does:
+
+    cd ai_service
+    python -m pytest
