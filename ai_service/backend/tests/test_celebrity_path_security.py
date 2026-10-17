@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 
@@ -18,7 +19,7 @@ def celebrity_video_module(tmp_path):
     module_globals = {
         "os": os,
         "BASE_DIR": str(tmp_path),
-        "print": print,
+        "logger": logging.getLogger("celebrity_video_test"),
     }
     exec(compile(helper_source, str(API_FILE), "exec"), module_globals)
 
@@ -60,12 +61,13 @@ def test_invalid_celebrity_falls_back_to_modi(celebrity_video_module, name):
 
 
 def test_logs_do_not_contain_absolute_video_path(
-    celebrity_video_module, capsys
+    celebrity_video_module, caplog
 ):
     module, input_dir = celebrity_video_module
 
-    module["get_celebrity_video"]("srk")
-    output = capsys.readouterr().out
+    with caplog.at_level(logging.INFO):
+        module["get_celebrity_video"]("srk")
+    output = caplog.text
 
     assert "srk" in output.lower()
     assert str(input_dir) not in output

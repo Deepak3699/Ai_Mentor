@@ -25,6 +25,7 @@ ai_service/
 |   |-- api.py
 |   |-- config.py
 |   |-- graceful_server.py
+|   |-- logging_config.py
 |   |-- avatar_service.py
 |   |-- requirements.txt
 |   |-- .env.example
@@ -85,6 +86,8 @@ Create `ai_service/backend/.env` from `ai_service/backend/.env.example`.
 | `DID_API_KEY`           | Optional                                        | D-ID avatar rendering is unavailable                   |
 | `DID_API_URL`           | Optional                                        | Uses the service default when omitted                  |
 | `DID_SOURCE_URL`        | Optional                                        | D-ID rendering falls back to the local FFmpeg renderer |
+| `LOG_FORMAT`            | Optional                                        | Uses plain text logs; set `json` for JSON lines        |
+| `LOG_LEVEL`             | Optional                                        | Uses `INFO`                                            |
 
 Setup output reports only variable names and `<configured>` markers. Do not commit `.env` files or share credential values.
 
@@ -93,6 +96,42 @@ Setup output reports only variable names and `<configured>` markers. Do not comm
 Place source video files in `ai_service/backend/input/`. File names must match the supported source name in lowercase. The service uses `modi.mp4` as the default local fallback when a requested source video is unavailable.
 
 Only validated local files within the configured input directory are eligible for fallback rendering.
+
+## Logging
+
+The service logs through Python's `logging` module to standard output. Every log line carries two correlation IDs so a single request or lesson job can be followed end to end, even when jobs run concurrently:
+
+| ID           | Where it comes from                                                                                              | Shown as     |
+| ------------ | ---------------------------------------------------------------------------------------------------------------- | ------------ |
+| `request_id` | The inbound `X-Request-ID` header, or a generated UUID when the header is missing or not `[A-Za-z0-9._-]{1,128}` | `request_id` |
+| `job_id`     | The lesson job ID (the `jobId` returned by `POST /generate`), bound for the whole of `process_lesson`            | `job_id`     |
+
+IDs that do not apply to a line (for example `job_id` on a request that is not a lesson job) appear as `-` in text logs and `null` in JSON logs. Lines logged by a lesson job also carry the `request_id` of the `POST /generate` request that queued it.
+
+Every HTTP response, including errors, returns the request ID in the `X-Request-ID` response header. Quote it when reporting a problem so the matching log lines can be found.
+
+Plain text is the default:
+
+```text
+2026-10-10 05:12:44,310 INFO    [api] [req=9f2c4a1e7b3d4c58a0e1b6d2f3a49c10 job=React_Hooks_20261010_051244] Lesson generation started | stage=START | topic=React Hooks
+```
+
+Set `LOG_FORMAT=json` for one JSON object per line, suitable for log shippers and alerting:
+
+```json
+{
+  "ts": "2026-10-10T05:12:44.310Z",
+  "level": "INFO",
+  "logger": "api",
+  "request_id": "9f2c4a1e7b3d4c58a0e1b6d2f3a49c10",
+  "job_id": "React_Hooks_20261010_051244",
+  "msg": "Lesson generation started",
+  "stage": "START",
+  "topic": "React Hooks"
+}
+```
+
+To find everything that happened to one job, filter on its `job_id`, for example `jq 'select(.job_id == "React_Hooks_20261010_051244")'`. Use `LOG_LEVEL` (`DEBUG`, `INFO`, `WARNING`, `ERROR`) to change verbosity.
 
 ## Running the service
 

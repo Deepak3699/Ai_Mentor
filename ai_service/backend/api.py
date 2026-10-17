@@ -1,7 +1,6 @@
 import os
 import datetime
 import re
-import traceback
 import asyncio
 import logging
 import subprocess
@@ -25,6 +24,7 @@ from google.genai import types
 from groq import Groq
 from cachetools import TTLCache
 from subtitles import write_subtitles
+from logging_config import RequestIDMiddleware, bind_job_id, configure_logging
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
@@ -53,16 +53,23 @@ if CLOUDINARY_ENABLED:
 # --------------------------
 # FastAPI App
 # --------------------------
+configure_logging()
 logger = logging.getLogger(__name__)
+
+_EVENT_LEVELS = {"WARN": logging.WARNING, "ERROR": logging.ERROR}
 
 
 def log_event(level: str, message: str, **details):
-    """Write compact, scan-friendly service logs without exposing payloads or URLs."""
-    suffix = ""
-    visible = [f"{key}={value}" for key, value in details.items() if value not in (None, "")]
-    if visible:
-        suffix = " | " + " | ".join(visible)
-    print(f"[{level}] {message}{suffix}", flush=True)
+    """Log a compact service event without exposing payloads or URLs.
+
+    ``level`` is the event tag (WARN/ERROR map to those log levels, everything
+    else logs at INFO). Details are attached as structured fields; request_id
+    and job_id are added automatically from the logging context.
+    """
+    fields = {key: value for key, value in details.items() if value not in (None, "")}
+    if level not in _EVENT_LEVELS and level != "INFO":
+        fields = {"stage": level, **fields}
+    logger.log(_EVENT_LEVELS.get(level, logging.INFO), message, extra={"fields": fields})
 
 
 def short_error(error: Exception, limit: int = 180) -> str:
@@ -121,12 +128,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Request-ID"],
 )
 
 # --------------------------
@@ -227,11 +236,11 @@ def get_celebrity_video(celebrity_name: str) -> str:
         os.path.commonpath([input_video_dir, candidate]) == input_video_dir
         and os.path.isfile(candidate)
     ):
-        print(f"[INFO] Renderer source selected | source={name}", flush=True)
+        logger.info("Renderer source selected | source=%s", name)
         return candidate
 
     fallback = os.path.realpath(os.path.join(input_video_dir, "modi.mp4"))
-    print("[INFO] Default renderer source selected | source=modi", flush=True)
+    logger.info("Default renderer source selected | source=modi")
     return fallback
 
 
@@ -859,8 +868,14 @@ async def run_tracked_lesson(data: LessonRequest, base_filename: str):
 
 
 async def process_lesson(data: LessonRequest, base_filename: str):
-    log_event("QUEUE", "Lesson request accepted", job=base_filename, topic=data.topic, source=data.celebrity)
+    """Run a lesson job with its job_id bound to every log line it emits."""
+    with bind_job_id(base_filename):
+        await _process_lesson(data, base_filename)
 
+
+async def _process_lesson(data: LessonRequest, base_filename: str):
+    log_event("QUEUE", "Lesson request accepted", topic=data.topic, source=data.celebrity)
+    
     start_time = time.time()
     provider_used = "unknown"
     model_used = "unknown"
@@ -885,7 +900,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         job_status[base_filename]["meta"]["timestamps"]["started_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     try:
-        log_event("START", "Lesson generation started", job=base_filename, topic=data.topic, source=data.celebrity)
+        log_event("START", "Lesson generation started", topic=data.topic, source=data.celebrity)
 
         preferences_text = ""
 
@@ -920,7 +935,8 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         - Focus the explanation on the user's selected focus area.
         - Match the explanation style with the user's preferred learning style.
         """
-        log_event("INFO", "User preferences", configured=bool(data.preferences))
+
+        log_event("INFO", "Preferences loaded", configured=bool(data.preferences))
 
         script = ""
 
@@ -1281,7 +1297,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 timestamps["completed_at"] = datetime.datetime.now(
                     datetime.timezone.utc
                 ).isoformat()
-        log_event("READY", "Lesson generation completed", job=base_filename, provider=provider_used, duration=f"{duration_ms / 1000:.1f}s", audio=f"{audio_seconds:.1f}s", words=len(script.split()), delivery="cloud" if cloudinary_url else "local")
+        log_event("READY", "Lesson generation completed", provider=provider_used, duration=f"{duration_ms / 1000:.1f}s", audio=f"{audio_seconds:.1f}s", words=len(script.split()), delivery="cloud" if cloudinary_url else "local")
 
 
         # 8️⃣ Storage Cleanup
@@ -1323,5 +1339,5 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
         remove_failed_generation_cache(base_filename)
 
-        log_event("ERROR", "Lesson generation failed", job=base_filename, error=short_error(e))
-        traceback.print_exc()
+        log_event("ERROR", "Lesson generation failed", error=short_error(e))
+        logger.error("Lesson generation traceback", exc_info=True)
