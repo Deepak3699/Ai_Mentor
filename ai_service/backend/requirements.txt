@@ -7,3 +7,4 @@ requests==2.34.2
 cloudinary==1.46.3
 cachetools==7.2.1
 python-dotenv==1.2.4
+mutagen==1.48.1
