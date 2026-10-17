@@ -2,7 +2,7 @@ import AIVideo from "../models/AIVideo.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
-import { generateVideoSchema } from "../schemas/aiSchema.js";
+import { generateVideoSchema, explainCodeSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
 import { getVideoQueue } from "../queues/videoQueue.js";
@@ -453,6 +453,36 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
   }
 });
 
+router.post("/explain-code", protect, validate(explainCodeSchema), async (req, res) => {
+  try {
+    const response = await fetch(`${process.env.AI_SERVICE_URL}/explain-code`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(req.body),
+      signal: AbortSignal.timeout(60000),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("AI code explanation failed:", errorText);
+
+      return res.status(502).json({
+        message: "AI code explanation service failed",
+      });
+    }
+
+    const data = await response.json();
+    return res.json(data);
+  } catch (error) {
+    console.error("AI code explanation error:", error);
+
+    return res.status(500).json({
+      message: "Unable to explain or debug code right now",
+    });
+  }
+});
 // ----------------------------------------------------
 // Proxy Voices from Python
 // ----------------------------------------------------
