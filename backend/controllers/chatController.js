@@ -44,11 +44,18 @@ export const getChatContext = async (req, res) => {
 
 export const chatWithAssistant = async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, history = [] } = req.body;
 
     if (!message || !message.trim()) {
       return res.status(400).json({
         message: "Message is required",
+      });
+    }
+
+    // Optional earlier turns: [{ role: "user" | "model", text }]
+    if (!Array.isArray(history)) {
+      return res.status(400).json({
+        message: "History must be an array",
       });
     }
 
@@ -215,7 +222,7 @@ export const chatWithAssistant = async (req, res) => {
 
     const context = buildUserContext(user, preferences);
 
-    const geminiReply = await askGemini(context, message);
+    const geminiReply = await askGemini(context, message, history);
 
     // Check if Gemini returned a route
     let route = null;

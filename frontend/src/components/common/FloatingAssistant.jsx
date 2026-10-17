@@ -112,17 +112,31 @@ const FloatingAssistant = () => {
   const sendMessage = async () => {
     const message = input.trim();
     if (!message || loading) return;
+
+    // Earlier turns give the assistant conversation memory.
+    // Skip the greeting (first message) and error bubbles.
+    // Built BEFORE the new user message is appended, so it isn't sent twice.
+    const history = messages
+      .slice(1)
+      .filter((msg) => !msg.isError)
+      .map((msg) => ({
+        role: msg.sender === "user" ? "user" : "model",
+        text: msg.text,
+      }));
+
     setMessages((previous) => [...previous, { sender: "user", text: message }]);
     setInput("");
     setLoading(true);
 
     try {
       const token = localStorage.getItem("token");
+
       const { data } = await axios.post(
         "/api/assistant/chat",
-        { message },
+        { message, history },
         { headers: { Authorization: `Bearer ${token}` } },
       );
+
       setMessages((previous) => [
         ...previous,
         {
@@ -138,6 +152,7 @@ const FloatingAssistant = () => {
         {
           sender: "assistant",
           text: error?.response?.data?.message || "Sorry, something went wrong.",
+          isError: true,
         },
       ]);
     } finally {
