@@ -6,9 +6,8 @@ process.env.NODE_ENV = "test";
 const { default: User } = await import("../models/User.js");
 const { default: Preference } = await import("../models/Preference.js");
 const { default: Course } = await import("../models/Course.js");
-const { getChatContext, chatWithAssistant } = await import("../controllers/chatController.js");
-const { getCertificates, generateCertificate } =
-  await import("../controllers/certificateController.js");
+const { getChatContext, chatWithAssistant, extractRoute } = await import("../controllers/chatController.js");
+const { getCertificates, generateCertificate } = await import("../controllers/certificateController.js");
 
 const originals = {
   userFindByPk: User.findByPk,
@@ -105,6 +104,13 @@ test("chat navigation intent returns a route without external AI", async () => {
   const { state, res } = response();
   await chatWithAssistant({ user: { id: "u" }, body: { message: "Open settings" } }, res);
   assert.deepEqual(state.body, { reply: "You can open /settings", route: "/settings" });
+});
+
+test("chat route extraction ignores trailing punctuation and prose", () => {
+  assert.equal(extractRoute("Here you go.\nROUTE: /courses."), "/courses");
+  assert.equal(extractRoute("ROUTE: /courses?category=react. Please check this page."), "/courses?category=react");
+  assert.equal(extractRoute("ROUTE: /watch-history\nAdditional text"), "/watch-history");
+  assert.equal(extractRoute("No route provided"), null);
 });
 
 test("chat course and progress responses use only the authenticated user's courses", async () => {
