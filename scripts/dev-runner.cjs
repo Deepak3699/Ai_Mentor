@@ -381,9 +381,11 @@ function spawnService(key) {
   markPhase(key, "process", "start");
   setState(key, "starting", service.label === "API" ? "Launching backend" : "Launching Vite");
   const command = commandFor(key);
+  const serviceEnv =
+    key === "aiApi" ? { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" } : process.env;
   const child = spawn(command.executable, command.args, {
     cwd: service.folder,
-    env: process.env,
+    env: serviceEnv,
     stdio: ["inherit", "pipe", "pipe"],
     windowsHide: false,
   });

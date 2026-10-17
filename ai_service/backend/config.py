@@ -1,8 +1,8 @@
 import os
 
 from dotenv import load_dotenv
-
-load_dotenv()
+if not os.getenv("PYTEST_CURRENT_TEST"):
+    load_dotenv(override=False)
 
 # Required: Primary AI provider
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
