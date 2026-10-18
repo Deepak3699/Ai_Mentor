@@ -1,6 +1,7 @@
 import { Course, AdminNotification, Module, Lesson, User } from "../models/index.js";
 import { Op, Sequelize } from "sequelize";
 import { generateCourseSyllabus } from "./syllabusController.js";
+import { logServerError, sendServerError } from "../utils/apiError.js";
 
 // Valid status values
 const VALID_STATUSES = ["published", "disabled", "deleted"];
@@ -38,8 +39,7 @@ export const getAllCourses = async (req, res) => {
     });
     res.status(200).json({ success: true, data: courses });
   } catch (error) {
-    console.error("GET COURSES ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "courseController.getAllCourses");
   }
 };
 
@@ -61,8 +61,7 @@ export const createCourse = async (req, res) => {
     });
     res.status(201).json({ success: true, data: course });
   } catch (error) {
-    console.error("CREATE COURSE ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "courseController.createCourse");
   }
 };
 
@@ -122,8 +121,7 @@ export const updateCourseStatus = async (req, res) => {
       data: course,
     });
   } catch (error) {
-    console.error("UPDATE COURSE STATUS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "courseController.updateCourseStatus");
   }
 };
 
@@ -197,8 +195,7 @@ export const deleteCourseHard = async (req, res) => {
       cleanedUpUsers: enrolledUsers.length,
     });
   } catch (error) {
-    console.error("HARD DELETE COURSE ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "courseController.deleteCourseHard");
   }
 };
 
@@ -261,8 +258,7 @@ export const getCourseEnrollments = async (req, res) => {
       }),
     });
   } catch (error) {
-    console.error("GET COURSE ENROLLMENTS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "courseController.getCourseEnrollments");
   }
 };
 
@@ -314,8 +310,7 @@ export const getCourseSyllabus = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("GET COURSE SYLLABUS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "courseController.getCourseSyllabus");
   }
 };
 

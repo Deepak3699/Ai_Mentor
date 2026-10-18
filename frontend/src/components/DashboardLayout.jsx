@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
@@ -8,6 +8,7 @@ const routeToPage = {
   "/dashboard": "dashboard",
   "/analytics": "analytics",
   "/courses": "courses",
+  "/code-explainer": "code-explainer",
   "/discussions": "discussions",
   "/settings": "settings",
   "/watchedvideos": "watched",
@@ -18,6 +19,14 @@ const routeToPage = {
 const DashboardLayout = () => {
   const location = useLocation();
   const { sidebarCollapsed, isDesktop } = useSidebar();
+  const routeScrollRef = useRef(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (!params.has("focusPost") && !params.has("focusReply")) {
+      routeScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    }
+  }, [location.pathname, location.search]);
 
   // Derive activePage from the current path
   const activePage =
@@ -29,8 +38,9 @@ const DashboardLayout = () => {
       <Header />
       <Sidebar activePage={activePage} />
       <div
-        className={`app-route-scroll h-[calc(100dvh-5rem)] min-h-0 flex-none overflow-x-hidden overflow-y-auto bg-canvas-alt transition-[margin-left] duration-300 mt-[5rem] ${
-          isDesktop ? (sidebarCollapsed ? "ml-[72px]" : "ml-[245px]") : ""
+        ref={routeScrollRef}
+        className={`flex-1 flex flex-col transition-[margin-left] duration-300 mt-18 app-route-scroll h-[calc(100dvh-4.5rem)] min-h-0 overflow-x-hidden overflow-y-auto ${
+          isDesktop ? (sidebarCollapsed ? "ml-18" : "ml-61.25") : ""
         }`}
       >
         <Outlet />

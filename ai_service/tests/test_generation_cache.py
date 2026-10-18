@@ -39,7 +39,10 @@ def make_request(**overrides):
         "gender": "male",
         "speech_rate": "+0%",
         "speech_pitch": "+0Hz",
-        "preferences": {"style": "concise", "captions": True},
+        "preferences": {
+            "explanation_type": "concise",
+            "focus_area": "asyncio",
+        },
     }
     values.update(overrides)
     return api.LessonRequest(**values)
@@ -60,10 +63,20 @@ def test_identical_requests_reuse_cached_job():
 
 def test_nested_preferences_are_canonicalized_for_cache_key():
     first = generate(
-        make_request(preferences={"style": "concise", "captions": True})
+        make_request(
+            preferences={
+                "explanation_type": "concise",
+                "focus_area": "asyncio",
+            }
+        )
     )
     second = generate(
-        make_request(preferences={"captions": True, "style": "concise"})
+        make_request(
+            preferences={
+                "focus_area": "asyncio",
+                "explanation_type": "concise",
+            }
+        )
     )
 
     assert second["cached"] is True
@@ -77,7 +90,12 @@ def test_nested_preferences_are_canonicalized_for_cache_key():
         {"gender": "female"},
         {"speech_rate": "+15%"},
         {"speech_pitch": "+5Hz"},
-        {"preferences": {"style": "detailed", "captions": True}},
+        {
+            "preferences": {
+                "explanation_type": "detailed",
+                "focus_area": "asyncio",
+            }
+        },
     ],
 )
 def test_output_affecting_options_create_distinct_jobs(change):

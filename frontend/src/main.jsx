@@ -41,7 +41,8 @@ const isInitialDashboardRoute = window.location.pathname === "/dashboard";
 
 if (isInitialDashboardRoute) {
   window.addEventListener("app:initial-content-ready", hideStartupLoader, { once: true });
-  window.setTimeout(hideStartupLoader, 10000);
 } else {
-  requestAnimationFrame(() => requestAnimationFrame(hideStartupLoader));
+  window.addEventListener("app:initial-route-ready", hideStartupLoader, { once: true });
 }
+
+window.setTimeout(hideStartupLoader, 10000);

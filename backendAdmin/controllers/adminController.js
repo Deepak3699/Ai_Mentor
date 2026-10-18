@@ -13,6 +13,7 @@ import {
   Report,
   AdminNotification,
 } from "../models/index.js";
+import { logServerError, sendServerError } from "../utils/apiError.js";
 
 let notificationSeedPromise = null;
 
@@ -130,8 +131,7 @@ const registerAdmin = async (req, res) => {
       role: admin.role,
     });
   } catch (error) {
-    console.error("REGISTER ADMIN ERROR:", error.message);
-    res.status(500).json({ message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.registerAdmin");
   }
 };
 
@@ -156,8 +156,7 @@ const loginAdmin = async (req, res) => {
       res.status(401).json({ message: "Invalid email or password" });
     }
   } catch (error) {
-    console.error("LOGIN ADMIN ERROR:", error.message);
-    res.status(500).json({ message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.loginAdmin");
   }
 };
 
@@ -196,8 +195,7 @@ const deleteAdmin = async (req, res) => {
     await adminToDelete.destroy();
     res.json({ message: "Admin removed" });
   } catch (error) {
-    console.error("DELETE ADMIN ERROR:", error.message);
-    res.status(500).json({ message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.deleteAdmin");
   }
 };
 
@@ -309,8 +307,7 @@ const getAllEnrollments = async (req, res) => {
 
     res.status(400).json({ success: false, message: "Invalid type parameter" });
   } catch (error) {
-    console.error("ENROLLMENTS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.getAllEnrollments");
   }
 };
 
@@ -413,8 +410,7 @@ const getAllPayments = async (req, res) => {
       data,
     });
   } catch (error) {
-    console.error("GET PAYMENTS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.getAllPayments");
   }
 };
 
@@ -432,8 +428,7 @@ const getAllCourses = async (req, res) => {
       data: courses,
     });
   } catch (error) {
-    console.error("GET COURSES ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.getAllCourses");
   }
 };
 
@@ -450,8 +445,7 @@ const getAllUsers = async (req, res) => {
       data: users,
     });
   } catch (error) {
-    console.error("GET USERS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.getAllUsers");
   }
 };
 
@@ -470,8 +464,7 @@ const getAllAdmins = async (req, res) => {
       data: admins,
     });
   } catch (error) {
-    console.error("GET ADMINS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.getAllAdmins");
   }
 };
 
@@ -488,8 +481,7 @@ const getAdminNotifications = async (req, res) => {
 
     res.status(200).json({ success: true, data: notifications });
   } catch (error) {
-    console.error("GET NOTIFICATIONS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.getAdminNotifications");
   }
 };
 
@@ -501,8 +493,7 @@ const markAllNotificationsRead = async (req, res) => {
     await AdminNotification.update({ unread: false }, { where: { unread: true } });
     res.status(200).json({ success: true, message: "All notifications marked as read" });
   } catch (error) {
-    console.error("MARK ALL READ ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.markAllNotificationsRead");
   }
 };
 
@@ -523,8 +514,7 @@ const markNotificationRead = async (req, res) => {
 
     res.status(200).json({ success: true, data: notification });
   } catch (error) {
-    console.error("MARK READ ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.markNotificationRead");
   }
 };
 
@@ -536,8 +526,7 @@ const clearAllNotifications = async (req, res) => {
     await AdminNotification.destroy({ where: {} });
     res.status(200).json({ success: true, message: "All notifications cleared" });
   } catch (error) {
-    console.error("CLEAR NOTIFICATIONS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.clearAllNotifications");
   }
 };
 
@@ -634,8 +623,7 @@ const getAllReports = async (req, res) => {
       data: reports,
     });
   } catch (error) {
-    console.error("GET REPORTS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.getAllReports");
   }
 };
 
@@ -676,11 +664,7 @@ const createCourse = async (req, res) => {
       data: course,
     });
   } catch (error) {
-    console.error("CREATE COURSE ERROR:", error.message);
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-    });
+    return sendServerError(req, res, error, "adminController.createCourse");
   }
 };
 
@@ -730,8 +714,7 @@ const getCourseSyllabus = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("GET COURSE SYLLABUS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "adminController.getCourseSyllabus");
   }
 };
 
