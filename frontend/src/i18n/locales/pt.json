@@ -275,6 +275,14 @@
     "progress_lessons": "Progresso",
     "welcome_back_user": "Bem-vindo de volta, {{name}}!",
     "analytics_subtitle": "Aqui está seu progresso de aprendizado e próximas tarefas",
+    "units": {
+      "day_one": "{{count}} Dia",
+      "day_other": "{{count}} Dias",
+      "course_one": "{{count}} Curso",
+      "course_other": "{{count}} Cursos",
+      "certificate_one": "{{count}} Certificado",
+      "certificate_other": "{{count}} Certificados"
+    },
     "enrolled_courses": "Cursos Matriculados",
     "attendance_rate": "Taxa de Frequência",
     "current_streak_label": "Sequência Atual",

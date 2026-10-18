@@ -275,6 +275,14 @@
     "progress_lessons": "Прогресс",
     "welcome_back_user": "С возвращением, {{name}}!",
     "analytics_subtitle": "Вот ваш прогресс в обучении и предстоящие задачи",
+    "units": {
+      "day_one": "{{count}} день",
+      "day_other": "{{count}} дней",
+      "course_one": "{{count}} курс",
+      "course_other": "{{count}} курсов",
+      "certificate_one": "{{count}} сертификат",
+      "certificate_other": "{{count}} сертификатов"
+    },
     "enrolled_courses": "Записанные курсы",
     "attendance_rate": "Процент посещаемости",
     "current_streak_label": "Текущая серия",
