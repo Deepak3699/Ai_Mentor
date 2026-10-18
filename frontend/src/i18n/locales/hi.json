@@ -275,6 +275,14 @@
     "progress_lessons": "प्रगति",
     "welcome_back_user": "वापस स्वागत है, {{name}}!",
     "analytics_subtitle": "यहाँ आपकी सीखने की प्रगति और आगामी कार्य हैं",
+    "units": {
+      "day_one": "{{count}} दिन",
+      "day_other": "{{count}} दिन",
+      "course_one": "{{count}} कोर्स",
+      "course_other": "{{count}} कोर्स",
+      "certificate_one": "{{count}} प्रमाणपत्र",
+      "certificate_other": "{{count}} प्रमाणपत्र"
+    },
     "enrolled_courses": "नामांकित कोर्सेस",
     "attendance_rate": "उपस्थिति दर",
     "current_streak_label": "वर्तमान लय",

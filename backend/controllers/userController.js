@@ -3,11 +3,14 @@ import User from "../models/User.js";
 import CommunityPost from "../models/CommunityPost.js";
 import Notifications from "../models/Notification.js";
 import jwt from "jsonwebtoken";
+import { Transaction } from "sequelize";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 import path from "path";
 import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
 import { createNotification } from "./notificationController.js";
+import { Course } from "../models/modelAssociations.js";
+import Payment from "../models/Payment.js";
 import { sequelize } from "../config/db.js";
 
 // Generate JWT Token
@@ -166,56 +169,117 @@ const getUserProfile = async (req, res) => {
   }
 };
 
-// @desc Purchase course / Enroll free course
+// @desc Enroll in a free course (paid courses require a completed payment)
 const purchaseCourse = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Not authorized" });
 
-    const { courseId, courseTitle } = req.body;
+    const { courseId } = req.body;
+    const normalizedCourseId = Number(courseId);
 
-    if (!courseId) {
+    if (!courseId || !Number.isInteger(normalizedCourseId)) {
       return res.status(400).json({ message: "Course ID is required" });
     }
 
-    const user = await User.findByPk(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    const purchasedCourses = user.purchasedCourses || [];
-
-    // Prevent duplicate enrollment
-    const alreadyPurchased = purchasedCourses.some((c) => Number(c.courseId) === Number(courseId));
-
-    if (alreadyPurchased) {
-      return res.status(400).json({ message: "Already enrolled" });
+    // Load the authoritative course record — never trust client-supplied data.
+    const course = await Course.findByPk(normalizedCourseId);
+    if (!course || course.status === "deleted") {
+      return res.status(404).json({ message: "Course not found" });
     }
 
-    // Add course
-    purchasedCourses.push({
-      courseId: Number(courseId),
-      courseTitle: courseTitle || "Course",
-      purchaseDate: new Date(),
-      progress: {
-        completedLessons: [],
-        currentLesson: null,
-      },
-    });
+    if (course.status !== "published") {
+      return res.status(403).json({ message: "This course is not currently available." });
+    }
 
-    user.purchasedCourses = purchasedCourses;
+    const isPaid = Number(course.priceValue || 0) > 0;
 
-    // Important for Sequelize JSON/JSONB update
-    user.changed("purchasedCourses", true);
+    // Enroll atomically: the user row is locked for the duration of the
+    // duplicate check and save so concurrent requests cannot both pass the
+    // check and append two access records.
+    const transaction = await sequelize.transaction();
+    let enrolledUserId;
+    let purchasedCourses;
 
-    await user.save();
-    await createNotification(user.id, {
-      title: "Course Enrolled 🎉",
-      message: `You successfully enrolled in ${courseTitle || "a course"}`,
-      type: "course",
-      metadata: { courseId },
-    });
+    try {
+      const user = await User.findByPk(req.user.id, {
+        transaction,
+        lock: Transaction.LOCK.UPDATE,
+      });
 
-    res.status(200).json({
+      if (!user) {
+        await transaction.rollback();
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      purchasedCourses = user.purchasedCourses || [];
+
+      // Prevent duplicate enrollment
+      const alreadyPurchased = purchasedCourses.some(
+        (c) => Number(c.courseId) === normalizedCourseId,
+      );
+
+      if (alreadyPurchased) {
+        await transaction.rollback();
+        return res.status(400).json({ message: "Already enrolled" });
+      }
+
+      // Paid courses may only be enrolled once a payment has completed successfully.
+      if (isPaid) {
+        const completedPayment = await Payment.findOne({
+          where: { userId: user.id, courseId: normalizedCourseId, status: "success" },
+          transaction,
+        });
+
+        if (!completedPayment) {
+          await transaction.rollback();
+          return res.status(403).json({
+            message: "Payment required. Please complete payment before enrolling in this course.",
+          });
+        }
+      }
+
+      // Add course using the database title, not the client-supplied one
+      purchasedCourses.push({
+        courseId: normalizedCourseId,
+        courseTitle: course.title,
+        purchaseDate: new Date(),
+        progress: {
+          completedLessons: [],
+          currentLesson: null,
+        },
+      });
+
+      user.purchasedCourses = purchasedCourses;
+
+      // Important for Sequelize JSON/JSONB update
+      user.changed("purchasedCourses", true);
+
+      await user.save({ transaction });
+
+      await transaction.commit();
+      enrolledUserId = user.id;
+    } catch (error) {
+      if (!transaction.finished) {
+        await transaction.rollback();
+      }
+      throw error;
+    }
+
+    // Best-effort notification; must not undo a committed enrollment.
+    try {
+      await createNotification(enrolledUserId, {
+        title: "Course Enrolled 🎉",
+        message: `You successfully enrolled in ${course.title}`,
+        type: "course",
+        metadata: { courseId: normalizedCourseId },
+      });
+    } catch (notificationError) {
+      console.error("ENROLLMENT NOTIFICATION ERROR:", notificationError);
+    }
+
+    return res.status(200).json({
       message: "Course enrolled successfully",
-      purchasedCourses: user.purchasedCourses,
+      purchasedCourses,
     });
   } catch (error) {
     console.error("PURCHASE ERROR:", error);

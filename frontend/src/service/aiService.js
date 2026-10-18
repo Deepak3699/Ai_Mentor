@@ -50,3 +50,29 @@ export const getAIVideo = async (payload, { signal, timeoutMs = AI_REQUEST_TIMEO
     throw failure;
   }
 };
+export const explainCode = async (payload) => {
+  const token = localStorage.getItem("token");
+
+  const response = await fetch("/api/ai/explain-code", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  let data;
+
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("Server returned empty or invalid JSON");
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.message || "Code explanation request failed");
+  }
+
+  return data;
+};

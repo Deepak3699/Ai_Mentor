@@ -275,6 +275,14 @@
     "progress_lessons": "进度",
     "welcome_back_user": "欢迎回来，{{name}}！",
     "analytics_subtitle": "这里是您的学习进展和即将到来的任务",
+    "units": {
+      "day_one": "{{count}} 天",
+      "day_other": "{{count}} 天",
+      "course_one": "{{count}} 门课程",
+      "course_other": "{{count}} 门课程",
+      "certificate_one": "{{count}} 张证书",
+      "certificate_other": "{{count}} 张证书"
+    },
     "enrolled_courses": "已报名课程",
     "attendance_rate": "出勤率",
     "current_streak_label": "当前学习连续天数",
