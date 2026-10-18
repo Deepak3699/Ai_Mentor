@@ -174,6 +174,17 @@ For API exploration, start the service and open the FastAPI documentation at `ht
 
 ## Security notes
 
+Lesson, syllabus, quiz, and flashcard generation send fixed task instructions in
+the provider's system-instruction field and caller-controlled values as a
+separate, JSON-serialized user message. The system instructions tell the model
+to treat JSON values as untrusted content rather than instructions. JSON
+serialization preserves input as data but cannot guarantee resistance to every
+prompt injection.
+
+Lesson preferences are validated against the supported fields
+`explanation_type`, `learning_style`, `teaching_pace`, `example_type`, and
+`focus_area`; unknown keys are rejected.
+
 - Never commit `.env` files, provider keys, database credentials, or generated authentication tokens.
 - Do not print raw request objects, generated secrets, full credential values, or provider authorization headers.
 - Keep celebrity source selection restricted to validated files inside the configured input directory.
