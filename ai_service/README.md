@@ -135,6 +135,24 @@ For direct debugging only, the underlying entry point is `ai_service/backend/gra
 
 Use the running service's FastAPI documentation for the current request and response schemas.
 
+### Filtering voices
+
+`GET /voices` returns every registered voice by default. Narrow the list with optional query parameters:
+
+| Parameter  | Example             | Behavior                             |
+| ---------- | ------------------- | ------------------------------------ |
+| `language` | `?language=Spanish` | Only voices whose `language` matches |
+| `gender`   | `?gender=Female`    | Only voices whose `gender` matches   |
+
+- Matching is case-insensitive, so `?language=spanish` and `?language=Spanish` are equivalent.
+- When both parameters are given, a voice must match both: `?language=English&gender=Male`.
+- A value that matches no voice is not an error. The service responds with HTTP 200 and `{"voices": []}`.
+- An empty parameter (`?language=`) is treated as if it were omitted.
+
+```bash
+curl "http://localhost:8000/voices?language=English&gender=Female"
+```
+
 ## Generation workflow
 
 1. Validate the lesson request.
