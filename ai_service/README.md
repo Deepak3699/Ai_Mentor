@@ -87,7 +87,7 @@ Create `ai_service/backend/.env` from `ai_service/backend/.env.example`.
 | `DID_API_URL`           | Optional                                        | Uses the service default when omitted                  |
 | `DID_SOURCE_URL`        | Optional                                        | D-ID rendering falls back to the local FFmpeg renderer |
 | `LOG_FORMAT`            | Optional                                        | Uses plain text logs; set `json` for JSON lines        |
-| `LOG_LEVEL`             | Optional                                        | Uses `INFO`                                            |
+| `AI_SERVICE_LOG_LEVEL`  | Optional                                        | Uses `INFO`                                            |
 
 Setup output reports only variable names and `<configured>` markers. Do not commit `.env` files or share credential values.
 
@@ -108,7 +108,14 @@ The service logs through Python's `logging` module to standard output. Every log
 
 IDs that do not apply to a line (for example `job_id` on a request that is not a lesson job) appear as `-` in text logs and `null` in JSON logs. Lines logged by a lesson job also carry the `request_id` of the `POST /generate` request that queued it.
 
-Every HTTP response, including errors, returns the request ID in the `X-Request-ID` response header. Quote it when reporting a problem so the matching log lines can be found.
+Every HTTP response returns the request ID in the `X-Request-ID` response header, including errors, CORS preflight (`OPTIONS`) responses and responses built by the framework rather than a route. Browsers can read it on cross-origin responses because it is listed in `Access-Control-Expose-Headers`. Quote it when reporting a problem so the matching log lines can be found. WebSocket connections are not tagged.
+
+### How it works
+
+- `logging_config.py` owns the handler, formatters and correlation IDs. Nothing is configured when `api.py` is imported: the app lifespan calls `configure_logging()` at startup and `reset_logging()` at shutdown, which removes the service handler and restores the root logger level and any quietened library loggers.
+- `RequestIDMiddleware` is installed as the outermost layer of the app. It only binds the ID and adds the header. Exceptions are logged with the ID still bound and then re-raised, so registered exception handlers, FastAPI's default 500 response and the host server (for example Uvicorn) behave exactly as they would without it.
+- Only the service's own handler is added or removed. Handlers installed by the host, such as Uvicorn's own `uvicorn.*` loggers, are left alone and do not duplicate service records.
+- `httpx`, `httpcore` and `google_genai` are quietened to `WARNING` only when no level was already set for them.
 
 Plain text is the default:
 
@@ -131,7 +138,18 @@ Set `LOG_FORMAT=json` for one JSON object per line, suitable for log shippers an
 }
 ```
 
-To find everything that happened to one job, filter on its `job_id`, for example `jq 'select(.job_id == "React_Hooks_20261010_051244")'`. Use `LOG_LEVEL` (`DEBUG`, `INFO`, `WARNING`, `ERROR`) to change verbosity.
+To find everything that happened to one job, filter on its `job_id`, for example `jq 'select(.job_id == "React_Hooks_20261010_051244")'`.
+
+### Settings
+
+Both settings are read from the environment when the service starts.
+
+| Variable               | Values                                          | Default |
+| ---------------------- | ----------------------------------------------- | ------- |
+| `LOG_FORMAT`           | `text` or `json` (case-insensitive)             | `text`  |
+| `AI_SERVICE_LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` | `INFO`  |
+
+Unsupported values do not stop the service from starting. It falls back to the default and logs one warning that names the setting and shows the rejected value (shortened to 40 characters). Empty or blank values silently use the default.
 
 ## Running the service
 

@@ -24,7 +24,12 @@ from google.genai import types
 from groq import Groq
 from cachetools import TTLCache
 from subtitles import write_subtitles
-from logging_config import RequestIDMiddleware, bind_job_id, configure_logging
+from logging_config import (
+    bind_job_id,
+    configure_logging,
+    install_request_id_middleware,
+    reset_logging,
+)
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
@@ -53,7 +58,6 @@ if CLOUDINARY_ENABLED:
 # --------------------------
 # FastAPI App
 # --------------------------
-configure_logging()
 logger = logging.getLogger(__name__)
 
 _EVENT_LEVELS = {"WARN": logging.WARNING, "ERROR": logging.ERROR}
@@ -110,6 +114,8 @@ def check_ffmpeg() -> None:
 async def lifespan(app: FastAPI):
     global shutting_down
 
+    # Process-wide logging is configured at startup, not at import time.
+    configure_logging()
     check_ffmpeg()
     shutting_down = False
     yield
@@ -121,6 +127,7 @@ async def lifespan(app: FastAPI):
         shutdown_failed_jobs=shutdown_failed_jobs,
         timeout_seconds=0,
     )
+    reset_logging()
 
 
 app = FastAPI(
@@ -128,7 +135,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -137,6 +143,8 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Request-ID"],
 )
+# Outermost layer: adds X-Request-ID to every response, including CORS preflight.
+install_request_id_middleware(app)
 
 # --------------------------
 # GEMINI Client (Primary)
@@ -875,7 +883,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
 
 async def _process_lesson(data: LessonRequest, base_filename: str):
     log_event("QUEUE", "Lesson request accepted", topic=data.topic, source=data.celebrity)
-    
+
     start_time = time.time()
     provider_used = "unknown"
     model_used = "unknown"
@@ -935,8 +943,7 @@ async def _process_lesson(data: LessonRequest, base_filename: str):
         - Focus the explanation on the user's selected focus area.
         - Match the explanation style with the user's preferred learning style.
         """
-
-        log_event("INFO", "Preferences loaded", configured=bool(data.preferences))
+        log_event("INFO", "User preferences", configured=bool(data.preferences))
 
         script = ""
 
