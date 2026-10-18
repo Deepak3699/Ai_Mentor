@@ -1,6 +1,7 @@
 # Backend Admin Documentation
 
 ## Introduction
+
 The `backendAdmin` module is an isolated Express.js management service running on Node.js. It acts as the dedicated administrative terminal for the platform, providing content moderation, system configuration overrides, analytical metrics aggregation, dynamic schema toggles, database auditing, and validation logic.
 
 ---
@@ -290,8 +291,9 @@ Copy `.env.example` to `.env` inside the `backendAdmin` folder:
 PORT=5001
 FRONTEND_ADMIN_URL=http://localhost:5174
 
-# Syllabus provider connection and request timeout (milliseconds)
-SYLLABUS_SERVICE_URL=http://127.0.0.1:8000
+# Shared service connection, credential, and syllabus request timeout (milliseconds)
+AI_SERVICE_URL=http://127.0.0.1:8000
+AI_SERVICE_KEY=replace_with_shared_service_key
 SYLLABUS_SERVICE_TIMEOUT_MS=15000
 
 # Authentication
@@ -305,7 +307,10 @@ SUPER_ADMIN_NAME=Super Admin
 SUPER_ADMIN_EMAIL=admin@yourdomain.com
 SUPER_ADMIN_PASSWORD=strong_admin_password
 ```
-Syllabus requests are aborted after the configured timeout and return a retryable `503` response when the provider is unavailable. Set `SYLLABUS_SERVICE_URL` for the provider endpoint.
+
+Syllabus requests are cancelled when the client disconnects or the server shuts down. `SYLLABUS_SERVICE_TIMEOUT_MS` defaults to `15000`; transient provider failures and timeouts return retryable `503` responses, while credential/configuration and invalid-response failures are not marked retryable. Provider output is validated before a single database transaction persists modules and lessons. `AI_SERVICE_URL` and `AI_SERVICE_KEY` are shared with the other backend services.
+
+Provider responses must contain 1–12 uniquely named modules, each with 1–20 lessons, and no more than 120 lessons total. Module and lesson titles must be non-empty, unique within their respective scope (case-insensitive), and at most 120 characters. Lesson durations must be non-empty and at most 40 characters; supported lesson types are `video`, `article`, `quiz`, and `text`. Empty module or lesson lists and unsupported types are rejected before database writes.
 
 ### System Installation Instructions
 

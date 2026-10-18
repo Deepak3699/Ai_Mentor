@@ -1,7 +1,7 @@
 import { Course, AdminNotification, Module, Lesson, User } from "../models/index.js";
 import { Op, Sequelize } from "sequelize";
 import { generateCourseSyllabus } from "./syllabusController.js";
-import { logServerError, sendServerError } from "../utils/apiError.js";
+import { sendServerError } from "../utils/apiError.js";
 
 // Valid status values
 const VALID_STATUSES = ["published", "disabled", "deleted"];

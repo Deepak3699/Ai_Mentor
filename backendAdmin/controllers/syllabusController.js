@@ -1,6 +1,23 @@
-import { Course, Module, Lesson } from "../models/index.js";
-import { logServerError, sendServerError } from "../utils/apiError.js";
-import { requestSyllabus, SyllabusServiceError } from "../services/syllabusService.js";
+import { Course } from "../models/index.js";
+import {
+  persistSyllabus,
+  requestSyllabus,
+  SyllabusServiceError,
+} from "../services/syllabusService.js";
+
+const logSyllabusFailure = (req, code) => {
+  console.error(
+    JSON.stringify({
+      level: "error",
+      requestId: req.id,
+      context: "syllabusController.generate",
+      method: req.method,
+      route: req.originalUrl.split("?")[0],
+      adminId: req.admin?.id,
+      errorCode: code,
+    }),
+  );
+};
 
 export const generateCourseSyllabus = async (req, res) => {
   const controller = new AbortController();
@@ -16,14 +33,19 @@ export const generateCourseSyllabus = async (req, res) => {
 
     let data;
     try {
-      data = await requestSyllabus(course, { signal: controller.signal });
+      data = await requestSyllabus(course, {
+        signal: controller.signal,
+        shutdownSignal: req.app.locals.shutdownSignal,
+      });
     } catch (error) {
       if (error instanceof SyllabusServiceError) {
-        logServerError(req, error, "generateSyllabus.provider");
-        return res.status(503).json({
+        if (error.code === "CLIENT_DISCONNECT") return;
+        logSyllabusFailure(req, error.code);
+        return res.status(error.status).json({
           success: false,
-          retryable: true,
-          message: error.message,
+          retryable: error.retryable,
+          code: error.code,
+          message: "Syllabus generation is temporarily unavailable",
           requestId: req.id,
         });
       }
@@ -31,27 +53,17 @@ export const generateCourseSyllabus = async (req, res) => {
       throw error;
     }
 
-    for (const [moduleIndex, mod] of data.modules.entries()) {
-      const newModule = await Module.create({
-        courseId: course.id,
-        title: mod.title,
-        order: moduleIndex + 1,
-      });
-
-      for (const [lessonIndex, lesson] of (mod.lessons || []).entries()) {
-        await Lesson.create({
-          moduleId: newModule.id,
-          title: lesson.title,
-          duration: lesson.duration || "5 mins",
-          type: lesson.type || "video",
-          order: lessonIndex + 1,
-        });
-      }
-    }
+    if (controller.signal.aborted) return;
+    await persistSyllabus(course.id, data);
 
     return res.json({ message: "Syllabus generated successfully", data });
-  } catch (error) {
-    return sendServerError(req, res, error, "syllabusController.generate");
+  } catch {
+    logSyllabusFailure(req, "PERSISTENCE_FAILURE");
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      requestId: req.id,
+    });
   } finally {
     req.off("aborted", abortOnDisconnect);
     res.off("close", abortOnDisconnect);

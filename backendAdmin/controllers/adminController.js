@@ -1,7 +1,4 @@
 import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
-import { sequelize } from "../config/db.js";
-import { DataTypes } from "sequelize";
 import { generateCourseSyllabus } from "./syllabusController.js";
 import {
   Admin,
@@ -13,7 +10,7 @@ import {
   Report,
   AdminNotification,
 } from "../models/index.js";
-import { logServerError, sendServerError } from "../utils/apiError.js";
+import { sendServerError } from "../utils/apiError.js";
 
 let notificationSeedPromise = null;
 
