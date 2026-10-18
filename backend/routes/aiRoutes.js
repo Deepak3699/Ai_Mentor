@@ -2,7 +2,7 @@ import AIVideo from "../models/AIVideo.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
-import { generateVideoSchema } from "../schemas/aiSchema.js";
+import { generateVideoSchema, explainCodeSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
 import { getVideoQueue } from "../queues/videoQueue.js";
@@ -304,15 +304,19 @@ router.get("/status/:jobId", protect, async (req, res) => {
     }
 
     const isAdmin = req.user.role === "admin" || req.user.role === "superadmin";
-    if (!isAdmin && videoJob.userId !== req.user.id) {
-      return res.status(403).json({ error: "Access denied" });
-    }
 
-    if (videoJob.status === "failed") {
-      return res.json({ status: "failed", error: videoJob.error });
-    }
-
+    // 1. Shared course-video cache authorization:
+    // If the video is completed and has a videoUrl, it is a shared course asset.
+    // Any learner enrolled in this course, the creator, or an admin can access it.
     if (videoJob.status === "completed" && videoJob.videoUrl) {
+      const isEnrolled = (req.user.purchasedCourses || []).some(
+        (c) => Number(c.courseId) === Number(videoJob.courseId),
+      );
+
+      if (!isAdmin && videoJob.userId !== req.user.id && !isEnrolled) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
       return res.json({
         status: "ready",
         cloudinary_url: videoJob.videoUrl,
@@ -320,6 +324,18 @@ router.get("/status/:jobId", protect, async (req, res) => {
         jobId: jobId, // return same ID to frontend
         meta: videoJob.meta,
       });
+    }
+
+    // 2. In-flight (pending / processing) and failed generation requests:
+    // These represent private generation requests.
+    // Only the verified job owner or an authorized administrator may view in-flight status or poll.
+    // For legacy/ownerless records (userId === null), normal users fail closed (403), while admins can access.
+    if (!isAdmin && (!videoJob.userId || videoJob.userId !== req.user.id)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (videoJob.status === "failed") {
+      return res.json({ status: "failed", error: videoJob.error });
     }
 
     if (videoJob.status === "pending") {
@@ -342,33 +358,68 @@ router.get("/status/:jobId", protect, async (req, res) => {
 
     if (data.status === "ready" && data.local_video_url && videoJob) {
       const filename = data.local_video_url.split("/").pop();
-      data.local_video_url = "/api/ai/video/" + videoJob.courseId + "/" + filename;
+      data.local_video_url = `/api/ai/video/${videoJob.courseId}/${filename}`;
     }
 
     const updateWhere = isAdmin ? { id: jobId } : { id: jobId, userId: req.user.id };
 
-    if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
+    if (data.status === "ready") {
+      const completedVideoUrl = data.cloudinary_url || data.local_video_url;
+
+      if (!completedVideoUrl) {
+        console.error(`⚠️ AI service reported ready for jobId ${jobId} without video URL output`);
+        return res.status(502).json({
+          status: "error",
+          error: "AI service reported ready without video output",
+        });
+      }
+
       try {
-        await AIVideo.update(
-          { videoUrl: data.cloudinary_url, status: "completed", meta: data.meta },
+        const [affectedRows] = await AIVideo.update(
+          {
+            videoUrl: completedVideoUrl,
+            status: "completed",
+            meta: data.meta || null,
+            transcriptName:
+              data.transcript_name || data.text_file || videoJob.transcriptName || null,
+          },
           { where: updateWhere },
         );
-        console.log(`☁️ AIVideo DB updated with Cloudinary URL for DB ID: ${jobId}`);
+
+        if (affectedRows === 0) {
+          console.warn(`⚠️ Zero rows updated for ready AIVideo id: ${jobId}`);
+          return res.status(403).json({
+            error: "Failed to update status: unauthorized or record not found",
+          });
+        }
+
+        console.log(`☁️ AIVideo DB updated for DB ID: ${jobId}`);
       } catch (dbErr) {
-        console.error("⚠️ Failed to update AIVideo with Cloudinary URL:", dbErr.message);
+        console.error("⚠️ Failed to update AIVideo ready result:", dbErr.message);
+        return res.status(500).json({ status: "error", error: "Database update failed" });
       }
     } else if (data.status === "failed") {
       try {
-        await AIVideo.update(
-          { status: "failed", error: "Failed in AI service" },
+        const [affectedRows] = await AIVideo.update(
+          { status: "failed", error: data.error || "Failed in AI service" },
           { where: updateWhere },
         );
+
+        if (affectedRows === 0) {
+          console.warn(`⚠️ Zero rows updated for failed AIVideo id: ${jobId}`);
+          return res.status(403).json({
+            error: "Failed to update status: unauthorized or record not found",
+          });
+        }
       } catch (dbErr) {
         console.error("⚠️ Failed to update AIVideo with failure status:", dbErr.message);
+        return res.status(500).json({ status: "error", error: "Database update failed" });
       }
     }
 
     data.jobId = jobId; // ensure frontend gets our DB id, not python id
+    data.transcript_name =
+      data.transcript_name || data.text_file || videoJob.transcriptName || null;
 
     res.json(data);
   } catch (error) {
@@ -460,6 +511,36 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
   }
 });
 
+router.post("/explain-code", protect, validate(explainCodeSchema), async (req, res) => {
+  try {
+    const response = await fetch(`${process.env.AI_SERVICE_URL}/explain-code`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(req.body),
+      signal: AbortSignal.timeout(60000),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("AI code explanation failed:", errorText);
+
+      return res.status(502).json({
+        message: "AI code explanation service failed",
+      });
+    }
+
+    const data = await response.json();
+    return res.json(data);
+  } catch (error) {
+    console.error("AI code explanation error:", error);
+
+    return res.status(500).json({
+      message: "Unable to explain or debug code right now",
+    });
+  }
+});
 // ----------------------------------------------------
 // Proxy Voices from Python
 // ----------------------------------------------------

@@ -12,7 +12,11 @@ AIVideo.init(
     },
     userId: {
       type: DataTypes.UUID,
-      allowNull: false,
+      allowNull: true,
+      references: {
+        model: "Users",
+        key: "id",
+      },
     },
     courseId: {
       type: DataTypes.INTEGER,

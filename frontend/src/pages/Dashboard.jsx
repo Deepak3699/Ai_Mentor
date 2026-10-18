@@ -20,6 +20,7 @@ import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import CourseCardMeta from "../components/common/CourseCardMeta";
 import LearningActivityCard from "../components/dashboard/LearningActivityCard";
+import QuickActions from "../components/dashboard/QuickActions";
 import DashboardHero from "../components/DashboardHero";
 import UpcomingLiveSession from "../components/UpcomingLiveSession";
 import RecommendedForYou from "../components/RecommendedForYou";
@@ -212,7 +213,10 @@ const Dashboard = () => {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.85fr)]">
           <LearningActivityCard data={weeklyActivity} summary={weeklySummary} />
-          <UpcomingLiveSession sessions={upcomingSessions} />
+          <div className="space-y-6">
+            <UpcomingLiveSession sessions={upcomingSessions} />
+            <QuickActions />
+          </div>
         </div>
 
         <section>

@@ -1,16 +1,14 @@
-import React from "react";
+import { FileText, LoaderCircle, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
+import OverlaySurface from "../learning/OverlaySurface";
+import "../learning/learning-workspace.css";
 
-/*
-  AITranscript Component
-  Collapsible transcript panel for the lesson video. Each cue is a button, so learners can reach
-  it with the keyboard and jump to that point in the video.
-*/
-const AITranscript = ({
+export default function AITranscript({
   id,
   isOpen,
+  isDrawer = false,
   isLoading,
+  error,
   onClose,
   captions,
   currentTime,
@@ -18,78 +16,90 @@ const AITranscript = ({
   containerRef,
   onTranscriptClick,
   formatTime,
-}) => {
+}) {
   const { t } = useTranslation();
   const headingId = `${id}-heading`;
-
-  const handleKeyDown = (event) => {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-      onClose();
-    }
-  };
-
-  return (
-    <section
-      id={id}
-      ref={containerRef}
-      hidden={!isOpen}
-      aria-labelledby={headingId}
-      aria-busy={isLoading}
-      data-shortcuts-ignore
-      onKeyDown={handleKeyDown}
-      className="lg:col-span-1 bg-card border-l border-border overflow-y-auto max-h-[calc(100vh-180px)]"
-    >
-      <div className="sticky top-0 z-10 flex items-center justify-between bg-card border-b border-border px-6 py-4">
-        <h2 id={headingId} className="text-lg font-semibold text-main">
-          {t("learning.transcript")}
-        </h2>
+  const content = (
+    <>
+      <header className="lw-surface-header">
+        <span className="lw-icon-tile">
+          <FileText size={18} aria-hidden="true" />
+        </span>
+        <div className="lw-grow">
+          <h2 id={headingId}>{t("learning.transcript")}</h2>
+        </div>
         <button
           type="button"
-          onClick={onClose}
+          className="lw-icon-button"
           aria-label={t("learning.close_transcript")}
-          className="rounded p-1 text-muted hover:text-main focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          onClick={onClose}
         >
-          <X aria-hidden="true" className="h-5 w-5" />
+          <X size={18} aria-hidden="true" />
         </button>
-      </div>
-      <div className="px-4 py-4 scroll-smooth">
+      </header>
+      <div ref={containerRef} className="lw-transcript-scroll" aria-busy={isLoading}>
         {isLoading ? (
-          <p role="status" className="text-sm text-muted text-center py-8">
-            {t("learning.transcript_loading")}
-          </p>
-        ) : captions.length > 0 ? (
-          <ol className="space-y-2">
+          <div role="status" className="lw-empty">
+            <LoaderCircle className="motion-safe:animate-spin" size={24} aria-hidden="true" />
+            <p>{t("learning.transcript_loading")}</p>
+          </div>
+        ) : captions.length ? (
+          <ol className="lw-cues">
             {captions.map((caption, index) => {
-              const isActive = currentTime >= caption.start && currentTime <= caption.end;
+              const active =
+                currentTime >= caption.start &&
+                (currentTime < caption.end ||
+                  (index === captions.length - 1 && currentTime === caption.end));
               return (
-                <li key={index} ref={isActive ? activeCaptionRef : null}>
+                <li key={`${caption.start}-${index}`} ref={active ? activeCaptionRef : null}>
                   <button
                     type="button"
-                    onClick={() => onTranscriptClick(caption.start)}
-                    aria-current={isActive ? "true" : undefined}
+                    className={`lw-cue ${active ? "is-active" : ""}`}
+                    aria-current={active ? "true" : undefined}
                     title={t("learning.transcript_jump_to", { time: formatTime(caption.start) })}
-                    className={`block w-full py-3 border-l-4 pl-4 pr-2 rounded-r text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-                      isActive
-                        ? "border-blue-500 bg-transcript-bg"
-                        : "border-transparent bg-card hover:bg-color-transcript-bg hover:border-border"
-                    }`}
+                    onClick={() => onTranscriptClick(caption.start)}
                   >
-                    <span className="block text-xs font-medium mb-1 text-muted">
-                      {formatTime(caption.start)}
-                    </span>
-                    <span className="block text-sm leading-relaxed text-muted">{caption.text}</span>
+                    <span className="lw-timestamp">{formatTime(caption.start)}</span>
+                    <span>{caption.text}</span>
                   </button>
                 </li>
               );
             })}
           </ol>
         ) : (
-          <p className="text-sm text-muted text-center py-8">{t("learning.no_transcript")}</p>
+          <div className="lw-empty">
+            <span className="lw-empty-icon">
+              <FileText size={26} aria-hidden="true" />
+            </span>
+            <p>{error || t("learning.no_transcript")}</p>
+          </div>
         )}
       </div>
+    </>
+  );
+  if (isDrawer && isOpen)
+    return (
+      <OverlaySurface id={id} variant="drawer" labelledBy={headingId} onClose={onClose}>
+        {content}
+      </OverlaySurface>
+    );
+  return (
+    <section
+      id={id}
+      hidden={!isOpen}
+      role="region"
+      aria-labelledby={headingId}
+      aria-busy={isLoading}
+      className="lw-transcript"
+      data-shortcuts-ignore
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          onClose();
+        }
+      }}
+    >
+      {content}
     </section>
   );
-};
-
-export default AITranscript;
+}

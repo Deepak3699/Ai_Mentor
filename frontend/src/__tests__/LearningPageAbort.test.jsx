@@ -25,10 +25,26 @@ vi.mock("../components/video/AITranscript", () => ({ default: () => null }));
 
 // Minimal player: attaches the video ref and exposes the page state under test.
 vi.mock("../components/video/VideoPlayer", () => ({
-  default: ({ videoRef, aiVideoUrl, isAIVideoLoading }) => (
+  default: ({
+    videoRef,
+    aiVideoUrl,
+    isAIVideoLoading,
+    isPlaying,
+    onCancelGeneration,
+    generationError,
+    onRetryGeneration,
+  }) => (
     <div>
+      {generationError && (
+        <div role="alert">
+          {generationError.message}
+          <button onClick={onRetryGeneration}>Retry generation</button>
+        </div>
+      )}
       <video ref={videoRef} />
+      {isAIVideoLoading && <button onClick={onCancelGeneration}>Cancel generation</button>}
       <span data-testid="ai-url">{aiVideoUrl || ""}</span>
+      <span data-testid="playing">{String(!!isPlaying)}</span>
       <span data-testid="loading">{String(!!isAIVideoLoading)}</span>
     </div>
   ),
@@ -91,11 +107,14 @@ const flush = (ms = 0) =>
 
 const selectCelebrity = (name) => {
   fireEvent.click(screen.getByRole("button", { name: /learning\.select_ai_voiceover/ }));
-  fireEvent.click(screen.getByRole("button", { name }));
+  fireEvent.click(screen.getByRole("radio", { name }));
+  fireEvent.click(screen.getByRole("button", { name: "learning.workspace.apply_voice" }));
 };
 
-const selectLesson = (title) =>
-  fireEvent.click(screen.getByRole("button", { name: title, hidden: true }));
+const selectLesson = (title) => {
+  fireEvent.click(screen.getByRole("button", { name: /learning.workspace.course_contents/ }));
+  fireEvent.click(screen.getByRole("button", { name: title }));
+};
 
 const callsFor = (fragment) => calls.filter((c) => c.url.includes(fragment));
 const statusCallsFor = (jobId) => callsFor(`/api/ai/status/${jobId}`);
@@ -277,7 +296,7 @@ describe("Learning page AI video polling cancellation", () => {
     const [generate] = generateCallsFor("l1", "srk");
 
     // Deselect: the cancelled flow must not leave loading stuck on.
-    selectCelebrity("SRK");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel generation" }));
     await flush();
     expect(generate.signal.aborted).toBe(true);
     expect(screen.getByTestId("loading").textContent).toBe("false");
@@ -289,7 +308,7 @@ describe("Learning page AI video polling cancellation", () => {
     selectCelebrity("SRK");
     await flush();
 
-    selectCelebrity("SRK"); // deselect
+    fireEvent.click(screen.getByRole("button", { name: "Cancel generation" })); // deselect
     await flush();
     selectCelebrity("SRK"); // select again
     await flush();
@@ -323,4 +342,75 @@ describe("Learning page AI video polling cancellation", () => {
     expect(screen.getByRole("alert")).toBeTruthy();
     expect(screen.getByTestId("loading").textContent).toBe("false");
   });
+  it("clears generation before a slow progress save completes", async () => {
+    await renderPage();
+    let release;
+    const pending = new Promise((resolve) => {
+      release = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url, init) =>
+        url.endsWith("/api/users/course-progress") ? pending : fakeFetch(url, init),
+      ),
+    );
+    selectCelebrity("SRK");
+    await flush();
+    readyJobs.add("job-l1-srk");
+    await flush(5000);
+    expect(screen.getByTestId("ai-url").textContent).toBe("https://cdn.test/job-l1-srk.mp4");
+    expect(screen.getByTestId("loading").textContent).toBe("false");
+    expect(screen.getByTestId("playing").textContent).toBe("true");
+    expect(screen.queryByRole("button", { name: "Cancel generation" })).toBeNull();
+    release(ok({}));
+    await flush();
+  });
+  it("cached video is playable while its transcript is still loading", async () => {
+    await renderPage();
+    let release;
+    const pending = new Promise((resolve) => {
+      release = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url, init) => {
+        if (url.endsWith("/api/ai/generate-video"))
+          return Promise.resolve(
+            ok({ cached: true, videoUrl: "https://cdn.test/cached.mp4", transcriptName: "slow" }),
+          );
+        if (url.endsWith("/api/ai/transcript/slow")) return pending;
+        return fakeFetch(url, init);
+      }),
+    );
+    selectCelebrity("SRK");
+    await flush();
+    expect(screen.getByTestId("ai-url").textContent).toBe("https://cdn.test/cached.mp4");
+    expect(screen.getByTestId("loading").textContent).toBe("false");
+    expect(screen.getByTestId("playing").textContent).toBe("true");
+    release(ok({ content: "Saved transcript." }));
+    await flush();
+  });
+});
+
+it("manual recovery resumes the existing job without another generation submission", async () => {
+  await renderPage();
+  let unavailable = true;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url, init) =>
+      url.includes("/api/ai/status/") && unavailable
+        ? Promise.resolve({ ok: false, status: 503, json: async () => ({}) })
+        : fakeFetch(url, init),
+    ),
+  );
+  selectCelebrity("SRK");
+  await flush(5000);
+  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(generateCallsFor("l1", "srk")).toHaveLength(1);
+  unavailable = false;
+  readyJobs.add("job-l1-srk");
+  fireEvent.click(screen.getByRole("button", { name: "Retry generation" }));
+  await flush(5000);
+  expect(screen.getByTestId("ai-url").textContent).toBe("https://cdn.test/job-l1-srk.mp4");
+  expect(generateCallsFor("l1", "srk")).toHaveLength(1);
 });
