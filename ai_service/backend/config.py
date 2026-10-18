@@ -2,7 +2,8 @@ import os
 
 from dotenv import load_dotenv
 
-load_dotenv()
+if not os.getenv("PYTEST_CURRENT_TEST"):
+    load_dotenv(override=False)
 
 # Required: Primary AI provider
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -38,5 +39,3 @@ DID_ENABLED = bool(DID_API_KEY and DID_SOURCE_URL)
 def validate_config():
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is required for the AI service.")
-
-
