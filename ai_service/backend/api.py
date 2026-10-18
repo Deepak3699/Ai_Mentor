@@ -546,8 +546,8 @@ def generate_syllabus(data: SyllabusRequest):
 # --------------------------
 
 @app.get("/voices")
-def get_voices():
-    return {"voices": voices.get_all_voices()}
+def get_voices(language: str | None = None, gender: str | None = None):
+    return {"voices": voices.get_all_voices(language=language, gender=gender)}
 
 # --------------------------
 # Generate Quiz Endpoint
