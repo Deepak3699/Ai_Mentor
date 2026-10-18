@@ -1080,11 +1080,12 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         try:
             log_event("RUN", "Trying D-ID avatar renderer")
 
-            avatar_video_url = create_avatar_video(audio_path)
+            avatar_video_url = await create_avatar_video(audio_path)
 
             log_event("OK", "D-ID avatar render completed")
 
-            video_response = requests.get(
+            video_response = await asyncio.to_thread(
+                requests.get,
                 avatar_video_url,
                 timeout=120,
             )
