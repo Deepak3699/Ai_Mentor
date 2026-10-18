@@ -14,32 +14,16 @@ import {
 } from "../service/aiGeneration";
 import VideoPlayer from "../components/video/VideoPlayer";
 import AITranscript from "../components/video/AITranscript";
-import TranscriptToggle from "../components/video/TranscriptToggle";
+import LearningToolbar from "../components/learning/LearningToolbar";
+import VoiceoverDialog from "../components/learning/VoiceoverDialog";
+import LessonActions from "../components/learning/LessonActions";
+import "../components/learning/learning-workspace.css";
 import { buildCuesFromText, hasTranscriptText } from "../service/transcript";
 import FlashcardStudy from "../components/learning/FlashcardStudy";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import toast from "react-hot-toast";
 
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  Check,
-  Circle,
-  FileText,
-  Search,
-  Home,
-  BookOpen,
-  MessageSquare,
-  BarChart3,
-  Settings,
-  Eye,
-  User,
-  X,
-  Sparkles,
-  RefreshCw,
-  AlertTriangle,
-} from "lucide-react";
+import { ChevronRight, Home } from "lucide-react";
 
 const TRANSCRIPT_PANEL_ID = "lesson-transcript-panel";
 
@@ -49,8 +33,6 @@ export default function Learning() {
   const { id: courseId } = useParams();
   const { user, updateUser } = useAuth();
   const [learningData, setLearningData] = useState(null);
-  const [expandedModule, setExpandedModule] = useState(null);
-  const [celebritySearch, setCelebritySearch] = useState("");
   const [isCelebrityModalOpen, setIsCelebrityModalOpen] = useState(false);
 
   // Captions state
@@ -75,24 +57,31 @@ export default function Learning() {
   const [isNavigating, setIsNavigating] = useState(false);
   const [aiVideoUrl, setAiVideoUrl] = useState(null);
   const [isAIVideoLoading, setIsAIVideoLoading] = useState(false);
+  const [isTranscriptFetching, setIsTranscriptFetching] = useState(false);
+  const [transcriptError, setTranscriptError] = useState(null);
   const [generatedTextContent, setGeneratedTextContent] = useState("");
   const [aiGenerationError, setAiGenerationError] = useState(null);
   const [generationAttempt, setGenerationAttempt] = useState(0);
   const [isFlashcardStudyOpen, setIsFlashcardStudyOpen] = useState(false);
-  const [isTranscriptOpen, setIsTranscriptOpen] = useState(true);
+  const [isTranscriptOpen, setIsTranscriptOpen] = useState(false);
+  const [isTranscriptDrawer, setIsTranscriptDrawer] = useState(false);
 
   const transcriptToggleRef = useRef(null);
   const videoRef = useRef(null);
   const playerContainerRef = useRef(null);
+  const videoCardRef = useRef(null);
   const transcriptContainerRef = useRef(null);
   const activeCaptionRef = useRef(null);
-  const modalRef = useRef(null);
+  const workspaceRef = useRef(null);
+  const lastDrawerModeRef = useRef(null);
   const lastLessonIdRef = useRef(null);
   const lastCelebrityRef = useRef(null);
   const hasRestoredProgressRef = useRef(false);
   const jumpToTimeRef = useRef(null);
   const lastSavedTimeRef = useRef(0);
   const generationRequestIdRef = useRef(0);
+  const generationResumeRef = useRef(null);
+  const playRequestedRef = useRef(false);
   const userRef = useRef(user);
 
   userRef.current = user;
@@ -112,32 +101,15 @@ export default function Learning() {
       const elementTop = elementRect.top - containerRect.top + container.scrollTop;
       const elementBottom = elementTop + activeElement.clientHeight;
       if (elementTop < containerTop || elementBottom > containerBottom) {
-        container.scrollTo({ top: Math.max(0, targetScrollTop), behavior: "smooth" });
+        container.scrollTo({
+          top: Math.max(0, targetScrollTop),
+          behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+            ? "auto"
+            : "smooth",
+        });
       }
     }
   }, [currentTime]);
-
-  // Close modal on outside click
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (modalRef.current && !modalRef.current.contains(event.target)) {
-        setIsCelebrityModalOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Close modal on Escape
-  useEffect(() => {
-    function handleEscapeKey(event) {
-      if (event.key === "Escape") {
-        setIsCelebrityModalOpen(false);
-      }
-    }
-    document.addEventListener("keydown", handleEscapeKey);
-    return () => document.removeEventListener("keydown", handleEscapeKey);
-  }, []);
 
   // Fetch learning data
   useEffect(() => {
@@ -309,6 +281,15 @@ export default function Learning() {
   }, [selectedCelebrity, generatedTextContent, learningData?.currentLesson?.id]);
 
   const handleRetryGeneration = () => {
+    generationResumeRef.current = aiGenerationError?.details?.jobId
+      ? {
+          jobId: aiGenerationError.details.jobId,
+          lessonId: learningData?.currentLesson?.id,
+          voice: selectedCelebrity,
+        }
+      : null;
+    lastLessonIdRef.current = null;
+    lastCelebrityRef.current = null;
     setAiGenerationError(null);
     setGenerationAttempt((attempt) => attempt + 1);
   };
@@ -324,6 +305,8 @@ export default function Learning() {
       // the same one start a fresh generation.
       lastCelebrityRef.current = null;
       setIsAIVideoLoading(false);
+      setIsTranscriptFetching(false);
+      setTranscriptError(null);
       setAiGenerationError(null);
       return;
     }
@@ -348,27 +331,48 @@ export default function Learning() {
 
     // Loads the transcript; resolves to false when this flow went stale.
     const loadTranscript = async (transcriptName) => {
+      if (isStale()) return null;
+      setIsTranscriptFetching(true);
       try {
-        const transcript = await fetchTranscript(transcriptName, (name) =>
-          fetch(`/api/ai/transcript/${name}`, { headers: authHeaders(), signal }),
+        const transcript = await fetchTranscript(
+          transcriptName,
+          (name, { signal: requestSignal }) =>
+            fetch(`/api/ai/transcript/${name}`, { headers: authHeaders(), signal: requestSignal }),
+          { signal },
         );
         if (isStale()) return false;
         setGeneratedTextContent(transcript);
+        return transcript;
       } catch (error) {
         if (isStale() || isAbortError(error)) return false;
-        if (error instanceof AIGenerationError) {
-          setAiGenerationError({
-            type: error.type,
-            message: "The video is ready, but its transcript is unavailable.",
-            retryable: false,
-            details: error,
-          });
-        }
+        setTranscriptError(t("learning.no_transcript"));
         console.error("Transcript loading failed:", error);
+      } finally {
+        if (!isStale()) setIsTranscriptFetching(false);
       }
-      return true;
+      return null;
     };
 
+    const publishVideo = (result) => {
+      if (isStale()) return;
+      finished = true;
+      setAiVideoUrl(result.videoUrl);
+      setIsAIVideoLoading(false);
+      setIsPlaying(true);
+      playRequestedRef.current = false;
+      const persist = async () => {
+        const transcript = result.transcriptName
+          ? await loadTranscript(result.transcriptName)
+          : null;
+        if (isStale()) return;
+        await saveLessonData(learningData.currentLesson.id, {
+          generatedTextContent: typeof transcript === "string" ? transcript : "",
+          aiVideoUrl: result.videoUrl,
+          celebrity: selectedCelebrity,
+        });
+      };
+      void persist();
+    };
     const loadVideo = async () => {
       setCaptions([]);
       setActiveCaption("");
@@ -377,18 +381,22 @@ export default function Learning() {
       setAiVideoUrl(null);
       setIsPlaying(false);
       setIsAIVideoLoading(true);
+      setIsTranscriptFetching(false);
+      setTranscriptError(null);
 
       const savedData = userRef.current?.purchasedCourses?.find(
         (c) => c.courseId === parseInt(courseId),
       )?.progress?.lessonData?.[learningData.currentLesson.id];
       const hasSavedMatchingContent =
-        savedData?.celebrity === selectedCelebrity && savedData?.generatedTextContent;
+        savedData?.celebrity === selectedCelebrity && savedData?.aiVideoUrl;
 
       if (hasSavedMatchingContent) {
         finished = true;
         setGeneratedTextContent(savedData.generatedTextContent);
         setAiVideoUrl(savedData.aiVideoUrl);
         setIsAIVideoLoading(false);
+        if (playRequestedRef.current) setIsPlaying(true);
+        playRequestedRef.current = false;
         return;
       }
 
@@ -398,18 +406,18 @@ export default function Learning() {
           lessonId: learningData.currentLesson.id,
           celebrity: selectedCelebrity.split(" ")[0].toLowerCase(),
         };
-        const data = await getAIVideo(payload, { signal });
+        const resume = generationResumeRef.current;
+        generationResumeRef.current = null;
+        const data =
+          resume &&
+          resume.lessonId === learningData.currentLesson.id &&
+          resume.voice === selectedCelebrity
+            ? { jobId: resume.jobId }
+            : await getAIVideo(payload, { signal });
         if (isStale()) return;
 
         if (data?.cached && data?.videoUrl) {
-          setAiVideoUrl(data.videoUrl);
-          if (data.transcriptName && !(await loadTranscript(data.transcriptName))) return;
-          setIsPlaying(true);
-          await saveLessonData(learningData.currentLesson.id, {
-            generatedTextContent: "",
-            aiVideoUrl: data.videoUrl,
-            celebrity: selectedCelebrity,
-          });
+          publishVideo(data);
           return;
         }
 
@@ -422,21 +430,12 @@ export default function Learning() {
         const result = await pollAIVideoStatus({
           jobId: data.jobId,
           signal,
-          fetchStatus: (jobId) =>
-            fetch(`/api/ai/status/${jobId}`, { headers: authHeaders(), signal }),
+          fetchStatus: (jobId, { signal: requestSignal }) =>
+            fetch(`/api/ai/status/${jobId}`, { headers: authHeaders(), signal: requestSignal }),
         });
 
         if (isStale()) return;
-        setAiVideoUrl(result.videoUrl);
-
-        if (result.transcriptName && !(await loadTranscript(result.transcriptName))) return;
-
-        setIsPlaying(true);
-        await saveLessonData(learningData.currentLesson.id, {
-          generatedTextContent: "",
-          aiVideoUrl: result.videoUrl,
-          celebrity: selectedCelebrity,
-        });
+        publishVideo(result);
       } catch (error) {
         // Cancelled flows (navigation, lesson/celebrity switch) are expected: stay silent.
         if (isStale() || isAbortError(error)) return;
@@ -571,8 +570,6 @@ export default function Learning() {
     }
   };
 
-  const toggleModule = (id) => setExpandedModule((prev) => (prev === id ? null : id));
-
   const handleLessonClick = (lesson) => {
     if (currentLesson?.id === lesson.id) return;
     setIsFlashcardStudyOpen(false);
@@ -603,24 +600,33 @@ export default function Learning() {
   }, [currentLessonIndex, allLessons, currentLesson]);
 
   const togglePlay = useCallback(() => {
-    if (videoRef.current) {
-      if (!selectedCelebrity && !isPlaying) {
-        setIsCelebrityModalOpen(true);
-        return;
-      }
-      if (isPlaying) {
-        videoRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        const p = videoRef.current.play();
-        if (p && typeof p.then === "function") {
-          p.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-        } else {
-          setIsPlaying(true);
-        }
-      }
+    if (!selectedCelebrity) {
+      setIsCelebrityModalOpen(true);
+      return;
     }
-  }, [isPlaying, selectedCelebrity]);
+    if (isAIVideoLoading) return;
+    if (!aiVideoUrl) {
+      playRequestedRef.current = true;
+      lastLessonIdRef.current = null;
+      lastCelebrityRef.current = null;
+      setGenerationAttempt((attempt) => attempt + 1);
+      return;
+    }
+    setIsPlaying((playing) => !playing);
+  }, [selectedCelebrity, isAIVideoLoading, aiVideoUrl]);
+
+  const cancelGeneration = () => {
+    playRequestedRef.current = false;
+    setSelectedCelebrity(null);
+    setIsPlaying(false);
+    setAiVideoUrl(null);
+    setGeneratedTextContent("");
+    setCaptions([]);
+    setActiveCaption("");
+    setCurrentTime(0);
+    setDuration(0);
+    setProgress(0);
+  };
 
   const toggleMute = useCallback(() => {
     if (videoRef.current) {
@@ -709,24 +715,15 @@ export default function Learning() {
       }
 
       if (captions.length > 0) {
-        const cue = captions.find((c) => vidCurrentTime >= c.start && vidCurrentTime <= c.end);
+        const cue = captions.find(
+          (c, index) =>
+            vidCurrentTime >= c.start &&
+            (vidCurrentTime < c.end || (index === captions.length - 1 && vidCurrentTime === c.end)),
+        );
         const targetText = cue ? cue.text : "";
         if (activeCaption !== targetText) setActiveCaption(targetText);
       }
     }
-  };
-
-  const handleSeek = (e) => {
-    const v = videoRef.current;
-    if (!v) return;
-    const vidDuration = v.duration;
-    if (!isFinite(vidDuration) || vidDuration <= 0) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const percentage = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const newTime = percentage * vidDuration;
-    v.currentTime = newTime;
-    setCurrentTime(newTime);
-    setProgress(percentage * 100);
   };
 
   const handleTranscriptClick = (startTime) => {
@@ -757,11 +754,14 @@ export default function Learning() {
   // ── Keyboard shortcuts — AFTER all functions are defined ──
   useEffect(() => {
     function handleKeyDown(event) {
-      const tag = event.target.tagName.toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      if (
+        event.target.isContentEditable ||
+        event.target.closest?.("button, a, summary, input, textarea, select")
+      )
+        return;
       // The transcript has its own keyboard handling; don't also trigger player shortcuts there.
       if (event.target.closest?.("[data-shortcuts-ignore]")) return;
-      if (isCelebrityModalOpen) return;
+      if (isCelebrityModalOpen || isFlashcardStudyOpen) return;
 
       switch (event.key.toLowerCase()) {
         case " ":
@@ -825,6 +825,7 @@ export default function Learning() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [
     isCelebrityModalOpen,
+    isFlashcardStudyOpen,
     togglePlay,
     handleNext,
     handlePrevious,
@@ -835,6 +836,48 @@ export default function Learning() {
     volume,
   ]);
 
+  // One measured workspace width controls both layout and Transcript mode.
+  useEffect(() => {
+    if (!learningData || !workspaceRef.current) return undefined;
+    const update = (width) => {
+      const narrow = width < 1080;
+      setIsTranscriptDrawer(narrow);
+      if (narrow && lastDrawerModeRef.current !== true) setIsTranscriptOpen(false);
+      lastDrawerModeRef.current = narrow;
+    };
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(([entry]) => update(entry.contentRect.width));
+      observer.observe(workspaceRef.current);
+      return () => observer.disconnect();
+    }
+    const media = window.matchMedia?.("(max-width: 1279px)");
+    if (!media) return undefined;
+    const sync = () => update(media.matches ? 800 : 1200);
+    sync();
+    media.addEventListener?.("change", sync);
+    return () => media.removeEventListener?.("change", sync);
+    // Observe when the loading screen is replaced by the workspace.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!learningData]);
+
+  // Match the desktop transcript height to the video card only.
+  useEffect(() => {
+    const card = videoCardRef.current;
+    const workspace = workspaceRef.current;
+    if (!card || !workspace || typeof ResizeObserver === "undefined") return undefined;
+    const syncHeight = () => {
+      const height = card.getBoundingClientRect().height;
+      workspace.style.setProperty("--lw-video-card-height", `${Math.round(height)}px`);
+    };
+    const observer = new ResizeObserver(syncHeight);
+    syncHeight();
+    observer.observe(card);
+    return () => {
+      observer.disconnect();
+      workspace.style.removeProperty("--lw-video-card-height");
+    };
+  }, [isTranscriptDrawer, currentLesson?.id, aiVideoUrl]);
+
   // Loading state
   if (!learningData) {
     return <LoadingSpinner label={t("learning.loading")} />;
@@ -843,418 +886,152 @@ export default function Learning() {
   // The transcript is still loading while the video is generating, or while the saved script is
   // waiting for the video's duration to place its sentences.
   const isTranscriptLoading =
-    isAIVideoLoading || (hasTranscriptText(generatedTextContent) && captions.length === 0);
+    isAIVideoLoading ||
+    isTranscriptFetching ||
+    (hasTranscriptText(generatedTextContent) && captions.length === 0);
 
   const closeTranscript = () => {
     setIsTranscriptOpen(false);
     transcriptToggleRef.current?.focus();
   };
 
+  const currentModule = modules?.find((module) =>
+    module.lessons?.some((lesson) => lesson.id === currentLesson?.id),
+  );
+  const completedCount = Math.min(
+    currentCourseProgress?.completedLessons?.length || 0,
+    allLessons.length,
+  );
+  const coursePercent = allLessons.length ? (completedCount / allLessons.length) * 100 : 0;
   return (
-    <>
-      {/* Breadcrumb */}
-      <div className="bg-card border-b border-border px-6 py-3 grid grid-flow-col-dense">
-        <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-muted mt-2">
-          <button onClick={() => navigate("/")} className="hover:text-blue-600 transition-colors">
-            <Home className="w-4 h-4" />
+    <div className="lw-page">
+      <div className="lw-inner" ref={workspaceRef}>
+        <nav className="lw-breadcrumb" aria-label={t("learning.workspace.breadcrumb")}>
+          <button type="button" aria-label={t("nav.dashboard")} onClick={() => navigate("/")}>
+            <Home aria-hidden="true" />
           </button>
-          <ChevronRight className="w-4 h-4 text-muted" />
-          <button
-            onClick={() => navigate("/courses")}
-            className="hover:text-blue-600 transition-colors"
-          >
+          <ChevronRight aria-hidden="true" />
+          <button type="button" onClick={() => navigate("/courses")}>
             {t("learning.my_course")}
           </button>
-          <ChevronRight className="w-4 h-4 text-muted" />
-          <button
-            className="hover:text-blue-600 transition-colors"
-            disabled
-            style={{ cursor: "default", opacity: 1, fontWeight: 600 }}
-          >
-            {(() => {
-              if (modules && currentLesson) {
-                const mod = modules.find((m) => m.lessons?.some((l) => l.id === currentLesson.id));
-                return mod?.title || "Module";
-              }
-              return "Module";
-            })()}
-          </button>
-          <ChevronRight className="w-4 h-4 text-muted" />
-          <span className="text-main font-medium">{currentLesson?.title}</span>
-        </div>
-      </div>
-
-      {/* Content Selector */}
-      <div className="bg-card border-b border-border px-6 py-3">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-md flex items-center">
-            <span className="text-main font-semibold mr-3">{t("learning.contents")}</span>
-            <div className="relative w-full">
-              <div
-                className="bg-canvas-alt border border-border rounded-2xl px-6 py-2 pr-12 text-base text-main cursor-pointer flex items-center justify-between select-none min-h-12"
-                tabIndex={0}
-                onClick={() => {
-                  if (expandedModule) {
-                    setExpandedModule(null);
-                  } else {
-                    if (modules && currentLesson) {
-                      const mod = modules.find((m) =>
-                        m.lessons?.some((l) => l.id === currentLesson.id),
-                      );
-                      setExpandedModule(mod?.id || null);
-                    } else {
-                      setExpandedModule(null);
-                    }
-                  }
-                }}
-                style={{ fontWeight: 600 }}
-              >
-                {currentLesson ? (
-                  <span>{currentLesson.title}</span>
-                ) : (
-                  <span className="text-muted">Select Lesson</span>
-                )}
-                <ChevronDown className="w-5 h-5 text-muted ml-2" />
-              </div>
-              <div
-                className="absolute left-0 mt-2 w-full sm:w-[400px] bg-white dark:bg-gray-900 border border-border rounded-2xl shadow-xl z-50 max-h-96 overflow-y-auto"
-                style={{ display: expandedModule ? "block" : "none" }}
-              >
-                {modules &&
-                  modules.map((module, mIdx) => (
-                    <div
-                      key={module.id || `module-${mIdx + 1}`}
-                      className="border-b border-border last:border-b-0"
-                    >
-                      <button
-                        className="w-full flex items-center justify-between px-5 py-2 text-left hover:bg-blue-100 dark:hover:bg-blue-900 font-semibold text-main focus:outline-none text-base"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleModule(module.id || `module-${mIdx + 1}`);
-                        }}
-                      >
-                        <span>{module.title || `Module ${mIdx + 1}`}</span>
-                        <ChevronDown
-                          className={`w-4 h-4 ml-2 transition-transform ${expandedModule === (module.id || `module-${mIdx + 1}`) ? "rotate-180" : ""}`}
-                        />
-                      </button>
-                      <div
-                        className={`transition-all ${expandedModule === (module.id || `module-${mIdx + 1}`) ? "max-h-96" : "max-h-0 overflow-hidden"}`}
-                      >
-                        {module.lessons &&
-                          module.lessons.map((lesson) => (
-                            <button
-                              key={lesson.id}
-                              className={`w-full text-left px-10 py-2 text-sm flex items-center gap-2 hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors ${currentLesson?.id === lesson.id ? "bg-blue-600 text-white font-semibold" : "text-main"}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleLessonClick(lesson);
-                                setExpandedModule(null);
-                              }}
-                            >
-                              {lesson.type === "document" ? (
-                                <FileText className="w-4 h-4" />
-                              ) : (
-                                <Circle className="w-3 h-3" />
-                              )}
-                              <span>{lesson.title}</span>
-                              {currentLesson?.id === lesson.id && (
-                                <Check className="w-4 h-4 ml-auto" />
-                              )}
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="w-full">
-            {(() => {
-              const completedCount =
-                user?.purchasedCourses?.find((course) => course.courseId === parseInt(courseId))
-                  ?.progress?.completedLessons?.length || 0;
-              const totalCount = allLessons.length;
-              const progressPercent = Math.min((completedCount / totalCount) * 100, 100);
-              return (
-                <div className="w-full sm:w-1/2 mx-auto">
-                  <div className="w-full bg-border rounded-full h-2">
-                    <div
-                      className="bg-primary h-2 rounded-full"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-                  <p className="text-sm text-muted mt-2">
-                    {Math.round(progressPercent)}% {t("learning.complete")}
-                  </p>
-                </div>
-              );
-            })()}
-          </div>
-
-          <div className="flex items-center justify-end sm:justify-start w-full">
-            <button
-              onClick={() => setIsCelebrityModalOpen(true)}
-              className="flex items-center gap-2 px-3 py-2 sm:px-4 bg-linear-to-r from-purple-600 to-blue-600 text-white rounded-lg text-xs sm:text-sm"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span className="text-sm font-medium">{t("learning.select_ai_voiceover")}</span>
-              {selectedCelebrity && (
-                <span className="ml-1 px-1.5 py-0.5 bg-white/20 rounded-full text-xs">
-                  {selectedCelebrity.split(" ")[0]}
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Celebrity Modal */}
-      {isCelebrityModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 ui-overlay-motion">
-          <div
-            ref={modalRef}
-            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto border border-border"
-          >
-            <div className="flex items-center justify-between p-6 border-b border-border">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-linear-to-r from-purple-100 to-blue-100 dark:from-purple-950 dark:to-blue-950 rounded-lg">
-                  <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-main">
-                    {t("learning.ai_celebrity_title")}
-                  </h2>
-                  <p className="text-xs text-muted mt-0.5">{t("learning.ai_celebrity_subtitle")}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsCelebrityModalOpen(false)}
-                className="p-2 hover:bg-canvas-alt rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-muted" />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="relative mb-4">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted" />
-                <input
-                  type="search"
-                  placeholder={t("learning.search_celebrities")}
-                  value={celebritySearch}
-                  onChange={(e) => setCelebritySearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-canvas-alt border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-main placeholder-muted"
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {celebrities
-                  .filter((c) => c.toLowerCase().includes(celebritySearch.trim().toLowerCase()))
-                  .map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => {
-                        if (selectedCelebrity === c) {
-                          setSelectedCelebrity(null);
-                          setAiVideoUrl(null);
-                        } else setSelectedCelebrity(c);
-                        setIsCelebrityModalOpen(false);
-                      }}
-                      className={`w-full flex items-center justify-between p-3 rounded-lg transition-all ${selectedCelebrity === c ? "bg-blue-600 text-white" : "hover:bg-canvas-alt text-main border border-border"}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${selectedCelebrity === c ? "bg-white/20" : "bg-blue-100 dark:bg-blue-900"}`}
-                        >
-                          <User
-                            className={`w-4 h-4 ${selectedCelebrity === c ? "text-white" : "text-blue-600 dark:text-blue-400"}`}
-                          />
-                        </div>
-                        <span className="font-medium">{c}</span>
-                      </div>
-                      {selectedCelebrity === c && <Check className="w-4 h-4" />}
-                    </button>
-                  ))}
-              </div>
-              {selectedCelebrity && (
-                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900 rounded-full">
-                      <Check className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-blue-800 dark:text-blue-300">
-                        {t("learning.ai_voiceover_active")}
-                      </p>
-                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                        {t("learning.ai_celebrity_subtitle")} —{" "}
-                        <span className="font-semibold">{selectedCelebrity}</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end gap-3 p-6 border-t border-border">
-              <button
-                onClick={() => setIsCelebrityModalOpen(false)}
-                className="px-4 py-2 text-sm text-muted hover:text-main hover:bg-canvas-alt rounded-lg transition-colors"
-              >
-                {t("common.cancel")}
-              </button>
-              <button
-                onClick={() => setIsCelebrityModalOpen(false)}
-                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Video and Transcript Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 min-h-[calc(100vh-180px)]">
-        <div
-          className={`${isTranscriptOpen ? "lg:col-span-2" : "lg:col-span-3"} bg-canvas-alt p-6 overflow-y-auto`}
-        >
-          <div className="max-w-2xl mx-auto">
-            <VideoPlayer
-              currentLesson={currentLesson}
-              aiVideoUrl={aiVideoUrl}
-              selectedCelebrity={selectedCelebrity}
-              celebrityVideoMap={celebrityVideoMap}
-              activeCaption={activeCaption}
-              playerContainerRef={playerContainerRef}
-              videoRef={videoRef}
-              handleProgress={handleProgress}
-              isAIVideoLoading={isAIVideoLoading}
-              isPlaying={isPlaying}
-              volume={volume}
-              isMuted={isMuted}
-              progress={progress}
-              isFullscreen={isFullscreen}
-              duration={duration}
-              currentTime={currentTime}
-              togglePlay={togglePlay}
-              handleVolumeChange={handleVolumeChange}
-              toggleMute={toggleMute}
-              handleSeek={handleSeek}
-              toggleFullscreen={toggleFullscreen}
-              formatTime={formatTime}
-            />
-
-            <div className="mt-3">
-              <TranscriptToggle
-                buttonRef={transcriptToggleRef}
-                isOpen={isTranscriptOpen}
-                onToggle={() => setIsTranscriptOpen((open) => !open)}
-                controlsId={TRANSCRIPT_PANEL_ID}
+          <ChevronRight aria-hidden="true" />
+          <span>{currentModule?.title}</span>
+        </nav>
+        <header className="lw-heading">
+          <span className="lw-eyebrow">
+            {t("learning.workspace.lesson")} {Math.max(0, currentLessonIndex + 1)} /{" "}
+            {allLessons.length}
+          </span>
+          <h1>{currentLesson?.title}</h1>
+        </header>
+        <LearningToolbar
+          modules={modules}
+          currentLesson={currentLesson}
+          title={currentLesson?.title}
+          moduleTitle={currentModule?.title}
+          onLessonSelect={handleLessonClick}
+          progress={coursePercent}
+          completed={completedCount}
+          total={allLessons.length}
+          selectedVoice={selectedCelebrity}
+          onVoiceOpen={() => setIsCelebrityModalOpen(true)}
+          transcriptOpen={isTranscriptOpen}
+          onTranscriptToggle={() => setIsTranscriptOpen((open) => !open)}
+          transcriptRef={transcriptToggleRef}
+          transcriptId={TRANSCRIPT_PANEL_ID}
+        />
+        <div className="lw-workspace" data-inspector={isTranscriptOpen && !isTranscriptDrawer}>
+          <div className="lw-media-column">
+            <div className="lw-video-card" ref={videoCardRef}>
+              <VideoPlayer
+                title={currentLesson?.title}
+                moduleTitle={currentModule?.title}
+                aiVideoUrl={aiVideoUrl}
+                selectedCelebrity={selectedCelebrity}
+                activeCaption={activeCaption}
+                playerContainerRef={playerContainerRef}
+                videoRef={videoRef}
+                handleProgress={handleProgress}
+                isAIVideoLoading={isAIVideoLoading}
+                isPlaying={isPlaying}
+                volume={volume}
+                isMuted={isMuted}
+                progress={progress}
+                isFullscreen={isFullscreen}
+                duration={duration}
+                currentTime={currentTime}
+                togglePlay={togglePlay}
+                handleVolumeChange={handleVolumeChange}
+                toggleMute={toggleMute}
+                toggleFullscreen={toggleFullscreen}
+                formatTime={formatTime}
+                onCancelGeneration={cancelGeneration}
+                onPlaybackChange={setIsPlaying}
+                generationError={aiGenerationError}
+                onRetryGeneration={handleRetryGeneration}
+                playbackBlocked={isCelebrityModalOpen || isFlashcardStudyOpen}
               />
             </div>
 
-            {aiGenerationError && (
-              <div
-                className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900 shadow-sm dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"
-                role="alert"
-              >
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{aiGenerationError.message}</p>
-                    {aiGenerationError.type === "transcript" && (
-                      <p className="mt-1 text-xs text-red-700 dark:text-red-300">
-                        The video remains available, but the transcript could not be loaded.
-                      </p>
-                    )}
-                    {aiGenerationError.retryable && (
-                      <button
-                        type="button"
-                        onClick={handleRetryGeneration}
-                        className="mt-3 inline-flex items-center gap-2 rounded-lg bg-red-700 px-3 py-2 font-medium text-white transition hover:bg-red-800 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        Try again
-                      </button>
-                    )}
-                  </div>
-                </div>
+            <LessonActions
+              index={currentLessonIndex}
+              total={allLessons.length}
+              onPrevious={handlePrevious}
+              onNext={handleNext}
+              navigating={isNavigating}
+              showFlashcards={isCurrentLessonCompleted}
+              flashcardsDisabled={!generatedTextContent?.trim() || isAIVideoLoading}
+              onFlashcards={() => setIsFlashcardStudyOpen(true)}
+            />
+            <details className="lw-shortcuts">
+              <summary>{t("learning.workspace.shortcuts")}</summary>
+              <div>
+                {[
+                  ["Space / K", t("learning.workspace.play_pause")],
+                  ["N", t("learning.next")],
+                  ["P", t("learning.previous")],
+                  ["M", t("learning.workspace.mute")],
+                  ["F", t("learning.workspace.fullscreen")],
+                ].map(([key, label]) => (
+                  <span key={key}>
+                    <kbd>{key}</kbd>
+                    {label}
+                  </span>
+                ))}
               </div>
-            )}
-
-            {/* ── Keyboard Shortcuts Hint ── */}
-            <div className="flex flex-wrap gap-2 my-3 text-xs text-muted">
-              {[
-                { key: "Space / K", label: "Play/Pause" },
-                { key: "N", label: "Next" },
-                { key: "P", label: "Previous" },
-                { key: "M", label: "Mute" },
-                { key: "F", label: "Fullscreen" },
-                { key: "← →", label: "±10s" },
-                { key: "↑ ↓", label: "Volume" },
-              ].map(({ key, label }) => (
-                <span key={key} className="flex items-center gap-1">
-                  <kbd className="px-1.5 py-0.5 bg-canvas border border-border rounded text-[10px] font-mono font-bold">
-                    {key}
-                  </kbd>
-                  <span>{label}</span>
-                </span>
-              ))}
-            </div>
-
-            {/* Navigation Buttons */}
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-              <button
-                onClick={handlePrevious}
-                disabled={currentLessonIndex <= 0}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-md"
-              >
-                <ChevronLeft className="w-5 h-5" />
-                {t("learning.previous")}
-              </button>
-              {isCurrentLessonCompleted && (
-                <button
-                  disabled={!generatedTextContent?.trim() || isAIVideoLoading}
-                  onClick={() => setIsFlashcardStudyOpen(true)}
-                  title={
-                    generatedTextContent?.trim()
-                      ? "Study this lesson's flashcards"
-                      : "Lesson transcript is not available"
-                  }
-                  className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-main transition-colors hover:bg-canvas-alt disabled:cursor-not-allowed disabled:opacity-50"
-                  type="button"
-                >
-                  <BookOpen className="h-4 w-4" />
-                  Study Flashcards
-                </button>
-              )}
-              <button
-                onClick={handleNext}
-                disabled={currentLessonIndex >= allLessons.length - 1 || isNavigating}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-md"
-              >
-                {isNavigating ? t("learning.loading") : t("learning.next")}
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
+            </details>
           </div>
+          <AITranscript
+            id={TRANSCRIPT_PANEL_ID}
+            isDrawer={isTranscriptDrawer}
+            isOpen={isTranscriptOpen}
+            isLoading={isTranscriptLoading}
+            error={transcriptError}
+            onClose={closeTranscript}
+            captions={captions}
+            currentTime={currentTime}
+            activeCaptionRef={activeCaptionRef}
+            containerRef={transcriptContainerRef}
+            onTranscriptClick={handleTranscriptClick}
+            formatTime={formatTime}
+          />
         </div>
-
-        <AITranscript
-          id={TRANSCRIPT_PANEL_ID}
-          isOpen={isTranscriptOpen}
-          isLoading={isTranscriptLoading}
-          onClose={closeTranscript}
-          captions={captions}
-          currentTime={currentTime}
-          activeCaptionRef={activeCaptionRef}
-          containerRef={transcriptContainerRef}
-          onTranscriptClick={handleTranscriptClick}
-          formatTime={formatTime}
-        />
       </div>
+      {isCelebrityModalOpen && (
+        <VoiceoverDialog
+          voices={celebrities}
+          selected={selectedCelebrity}
+          onApply={(voice) => {
+            if (!celebrities.includes(voice)) return;
+            playRequestedRef.current = true;
+            if (voice === selectedCelebrity) {
+              if (aiVideoUrl && !isAIVideoLoading) setIsPlaying(true);
+              else if (!isAIVideoLoading) handleRetryGeneration();
+            } else setSelectedCelebrity(voice);
+          }}
+          onClose={() => setIsCelebrityModalOpen(false)}
+        />
+      )}
       <FlashcardStudy
         open={isFlashcardStudyOpen}
         onClose={() => setIsFlashcardStudyOpen(false)}
@@ -1263,6 +1040,6 @@ export default function Learning() {
         lessonTitle={currentLesson?.title}
         transcript={generatedTextContent}
       />
-    </>
+    </div>
   );
 }

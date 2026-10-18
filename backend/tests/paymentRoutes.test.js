@@ -581,3 +581,146 @@ test("Razorpay verification rolls back and returns 500 on database failure", asy
     console.log = originalLog;
   }
 });
+// ---- Razorpay verify: ownership, course binding, replay and duplicate handling ----
+const verifySignature = (orderId, paymentId) =>
+  crypto
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
+
+// A stored payment owned by "owner-1" for course 7
+const makeStoredPayment = (overrides = {}) => ({
+  razorpayOrderId: "order-1",
+  userId: "owner-1",
+  courseId: 7,
+  courseTitle: "Stored Title",
+  status: "processing",
+  updates: [],
+  async update(data) {
+    this.updates.push(data);
+    Object.assign(this, data);
+  },
+  ...overrides,
+});
+
+const makeStoredUser = () => ({
+  id: "owner-1",
+  purchasedCourses: [],
+  saves: 0,
+  changed() {},
+  async save() {
+    this.saves += 1;
+  },
+});
+
+// Fakes the payment table: findOne only returns a row that matches the whole `where`
+const setupVerify = (payment) => {
+  const user = makeStoredUser();
+  const state = { transaction: null, findOneOptions: null, notifications: 0, user };
+  sequelize.transaction = async () => {
+    state.transaction = {
+      finished: undefined,
+      async commit() {
+        this.finished = "commit";
+      },
+      async rollback() {
+        this.finished = "rollback";
+      },
+    };
+    return state.transaction;
+  };
+  Payment.findOne = async (options) => {
+    state.findOneOptions = options;
+    const matches = Object.entries(options.where).every(([key, value]) => payment[key] === value);
+    return matches ? payment : null;
+  };
+  User.findByPk = async (id, options) =>
+    options?.transaction ? user : { id, isBlocked: false, passwordChangedAt: null };
+  Notification.create = async (data) => {
+    state.notifications += 1;
+    return { id: "notification", ...data };
+  };
+  return state;
+};
+
+const verifyRequest = ({ userId = "owner-1", ...overrides } = {}) =>
+  request("/api/razorpay/verify", {
+    userId,
+    method: "POST",
+    body: {
+      razorpay_order_id: "order-1",
+      razorpay_payment_id: "payment-1",
+      razorpay_signature: verifySignature("order-1", "payment-1"),
+      courseId: 7,
+      ...overrides,
+    },
+  });
+
+test("Razorpay verify enrolls the stored course and ignores the client-supplied title", async () => {
+  const payment = makeStoredPayment();
+  const state = setupVerify(payment);
+  const res = await verifyRequest({ courseTitle: "Client supplied title" });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { success: true, message: "Payment verified successfully" });
+  assert.equal(state.transaction.finished, "commit");
+  assert.equal(state.user.purchasedCourses.length, 1);
+  assert.equal(state.user.purchasedCourses[0].courseId, 7);
+  assert.equal(state.user.purchasedCourses[0].courseTitle, "Stored Title");
+  assert.equal(state.notifications, 1);
+  assert.equal(state.findOneOptions.lock, "UPDATE"); // row is locked for the transaction
+});
+
+test("Razorpay verify rejects another user's payment and changes nothing", async () => {
+  const payment = makeStoredPayment();
+  const state = setupVerify(payment);
+  const res = await verifyRequest({ userId: "attacker" });
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), { success: false, error: "Payment not found" });
+  assert.equal(state.findOneOptions.where.userId, "attacker");
+  assert.equal(state.transaction.finished, "rollback");
+  assert.deepEqual(payment.updates, []);
+  assert.equal(state.user.purchasedCourses.length, 0);
+  assert.equal(state.notifications, 0);
+});
+
+test("Razorpay verify rejects a course that differs from the paid course", async () => {
+  const payment = makeStoredPayment();
+  const state = setupVerify(payment);
+  const res = await verifyRequest({ courseId: 8 });
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: "Course does not match the paid order",
+  });
+  assert.equal(state.transaction.finished, "rollback");
+  assert.deepEqual(payment.updates, []);
+  assert.equal(state.user.purchasedCourses.length, 0);
+  assert.equal(state.notifications, 0);
+});
+
+test("Razorpay verify replay: an already successful payment is not processed again", async () => {
+  const payment = makeStoredPayment({ status: "success" });
+  const state = setupVerify(payment);
+  const res = await verifyRequest();
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { success: true, message: "Payment already verified" });
+  assert.equal(state.transaction.finished, "rollback");
+  assert.deepEqual(payment.updates, []);
+  assert.equal(state.user.saves, 0);
+  assert.equal(state.notifications, 0);
+});
+
+test("Razorpay verify duplicate: verifying twice updates, enrolls and notifies once", async () => {
+  const payment = makeStoredPayment();
+  const state = setupVerify(payment);
+  const first = await verifyRequest();
+  const second = await verifyRequest();
+  assert.equal(first.status, 200);
+  assert.deepEqual(await first.json(), { success: true, message: "Payment verified successfully" });
+  assert.equal(second.status, 200);
+  assert.deepEqual(await second.json(), { success: true, message: "Payment already verified" });
+  assert.equal(payment.updates.length, 1);
+  assert.equal(state.user.purchasedCourses.length, 1);
+  assert.equal(state.user.saves, 1);
+  assert.equal(state.notifications, 1);
+});
