@@ -3,7 +3,6 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import crypto from "crypto";
-import fs from "fs";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
 import { registerSchema, loginSchema } from "../schemas/authSchema.js";
@@ -33,19 +32,20 @@ import {
   completeProfile,
 } from "../controllers/userController.js";
 
+import {
+  UPLOAD_DIR,
+  ALLOWED_MIME_TYPES,
+  ALLOWED_EXTENSIONS,
+  MAX_AVATAR_SIZE,
+  safeDeleteFile,
+  validateImageFile,
+} from "../utils/uploadUtils.js";
+
 const router = express.Router();
-
-const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-
-const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif"]);
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = path.resolve("uploads");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
+    cb(null, UPLOAD_DIR);
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname || "").toLowerCase();
@@ -67,12 +67,12 @@ const fileFilter = (req, file, cb) => {
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  limits: { fileSize: MAX_AVATAR_SIZE },
   fileFilter,
 });
 
 const uploadAvatar = (req, res, next) => {
-  upload.single("avatar")(req, res, (err) => {
+  upload.single("avatar")(req, res, async (err) => {
     if (err) {
       if (err instanceof multer.MulterError) {
         if (err.code === "LIMIT_FILE_SIZE") {
@@ -87,11 +87,23 @@ const uploadAvatar = (req, res, next) => {
     }
 
     if (req.file) {
+      // Validate actual file magic bytes on disk
+      const ext = path.extname(req.file.originalname || "").toLowerCase();
+      const validation = await validateImageFile(req.file.path, req.file.mimetype, ext);
+
+      if (!validation.valid) {
+        await safeDeleteFile(req.file.path);
+        return res.status(400).json({
+          success: false,
+          message: `Invalid image content: ${validation.reason}.`,
+        });
+      }
+
       let cleanedUp = false;
       const cleanup = () => {
         if (!cleanedUp && req.file?.path) {
           cleanedUp = true;
-          fs.promises.unlink(req.file.path).catch(() => {});
+          safeDeleteFile(req.file.path);
         }
       };
 
