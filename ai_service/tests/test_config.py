@@ -30,6 +30,7 @@ def test_config_imports_without_external_credentials(monkeypatch):
     assert not config.GEMINI_API_KEY
     assert not config.GROQ_API_KEY
     assert config.GEMINI_MODEL == "gemini-2.5-flash"
+    assert config.LLM_TIMEOUT_SECONDS == 60
     assert config.LOG_LEVEL == "INFO"
 
 
@@ -50,7 +51,6 @@ def test_config_accepts_supported_log_levels(monkeypatch, log_level):
 def test_config_rejects_unsupported_log_level(monkeypatch):
     with pytest.raises(ValueError, match="Invalid LOG_LEVEL.*Choose one of"):
         import_config(monkeypatch, log_level="verbose")
-    assert config.LLM_TIMEOUT_SECONDS == 60
 
 
 def test_config_custom_llm_timeout(monkeypatch):

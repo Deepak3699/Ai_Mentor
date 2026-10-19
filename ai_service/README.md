@@ -72,40 +72,26 @@ npm run setup
 
 ## Configuration
 
-```env
-# Google Gemini API key
-GEMINI_API_KEY=your_gemini_api_key_here
-
-# Logging level (DEBUG, INFO, WARNING, ERROR, or CRITICAL; defaults to INFO)
-LOG_LEVEL=INFO
-
-# Cloudinary credentials (for cloud video hosting)
-CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
-CLOUDINARY_API_KEY=your_cloudinary_api_key
-CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-```
-
-> **Get a Gemini API key:** [Google AI Studio](https://aistudio.google.com/app/apikey) — free tier available.
->
-> **Get Cloudinary credentials:** [Cloudinary Console](https://cloudinary.com/console) — free tier available.
->
-> `LOG_LEVEL` controls the Python service's log verbosity. Supported values are
-> `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL`; the default is `INFO`.
 Create `ai_service/backend/.env` from `ai_service/backend/.env.example`.
 
-| Variable                | Requirement                                     | Behavior when unavailable                              |
-| ----------------------- | ----------------------------------------------- | ------------------------------------------------------ |
-| `GEMINI_API_KEY`        | Required                                        | Setup and AI startup fail with a clear error           |
-| `GEMINI_MODEL`          | Optional                                        | Uses the default model configured by the service       |
-| `GROQ_API_KEY`          | Optional                                        | Groq fallback is disabled                              |
-| `CLOUDINARY_CLOUD_NAME` | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete  |
-| `CLOUDINARY_API_KEY`    | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete  |
-| `CLOUDINARY_API_SECRET` | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete  |
-| `DID_API_KEY`           | Optional                                        | D-ID avatar rendering is unavailable                   |
-| `DID_API_URL`           | Optional                                        | Uses the service default when omitted                  |
-| `DID_SOURCE_URL`        | Optional                                        | D-ID rendering falls back to the local FFmpeg renderer |
+| Variable                | Requirement                                     | Behavior when unavailable                                       |
+| ----------------------- | ----------------------------------------------- | --------------------------------------------------------------- |
+| `GEMINI_API_KEY`        | Required                                        | Setup and AI startup fail with a clear error                    |
+| `GEMINI_MODEL`          | Optional                                        | Uses the default model configured by the service                |
+| `LOG_LEVEL`             | Optional                                        | Uses `INFO`; supports DEBUG, INFO, WARNING, ERROR, and CRITICAL |
+| `LLM_TIMEOUT_SECONDS`   | Optional                                        | Uses the default timeout of 60 seconds                          |
+| `GROQ_API_KEY`          | Optional                                        | Groq fallback is disabled                                       |
+| `CLOUDINARY_CLOUD_NAME` | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete           |
+| `CLOUDINARY_API_KEY`    | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete           |
+| `CLOUDINARY_API_SECRET` | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete           |
+| `DID_API_KEY`           | Optional                                        | D-ID avatar rendering is unavailable                            |
+| `DID_API_URL`           | Optional                                        | Uses the service default when omitted                           |
+| `DID_SOURCE_URL`        | Optional                                        | D-ID rendering falls back to the local FFmpeg renderer          |
 
 Setup output reports only variable names and `<configured>` markers. Do not commit `.env` files or share credential values.
+Service logs include a timestamp, severity, and logger name. Set `LOG_LEVEL` in
+`ai_service/backend/.env` to control log verbosity; invalid values prevent
+startup with a clear configuration error.
 
 ### Celebrity source videos
 
