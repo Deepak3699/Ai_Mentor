@@ -49,9 +49,13 @@ test("fetchWithTimeout resolves normally and forwards options", async () => {
   };
 
   try {
-    const response = await fetchWithTimeout("http://ai-service.test/fast", { method: "POST" }, {
-      timeoutMs: 1000,
-    });
+    const response = await fetchWithTimeout(
+      "http://ai-service.test/fast",
+      { method: "POST" },
+      {
+        timeoutMs: 1000,
+      },
+    );
     assert.equal(response.status, 200);
     assert.equal(received.url, "http://ai-service.test/fast");
     assert.equal(received.options.method, "POST");

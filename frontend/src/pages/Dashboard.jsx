@@ -2,6 +2,7 @@ import { apiFetch as fetch } from "../lib/api";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import ContinueLearningCard from "../components/dashboard/ContinueLearningCard";
 import {
   ArrowRight,
   Award,
@@ -19,6 +20,7 @@ import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import CourseCardMeta from "../components/common/CourseCardMeta";
 import LearningActivityCard from "../components/dashboard/LearningActivityCard";
+import QuickActions from "../components/dashboard/QuickActions";
 import DashboardHero from "../components/DashboardHero";
 import UpcomingLiveSession from "../components/UpcomingLiveSession";
 import RecommendedForYou from "../components/RecommendedForYou";
@@ -32,6 +34,7 @@ const artworkFor = (title = "") => {
     "React Fundamentals": "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png",
     "Python For AI": "/AI_Tutor_New_UI/Dashboard/python_for_ai.png",
     "AI Ethics & Bias": "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png",
+    "React.js Masterclass": "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png",
     PostgreSQL: "/AI_Tutor_New_UI/Dashboard/postgresql.png",
     "MongoDB Fundamentals": "/AI_Tutor_New_UI/Dashboard/MongoDB.png",
     "Machine Learning Fundamentals": "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png",
@@ -200,63 +203,20 @@ const Dashboard = () => {
           ))}
         </section>
 
-        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-[#3867D6]">
-                <Sparkles className="h-4 w-4" /> Next step
-              </span>
-              <h2 className="mt-2 text-xl font-extrabold text-main">Continue learning</h2>
-            </div>
-            <Link to="/courses" className="text-sm font-bold text-[#3867D6] hover:underline">
-              View my courses
-            </Link>
-          </div>
-          {continueCourse ? (
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              <img
-                src={artworkFor(continueCourse.title)}
-                alt={continueCourse.title}
-                className="h-24 w-full rounded-xl object-cover sm:w-36"
-              />
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate text-lg font-extrabold text-main">
-                  {continueCourse.title}
-                </h3>
-                <p className="mt-1 text-sm text-muted">
-                  {continueCourse.completed > 0
-                    ? `${continueCourse.completed} of ${continueCourse.total || "?"} lessons completed`
-                    : "Ready for the first lesson"}
-                </p>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-border">
-                  <div
-                    className="h-full rounded-full bg-[#3867D6] transition-[width] duration-500"
-                    style={{ width: `${continueCourse.progress}%` }}
-                  />
-                </div>
-              </div>
-              <button type="button" onClick={handleContinue} className={BLUE_BUTTON}>
-                {continueCourse.completed > 0 ? "Continue" : "Start learning"}{" "}
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-border px-6 py-10 text-center">
-              <GraduationCap className="mx-auto h-8 w-8 text-[#3867D6]" />
-              <h3 className="mt-3 font-extrabold text-main">Choose the next skill to learn</h3>
-              <p className="mt-1 text-sm text-muted">
-                Explore the course catalog to begin a learning path.
-              </p>
-              <button type="button" onClick={handleContinue} className={`${BLUE_BUTTON} mt-5`}>
-                Explore courses
-              </button>
-            </div>
-          )}
-        </section>
+        <ContinueLearningCard
+          course={continueCourse}
+          onContinue={handleContinue}
+          onExplore={() => navigate("/courses", { state: { activeTab: "explore" } })}
+          artworkFor={artworkFor}
+          buttonClass={BLUE_BUTTON}
+        />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.85fr)]">
           <LearningActivityCard data={weeklyActivity} summary={weeklySummary} />
-          <UpcomingLiveSession sessions={upcomingSessions} />
+          <div className="space-y-6">
+            <UpcomingLiveSession sessions={upcomingSessions} />
+            <QuickActions />
+          </div>
         </div>
 
         <section>

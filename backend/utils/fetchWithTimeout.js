@@ -20,9 +20,7 @@ export const AI_SERVICE_TIMEOUT_MESSAGE =
 
 export const getAiServiceTimeoutMs = () => {
   const configured = Number(process.env.AI_SERVICE_TIMEOUT_MS);
-  return Number.isFinite(configured) && configured > 0
-    ? configured
-    : DEFAULT_AI_SERVICE_TIMEOUT_MS;
+  return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_AI_SERVICE_TIMEOUT_MS;
 };
 
 export const isTimeoutError = (error) =>

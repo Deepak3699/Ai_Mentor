@@ -29,6 +29,27 @@ jobs:
       - name: Run Prettier check
         run: npm run format:check
 
+  # Shell tests for scripts/review-pr.sh and scripts/smoke-test.sh.
+  # Linux, plus Git Bash on Windows (the shell most Windows contributors use).
+  test-shell-scripts:
+    name: Shell tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Keep LF line endings on Windows
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+
+      - name: Run review and smoke-test script tests
+        run: bash scripts/test-review-scripts.sh
+
   # ─────────────────────────────────────────────────────────────
   # BACKEND (Node + Express, port 5000)
   # ─────────────────────────────────────────────────────────────
