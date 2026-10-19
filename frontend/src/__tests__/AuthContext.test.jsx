@@ -64,7 +64,7 @@ describe("AuthContext logout preferences preservation", () => {
         <AuthProvider>
           <TestConsumer />
         </AuthProvider>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByTestId("auth-state").textContent).toBe("logged-in");

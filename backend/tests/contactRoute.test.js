@@ -30,11 +30,12 @@ after(async () => {
   await new Promise((resolve) => server.close(resolve));
 });
 
-const post = (body) => fetch(`${baseUrl}/api/contactus`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(body),
-});
+const post = (body) =>
+  fetch(`${baseUrl}/api/contactus`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 
 test("contact route requires an email", async () => {
   const res = await post({ subject: "Help", message: "A sufficiently long message" });
@@ -44,8 +45,14 @@ test("contact route requires an email", async () => {
 
 test("contact route validates subject and message lengths before persistence", async () => {
   let creates = 0;
-  ContactMessage.create = async () => { creates += 1; };
-  let res = await post({ email: "user@example.com", subject: "Hi", message: "A sufficiently long message" });
+  ContactMessage.create = async () => {
+    creates += 1;
+  };
+  let res = await post({
+    email: "user@example.com",
+    subject: "Hi",
+    message: "A sufficiently long message",
+  });
   assert.equal(res.status, 400);
   assert.equal((await res.json()).message, "Subject must be at least 3 characters");
   res = await post({ email: "user@example.com", subject: "Help", message: "short" });
@@ -56,7 +63,10 @@ test("contact route validates subject and message lengths before persistence", a
 
 test("contact route trims values and stores an optional authenticated user id", async () => {
   let created;
-  ContactMessage.create = async (data) => { created = data; return { id: 7, ...data }; };
+  ContactMessage.create = async (data) => {
+    created = data;
+    return { id: 7, ...data };
+  };
   const res = await post({
     userId: "user-1",
     email: "  user@example.com  ",
@@ -77,8 +87,15 @@ test("contact route trims values and stores an optional authenticated user id", 
 
 test("contact route stores null when no user id is provided", async () => {
   let created;
-  ContactMessage.create = async (data) => { created = data; return data; };
-  const res = await post({ email: "user@example.com", subject: "Help", message: "A sufficiently long message" });
+  ContactMessage.create = async (data) => {
+    created = data;
+    return data;
+  };
+  const res = await post({
+    email: "user@example.com",
+    subject: "Help",
+    message: "A sufficiently long message",
+  });
   assert.equal(res.status, 201);
   assert.equal(created.userId, null);
 });
@@ -93,19 +110,39 @@ test("contact route converts Sequelize validation errors to a safe 400 response"
   const original = console.error;
   console.error = () => {};
   try {
-    const res = await post({ email: "invalid", subject: "Help", message: "A sufficiently long message" });
+    const res = await post({
+      email: "invalid",
+      subject: "Help",
+      message: "A sufficiently long message",
+    });
     assert.equal(res.status, 400);
-    assert.deepEqual(await res.json(), { success: false, message: "Please enter a valid email address" });
-  } finally { console.error = original; }
+    assert.deepEqual(await res.json(), {
+      success: false,
+      message: "Please enter a valid email address",
+    });
+  } finally {
+    console.error = original;
+  }
 });
 
 test("contact route hides unexpected persistence failures", async () => {
-  ContactMessage.create = async () => { throw new Error("database unavailable"); };
+  ContactMessage.create = async () => {
+    throw new Error("database unavailable");
+  };
   const original = console.error;
   console.error = () => {};
   try {
-    const res = await post({ email: "user@example.com", subject: "Help", message: "A sufficiently long message" });
+    const res = await post({
+      email: "user@example.com",
+      subject: "Help",
+      message: "A sufficiently long message",
+    });
     assert.equal(res.status, 500);
-    assert.deepEqual(await res.json(), { success: false, message: "Server error while sending message" });
-  } finally { console.error = original; }
+    assert.deepEqual(await res.json(), {
+      success: false,
+      message: "Server error while sending message",
+    });
+  } finally {
+    console.error = original;
+  }
 });

@@ -1,5 +1,6 @@
 import { CourseReports } from "../models/CourseReports.js";
 import { User, Notification } from "../models/index.js";
+import { logServerError, sendServerError } from "../utils/apiError.js";
 
 CourseReports.belongsTo(User, {
   foreignKey: "userId",
@@ -36,9 +37,7 @@ export const updateReportStatus = async (req, res) => {
 
     if (status === "resolved" || status === "rejected") {
       const title =
-        status === "resolved"
-          ? "Your report has been resolved"
-          : "Your report was rejected";
+        status === "resolved" ? "Your report has been resolved" : "Your report was rejected";
 
       const baseMessage =
         status === "resolved"
@@ -58,7 +57,8 @@ export const updateReportStatus = async (req, res) => {
           },
         });
       } catch (notifyErr) {
-        console.error("REPORT NOTIFICATION ERROR:", notifyErr.message);
+        // Log only: a failed notification must not fail the status update
+        logServerError(req, notifyErr, "courseReportsController.updateReportStatus.notification");
       }
     }
 
@@ -67,9 +67,7 @@ export const updateReportStatus = async (req, res) => {
       data: report,
     });
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
+    return sendServerError(req, res, err, "courseReportsController.updateReportStatus");
   }
 };
 
@@ -90,9 +88,7 @@ export const deleteReport = async (req, res) => {
       message: "Report deleted successfully",
     });
   } catch (err) {
-    res.status(500).json({
-      message: err.message,
-    });
+    return sendServerError(req, res, err, "courseReportsController.deleteReport");
   }
 };
 
@@ -113,6 +109,6 @@ export const getAllCourseReports = async (req, res) => {
       data: reports,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return sendServerError(req, res, err, "courseReportsController.getAllCourseReports");
   }
 };

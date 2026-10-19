@@ -18,7 +18,6 @@ import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
-
 const PAGE_COMPONENTS = {
   dashboard: DashboardPage,
   courses: CoursesPage,
@@ -35,41 +34,39 @@ function App() {
   const location = useLocation();
   const token = localStorage.getItem("token");
 
-let isAuthenticated = false;
+  let isAuthenticated = false;
 
-try {
-  if (token) {
-    const decoded = jwtDecode(token);
+  try {
+    if (token) {
+      const decoded = jwtDecode(token);
 
-    const now = Date.now() / 1000;
+      const now = Date.now() / 1000;
 
-    const notExpired = decoded.exp && decoded.exp > now;
-    const isAdmin =
-  decoded.role === "admin" ||
-  decoded.role === "superadmin";
+      const notExpired = decoded.exp && decoded.exp > now;
+      const isAdmin = decoded.role === "admin" || decoded.role === "superadmin";
 
-    isAuthenticated = notExpired && isAdmin;
+      isAuthenticated = notExpired && isAdmin;
+    }
+  } catch {
+    isAuthenticated = false;
   }
-} catch (err) {
-  isAuthenticated = false;
-}
   const [page, setPage] = useState("courses");
   const [mobileNav, setMobileNav] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isNotFound, setIsNotFound] = useState(false);
 
   useEffect(() => {
-  const pathName = location.pathname.replace("/", "");
-  if (pathName === "" || pathName === "dashboard") {
-    setPage("dashboard");
-    setIsNotFound(false);
-  } else if (PAGE_COMPONENTS[pathName]) {
-    setPage(pathName);
-    setIsNotFound(false);
-  } else {
-    setIsNotFound(true); // ✅ 404!
-  }
-}, [location.pathname]);
+    const pathName = location.pathname.replace("/", "");
+    if (pathName === "" || pathName === "dashboard") {
+      setPage("dashboard");
+      setIsNotFound(false);
+    } else if (PAGE_COMPONENTS[pathName]) {
+      setPage(pathName);
+      setIsNotFound(false);
+    } else {
+      setIsNotFound(true); // ✅ 404!
+    }
+  }, [location.pathname]);
 
   const title = useMemo(() => PAGE_TITLES[page] ?? PAGE_TITLES.dashboard, [page]);
   const CurrentPage = PAGE_COMPONENTS[page];
@@ -80,18 +77,18 @@ try {
   }
 
   if (!isAuthenticated) {
-  localStorage.removeItem("token");
-  return <Navigate to="/login" replace />;
-}
+    localStorage.removeItem("token");
+    return <Navigate to="/login" replace />;
+  }
 
   if (isNotFound) {
-  return (
-    <ToastProvider>
-      <NotFoundPage />
-      <Toast />
-    </ToastProvider>
-  );
-}
+    return (
+      <ToastProvider>
+        <NotFoundPage />
+        <Toast />
+      </ToastProvider>
+    );
+  }
 
   return (
     <ToastProvider>
@@ -105,14 +102,16 @@ try {
           onToggleCollapsed={() => setSidebarCollapsed((prev) => !prev)}
         />
 
-        <main className={`min-h-screen transition-all duration-300 ${sidebarCollapsed ? "lg:ml-24" : "lg:ml-80"}`}>
+        <main
+          className={`min-h-screen transition-all duration-300 ${sidebarCollapsed ? "lg:ml-24" : "lg:ml-80"}`}
+        >
           <Header title={title} onMenuClick={() => setMobileNav(true)} />
 
           <section className="p-4 md:p-8">
-          <div className="rounded-2xl bg-card border border-border overflow-hidden shadow-[0_2px_8px_rgba(26,26,26,0.06)]">
-            {CurrentPage ? <CurrentPage /> : <DashboardPage />}
-          </div>
-        </section>
+            <div className="rounded-2xl bg-card border border-border overflow-hidden shadow-[0_2px_8px_rgba(26,26,26,0.06)]">
+              {CurrentPage ? <CurrentPage /> : <DashboardPage />}
+            </div>
+          </section>
         </main>
       </div>
       <Toast />

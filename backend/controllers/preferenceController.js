@@ -23,20 +23,14 @@ export const getPreferences = async (req, res) => {
 export const createPreferences = async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     // Check if preferences already exist for this user
     const existing = await Preference.findOne({ where: { user_id: userId } });
     if (existing) {
       return res.status(400).json({ message: "Preferences already exist" });
     }
 
-    const {
-      explanation_type,
-      learning_style,
-      teaching_pace,
-      example_type,
-      focus_area
-    } = req.body;
+    const { explanation_type, learning_style, teaching_pace, example_type, focus_area } = req.body;
 
     // Validate required fields
     if (!explanation_type || !learning_style || !teaching_pace || !example_type || !focus_area) {
@@ -49,7 +43,7 @@ export const createPreferences = async (req, res) => {
       learning_style,
       teaching_pace,
       example_type,
-      focus_area
+      focus_area,
     });
 
     res.status(201).json(preferences);
@@ -70,13 +64,7 @@ export const updatePreferences = async (req, res) => {
       return res.status(404).json({ message: "Preferences not found" });
     }
 
-    const {
-      explanation_type,
-      learning_style,
-      teaching_pace,
-      example_type,
-      focus_area
-    } = req.body;
+    const { explanation_type, learning_style, teaching_pace, example_type, focus_area } = req.body;
 
     // Validate required fields
     if (!explanation_type || !learning_style || !teaching_pace || !example_type || !focus_area) {
