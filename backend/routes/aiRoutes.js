@@ -291,7 +291,6 @@ router.get("/transcript/:filename", async (req, res) => {
   }
 });
 
-
 router.get("/status/:jobId", protect, async (req, res) => {
   try {
     const { jobId } = req.params;
@@ -324,9 +323,7 @@ router.get("/status/:jobId", protect, async (req, res) => {
       return res.json({ status: "processing", message: "Starting..." });
     }
 
-    const response = await fetch(
-      `${process.env.AI_SERVICE_URL}/status/${videoJob.jobId}`,
-    );
+    const response = await fetch(`${process.env.AI_SERVICE_URL}/status/${videoJob.jobId}`);
 
     if (!response.ok) {
       return res.json({ status: "processing" });
@@ -341,28 +338,24 @@ router.get("/status/:jobId", protect, async (req, res) => {
     ) {
       if (data.local_video_url) {
         const filename = data.local_video_url.split("/").pop();
-        data.local_video_url =
-          "/api/ai/video/" + videoJob.courseId + "/" + filename;
+        data.local_video_url = "/api/ai/video/" + videoJob.courseId + "/" + filename;
       }
 
-    // Persist ready results by the database record ID. The Python job ID is only
-    // used for polling the AI service and must never be used as the DB identity.
-    if (data.status === "ready" && data.local_video_url) {
-      const filename = data.local_video_url.split("/").pop();
-      data.local_video_url = `/api/ai/video/${videoJob.courseId}/${jobId}/${filename}`;
-    }
+      // Persist ready results by the database record ID. The Python job ID is only
+      // used for polling the AI service and must never be used as the DB identity.
+      if (data.status === "ready" && data.local_video_url) {
+        const filename = data.local_video_url.split("/").pop();
+        data.local_video_url = `/api/ai/video/${videoJob.courseId}/${jobId}/${filename}`;
+      }
 
-    const videoUrl = data.cloudinary_url || data.local_video_url;
+      const videoUrl = data.cloudinary_url || data.local_video_url;
 
       try {
         await videoJob.update({
           videoUrl,
           status: "completed",
           meta: data.meta,
-          transcriptName:
-            data.transcript_name ||
-            data.text_file ||
-            videoJob.transcriptName,
+          transcriptName: data.transcript_name || data.text_file || videoJob.transcriptName,
         });
         console.log(`AIVideo DB updated for DB ID: ${jobId}`);
       } catch (dbErr) {
@@ -390,7 +383,6 @@ router.get("/status/:jobId", protect, async (req, res) => {
     return res.status(500).json({ status: "error" });
   }
 });
-
 
 // ----------------------------------------------------
 // 3. Proxy Video Stream from Python (The "Middleman")
