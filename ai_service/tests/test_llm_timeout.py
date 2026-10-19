@@ -170,7 +170,7 @@ async def test_process_lesson_groq_call_site_explicit_timeout():
          patch("builtins.open", MagicMock()), \
          patch("api.cloudinary.uploader.upload", return_value={"secure_url": "https://example.com/video.mp4"}), \
          patch("api.MP3", return_value=MagicMock(info=MagicMock(length=10.0))):
-        
+
         proc = MagicMock()
         proc.communicate = AsyncMock(return_value=(b"", b""))
         proc.returncode = 0

@@ -24,10 +24,12 @@ vi.mock("../context/AuthContext", () => {
 
 // Minimal player: attaches the video ref and shows the shortcut-driven mute state.
 vi.mock("../components/video/VideoPlayer", () => ({
-  default: ({ videoRef, isMuted }) => (
+  default: ({ videoRef, isMuted, title, moduleTitle }) => (
     <div>
       <video ref={videoRef} />
       <span data-testid="muted">{String(!!isMuted)}</span>
+      <span data-testid="player-title">{title}</span>
+      <span data-testid="player-module">{moduleTitle}</span>
     </div>
   ),
 }));
@@ -63,7 +65,8 @@ const renderWithTranscript = async () => {
   render(<Learning />);
   await flush();
   fireEvent.click(screen.getByRole("button", { name: /learning\.select_ai_voiceover/ }));
-  fireEvent.click(screen.getByRole("button", { name: "SRK" }));
+  fireEvent.click(screen.getByRole("radio", { name: "SRK" }));
+  fireEvent.click(screen.getByRole("button", { name: "learning.workspace.apply_voice" }));
   await flush();
   await flush();
 };
@@ -86,8 +89,17 @@ afterEach(() => {
 });
 
 describe("Lesson transcript", () => {
-  it("shows the saved lesson transcript, matching the stored text", async () => {
+  it("keeps the transcript closed until the user opens it", async () => {
     await renderWithTranscript();
+    const toggle = screen.getByRole("button", { name: "learning.transcript" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("region", { name: "learning.transcript" })).toBeNull();
+    expect(screen.getByTestId("player-title").textContent).toBe("Lesson One");
+    expect(screen.getByTestId("player-module").textContent).toBe("Module 1");
+  });
+  it("shows the saved lesson transcript after the user opens it", async () => {
+    await renderWithTranscript();
+    fireEvent.click(screen.getByRole("button", { name: "learning.transcript" }));
     const panel = screen.getByRole("region", { name: "learning.transcript" });
     const cues = Array.from(panel.querySelectorAll("li button")).map((b) => b.textContent);
     expect(cues).toEqual([
@@ -101,18 +113,20 @@ describe("Lesson transcript", () => {
   it("opens and closes from the toggle next to the player", async () => {
     await renderWithTranscript();
     const toggle = screen.getByRole("button", { name: "learning.transcript" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+    fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("region", { name: "learning.transcript" })).toBeTruthy();
 
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByRole("region", { name: "learning.transcript" })).toBeNull();
-
-    fireEvent.click(toggle);
-    expect(screen.getByRole("region", { name: "learning.transcript" })).toBeTruthy();
   });
 
   it("returns focus to the toggle when the transcript is closed from inside", async () => {
     await renderWithTranscript();
+    fireEvent.click(screen.getByRole("button", { name: "learning.transcript" }));
     fireEvent.click(screen.getByRole("button", { name: "learning.close_transcript" }));
     const toggle = screen.getByRole("button", { name: "learning.transcript" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
@@ -121,12 +135,14 @@ describe("Lesson transcript", () => {
 
   it("jumps the video to the clicked timestamp", async () => {
     await renderWithTranscript();
+    fireEvent.click(screen.getByRole("button", { name: "learning.transcript" }));
     fireEvent.click(screen.getByRole("button", { name: /Neural networks learn patterns!/ }));
     expect(document.querySelector("video").currentTime).toBe(10);
   });
 
   it("does not trigger player shortcuts while a transcript control has focus", async () => {
     await renderWithTranscript();
+    fireEvent.click(screen.getByRole("button", { name: "learning.transcript" }));
     const cue = screen.getByRole("button", { name: /Ready to begin\?/ });
     fireEvent.keyDown(cue, { key: "m" });
     expect(screen.getByTestId("muted").textContent).toBe("false");
@@ -138,6 +154,7 @@ describe("Lesson transcript", () => {
   it("shows the unavailable state when the lesson has no transcript", async () => {
     transcriptName = "";
     await renderWithTranscript();
+    fireEvent.click(screen.getByRole("button", { name: "learning.transcript" }));
     expect(screen.getByText("learning.no_transcript")).toBeTruthy();
     expect(screen.queryByRole("status")).toBeNull();
   });
@@ -153,6 +170,7 @@ describe("Lesson transcript", () => {
       vi.fn((url) => (url.includes("/api/ai/transcript/") ? transcriptResponse : pending(url))),
     );
     await renderWithTranscript();
+    fireEvent.click(screen.getByRole("button", { name: "learning.transcript" }));
     expect(screen.getByRole("status").textContent).toBe("learning.transcript_loading");
     expect(screen.queryByText("learning.no_transcript")).toBeNull();
 
