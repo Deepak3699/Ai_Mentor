@@ -30,6 +30,12 @@ const User = sequelize.define(
       type: DataTypes.STRING,
       defaultValue: "active",
     },
+
+    avatar_url: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null,
+    },
     isBlocked: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,

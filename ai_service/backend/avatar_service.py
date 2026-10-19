@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import os
 
 import requests
 
@@ -52,7 +53,7 @@ def upload_audio(audio_path: str) -> str:
                 headers=headers,
                 files={
                     "audio": (
-                        audio_path.split("/")[-1],
+                        os.path.basename(str(audio_path).replace("\\", "/")),
                         audio_file,
                         "audio/mpeg",
                     )
@@ -176,7 +177,7 @@ async def _poll_for_video(talk_id: str) -> str:
 
         result = response.json()
         status = result.get("status")
-        print(f"🔄 D-ID status: {status}")
+        print(f"[INFO] D-ID status | state={status}", flush=True)
 
         if status == "done":
             video_url = result.get("result_url")

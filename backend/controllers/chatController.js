@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import Lesson from "../models/Lesson.js";
 import Preference from "../models/Preference.js";
 // import { GoogleGenAI } from "@google/genai";
 import { detectIntent } from "../services/intentService.js";
@@ -106,14 +107,20 @@ export const chatWithAssistant = async (req, res) => {
 
       return res.json({
         reply: `
-        Learning Goal: ${preferences.learning_goal}
+        Learning Goal: ${preferences.learning_goal || "Unknown"}
 
-        Experience Level: ${preferences.experience_level}
+        Experience Level: ${preferences.experience_level || "Unknown"}
+        
+        Explanation Type: ${preferences.explanation_type || "Unknown"}
 
-        Learning Style: ${preferences.learning_style}
+        Learning Style: ${preferences.learning_style || "Unknown"}
 
-        Weekly Commitment: ${preferences.weekly_commitment}
-                `,
+        Teaching Pace: ${preferences.teaching_pace || "Unknown"}
+
+        Example Type: ${preferences.example_type || "Unknown"}
+
+        Focus Area: ${preferences.focus_area || "Unknown"}
+        `,
       });
     }
 
@@ -132,23 +139,38 @@ export const chatWithAssistant = async (req, res) => {
       });
     }
 
-    //current lesson
+    // Current lesson and resume navigation
     if (intent.type === "current_lesson") {
       const courses = user.purchasedCourses || [];
-
-      const activeCourse = courses.find((c) => c.progress?.currentLesson);
+      const activeCourse = courses.find((course) => course.progress?.currentLesson);
 
       if (!activeCourse) {
-        return res.json({
-          reply: "I couldn't find an active lesson.",
-        });
+        return res.json({ reply: "I couldn't find an active lesson." });
       }
 
+      const savedLesson = activeCourse.progress.currentLesson;
+      const lessonId =
+        typeof savedLesson === "object" && savedLesson !== null
+          ? (savedLesson.lessonId ?? savedLesson.id)
+          : null;
+
+      let lessonTitle =
+        typeof savedLesson === "object" && savedLesson !== null ? savedLesson.title : null;
+
+      if (lessonId && !lessonTitle) {
+        const lesson = await Lesson.findByPk(lessonId);
+        lessonTitle = lesson?.title;
+      }
+
+      const displayLesson =
+        lessonTitle || (lessonId ? `lesson ${lessonId}` : `lesson ${savedLesson}`);
+
       return res.json({
-        reply: `You were last studying lesson ${activeCourse.progress.currentLesson} in ${activeCourse.courseTitle}.`,
+        reply: `You were last studying ${displayLesson} in ${activeCourse.courseTitle}.`,
+        route: activeCourse.courseId && lessonId ? `/learning/${activeCourse.courseId}` : null,
+        lessonId: lessonId || null,
       });
     }
-
     // Settings
     if (intent.type === "settings_info") {
       return res.json({
