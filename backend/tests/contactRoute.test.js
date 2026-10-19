@@ -27,31 +27,28 @@ after(async () => {
   await new Promise((resolve) => server.close(resolve));
 });
 
-beforeEach(async () => {
-  // Reset logic if needed
-});
-
 test("POST /api/contactus - Anonymous submission stores userId as null", async () => {
-  // Mock ContactMessage.create to avoid needing a live DB connection
   const originalCreate = ContactMessage.create;
-  ContactMessage.create = async (data) => ({ id: 1, ...data });
+  try {
+    ContactMessage.create = async (data) => ({ id: 1, ...data });
 
-  const res = await fetch(baseUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: "test@example.com",
-      subject: "Test Subject",
-      message: "This is a valid test message with more than 10 characters.",
-    }),
-  });
+    const res = await fetch(baseUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "test@example.com",
+        subject: "Test Subject",
+        message: "This is a valid test message with more than 10 characters.",
+      }),
+    });
 
-  const data = await res.json();
-  ContactMessage.create = originalCreate;
-
-  assert.strictEqual(res.status, 201);
-  assert.strictEqual(data.success, true);
-  assert.strictEqual(data.data.userId, null);
+    const data = await res.json();
+    assert.strictEqual(res.status, 201);
+    assert.strictEqual(data.success, true);
+    assert.strictEqual(data.data.userId, null);
+  } finally {
+    ContactMessage.create = originalCreate;
+  }
 });
 
 test("POST /api/contactus - Authenticated submission derives userId from token", async () => {
@@ -60,62 +57,61 @@ test("POST /api/contactus - Authenticated submission derives userId from token",
     expiresIn: "1h",
   });
 
-  // Mock User.findByPk so optionalProtect successfully validates the token/user
   const originalFindByPk = User.findByPk;
-  User.findByPk = async (id) => ({ id, email: "authuser@example.com" });
-
   const originalCreate = ContactMessage.create;
-  ContactMessage.create = async (data) => ({ id: 1, ...data });
+  try {
+    User.findByPk = async (id) => ({ id, email: "authuser@example.com", isBlocked: false });
+    ContactMessage.create = async (data) => ({ id: 1, ...data });
 
-  const res = await fetch(baseUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify({
-      email: "test@example.com",
-      subject: "Test Subject",
-      message: "This is a valid test message with more than 10 characters.",
-    }),
-  });
+    const res = await fetch(baseUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        email: "test@example.com",
+        subject: "Test Subject",
+        message: "This is a valid test message with more than 10 characters.",
+      }),
+    });
 
-  const data = await res.json();
-  User.findByPk = originalFindByPk;
-  ContactMessage.create = originalCreate;
-
-  assert.strictEqual(res.status, 201);
-  assert.strictEqual(data.success, true);
-  assert.strictEqual(data.data.userId, mockUserId);
+    const data = await res.json();
+    assert.strictEqual(res.status, 201);
+    assert.strictEqual(data.success, true);
+    assert.strictEqual(data.data.userId, mockUserId);
+  } finally {
+    User.findByPk = originalFindByPk;
+    ContactMessage.create = originalCreate;
+  }
 });
 
 test("POST /api/contactus - Spoofed-ID in request body is ignored", async () => {
   const originalCreate = ContactMessage.create;
-  ContactMessage.create = async (data) => ({ id: 1, ...data });
+  try {
+    ContactMessage.create = async (data) => ({ id: 1, ...data });
 
-  const res = await fetch(baseUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      userId: 999, // Maliciously trying to spoof
-      email: "test@example.com",
-      subject: "Test Subject",
-      message: "This is a valid test message with more than 10 characters.",
-    }),
-  });
+    const res = await fetch(baseUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: 999, // Maliciously trying to spoof
+        email: "test@example.com",
+        subject: "Test Subject",
+        message: "This is a valid test message with more than 10 characters.",
+      }),
+    });
 
-  const data = await res.json();
-  ContactMessage.create = originalCreate;
-
-  assert.strictEqual(res.status, 201);
-  assert.strictEqual(data.success, true);
-  assert.strictEqual(data.data.userId, null);
+    const data = await res.json();
+    assert.strictEqual(res.status, 201);
+    assert.strictEqual(data.success, true);
+    assert.strictEqual(data.data.userId, null);
+  } finally {
+    ContactMessage.create = originalCreate;
+  }
 });
 
-test("POST /api/contactus - Invalid token handles gracefully", async () => {
-  const originalCreate = ContactMessage.create;
-  ContactMessage.create = async (data) => ({ id: 1, ...data });
-
+test("POST /api/contactus - Deterministic 401 on invalid token", async () => {
   const res = await fetch(baseUrl, {
     method: "POST",
     headers: {
@@ -129,12 +125,21 @@ test("POST /api/contactus - Invalid token handles gracefully", async () => {
     }),
   });
 
-  ContactMessage.create = originalCreate;
+  // Deterministically expect 401 Unauthorized
+  assert.strictEqual(res.status, 401);
+});
 
-  assert.ok(res.status === 201 || res.status === 401);
-  if (res.status === 201) {
-    const data = await res.json();
-    assert.strictEqual(data.success, true);
-    assert.strictEqual(data.data.userId, null);
-  }
+test("POST /api/contactus - Regression: fails validation when email is missing", async () => {
+  const res = await fetch(baseUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      subject: "Test Subject",
+      message: "This is a valid test message with more than 10 characters.",
+    }),
+  });
+
+  const data = await res.json();
+  assert.strictEqual(res.status, 400);
+  assert.strictEqual(data.success, false);
 });

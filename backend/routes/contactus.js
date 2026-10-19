@@ -60,7 +60,7 @@ router.post("/", optionalProtect, async (req, res) => {
     });
   } catch (error) {
     console.error("❌ ContactUs Error:", error);
-
+    
     // Sequelize validation errors
     if (error.name === "SequelizeValidationError") {
       return res.status(400).json({
