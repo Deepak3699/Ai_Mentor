@@ -71,7 +71,11 @@ test("fetchWithTimeout aborts a hanging request and rejects with a timeout error
   globalThis.fetch = (_url, options) => {
     seenSignal = options.signal;
     return new Promise((_resolve, reject) => {
-      options.signal.addEventListener("abort", () => reject(options.signal.reason));
+      const keepAlive = setTimeout(() => reject(new Error("mock fetch was never aborted")), 5000);
+      options.signal.addEventListener("abort", () => {
+        clearTimeout(keepAlive);
+        reject(options.signal.reason);
+      });
     });
   };
 
@@ -93,7 +97,11 @@ test("fetchWithTimeout uses AI_SERVICE_TIMEOUT_MS when no override is given", as
   const realFetch = globalThis.fetch;
   globalThis.fetch = (_url, options) =>
     new Promise((_resolve, reject) => {
-      options.signal.addEventListener("abort", () => reject(options.signal.reason));
+      const keepAlive = setTimeout(() => reject(new Error("mock fetch was never aborted")), 5000);
+      options.signal.addEventListener("abort", () => {
+        clearTimeout(keepAlive);
+        reject(options.signal.reason);
+      });
     });
 
   try {
