@@ -54,9 +54,10 @@ async def test_gemini_metadata():
 
     mock_gemini_response = MagicMock()
     mock_gemini_response.text = "This is a five word script"
-mock_process = MagicMock()
-mock_process.communicate = AsyncMock(return_value=(b"", b""))
-mock_process.returncode = 0
+
+    mock_process = MagicMock()
+    mock_process.communicate = AsyncMock(return_value=(b"", b""))
+    mock_process.returncode = 0
 
     with patch("api.gemini_client.models.generate_content", return_value=mock_gemini_response), \
          patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, \
@@ -75,7 +76,6 @@ mock_process.returncode = 0
 
         mock_makedirs.return_value = None
         mock_tts.return_value = None
-
         # We need mock_get to return some bytes
         mock_response = MagicMock()
         mock_response.content = b"fake video data"
