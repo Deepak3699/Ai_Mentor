@@ -1,5 +1,6 @@
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
 import { sequelize } from "../config/db.js";
+import { courseDuration } from "../utils/courseDuration.js";
 
 /* =========================
    HELPERS
@@ -106,6 +107,14 @@ const getMyCourses = async (req, res) => {
         status: "published",
       },
       order: [["createdAt", "ASC"]],
+      include: [
+        {
+          model: Module,
+          as: "modules",
+          attributes: ["id"],
+          include: [{ model: Lesson, as: "lessons", attributes: ["id", "duration"] }],
+        },
+      ],
     });
 
     res.json(
@@ -117,6 +126,7 @@ const getMyCourses = async (req, res) => {
         lessons: course.lessons,
         lessonsCount: course.lessonsCount ?? parseLessonsCount(course.lessons),
         image: course.image,
+        duration: courseDuration(course.modules),
       })),
     );
   } catch (error) {
