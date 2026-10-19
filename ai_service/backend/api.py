@@ -156,6 +156,7 @@ class LessonPreferences(BaseModel):
     teaching_pace: str | None = Field(None, max_length=100)
     example_type: str | None = Field(None, max_length=100)
     focus_area: str | None = Field(None, max_length=100)
+    level: str | None = Field(None, max_length=100)
 
 
 class LessonRequest(BaseModel):
@@ -380,14 +381,31 @@ def build_fallback_ffmpeg_args(input_video: str, audio_path: str, output_path: s
         "-movflags", "+faststart", "-shortest", output_path,
     ]
 
-async def run_ffmpeg_command(args: list[str]) -> tuple[int, str]:
-    """Run FFmpeg and always return its exit code and safely decoded diagnostics."""
+async def run_ffmpeg_command(
+    args: list[str],
+    timeout: float = 300,
+) -> tuple[int, str]:
+    """Run FFmpeg with timeout and safely terminate its subprocess."""
     process = await asyncio.create_subprocess_exec(
         *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    _stdout, stderr = await process.communicate()
+
+    try:
+        _stdout, stderr = await asyncio.wait_for(
+            process.communicate(),
+            timeout=timeout,
+        )
+    except (asyncio.TimeoutError, asyncio.CancelledError):
+        cleanup_task = asyncio.create_task(_cleanup_subprocess(process))
+        try:
+            await asyncio.shield(cleanup_task)
+        except asyncio.CancelledError:
+            await cleanup_task
+            raise
+        raise
+
     error_message = stderr.decode(errors="replace") if stderr else ""
     return process.returncode, error_message
 
@@ -966,7 +984,7 @@ async def _cleanup_subprocess(proc):
 
     try:
         await asyncio.wait_for(proc.wait(), timeout=5)
-    except asyncio.TimeoutError:
+    except (asyncio.TimeoutError, asyncio.CancelledError):
         try:
             proc.kill()
         except ProcessLookupError:
