@@ -192,6 +192,24 @@ For direct debugging only, the underlying entry point is `ai_service/backend/gra
 
 Use the running service's FastAPI documentation for the current request and response schemas.
 
+### Filtering voices
+
+`GET /voices` returns every registered voice by default. Narrow the list with optional query parameters:
+
+| Parameter  | Example             | Behavior                             |
+| ---------- | ------------------- | ------------------------------------ |
+| `language` | `?language=Spanish` | Only voices whose `language` matches |
+| `gender`   | `?gender=Female`    | Only voices whose `gender` matches   |
+
+- Matching is case-insensitive, so `?language=spanish` and `?language=Spanish` are equivalent.
+- When both parameters are given, a voice must match both: `?language=English&gender=Male`.
+- A value that matches no voice is not an error. The service responds with HTTP 200 and `{"voices": []}`.
+- An empty parameter (`?language=`) is treated as if it were omitted.
+
+```bash
+curl "http://localhost:8000/voices?language=English&gender=Female"
+```
+
 ## Generation workflow
 
 1. Validate the lesson request.
@@ -230,6 +248,17 @@ For API exploration, start the service and open the FastAPI documentation at `ht
 | Video remains in processing state      | Review `[AI/API]` output and the User API queue logs for the first failed generation step                              |
 
 ## Security notes
+
+Lesson, syllabus, quiz, and flashcard generation send fixed task instructions in
+the provider's system-instruction field and caller-controlled values as a
+separate, JSON-serialized user message. The system instructions tell the model
+to treat JSON values as untrusted content rather than instructions. JSON
+serialization preserves input as data but cannot guarantee resistance to every
+prompt injection.
+
+Lesson preferences are validated against the supported fields
+`explanation_type`, `learning_style`, `teaching_pace`, `example_type`, and
+`focus_area`; unknown keys are rejected.
 
 - Never commit `.env` files, provider keys, database credentials, or generated authentication tokens.
 - Do not print raw request objects, generated secrets, full credential values, or provider authorization headers.
