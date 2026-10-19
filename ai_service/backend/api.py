@@ -288,9 +288,7 @@ def generate_syllabus(data: SyllabusRequest):
     prompt = f"""
     Create a highly structured course syllabus for a course titled '{data.course_title}'.
     Category: {data.category or 'General Education'}
-    
     You MUST respond with ONLY a valid JSON object. Do not include markdown formatting like ```json.
-    
     The JSON structure must match this exactly:
     {{
       "modules": [
@@ -598,8 +596,7 @@ def generate_lesson(
         str(data.speech_rate),
         str(data.speech_pitch),
         json.dumps(data.preferences, sort_keys=True, default=str), 
-    ])
-            
+    ])  
     cache_key = hashlib.sha256(
         cache_data.encode("utf-8")
     ).hexdigest()
