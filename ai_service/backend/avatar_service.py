@@ -1,9 +1,12 @@
 import asyncio
 import base64
+import logging
 
 import requests
 
 from config import DID_API_KEY, DID_API_URL, DID_SOURCE_URL
+
+logger = logging.getLogger(__name__)
 
 POLL_INTERVAL = 5
 MAX_POLL_ATTEMPTS = 60
@@ -176,7 +179,7 @@ async def _poll_for_video(talk_id: str) -> str:
 
         result = response.json()
         status = result.get("status")
-        print(f"🔄 D-ID status: {status}")
+        logger.debug("D-ID status: %s", status)
 
         if status == "done":
             video_url = result.get("result_url")

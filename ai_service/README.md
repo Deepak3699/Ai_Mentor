@@ -117,6 +117,9 @@ Then edit `backend/.env`:
 # Google Gemini API key
 GEMINI_API_KEY=your_gemini_api_key_here
 
+# Logging level (DEBUG, INFO, WARNING, ERROR, or CRITICAL; defaults to INFO)
+LOG_LEVEL=INFO
+
 # Cloudinary credentials (for cloud video hosting)
 CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
 CLOUDINARY_API_KEY=your_cloudinary_api_key
@@ -126,6 +129,9 @@ CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 > **Get a Gemini API key:** [Google AI Studio](https://aistudio.google.com/app/apikey) — free tier available.
 >
 > **Get Cloudinary credentials:** [Cloudinary Console](https://cloudinary.com/console) — free tier available.
+>
+> `LOG_LEVEL` controls the Python service's log verbosity. Supported values are
+> `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL`; the default is `INFO`.
 
 ### Input Videos (Celebrity Sources)
 

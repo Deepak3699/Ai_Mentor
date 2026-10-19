@@ -205,13 +205,21 @@ jobs:
 
       - name: Syntax check
         # Imports are not executed here, only compiled, so no API keys are needed.
-        run: python -m compileall -q ai_service/backend/api.py ai_service/backend/config.py
+        run: python -m compileall -q ai_service/backend
 
       - name: Check requirements.txt is valid
         working-directory: ai_service
         run: |
           python -m pip install --upgrade pip
           pip install --dry-run -r backend/requirements.txt
+
+      - name: Install dependencies
+        working-directory: ai_service
+        run: pip install -r backend/requirements.txt
+
+      - name: Check Python backend for print calls
+        working-directory: ai_service
+        run: python -m pytest tests/test_no_print_calls.py
 
       - name: Run tests
         working-directory: ai_service
@@ -221,9 +229,7 @@ jobs:
           CLOUDINARY_CLOUD_NAME: ci-dummy
           CLOUDINARY_API_KEY: ci-dummy
           CLOUDINARY_API_SECRET: ci-dummy
-        run: |
-          pip install -r backend/requirements.txt
-          python -m pytest
+        run: python -m pytest
 
   # ─────────────────────────────────────────────────────────────
   # SECRET SCAN — no .env files, and no credentials in content or history

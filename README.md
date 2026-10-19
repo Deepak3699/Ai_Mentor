@@ -109,7 +109,7 @@ Each service has its own `.env` file. Copy the `.env.example` in each folder and
 |---|---|
 | `backend/` | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `AI_SERVICE_URL`, `REDIS_HOST`, `REDIS_PORT` |
 | `frontend/` | `VITE_API_BASE_URL`, `VITE_FIREBASE_*` |
-| `ai_service/backend/` | `GEMINI_API_KEY`, `CLOUDINARY_*` |
+| `ai_service/backend/` | `GEMINI_API_KEY`, `CLOUDINARY_*`, `LOG_LEVEL` (DEBUG/INFO/WARNING/ERROR/CRITICAL; default INFO) |
 
 ## Running the Application
 

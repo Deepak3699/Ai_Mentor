@@ -4,6 +4,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").strip().upper()
+if LOG_LEVEL not in _LOG_LEVELS:
+    supported_levels = ", ".join(sorted(_LOG_LEVELS))
+    raise ValueError(
+        f"Invalid LOG_LEVEL {LOG_LEVEL!r}. Choose one of: {supported_levels}."
+    )
+
 # Required: Primary AI provider
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
@@ -33,5 +41,3 @@ CLOUDINARY_ENABLED = all([
 def validate_config():
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is required for the AI service.")
-
-
