@@ -358,7 +358,8 @@ const Analytics = () => {
               {t("analytics.total_study_time_label")}
             </div>
             <div className="text-xl font-bold text-[#ff6d34]">
-              {Number(totalStudyTime.toFixed(1))} {t("analytics.hours_unit", { defaultValue: "hrs" })}
+              {Number(totalStudyTime.toFixed(1))}{" "}
+              {t("analytics.hours_unit", { defaultValue: "hrs" })}
             </div>
             <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">
               {t("analytics.this_month")}

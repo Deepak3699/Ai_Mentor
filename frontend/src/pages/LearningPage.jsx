@@ -108,19 +108,16 @@ export default function Learning() {
       .catch(() => undefined);
   }, [user?.id]);
 
-  const handlePlaybackChange = useCallback(
-    (playing) => {
-      if (playing) {
-        lastStudyVideoTimeRef.current = videoRef.current?.currentTime ?? null;
-        lastStudyUpdateAtRef.current = Date.now();
-      } else {
-        lastStudyVideoTimeRef.current = null;
-        lastStudyUpdateAtRef.current = null;
-      }
-      setIsPlaying(playing);
-    },
-    [],
-  );
+  const handlePlaybackChange = useCallback((playing) => {
+    if (playing) {
+      lastStudyVideoTimeRef.current = videoRef.current?.currentTime ?? null;
+      lastStudyUpdateAtRef.current = Date.now();
+    } else {
+      lastStudyVideoTimeRef.current = null;
+      lastStudyUpdateAtRef.current = null;
+    }
+    setIsPlaying(playing);
+  }, []);
 
   // Auto-scroll transcript
   useEffect(() => {

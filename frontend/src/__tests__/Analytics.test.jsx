@@ -63,23 +63,20 @@ describe("Analytics study totals", () => {
 
     await waitFor(() => expect(screen.getByText("3.3")).toBeTruthy());
     expect(screen.getByText("This month")).toBeTruthy();
-    expect(screen.getByText("analytics.attendance_rate").parentElement.textContent).toContain(
-      "3%",
-    );
+    const attendanceCard = screen.getByText("analytics.attendance_rate").parentElement;
+    expect(attendanceCard.textContent).toContain("3%");
   });
 
   it("shows zero study time and attendance when no sessions exist", async () => {
     renderAnalytics();
 
-    await waitFor(() =>
-      expect(
-        screen
-          .getByText("analytics.total_study_time_label")
-          .parentElement.parentElement.textContent,
-      ).toContain("0 hrs"),
-    );
-    expect(screen.getByText("analytics.attendance_rate").parentElement.textContent).toContain(
-      "0%",
-    );
+    await waitFor(() => {
+      const studyTimeLabel = screen.getByText("analytics.total_study_time_label");
+      const studyTimeCard = studyTimeLabel.parentElement.parentElement;
+      expect(studyTimeCard.textContent).toContain("0 hrs");
+    });
+
+    const attendanceCard = screen.getByText("analytics.attendance_rate").parentElement;
+    expect(attendanceCard.textContent).toContain("0%");
   });
 });
