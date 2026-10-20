@@ -90,26 +90,23 @@ export default function Learning() {
 
   userRef.current = user;
 
-  const flushStudySession = useCallback(
-    () => {
-      const seconds = pendingStudySecondsRef.current;
-      const token = localStorage.getItem("token");
-      if (!user?.id || !token || seconds < STUDY_SESSION_BATCH_SECONDS) return;
+  const flushStudySession = useCallback(() => {
+    const seconds = pendingStudySecondsRef.current;
+    const token = localStorage.getItem("token");
+    if (!user?.id || !token || seconds < STUDY_SESSION_BATCH_SECONDS) return;
 
-      pendingStudySecondsRef.current = 0;
-      void window
-        .fetch(`${API_BASE_URL.replace(/\/$/, "")}/api/analytics/study-session`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `******,
-          },
-          body: JSON.stringify({ hours: seconds / 3600 }),
-        })
-        .catch(() => undefined);
-    },
-    [user?.id],
-  );
+    pendingStudySecondsRef.current = 0;
+    void window
+      .fetch(`${API_BASE_URL.replace(/\/$/, "")}/api/analytics/study-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ hours: seconds / 3600 }),
+      })
+      .catch(() => undefined);
+  }, [user?.id]);
 
   const handlePlaybackChange = useCallback(
     (playing) => {

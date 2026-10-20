@@ -224,7 +224,8 @@ describe("Lesson transcript", () => {
     const video = document.querySelector("video");
     let videoTime = 0;
     Object.defineProperty(video, "currentTime", { configurable: true, get: () => videoTime });
-    vi.spyOn(HTMLMediaElement.prototype, "paused", "get").mockReturnValue(false);
+    const paused = vi.spyOn(HTMLMediaElement.prototype, "paused", "get");
+    paused.mockReturnValue(false);
     fireEvent.click(screen.getByRole("button", { name: "Start playback" }));
 
     for (let index = 0; index < 5; index += 1) {
