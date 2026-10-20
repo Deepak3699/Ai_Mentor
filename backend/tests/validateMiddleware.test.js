@@ -5,8 +5,9 @@ import validate from "../middleware/validate.js";
 
 const invoke = (schema, body) => {
   const result = { statusCode: 200, payload: undefined, nextCalls: 0 };
-  const req = { body };
+  const req = { id: "test-id", method: "POST", originalUrl: "/x", body };
   const res = {
+    headersSent: false,
     status(code) {
       result.statusCode = code;
       return this;
@@ -24,13 +25,17 @@ const invoke = (schema, body) => {
       }),
   };
 };
+
 const quiet = async (callback) => {
-  const original = console.error;
+  const originalError = console.error;
+  const originalWarn = console.warn;
   console.error = () => {};
+  console.warn = () => {};
   try {
     return await callback();
   } finally {
-    console.error = original;
+    console.error = originalError;
+    console.warn = originalWarn;
   }
 };
 
@@ -52,14 +57,20 @@ test("validate returns normalized nested field errors", async () => {
   assert.equal(result.payload.errors[0].path, "profile.email");
 });
 
-test("validate returns 500 when no schema is provided", async () => {
+test("validate returns a generic 500 when no schema is provided", async () => {
   const { result, run } = invoke(undefined, {});
   await quiet(run);
   assert.equal(result.statusCode, 500);
-  assert.deepEqual(result.payload, { message: "Internal Server Error: No schema provided" });
+  assert.deepEqual(result.payload, {
+    success: false,
+    message: "Internal server error",
+    requestId: "test-id",
+  });
+  assert.ok(!JSON.stringify(result.payload).includes("No schema provided"));
+  assert.equal(result.nextCalls, 0);
 });
 
-test("validate safely handles unexpected schema exceptions", async () => {
+test("validate hides unexpected schema exceptions from the client", async () => {
   const { result, run } = invoke(
     {
       safeParse() {
@@ -70,5 +81,9 @@ test("validate safely handles unexpected schema exceptions", async () => {
   );
   await quiet(run);
   assert.equal(result.statusCode, 500);
-  assert.equal(result.payload.details, "schema exploded");
+  assert.equal(result.payload.message, "Internal server error");
+  assert.equal(result.payload.requestId, "test-id");
+  assert.equal("details" in result.payload, false);
+  assert.ok(!JSON.stringify(result.payload).includes("schema exploded"));
+  assert.equal(result.nextCalls, 0);
 });

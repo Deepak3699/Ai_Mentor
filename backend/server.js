@@ -42,6 +42,8 @@ dotenv.config();
 
 import { validateEnv } from "./env-validator.js";
 import { securityHeaders } from "./config/securityHeaders.js";
+import requestContext from "./middleware/requestContext.js";
+import errorHandler from "./middleware/errorHandler.js";
 
 validateEnv();
 
@@ -66,6 +68,9 @@ const defaultDevOrigins = [
 
 const allowedOrigins = Array.from(new Set([...envOrigins, ...defaultDevOrigins]));
 
+// Request ID first, so every response and log line (even CORS rejections) has one
+app.use(requestContext);
+
 app.use(securityHeaders());
 
 app.use(
@@ -88,7 +93,9 @@ app.use(
       }
 
       console.error(`❌ Blocked by CORS: ${origin}`);
-      return callback(new Error("Not allowed by CORS"));
+      const corsError = new Error("Not allowed by CORS");
+      corsError.status = 403;
+      return callback(corsError);
     },
     credentials: true,
   }),
@@ -138,29 +145,8 @@ app.use((req, res) => {
   });
 });
 
-// ================= GLOBAL ERROR HANDLER =================
-app.use((err, req, res, _next) => {
-  if (err.type === "entity.too.large") {
-    return res.status(413).json({
-      success: false,
-      message: "Payload Too Large",
-    });
-  }
-
-  if (err.type === "entity.parse.failed") {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid JSON",
-    });
-  }
-
-  console.error("🔥 Global Error:", err);
-
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || "Internal Server Error",
-  });
-});
+// ================= GLOBAL ERROR HANDLER (must be last) =================
+app.use(errorHandler);
 
 // ================= SERVER START =================
 const PORT = process.env.PORT || 5000;

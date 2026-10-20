@@ -32,8 +32,12 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
     );
   } catch (err) {
     // Invalid signature = possible attack or corrupted payload
-    log.error({ err }, "Signature verification failed");
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    log.error({ err, requestId: req.id }, "Signature verification failed");
+    return res.status(400).json({
+      success: false,
+      message: "Webhook signature verification failed",
+      requestId: req.id,
+    });
   }
 
   switch (event.type) {
