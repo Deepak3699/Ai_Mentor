@@ -275,6 +275,7 @@ router.get("/transcript/:filename", async (req, res) => {
     }
 
     const data = await response.json();
+    const pythonStatus = String(data.status || "").toLowerCase();
 
     // 💾 Save to Cache if we found the record
     if (cachedVideo) {
@@ -292,9 +293,8 @@ router.get("/transcript/:filename", async (req, res) => {
 
 router.get("/status/:jobId", protect, async (req, res) => {
   try {
-    const { jobId } = req.params; // This is now aiVideo.id
+    const { jobId } = req.params;
 
-    // Check DB first
     const videoJob = await AIVideo.findOne({ where: { id: jobId } });
 
     if (!videoJob) {
@@ -310,7 +310,7 @@ router.get("/status/:jobId", protect, async (req, res) => {
         status: "ready",
         cloudinary_url: videoJob.videoUrl,
         transcriptName: videoJob.transcriptName,
-        jobId: jobId, // return same ID to frontend
+        jobId,
         meta: videoJob.meta,
       });
     }
@@ -319,12 +319,10 @@ router.get("/status/:jobId", protect, async (req, res) => {
       return res.json({ status: "processing", message: "In queue..." });
     }
 
-    // If processing but no python jobId yet
     if (!videoJob.jobId) {
       return res.json({ status: "processing", message: "Starting..." });
     }
 
-    // Poll Python service using the python jobId
     const response = await fetch(`${process.env.AI_SERVICE_URL}/status/${videoJob.jobId}`);
 
     if (!response.ok) {
@@ -332,41 +330,57 @@ router.get("/status/:jobId", protect, async (req, res) => {
     }
 
     const data = await response.json();
+    const pythonStatus = String(data.status || "").toLowerCase();
 
-    // Persist ready results by the database record ID. The Python job ID is only
-    // used for polling the AI service and must never be used as the DB identity.
-    if (data.status === "ready" && data.local_video_url) {
-      const filename = data.local_video_url.split("/").pop();
-      data.local_video_url = `/api/ai/video/${videoJob.courseId}/${jobId}/${filename}`;
-    }
+    if (
+      (pythonStatus === "completed" || pythonStatus === "ready") &&
+      (data.cloudinary_url || data.local_video_url)
+    ) {
+      if (data.local_video_url) {
+        const filename = data.local_video_url.split("/").pop();
+        data.local_video_url = "/api/ai/video/" + videoJob.courseId + "/" + filename;
+      }
 
-    if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
+      // Persist ready results by the database record ID. The Python job ID is only
+      // used for polling the AI service and must never be used as the DB identity.
+      if (data.status === "ready" && data.local_video_url) {
+        const filename = data.local_video_url.split("/").pop();
+        data.local_video_url = `/api/ai/video/${videoJob.courseId}/${jobId}/${filename}`;
+      }
+
+      const videoUrl = data.cloudinary_url || data.local_video_url;
+
       try {
         await videoJob.update({
-          videoUrl: data.cloudinary_url || data.local_video_url,
+          videoUrl,
           status: "completed",
           meta: data.meta,
           transcriptName: data.transcript_name || data.text_file || videoJob.transcriptName,
         });
-        console.log(`☁️ AIVideo DB updated for DB ID: ${jobId}`);
+        console.log(`AIVideo DB updated for DB ID: ${jobId}`);
       } catch (dbErr) {
-        console.error("⚠️ Failed to update AIVideo ready result:", dbErr.message);
+        console.error("Failed to update AIVideo ready result:", dbErr.message);
       }
-    } else if (data.status === "failed") {
+
+      data.status = "ready";
+    } else if (pythonStatus === "failed") {
       await AIVideo.update(
         { status: "failed", error: "Failed in AI service" },
         { where: { id: jobId } },
       );
+
+      data.status = "failed";
+    } else {
+      data.status = "processing";
     }
 
     data.jobId = jobId; // ensure frontend gets our DB id, not python id
     data.transcript_name =
       data.transcript_name || data.text_file || videoJob.transcriptName || null;
-
-    res.json(data);
+    return res.json(data);
   } catch (error) {
-    console.error("❌ Status Proxy Error:", error.message);
-    res.status(500).json({ status: "error" });
+    console.error("Status Proxy Error:", error.message);
+    return res.status(500).json({ status: "error" });
   }
 });
 

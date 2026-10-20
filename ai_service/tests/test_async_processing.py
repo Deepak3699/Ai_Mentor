@@ -78,6 +78,8 @@ def test_ffmpeg_execution_async_and_success():
          patch("api.generate_tts", new_callable=AsyncMock), \
          patch("api.create_avatar_video", side_effect=Exception("D-ID disabled")), \
          patch("os.path.exists", side_effect=lambda p: False if p.endswith(".mp3") else True), \
+         patch("os.path.isfile", return_value=True), \
+         patch("os.path.getsize", return_value=1024), \
          patch("os.remove"), \
          patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec, \
          patch("cloudinary.uploader.upload", return_value={"secure_url": "http://cloudinary.com/test.mp4"}):

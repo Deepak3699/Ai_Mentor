@@ -64,5 +64,3 @@ def test_validate_config_accepts_complete_configuration(monkeypatch):
     config.CLOUDINARY_API_KEY = "key"
     config.CLOUDINARY_API_SECRET = "secret"
     assert config.validate_config() is None
-
-

@@ -54,13 +54,14 @@ async def test_gemini_metadata():
 
     mock_gemini_response = MagicMock()
     mock_gemini_response.text = "This is a five word script"
+
     mock_process = MagicMock()
     mock_process.communicate = AsyncMock(return_value=(b"", b""))
     mock_process.returncode = 0
 
     with patch("api.gemini_client.models.generate_content", return_value=mock_gemini_response), \
          patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, \
-         patch("api.create_avatar_video", ) as mock_avatar, \
+         patch("api.create_avatar_video") as mock_avatar, \
          patch("api.requests.get") as mock_get, \
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_process) as mock_exec, \
          patch("api.os.path.exists", return_value=True), \
@@ -68,12 +69,13 @@ async def test_gemini_metadata():
          patch("api.write_subtitles", return_value=("vtt", "srt")), \
          patch("api.cloudinary.uploader.upload", side_effect=Exception("Cloud fail")), \
          patch("api.os.makedirs") as mock_makedirs, \
+         patch("api.os.path.isfile", return_value=True), \
+         patch("api.os.path.getsize", return_value=1024), \
          patch("api.os.remove"), \
          patch("builtins.open", side_effect=safe_open):
 
         mock_makedirs.return_value = None
         mock_tts.return_value = None
-
         # We need mock_get to return some bytes
         mock_response = MagicMock()
         mock_response.content = b"fake video data"
@@ -129,6 +131,8 @@ async def test_groq_metadata_and_mp3_duration():
          patch("api.create_avatar_video", side_effect=Exception("Avatar failed")), \
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec, \
          patch("api.os.path.exists", side_effect=safe_exists), \
+         patch("api.os.path.isfile", return_value=True), \
+         patch("api.os.path.getsize", return_value=1024), \
          patch("api.os.makedirs") as mock_makedirs, \
          patch("api.os.remove"), \
          patch("builtins.open", side_effect=safe_open):

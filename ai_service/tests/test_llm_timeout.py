@@ -122,11 +122,17 @@ async def test_process_lesson_gemini_call_site_explicit_timeout():
          patch("api.create_avatar_video", side_effect=RuntimeError("Skip avatar")), \
          patch("api.get_celebrity_video", return_value="dummy.mp4"), \
          patch("api.os.path.exists", return_value=True), \
+         patch("api.os.path.isfile", return_value=True), \
+         patch("api.os.path.getsize", return_value=1024), \
          patch("api.os.remove"), \
          patch("api.write_subtitles", return_value=("vtt", "srt")), \
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subproc, \
          patch("builtins.open", MagicMock()), \
-         patch("api.MP3", return_value=MagicMock(info=MagicMock(length=10.0))):
+         patch("api.MP3", return_value=MagicMock(info=MagicMock(length=10.0))), \
+         patch(
+             "api.cloudinary.uploader.upload",
+             return_value={"secure_url": "https://example.com/video.mp4"},
+         ):
 
         proc = MagicMock()
         proc.communicate = AsyncMock(return_value=(b"", b""))
@@ -156,10 +162,13 @@ async def test_process_lesson_groq_call_site_explicit_timeout():
          patch("api.create_avatar_video", side_effect=RuntimeError("Skip avatar")), \
          patch("api.get_celebrity_video", return_value="dummy.mp4"), \
          patch("api.os.path.exists", return_value=True), \
+         patch("api.os.path.isfile", return_value=True), \
+         patch("api.os.path.getsize", return_value=1024), \
          patch("api.os.remove"), \
          patch("api.write_subtitles", return_value=("vtt", "srt")), \
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subproc, \
          patch("builtins.open", MagicMock()), \
+         patch("api.cloudinary.uploader.upload", return_value={"secure_url": "https://example.com/video.mp4"}), \
          patch("api.MP3", return_value=MagicMock(info=MagicMock(length=10.0))):
 
         proc = MagicMock()
@@ -231,11 +240,14 @@ async def test_process_lesson_gemini_timeout_triggers_groq_fallback():
          patch("api.create_avatar_video", side_effect=RuntimeError("Skip avatar")), \
          patch("api.get_celebrity_video", return_value="dummy.mp4"), \
          patch("api.os.path.exists", return_value=True), \
+         patch("api.os.path.isfile", return_value=True), \
+         patch("api.os.path.getsize", return_value=1024), \
          patch("api.os.remove"), \
          patch("api.write_subtitles", return_value=("vtt", "srt")), \
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_subproc, \
          patch("builtins.open", MagicMock()), \
-         patch("api.MP3", return_value=MagicMock(info=MagicMock(length=10.0))):
+         patch("api.MP3", return_value=MagicMock(info=MagicMock(length=10.0))), \
+         patch("api.cloudinary.uploader.upload", return_value={"secure_url": "https://example.com/video.mp4"}):
 
         proc = MagicMock()
         proc.communicate = AsyncMock(return_value=(b"", b""))
@@ -247,7 +259,6 @@ async def test_process_lesson_gemini_timeout_triggers_groq_fallback():
         mock_groq.assert_called_once()
         assert api.job_status[job_id]["status"] == "ready"
         assert api.job_status[job_id]["meta"]["provider"] == "groq"
-
 
 # =====================================================================
 # 3. Both providers time out: status is "failed", never "processing"
