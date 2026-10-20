@@ -18,15 +18,17 @@ vi.mock("react-hot-toast", () => ({
 }));
 
 vi.mock("../context/AuthContext", () => {
-  const value = { user: { purchasedCourses: [] }, updateUser: vi.fn() };
+  const value = { user: { id: 1, purchasedCourses: [] }, updateUser: vi.fn() };
   return { useAuth: () => value };
 });
 
 // Minimal player: attaches the video ref and shows the shortcut-driven mute state.
 vi.mock("../components/video/VideoPlayer", () => ({
-  default: ({ videoRef, isMuted, title, moduleTitle }) => (
+  default: ({ videoRef, isMuted, title, moduleTitle, onPlaybackChange }) => (
     <div>
       <video ref={videoRef} />
+      <button onClick={() => onPlaybackChange(true)}>Start playback</button>
+      <button onClick={() => onPlaybackChange(false)}>Pause playback</button>
       <span data-testid="muted">{String(!!isMuted)}</span>
       <span data-testid="player-title">{title}</span>
       <span data-testid="player-module">{moduleTitle}</span>
@@ -45,9 +47,15 @@ const ok = (body) => ({ ok: true, status: 200, json: async () => body });
 
 let transcriptName;
 let transcriptResponse;
+let fetchCalls;
+let failStudySession;
 
-const fakeFetch = (url) => {
+const fakeFetch = (url, options = {}) => {
+  fetchCalls.push({ url, options });
   url = url.replace(/^https?:\/\/[^/]+/, "");
+  if (url === "/api/analytics/study-session" && failStudySession) {
+    return Promise.reject(new Error("Study session request failed"));
+  }
   let response = ok({});
   if (url === "/api/courses/1/learning") response = ok(structuredClone(COURSE));
   else if (url === "/api/ai/generate-video") {
@@ -73,8 +81,11 @@ const renderWithTranscript = async () => {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  localStorage.setItem("token", "test-token");
   transcriptName = "t1";
   transcriptResponse = ok({ content: SCRIPT });
+  fetchCalls = [];
+  failStudySession = false;
   vi.stubGlobal("fetch", vi.fn(fakeFetch));
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(HTMLMediaElement.prototype, "duration", "get").mockReturnValue(30);
@@ -179,5 +190,129 @@ describe("Lesson transcript", () => {
     await flush();
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.getByText("Welcome to the lesson.")).toBeTruthy();
+  });
+
+  it("records elapsed playback in throttled study-session requests", async () => {
+    await renderWithTranscript();
+    const video = document.querySelector("video");
+    let videoTime = 0;
+    Object.defineProperty(video, "currentTime", { configurable: true, get: () => videoTime });
+    const paused = vi.spyOn(HTMLMediaElement.prototype, "paused", "get");
+    paused.mockReturnValue(false);
+    fireEvent.click(screen.getByRole("button", { name: "Start playback" }));
+
+    for (let index = 0; index < 16; index += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4000);
+      });
+      videoTime += 4;
+      fireEvent.timeUpdate(video);
+    }
+    await flush();
+
+    const studyRequests = fetchCalls.filter((call) =>
+      call.url.includes("/api/analytics/study-session"),
+    );
+    expect(studyRequests).toHaveLength(2);
+    expect(studyRequests[0].options.method).toBe("POST");
+    expect(JSON.parse(studyRequests[0].options.body).hours).toBeCloseTo(32 / 3600);
+    expect(JSON.parse(studyRequests[1].options.body).hours).toBeCloseTo(32 / 3600);
+  });
+
+  it("keeps time accumulated while paused and records it during resumed playback", async () => {
+    await renderWithTranscript();
+    const video = document.querySelector("video");
+    let videoTime = 0;
+    Object.defineProperty(video, "currentTime", { configurable: true, get: () => videoTime });
+    vi.spyOn(HTMLMediaElement.prototype, "paused", "get").mockReturnValue(false);
+    fireEvent.click(screen.getByRole("button", { name: "Start playback" }));
+
+    for (let index = 0; index < 5; index += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4000);
+      });
+      videoTime += 4;
+      fireEvent.timeUpdate(video);
+    }
+    paused.mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Pause playback" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10000);
+    });
+    videoTime += 10;
+    fireEvent.timeUpdate(video);
+    expect(
+      fetchCalls.filter((call) => call.url.includes("/api/analytics/study-session")),
+    ).toHaveLength(0);
+
+    paused.mockReturnValue(false);
+    fireEvent.click(screen.getByRole("button", { name: "Start playback" }));
+    for (let index = 0; index < 3; index += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4000);
+      });
+      videoTime += 4;
+      fireEvent.timeUpdate(video);
+    }
+    await flush();
+
+    const studyRequests = fetchCalls.filter((call) =>
+      call.url.includes("/api/analytics/study-session"),
+    );
+    expect(studyRequests).toHaveLength(1);
+    expect(JSON.parse(studyRequests[0].options.body).hours).toBeCloseTo(32 / 3600);
+  });
+
+  it("does not record time while the video is paused", async () => {
+    await renderWithTranscript();
+    const video = document.querySelector("video");
+    let videoTime = 0;
+    Object.defineProperty(video, "currentTime", { configurable: true, get: () => videoTime });
+    const paused = vi.spyOn(HTMLMediaElement.prototype, "paused", "get");
+    paused.mockReturnValue(false);
+    fireEvent.click(screen.getByRole("button", { name: "Start playback" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4000);
+    });
+    videoTime = 4;
+    fireEvent.timeUpdate(video);
+    videoTime = 10;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+    fireEvent.timeUpdate(video);
+
+    paused.mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Pause playback" }));
+    videoTime = 20;
+    fireEvent.timeUpdate(video);
+    await flush();
+
+    expect(
+      fetchCalls.filter((call) => call.url.includes("/api/analytics/study-session")),
+    ).toHaveLength(0);
+  });
+
+  it("ignores a failed study-session request without surfacing an error", async () => {
+    failStudySession = true;
+    await renderWithTranscript();
+    const video = document.querySelector("video");
+    let videoTime = 0;
+    Object.defineProperty(video, "currentTime", { configurable: true, get: () => videoTime });
+    vi.spyOn(HTMLMediaElement.prototype, "paused", "get").mockReturnValue(false);
+    fireEvent.click(screen.getByRole("button", { name: "Start playback" }));
+
+    for (let index = 0; index < 15; index += 1) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4000);
+      });
+      videoTime += 4;
+      fireEvent.timeUpdate(video);
+    }
+    await flush();
+
+    expect(
+      fetchCalls.filter((call) => call.url.includes("/api/analytics/study-session")),
+    ).toHaveLength(1);
   });
 });

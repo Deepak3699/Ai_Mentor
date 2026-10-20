@@ -1,4 +1,4 @@
-import { apiFetch as fetch } from "../lib/api";
+import API_BASE_URL, { apiFetch as fetch } from "../lib/api";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -26,6 +26,7 @@ import toast from "react-hot-toast";
 import { ChevronRight, Home } from "lucide-react";
 
 const TRANSCRIPT_PANEL_ID = "lesson-transcript-panel";
+const STUDY_SESSION_BATCH_SECONDS = 30;
 
 export default function Learning() {
   const { t } = useTranslation();
@@ -79,12 +80,50 @@ export default function Learning() {
   const hasRestoredProgressRef = useRef(false);
   const jumpToTimeRef = useRef(null);
   const lastSavedTimeRef = useRef(0);
+  const lastStudyVideoTimeRef = useRef(null);
+  const lastStudyUpdateAtRef = useRef(null);
+  const pendingStudySecondsRef = useRef(0);
   const generationRequestIdRef = useRef(0);
   const generationResumeRef = useRef(null);
   const playRequestedRef = useRef(false);
   const userRef = useRef(user);
 
   userRef.current = user;
+
+  const flushStudySession = useCallback(
+    () => {
+      const seconds = pendingStudySecondsRef.current;
+      const token = localStorage.getItem("token");
+      if (!user?.id || !token || seconds < STUDY_SESSION_BATCH_SECONDS) return;
+
+      pendingStudySecondsRef.current = 0;
+      void window
+        .fetch(`${API_BASE_URL.replace(/\/$/, "")}/api/analytics/study-session`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `******,
+          },
+          body: JSON.stringify({ hours: seconds / 3600 }),
+        })
+        .catch(() => undefined);
+    },
+    [user?.id],
+  );
+
+  const handlePlaybackChange = useCallback(
+    (playing) => {
+      if (playing) {
+        lastStudyVideoTimeRef.current = videoRef.current?.currentTime ?? null;
+        lastStudyUpdateAtRef.current = Date.now();
+      } else {
+        lastStudyVideoTimeRef.current = null;
+        lastStudyUpdateAtRef.current = null;
+      }
+      setIsPlaying(playing);
+    },
+    [],
+  );
 
   // Auto-scroll transcript
   useEffect(() => {
@@ -675,10 +714,32 @@ export default function Learning() {
     }
   };
 
-  const handleProgress = () => {
+  const handleProgress = (event) => {
     if (videoRef.current) {
+      const video = videoRef.current;
       const vidDuration = videoRef.current.duration;
       const vidCurrentTime = videoRef.current.currentTime;
+      if (event?.type === "timeupdate") {
+        const previousTime = lastStudyVideoTimeRef.current;
+        const previousUpdateAt = lastStudyUpdateAtRef.current;
+        const elapsedVideo = vidCurrentTime - previousTime;
+        const elapsedWall = (Date.now() - previousUpdateAt) / 1000;
+        if (
+          isPlaying &&
+          !video.paused &&
+          !video.seeking &&
+          Number.isFinite(previousTime) &&
+          Number.isFinite(previousUpdateAt) &&
+          elapsedVideo > 0 &&
+          elapsedVideo <= 5 &&
+          elapsedWall > 0
+        ) {
+          pendingStudySecondsRef.current += Math.min(elapsedWall, 5);
+          flushStudySession();
+        }
+        lastStudyVideoTimeRef.current = vidCurrentTime;
+        lastStudyUpdateAtRef.current = Date.now();
+      }
       if (isFinite(vidDuration) && vidDuration > 0) setDuration(vidDuration);
       setCurrentTime(vidCurrentTime);
       const currentProgressPercent = vidDuration > 0 ? (vidCurrentTime / vidDuration) * 100 : 0;
@@ -966,7 +1027,7 @@ export default function Learning() {
                 toggleFullscreen={toggleFullscreen}
                 formatTime={formatTime}
                 onCancelGeneration={cancelGeneration}
-                onPlaybackChange={setIsPlaying}
+                onPlaybackChange={handlePlaybackChange}
                 generationError={aiGenerationError}
                 onRetryGeneration={handleRetryGeneration}
                 playbackBlocked={isCelebrityModalOpen || isFlashcardStudyOpen}
