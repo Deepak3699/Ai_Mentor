@@ -18,11 +18,7 @@ const getTodayKey = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-const TodaysLearningPlan = ({
-  continueCourse = null,
-  weeklyActivity = [],
-  streak = 0,
-}) => {
+const TodaysLearningPlan = ({ continueCourse = null, weeklyActivity = [], streak = 0 }) => {
   const navigate = useNavigate();
   const todayKey = getTodayKey();
   const storageKey = `ai_mentor_daily_plan_${todayKey}`;
@@ -97,9 +93,7 @@ const TodaysLearningPlan = ({
   }, [tasks, storageKey]);
 
   const toggleTask = (id) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
-    );
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)));
   };
 
   const handleAddGoal = (e) => {
@@ -271,8 +265,7 @@ const TodaysLearningPlan = ({
                 placeholder="e.g., Complete 2 quizzes today"
                 autoFocus
                 className="flex-1 rounded-xl border border-border bg-canvas-alt px-3 py-1.5 text-xs text-main placeholder:text-muted focus:border-[#3867D6] focus:outline-none"
-              >
-              </input>
+              ></input>
               <button
                 type="submit"
                 className="rounded-xl bg-[#3867D6] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#315BC0]"

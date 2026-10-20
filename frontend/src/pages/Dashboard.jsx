@@ -132,7 +132,10 @@ const Dashboard = () => {
   const totalHours = analyticsData?.totalHours ?? user?.analytics?.totalHours;
 
   const weeklyActivity = useMemo(() => {
-    if (Array.isArray(user?.analytics?.weeklyActivity) && user.analytics.weeklyActivity.length > 0) {
+    if (
+      Array.isArray(user?.analytics?.weeklyActivity) &&
+      user.analytics.weeklyActivity.length > 0
+    ) {
       return user.analytics.weeklyActivity;
     }
 

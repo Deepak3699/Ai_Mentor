@@ -292,9 +292,7 @@ function dashboardLines() {
     }
     if (group !== groups.at(-1)) lines.push("");
   }
-  lines.push(
-    `${C.gray}────────────────────────────────────────────────────────────${C.reset}`,
-  );
+  lines.push(`${C.gray}────────────────────────────────────────────────────────────${C.reset}`);
   const allReady = selected.every((key) => state[key].status === "ready");
   lines.push(...readyFooter(allReady));
   return lines;

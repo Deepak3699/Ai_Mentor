@@ -1,14 +1,6 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  History,
-  CheckCircle2,
-  BookOpen,
-  Award,
-  Clock,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react";
+import { History, CheckCircle2, BookOpen, Award, Clock, ArrowRight, Sparkles } from "lucide-react";
 
 const formatRelativeTime = (dateString) => {
   if (!dateString) return "Recently";
@@ -41,9 +33,7 @@ const RecentActivityCard = ({
 
   // 1. Course Enrollments & Progress
   purchasedCourses.forEach((entry) => {
-    const course = enrolledCourses.find(
-      (c) => String(c.id) === String(entry.courseId || entry.id),
-    );
+    const course = enrolledCourses.find((c) => String(c.id) === String(entry.courseId || entry.id));
     const title = course?.title || entry.courseTitle || `Course #${entry.courseId || entry.id}`;
     const completedCount = entry.progress?.completedLessons?.length || 0;
     const lastWatched = entry.progress?.lastWatched;
@@ -159,7 +149,9 @@ const RecentActivityCard = ({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs sm:text-sm font-bold text-main">{item.title}</p>
                     <p className="truncate text-[11px] text-muted mt-0.5">{item.subtitle}</p>
-                    <p className="text-[10px] text-muted/80 mt-1">{formatRelativeTime(item.timestamp)}</p>
+                    <p className="text-[10px] text-muted/80 mt-1">
+                      {formatRelativeTime(item.timestamp)}
+                    </p>
                   </div>
                 </div>
 

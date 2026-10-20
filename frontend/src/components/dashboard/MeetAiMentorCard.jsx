@@ -1,13 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Sparkles,
-  MessageSquare,
-  Zap,
-  Code2,
-  BookOpenCheck,
-  BrainCircuit,
-} from "lucide-react";
+import { Sparkles, MessageSquare, Zap, Code2, BookOpenCheck, BrainCircuit } from "lucide-react";
 import { OPEN_ASSISTANT_EVENT } from "./QuickActions";
 
 const MeetAiMentorCard = ({ continueCourse = null }) => {
@@ -73,7 +66,8 @@ const MeetAiMentorCard = ({ continueCourse = null }) => {
 
               {/* Description */}
               <p className="mt-2.5 text-xs sm:text-sm text-muted leading-relaxed">
-                Ask questions, generate lessons, get personalized guidance and learn smarter with AI.
+                Ask questions, generate lessons, get personalized guidance and learn smarter with
+                AI.
               </p>
             </div>
 
