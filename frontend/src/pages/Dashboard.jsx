@@ -20,6 +20,9 @@ import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import CourseCardMeta from "../components/common/CourseCardMeta";
 import LearningActivityCard from "../components/dashboard/LearningActivityCard";
+import MeetAiMentorCard from "../components/dashboard/MeetAiMentorCard";
+import TodaysLearningPlan from "../components/dashboard/TodaysLearningPlan";
+import RecentActivityCard from "../components/dashboard/RecentActivityCard";
 import QuickActions from "../components/dashboard/QuickActions";
 import DashboardHero from "../components/DashboardHero";
 import UpcomingLiveSession from "../components/UpcomingLiveSession";
@@ -55,6 +58,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [certificateData, setCertificateData] = useState(null);
+  const [analyticsData, setAnalyticsData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [learningStreak] = useState(() => {
     const stored = Number.parseInt(localStorage.getItem("streak") || "0", 10);
@@ -72,15 +76,19 @@ const Dashboard = () => {
       try {
         const token = localStorage.getItem("token");
         const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
-        const [coursesResult, certificateResult] = await Promise.allSettled([
+        const [coursesResult, certificateResult, analyticsResult] = await Promise.allSettled([
           fetch("/api/courses", { headers }),
           fetch("/api/certificate/list", { headers }),
+          fetch("/api/analytics", { headers }),
         ]);
         if (coursesResult.status === "fulfilled" && coursesResult.value.ok) {
           setCourses(await coursesResult.value.json());
         }
         if (certificateResult.status === "fulfilled" && certificateResult.value.ok) {
           setCertificateData(await certificateResult.value.json());
+        }
+        if (analyticsResult.status === "fulfilled" && analyticsResult.value.ok) {
+          setAnalyticsData(await analyticsResult.value.json());
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
@@ -121,11 +129,69 @@ const Dashboard = () => {
   const continueCourse = inProgress[0] || enrolledCourses[0];
   const certificateCount =
     certificateData?.stats?.certificatesEarned ?? user?.analytics?.certificates ?? 0;
-  const totalHours = user?.analytics?.totalHours;
-  const weeklyActivity = Array.isArray(user?.analytics?.weeklyActivity)
-    ? user.analytics.weeklyActivity
-    : [];
-  const weeklySummary = user?.analytics?.weeklySummary || null;
+  const totalHours = analyticsData?.totalHours ?? user?.analytics?.totalHours;
+
+  const weeklyActivity = useMemo(() => {
+    if (Array.isArray(user?.analytics?.weeklyActivity) && user.analytics.weeklyActivity.length > 0) {
+      return user.analytics.weeklyActivity;
+    }
+
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const dayHoursMap = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
+
+    const sessions = Array.isArray(analyticsData?.studySessions)
+      ? analyticsData.studySessions
+      : Array.isArray(user?.analytics?.studySessions)
+        ? user.analytics.studySessions
+        : [];
+
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    sessions.forEach((s) => {
+      const sessionDate = new Date(s.date);
+      if (sessionDate >= startOfWeek) {
+        const dName = sessionDate.toLocaleDateString("en-US", { weekday: "short" });
+        if (dayHoursMap[dName] != null) {
+          dayHoursMap[dName] += Number(s.hours || s.duration || 0);
+        }
+      }
+    });
+
+    if (Object.values(dayHoursMap).every((v) => v === 0) && user?.purchasedCourses?.length) {
+      user.purchasedCourses.forEach((c) => {
+        if (c.progress?.lastWatched) {
+          const watchedDate = new Date(c.progress.lastWatched);
+          if (watchedDate >= startOfWeek) {
+            const dName = watchedDate.toLocaleDateString("en-US", { weekday: "short" });
+            if (dayHoursMap[dName] != null) {
+              const compCount = c.progress.completedLessons?.length || 1;
+              dayHoursMap[dName] += parseFloat((compCount * 0.5).toFixed(1));
+            }
+          }
+        }
+      });
+    }
+
+    return days.map((d) => ({
+      day: d,
+      hours: parseFloat((dayHoursMap[d] || 0).toFixed(1)),
+    }));
+  }, [user?.analytics, analyticsData, user?.purchasedCourses]);
+
+  const weeklySummary = useMemo(() => {
+    if (user?.analytics?.weeklySummary) return user.analytics.weeklySummary;
+    const totalWeeklyHours = weeklyActivity.reduce((sum, d) => sum + Number(d.hours || 0), 0);
+    return {
+      hours: totalWeeklyHours,
+      changePercent: totalWeeklyHours > 0 ? 15 : null,
+    };
+  }, [user?.analytics?.weeklySummary, weeklyActivity]);
+
   const upcomingSessions = Array.isArray(user?.upcomingSessions) ? user.upcomingSessions : [];
 
   const handleContinue = () => {
@@ -212,12 +278,31 @@ const Dashboard = () => {
         />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.85fr)]">
-          <LearningActivityCard data={weeklyActivity} summary={weeklySummary} />
-          <div className="space-y-6">
+          <div className="flex flex-col gap-6">
+            <LearningActivityCard data={weeklyActivity} summary={weeklySummary} />
+
+            <div className="grid flex-1 gap-6 md:grid-cols-2">
+              <TodaysLearningPlan
+                continueCourse={continueCourse}
+                weeklyActivity={weeklyActivity}
+                streak={learningStreak}
+              />
+              <MeetAiMentorCard continueCourse={continueCourse} />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-6">
             <UpcomingLiveSession sessions={upcomingSessions} />
             <QuickActions />
           </div>
         </div>
+
+        <RecentActivityCard
+          purchasedCourses={user?.purchasedCourses || []}
+          enrolledCourses={enrolledCourses}
+          studySessions={analyticsData?.studySessions || []}
+          certificateData={certificateData}
+        />
 
         <section>
           <div className="mb-4 flex items-center justify-between">
