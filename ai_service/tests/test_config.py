@@ -9,7 +9,7 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 
-def import_config(monkeypatch):
+def import_config(monkeypatch, log_level="INFO"):
     for key in (
         "GEMINI_API_KEY",
         "GROQ_API_KEY",
@@ -20,6 +20,7 @@ def import_config(monkeypatch):
         # Keep an explicit empty value so load_dotenv(override=False) cannot
         # repopulate real local secrets while this test imports config.
         monkeypatch.setenv(key, "")
+    monkeypatch.setenv("LOG_LEVEL", log_level)
     sys.modules.pop("config", None)
     return importlib.import_module("config")
 
@@ -30,6 +31,26 @@ def test_config_imports_without_external_credentials(monkeypatch):
     assert not config.GROQ_API_KEY
     assert config.GEMINI_MODEL == "gemini-2.5-flash"
     assert config.LLM_TIMEOUT_SECONDS == 60
+    assert config.LOG_LEVEL == "INFO"
+
+
+def test_config_reads_log_level_case_insensitively(monkeypatch):
+    config = import_config(monkeypatch, log_level="debug")
+    assert config.LOG_LEVEL == "DEBUG"
+
+
+@pytest.mark.parametrize(
+    "log_level",
+    ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+)
+def test_config_accepts_supported_log_levels(monkeypatch, log_level):
+    config = import_config(monkeypatch, log_level=log_level)
+    assert config.LOG_LEVEL == log_level
+
+
+def test_config_rejects_unsupported_log_level(monkeypatch):
+    with pytest.raises(ValueError, match="Invalid LOG_LEVEL.*Choose one of"):
+        import_config(monkeypatch, log_level="verbose")
 
 
 def test_config_custom_llm_timeout(monkeypatch):
@@ -64,5 +85,3 @@ def test_validate_config_accepts_complete_configuration(monkeypatch):
     config.CLOUDINARY_API_KEY = "key"
     config.CLOUDINARY_API_SECRET = "secret"
     assert config.validate_config() is None
-
-

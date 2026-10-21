@@ -74,19 +74,24 @@ npm run setup
 
 Create `ai_service/backend/.env` from `ai_service/backend/.env.example`.
 
-| Variable                | Requirement                                     | Behavior when unavailable                              |
-| ----------------------- | ----------------------------------------------- | ------------------------------------------------------ |
-| `GEMINI_API_KEY`        | Required                                        | Setup and AI startup fail with a clear error           |
-| `GEMINI_MODEL`          | Optional                                        | Uses the default model configured by the service       |
-| `GROQ_API_KEY`          | Optional                                        | Groq fallback is disabled                              |
-| `CLOUDINARY_CLOUD_NAME` | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete  |
-| `CLOUDINARY_API_KEY`    | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete  |
-| `CLOUDINARY_API_SECRET` | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete  |
-| `DID_API_KEY`           | Optional                                        | D-ID avatar rendering is unavailable                   |
-| `DID_API_URL`           | Optional                                        | Uses the service default when omitted                  |
-| `DID_SOURCE_URL`        | Optional                                        | D-ID rendering falls back to the local FFmpeg renderer |
+| Variable                | Requirement                                     | Behavior when unavailable                                       |
+| ----------------------- | ----------------------------------------------- | --------------------------------------------------------------- |
+| `GEMINI_API_KEY`        | Required                                        | Setup and AI startup fail with a clear error                    |
+| `GEMINI_MODEL`          | Optional                                        | Uses the default model configured by the service                |
+| `LOG_LEVEL`             | Optional                                        | Uses `INFO`; supports DEBUG, INFO, WARNING, ERROR, and CRITICAL |
+| `LLM_TIMEOUT_SECONDS`   | Optional                                        | Uses the default timeout of 60 seconds                          |
+| `GROQ_API_KEY`          | Optional                                        | Groq fallback is disabled                                       |
+| `CLOUDINARY_CLOUD_NAME` | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete           |
+| `CLOUDINARY_API_KEY`    | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete           |
+| `CLOUDINARY_API_SECRET` | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete           |
+| `DID_API_KEY`           | Optional                                        | D-ID avatar rendering is unavailable                            |
+| `DID_API_URL`           | Optional                                        | Uses the service default when omitted                           |
+| `DID_SOURCE_URL`        | Optional                                        | D-ID rendering falls back to the local FFmpeg renderer          |
 
 Setup output reports only variable names and `<configured>` markers. Do not commit `.env` files or share credential values.
+Service logs include a timestamp, severity, and logger name. Set `LOG_LEVEL` in
+`ai_service/backend/.env` to control log verbosity; invalid values prevent
+startup with a clear configuration error.
 
 ### Celebrity source videos
 

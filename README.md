@@ -218,13 +218,13 @@ The runner labels AI output with `[AI/API]` and reports AI `Startup` and `Health
 
 The following table summarizes the main variable groups. Use the committed `.env.example` files as the source of truth.
 
-| Service               | Main configuration groups                                                                                                                    |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `backend/`            | Server port, JWT, PostgreSQL TLS/pool, AI service, frontend URL, SMTP, Firebase Admin, Cloudinary, Stripe, Razorpay, super-admin seed values |
-| `backendAdmin/`       | Server port, admin frontend URL, JWT, shared PostgreSQL connection, TLS, optional local database values, super-admin seed values             |
-| `frontend/`           | User API URL, Firebase web configuration, Stripe publishable key, Razorpay key ID                                                            |
-| `frontendAdmin/`      | Admin API base URL                                                                                                                           |
-| `ai_service/backend/` | Gemini and model, optional Groq fallback, optional Cloudinary storage, D-ID configuration                                                    |
+| Service               | Main configuration groups                                                                                                                       |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `backend/`            | Server port, JWT, PostgreSQL TLS/pool, AI service, frontend URL, SMTP, Firebase Admin, Cloudinary, Stripe, Razorpay, super-admin seed values    |
+| `backendAdmin/`       | Server port, admin frontend URL, JWT, shared PostgreSQL connection, TLS, optional local database values, super-admin seed values                |
+| `frontend/`           | User API URL, Firebase web configuration, Stripe publishable key, Razorpay key ID                                                               |
+| `frontendAdmin/`      | Admin API base URL                                                                                                                              |
+| `ai_service/backend/` | Gemini and model, `LOG_LEVEL` (DEBUG/INFO/WARNING/ERROR/CRITICAL; default INFO), optional LLM timeout, Groq, Cloudinary, and D-ID configuration |
 
 Both Node.js APIs must point to the same PostgreSQL database. For production database connections, follow the TLS requirements documented in the environment templates.
 

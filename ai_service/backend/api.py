@@ -33,8 +33,9 @@ from config import (
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
-GROQ_ENABLED,
+    GROQ_ENABLED,
     CLOUDINARY_ENABLED,
+    LOG_LEVEL,
     validate_config,
 )
 import voices
@@ -53,16 +54,38 @@ if CLOUDINARY_ENABLED:
 # --------------------------
 # FastAPI App
 # --------------------------
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
 def log_event(level: str, message: str, **details):
     """Write compact, scan-friendly service logs without exposing payloads or URLs."""
-    suffix = ""
-    visible = [f"{key}={value}" for key, value in details.items() if value not in (None, "")]
-    if visible:
-        suffix = " | " + " | ".join(visible)
-    print(f"[{level}] {message}{suffix}", flush=True)
+    levels = {
+        "CLEAN": logging.INFO,
+        "ERROR": logging.ERROR,
+        "INFO": logging.INFO,
+        "OK": logging.INFO,
+        "QUEUE": logging.INFO,
+        "READY": logging.INFO,
+        "RUN": logging.INFO,
+        "START": logging.INFO,
+        "WARN": logging.WARNING,
+    }
+    try:
+        log_level = levels[level.upper()]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported log event level: {level!r}") from exc
+
+    visible = [
+        f"{key}={value}"
+        for key, value in details.items()
+        if value not in (None, "")
+    ]
+    suffix = f" | {' | '.join(visible)}" if visible else ""
+    logger.log(log_level, "%s%s", message, suffix)
 
 
 def short_error(error: Exception, limit: int = 180) -> str:
@@ -340,11 +363,11 @@ def get_celebrity_video(celebrity_name: str) -> str:
         os.path.commonpath([input_video_dir, candidate]) == input_video_dir
         and os.path.isfile(candidate)
     ):
-        print(f"[INFO] Renderer source selected | source={name}", flush=True)
+        logger.info("Renderer source selected | source=%s", name)
         return candidate
 
     fallback = os.path.realpath(os.path.join(input_video_dir, "modi.mp4"))
-    print("[INFO] Default renderer source selected | source=modi", flush=True)
+    logger.info("Default renderer source selected | source=modi")
     return fallback
 
 
@@ -771,7 +794,7 @@ def explain_code(data: ExplainCodeRequest):
     """
 
     try:
-        print("Trying Gemini for code analysis...")
+        logger.info("Trying Gemini for code analysis")
         response = gemini_client.models.generate_content(
             model="gemini-3.8-flash",
             contents=prompt,
@@ -779,7 +802,7 @@ def explain_code(data: ExplainCodeRequest):
         result_text = response.text.strip()
 
     except Exception as gemini_error:
-        print(f"Gemini failed: {gemini_error}. Trying Groq...")
+        logger.warning("Gemini failed: %s. Trying Groq", gemini_error)
         try:
             groq_response = groq_client.chat.completions.create(
                 model="openai/gpt-oss-120b",
@@ -790,7 +813,7 @@ def explain_code(data: ExplainCodeRequest):
             result_text = groq_response.choices[0].message.content.strip()
 
         except Exception as groq_error:
-            print(f"Groq failed: {groq_error}")
+            logger.error("Groq failed: %s", groq_error)
             raise HTTPException(
                 status_code=502,
                 detail="Both AI providers failed to analyze the code.",
@@ -822,7 +845,7 @@ def explain_code(data: ExplainCodeRequest):
         return result
 
     except (json.JSONDecodeError, ValueError) as error:
-        print(f"Invalid AI response: {error}")
+        logger.warning("Invalid AI response: %s", error)
         raise HTTPException(
             status_code=502,
             detail="AI returned an invalid code analysis response.",
