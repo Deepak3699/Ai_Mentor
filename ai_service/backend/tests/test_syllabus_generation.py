@@ -229,12 +229,17 @@ class TestGenerateFlashcards(unittest.TestCase):
     @patch("api.gemini_client")
     def test_invalid_card_count_returns_service_error(self, mock_gemini, mock_groq):
         mock_gemini.models.generate_content.return_value.text = json.dumps(self.cards[:4])
+        mock_groq.chat.completions.create.side_effect = Exception(
+            "Groq unavailable"
+        )
 
         with self.assertRaises(HTTPException) as context:
             generate_flashcards(self.request)
 
         self.assertEqual(context.exception.status_code, 503)
-        mock_groq.chat.completions.create.assert_not_called()
+        # Card-count validation failure is now treated as a provider
+        # failure, so Groq gets a chance to produce a valid response.
+        mock_groq.chat.completions.create.assert_called_once()
 
     def test_count_must_be_between_five_and_ten(self):
         with self.assertRaises(ValueError):
