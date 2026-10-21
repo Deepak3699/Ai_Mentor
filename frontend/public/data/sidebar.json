@@ -12,6 +12,12 @@
     "path": "/courses"
   },
   {
+    "id": "code-explainer",
+    "icon": "/AI_Tutor_New_UI/Icons/my_courses.svg",
+    "label": "Code Explainer",
+    "path": "/code-explainer"
+  },
+  {
     "id": "discussions",
     "icon": "/AI_Tutor_New_UI/Icons/discussion.svg",
     "label": "Discussion",
@@ -49,7 +55,7 @@
   },
   {
     "id": "report",
-    "icon": "/AI_Tutor_New_UI/Icons/settings.svg",
+    "icon": "/AI_Tutor_New_UI/Icons/report.svg",
     "label": "Report",
     "path": "/report"
   }

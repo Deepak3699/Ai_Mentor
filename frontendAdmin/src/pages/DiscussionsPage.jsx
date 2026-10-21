@@ -25,11 +25,7 @@ function TypeBadge({ type }) {
           : "bg-teal-500/10 text-teal-400 border-teal-500/20"
       }`}
     >
-      {isGlobal ? (
-        <Globe className="w-3 h-3" />
-      ) : (
-        <BookOpen className="w-3 h-3" />
-      )}
+      {isGlobal ? <Globe className="w-3 h-3" /> : <BookOpen className="w-3 h-3" />}
       {isGlobal ? "Global" : "Course"}
     </span>
   );
@@ -92,7 +88,10 @@ function DiscussionModal({ post, onClose, onHide, onDelete }) {
             <div className="p-3 bg-canvas-alt border border-border rounded-2xl">
               <div className="text-[10px] text-muted uppercase tracking-widest mb-1">Posted</div>
               <div className="font-black text-main text-xs">
-                {new Date(post.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                {new Date(post.createdAt).toLocaleDateString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                })}
               </div>
             </div>
           </div>
@@ -100,7 +99,9 @@ function DiscussionModal({ post, onClose, onHide, onDelete }) {
           {/* Replies list (if any) */}
           {post.replies?.length > 0 && (
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-2">Replies</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted mb-2">
+                Replies
+              </p>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {post.replies.map((reply) => (
                   <div
@@ -151,14 +152,16 @@ function DiscussionsPage() {
     try {
       const isCurrentlyHidden = !!post.hiddenAt;
       const action = isCurrentlyHidden ? "unhide" : "hide";
-      
+
       await callApi(`/admin/discussions/${post.id}/${action}`, { method: "PUT" });
-      setDiscussions((prev) => 
-        prev.map((p) => 
-          p.id === post.id ? { ...p, hiddenAt: isCurrentlyHidden ? null : new Date().toISOString() } : p
-        )
+      setDiscussions((prev) =>
+        prev.map((p) =>
+          p.id === post.id
+            ? { ...p, hiddenAt: isCurrentlyHidden ? null : new Date().toISOString() }
+            : p,
+        ),
       );
-      setSelected(null); 
+      setSelected(null);
     } catch (err) {
       alert(err.message || "Failed to update visibility");
     }
@@ -168,7 +171,7 @@ function DiscussionsPage() {
     if (!window.confirm("Are you sure you want to permanently delete this post?")) return;
     try {
       // Tell backend to delete the post
-      await callApi(`/admin/discussions/${id}`, { method: "DELETE" });         
+      await callApi(`/admin/discussions/${id}`, { method: "DELETE" });
       setDiscussions((prev) => prev.filter((post) => post.id !== id));
       setSelected(null);
     } catch (err) {
@@ -217,19 +220,15 @@ function DiscussionsPage() {
   }
 
   if (error) {
-    return (
-      <div className="p-10 text-center text-red-400">
-        Error: {error}
-      </div>
-    );
+    return <div className="p-10 text-center text-red-400">Error: {error}</div>;
   }
 
   return (
     <>
       {selected && (
-        <DiscussionModal 
-          post={selected} 
-          onClose={() => setSelected(null)} 
+        <DiscussionModal
+          post={selected}
+          onClose={() => setSelected(null)}
           onHide={handleToggleHide}
           onDelete={handleDeletePost}
         />
@@ -271,9 +270,7 @@ function DiscussionsPage() {
                 key={t}
                 onClick={() => setFilter(t)}
                 className={`px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${
-                  filter === t
-                    ? "bg-teal-500 text-white"
-                    : "text-muted hover:bg-canvas-alt"
+                  filter === t ? "bg-teal-500 text-white" : "text-muted hover:bg-canvas-alt"
                 }`}
               >
                 {t === "all" ? "All" : t === "global" ? "Global" : "Course"}
@@ -361,14 +358,10 @@ function DiscussionsPage() {
                     </td>
 
                     {/* Likes */}
-                    <td className="text-sm text-main font-semibold">
-                      {post.likes?.length ?? 0}
-                    </td>
+                    <td className="text-sm text-main font-semibold">{post.likes?.length ?? 0}</td>
 
                     {/* Replies */}
-                    <td className="text-sm text-main font-semibold">
-                      {post.replies?.length ?? 0}
-                    </td>
+                    <td className="text-sm text-main font-semibold">{post.replies?.length ?? 0}</td>
 
                     {/* Date */}
                     <td className="text-xs text-muted whitespace-nowrap">

@@ -29,7 +29,7 @@ const AdminNotification = sequelize.define(
   {
     timestamps: true,
     tableName: "AdminNotifications",
-  }
+  },
 );
 
 export default AdminNotification;

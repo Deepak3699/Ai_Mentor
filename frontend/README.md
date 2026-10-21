@@ -1,38 +1,38 @@
 # AI Mentor — Frontend
 
-The React + Vite frontend for the **AI Mentor** learning platform. It provides a complete student and admin experience including course browsing, AI-powered video lessons, community discussions, analytics, and user account management.
+The React + Vite frontend for the **AI Mentor** learning platform. It provides the learner experience including course browsing, AI-powered video lessons, community discussions, analytics, and user account management.
 
 ---
 
 ## ✨ Features
 
-| Feature | Description |
-|---|---|
-| 🔐 Authentication | Email/password login, Google OAuth (Firebase), forgot/reset password |
-| 📚 Courses | Browse, preview, and purchase courses; track lesson progress |
-| 🤖 AI Lessons | Generate celebrity-narrated lesson videos on demand via the AI service |
-| 💬 Discussions | Community discussion boards per course |
-| 📊 Analytics | Personal learning statistics and progress charts (Recharts) |
-| 🎥 Watched Videos | History of all viewed AI-generated lessons |
-| ⚙️ Settings | Profile management, theme toggle (light/dark), language switching |
-| 🛡️ Admin Panel | Manage courses, lessons, users, and uploaded videos (admin-only) |
-| 🌐 i18n | Multi-language support via `i18next` |
+| Feature           | Description                                                                  |
+| ----------------- | ---------------------------------------------------------------------------- |
+| 🔐 Authentication | Email/password login, Google OAuth (Firebase), forgot/reset password         |
+| 📚 Courses        | Browse, preview, and purchase courses; track lesson progress                 |
+| 🤖 AI Lessons     | Generate celebrity-narrated lesson videos on demand via the AI service       |
+| 💬 Discussions    | Community discussion boards per course                                       |
+| 📊 Analytics      | Personal learning statistics and progress charts (Recharts)                  |
+| 🎥 Watched Videos | History of all viewed AI-generated lessons                                   |
+| ⚙️ Settings       | Profile management, theme toggle (light/dark), language switching            |
+| 🛡️ Admin Handoff  | Authorized admins are redirected to the separate `frontendAdmin` application |
+| 🌐 i18n           | Multi-language support via `i18next`                                         |
 
 ---
 
 ## 🛠 Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | React 19 + Vite 7 |
-| Routing | React Router DOM v7 |
-| Styling | Tailwind CSS v4 |
-| HTTP Client | Axios |
+| Layer         | Technology              |
+| ------------- | ----------------------- |
+| Framework     | React 19 + Vite 7       |
+| Routing       | React Router DOM v7     |
+| Styling       | Tailwind CSS v4         |
+| HTTP Client   | Axios                   |
 | Auth (Social) | Firebase (Google OAuth) |
-| Charts | Recharts |
-| Icons | Lucide React |
-| i18n | i18next + react-i18next |
-| Notifications | React Hot Toast |
+| Charts        | Recharts                |
+| Icons         | Lucide React            |
+| i18n          | i18next + react-i18next |
+| Notifications | React Hot Toast         |
 
 ---
 
@@ -102,13 +102,16 @@ VITE_FIREBASE_APP_ID=your_app_id
 ```
 
 > **Tip:** Get Firebase credentials from the [Firebase Console](https://console.firebase.google.com/).
-> Enable **Google Sign-In** under *Authentication → Sign-in method*.
+> Enable **Google Sign-In** under _Authentication → Sign-in method_.
 
 ---
+
+> **Repository-root workflow:** For normal development, use `npm run setup` and `npm run dev:frontend` from the repository root. The runner verifies that the User API is healthy before starting Vite.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js v18+
 - npm or yarn
 - Backend server running on `http://localhost:5000` (see `../backend/README.md`)
@@ -134,33 +137,35 @@ The app will be available at **http://localhost:5173**.
 
 ### Available Scripts
 
-| Script | Description |
-|---|---|
-| `npm run dev` | Start the Vite development server |
-| `npm run build` | Build for production |
+| Script            | Description                          |
+| ----------------- | ------------------------------------ |
+| `npm run dev`     | Start the Vite development server    |
+| `npm run build`   | Build for production                 |
 | `npm run preview` | Preview the production build locally |
-| `npm run lint` | Run ESLint |
+| `npm run lint`    | Run ESLint                           |
 
 ---
 
 ## 🔀 Routing Overview
 
-| Path | Page | Access |
-|---|---|---|
-| `/` | Redirects based on auth status | Public |
-| `/login` | Login page | Public only |
-| `/signup` | Sign up page | Public only |
-| `/forgot-password` | Forgot password | Public only |
-| `/reset-password/:token` | Reset password | Public only |
-| `/dashboard` | User dashboard | Protected |
-| `/courses` | Course catalogue | Protected |
-| `/course-preview/:courseId` | Course detail/preview | Public |
-| `/learning/:id` | AI lesson player | Protected |
-| `/discussions` | Community discussions | Protected |
-| `/analytics` | Learning analytics | Protected |
-| `/watchedvideos` | Watched video history | Protected |
-| `/settings` | Account settings | Protected |
-| `/admin` | Admin panel | Admin only |
+| Path                        | Page                                                        | Access                   |
+| --------------------------- | ----------------------------------------------------------- | ------------------------ |
+| `/`                         | Redirects based on auth status                              | Public                   |
+| `/login`                    | Login page                                                  | Public only              |
+| `/signup`                   | Sign up page                                                | Public only              |
+| `/forgot-password`          | Forgot password                                             | Public only              |
+| `/reset-password/:token`    | Reset password                                              | Public only              |
+| `/dashboard`                | User dashboard                                              | Protected                |
+| `/courses`                  | Course catalogue                                            | Protected                |
+| `/course-preview/:courseId` | Course detail/preview                                       | Public                   |
+| `/learning/:id`             | AI lesson player                                            | Protected                |
+| `/discussions`              | Community discussions                                       | Protected                |
+| `/analytics`                | Learning analytics                                          | Protected                |
+| `/watchedvideos`            | Watched video history                                       | Protected                |
+| `/settings`                 | Account settings                                            | Protected                |
+| `/admin`                    | Redirects authorized admins to `frontendAdmin` dashboard    | Admin or superadmin only |
+| `/admin/users`              | Redirects authorized admins to `frontendAdmin` users page   | Admin or superadmin only |
+| `/admin/courses`            | Redirects authorized admins to `frontendAdmin` courses page | Admin or superadmin only |
 
 ---
 

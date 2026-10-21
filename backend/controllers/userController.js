@@ -3,11 +3,15 @@ import User from "../models/User.js";
 import CommunityPost from "../models/CommunityPost.js";
 import Notifications from "../models/Notification.js";
 import jwt from "jsonwebtoken";
+import { Transaction } from "sequelize";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
+import path from "path";
 import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
 import { createNotification } from "./notificationController.js";
-
+import { Course } from "../models/modelAssociations.js";
+import Payment from "../models/Payment.js";
+import { sequelize } from "../config/db.js";
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -114,9 +118,7 @@ const changePassword = async (req, res) => {
     }
 
     if (!user.password) {
-      return res
-        .status(400)
-        .json({ message: "Password is not set for this account" });
+      return res.status(400).json({ message: "Password is not set for this account" });
     }
 
     const isMatch = await user.matchPassword(currentPassword);
@@ -167,58 +169,117 @@ const getUserProfile = async (req, res) => {
   }
 };
 
-// @desc Purchase course / Enroll free course
+// @desc Enroll in a free course (paid courses require a completed payment)
 const purchaseCourse = async (req, res) => {
   try {
     if (!req.user) return res.status(401).json({ message: "Not authorized" });
 
-    const { courseId, courseTitle } = req.body;
+    const { courseId } = req.body;
+    const normalizedCourseId = Number(courseId);
 
-    if (!courseId) {
+    if (!courseId || !Number.isInteger(normalizedCourseId)) {
       return res.status(400).json({ message: "Course ID is required" });
     }
 
-    const user = await User.findByPk(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    const purchasedCourses = user.purchasedCourses || [];
-
-    // Prevent duplicate enrollment
-    const alreadyPurchased = purchasedCourses.some(
-      (c) => Number(c.courseId) === Number(courseId)
-    );
-
-    if (alreadyPurchased) {
-      return res.status(400).json({ message: "Already enrolled" });
+    // Load the authoritative course record — never trust client-supplied data.
+    const course = await Course.findByPk(normalizedCourseId);
+    if (!course || course.status === "deleted") {
+      return res.status(404).json({ message: "Course not found" });
     }
 
-    // Add course
-    purchasedCourses.push({
-      courseId: Number(courseId),
-      courseTitle: courseTitle || "Course",
-      purchaseDate: new Date(),
-      progress: {
-        completedLessons: [],
-        currentLesson: null,
-      },
-    });
+    if (course.status !== "published") {
+      return res.status(403).json({ message: "This course is not currently available." });
+    }
 
-    user.purchasedCourses = purchasedCourses;
+    const isPaid = Number(course.priceValue || 0) > 0;
 
-    // Important for Sequelize JSON/JSONB update
-    user.changed("purchasedCourses", true);
+    // Enroll atomically: the user row is locked for the duration of the
+    // duplicate check and save so concurrent requests cannot both pass the
+    // check and append two access records.
+    const transaction = await sequelize.transaction();
+    let enrolledUserId;
+    let purchasedCourses;
 
-    await user.save();
-    await createNotification(user.id, {
-      title: "Course Enrolled 🎉",
-      message: `You successfully enrolled in ${courseTitle || "a course"}`,
-      type: "course",
-      metadata: { courseId },
-    });
+    try {
+      const user = await User.findByPk(req.user.id, {
+        transaction,
+        lock: Transaction.LOCK.UPDATE,
+      });
 
-    res.status(200).json({
+      if (!user) {
+        await transaction.rollback();
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      purchasedCourses = user.purchasedCourses || [];
+
+      // Prevent duplicate enrollment
+      const alreadyPurchased = purchasedCourses.some(
+        (c) => Number(c.courseId) === normalizedCourseId,
+      );
+
+      if (alreadyPurchased) {
+        await transaction.rollback();
+        return res.status(400).json({ message: "Already enrolled" });
+      }
+
+      // Paid courses may only be enrolled once a payment has completed successfully.
+      if (isPaid) {
+        const completedPayment = await Payment.findOne({
+          where: { userId: user.id, courseId: normalizedCourseId, status: "success" },
+          transaction,
+        });
+
+        if (!completedPayment) {
+          await transaction.rollback();
+          return res.status(403).json({
+            message: "Payment required. Please complete payment before enrolling in this course.",
+          });
+        }
+      }
+
+      // Add course using the database title, not the client-supplied one
+      purchasedCourses.push({
+        courseId: normalizedCourseId,
+        courseTitle: course.title,
+        purchaseDate: new Date(),
+        progress: {
+          completedLessons: [],
+          currentLesson: null,
+        },
+      });
+
+      user.purchasedCourses = purchasedCourses;
+
+      // Important for Sequelize JSON/JSONB update
+      user.changed("purchasedCourses", true);
+
+      await user.save({ transaction });
+
+      await transaction.commit();
+      enrolledUserId = user.id;
+    } catch (error) {
+      if (!transaction.finished) {
+        await transaction.rollback();
+      }
+      throw error;
+    }
+
+    // Best-effort notification; must not undo a committed enrollment.
+    try {
+      await createNotification(enrolledUserId, {
+        title: "Course Enrolled 🎉",
+        message: `You successfully enrolled in ${course.title}`,
+        type: "course",
+        metadata: { courseId: normalizedCourseId },
+      });
+    } catch (notificationError) {
+      console.error("ENROLLMENT NOTIFICATION ERROR:", notificationError);
+    }
+
+    return res.status(200).json({
       message: "Course enrolled successfully",
-      purchasedCourses: user.purchasedCourses,
+      purchasedCourses,
     });
   } catch (error) {
     console.error("PURCHASE ERROR:", error);
@@ -237,9 +298,7 @@ const updateCourseProgress = async (req, res) => {
     const { courseId, lessonData, currentLesson, completedLesson } = req.body;
 
     let courses = [...(user.purchasedCourses || [])];
-    let courseIndex = courses.findIndex(
-      (c) => Number(c.courseId) === Number(courseId)
-    );
+    let courseIndex = courses.findIndex((c) => Number(c.courseId) === Number(courseId));
 
     if (courseIndex !== -1) {
       let progress = courses[courseIndex].progress || {
@@ -263,9 +322,7 @@ const updateCourseProgress = async (req, res) => {
 
       if (
         completedLesson &&
-        !progress.completedLessons.some(
-          (l) => l.lessonId === completedLesson.lessonId
-        )
+        !progress.completedLessons.some((l) => l.lessonId === completedLesson.lessonId)
       ) {
         progress.completedLessons.push(completedLesson);
       }
@@ -323,28 +380,24 @@ const getWatchedVideos = async (req, res) => {
 
         const watchHistory = lesson.watchHistory;
 
-       const safeProgress = Number(
-           Math.max(
-                    0,
-                     Math.min(100, watchHistory.progressPercent || 0)
-                  ).toFixed(1)
-          );
-watchedVideos.push({
-  lessonId,
-  courseId: course.courseId,
-  course: course.courseTitle || "Course",
-  title: watchHistory.title || "Untitled Lesson",
-  thumbnail: watchHistory.thumbnail,
-  progress: Number(safeProgress.toFixed(1)),
-  currentTime: watchHistory.currentTime || 0,
-  duration: watchHistory.duration || 0,
-  formattedDuration:
-    watchHistory.formattedDuration || "0:00",
-  lastWatched: watchHistory.lastWatched,
-  status: watchHistory.status || "in-progress",
-});
+        const safeProgress = Number(
+          Math.max(0, Math.min(100, watchHistory.progressPercent || 0)).toFixed(1),
+        );
+        watchedVideos.push({
+          lessonId,
+          courseId: course.courseId,
+          course: course.courseTitle || "Course",
+          title: watchHistory.title || "Untitled Lesson",
+          thumbnail: watchHistory.thumbnail,
+          progress: Number(safeProgress.toFixed(1)),
+          currentTime: watchHistory.currentTime || 0,
+          duration: watchHistory.duration || 0,
+          formattedDuration: watchHistory.formattedDuration || "0:00",
+          lastWatched: watchHistory.lastWatched,
+          status: watchHistory.status || "in-progress",
+        });
 
-       if (!uniqueCourses.includes(course.courseId)) {
+        if (!uniqueCourses.includes(course.courseId)) {
           uniqueCourses.push(course.courseId);
         }
 
@@ -352,11 +405,8 @@ watchedVideos.push({
           totalSeconds += watchHistory.currentTime;
         }
 
-        if (
-             watchHistory.status === "completed" ||
-            safeProgress >= 80
-          ) {
-         completedCount++;
+        if (watchHistory.status === "completed" || safeProgress >= 80) {
+          completedCount++;
         }
       });
     });
@@ -370,10 +420,7 @@ watchedVideos.push({
       }
     });
 
-    const avgSeconds =
-      watchedVideos.length > 0
-        ? totalSeconds / watchedVideos.length
-        : 0;
+    const avgSeconds = watchedVideos.length > 0 ? totalSeconds / watchedVideos.length : 0;
 
     const avgMinutes = Math.floor(avgSeconds / 60);
     const avgRemainingSeconds = Math.floor(avgSeconds % 60);
@@ -428,9 +475,7 @@ const updateUserSettings = async (req, res) => {
       notifications: notifications
         ? { ...user.settings.notifications, ...notifications }
         : user.settings.notifications,
-      security: security
-        ? { ...user.settings.security, ...security }
-        : user.settings.security,
+      security: security ? { ...user.settings.security, ...security } : user.settings.security,
       appearance: appearance
         ? { ...user.settings.appearance, ...appearance }
         : user.settings.appearance,
@@ -448,6 +493,53 @@ const updateUserSettings = async (req, res) => {
   }
 };
 
+const removeProfileAvatar = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
+    const user = await User.findByPk(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const previousAvatar = user.avatar_url;
+    if (previousAvatar?.startsWith("/uploads/")) {
+      const filename = path.basename(previousAvatar);
+      const uploadRoot = path.resolve("uploads");
+      const avatarPath = path.resolve(uploadRoot, filename);
+      if (path.dirname(avatarPath) !== uploadRoot) {
+        return res.status(400).json({ message: "Invalid avatar path" });
+      }
+      try {
+        await fs.promises.unlink(avatarPath);
+      } catch (error) {
+        if (error.code !== "ENOENT") throw error;
+      }
+    }
+
+    user.avatar_url = null;
+    await user.save();
+    return res.status(200).json({
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      bio: user.bio,
+      avatar_url: null,
+      isProfileComplete: user.isProfileComplete,
+      isGoogleUser: !!user.googleId,
+      hasPassword: !!user.password,
+      purchasedCourses: user.purchasedCourses,
+    });
+  } catch (error) {
+    console.error("REMOVE PROFILE AVATAR ERROR:", error);
+    return res.status(500).json({ message: "Failed to remove profile photo" });
+  }
+};
+
 const updateUserProfile = async (req, res) => {
   try {
     if (!req.user) {
@@ -461,7 +553,7 @@ const updateUserProfile = async (req, res) => {
 
     // Avatar Upload Handling
     if (req.file) {
-  user.avatar_url = `/uploads/${req.file.filename}`;
+      user.avatar_url = `/uploads/${req.file.filename}`;
     }
 
     // Update text fields
@@ -469,23 +561,19 @@ const updateUserProfile = async (req, res) => {
     user.lastName = req.body.lastName ?? user.lastName;
     user.name = formatFullName(user.firstName, user.lastName);
     // Check email change
-if (
-  req.body.email &&
-  req.body.email.trim().toLowerCase() !==
-    user.email.trim().toLowerCase()
-) {
-  const emailExists = await User.findOne({
-    where: {
-      email: req.body.email.trim().toLowerCase(),
-    },
-  });
-  if (emailExists) {
-    return res.status(400).json({
-      message: "Email already in use",
-    });
-  }
-  user.email = req.body.email.trim().toLowerCase();
-}
+    if (req.body.email && req.body.email.trim().toLowerCase() !== user.email.trim().toLowerCase()) {
+      const emailExists = await User.findOne({
+        where: {
+          email: req.body.email.trim().toLowerCase(),
+        },
+      });
+      if (emailExists) {
+        return res.status(400).json({
+          message: "Email already in use",
+        });
+      }
+      user.email = req.body.email.trim().toLowerCase();
+    }
     user.bio = req.body.bio ?? user.bio;
 
     await user.save();
@@ -519,7 +607,7 @@ const removePurchasedCourse = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     user.purchasedCourses = user.purchasedCourses.filter(
-      (c) => Number(c.courseId) !== Number(courseId)
+      (c) => Number(c.courseId) !== Number(courseId),
     );
 
     await user.save();
@@ -536,24 +624,30 @@ const deleteAccount = async (req, res) => {
   try {
     const userId = req.user.id;
 
+    await sequelize.transaction(async (transaction) => {
+      await CommunityPost.destroy({
+        where: { userId },
+        transaction,
+      });
+
+      await Notifications.destroy({
+        where: { userId },
+        transaction,
+      });
+
+      await User.destroy({
+        where: { id: userId },
+        transaction,
+      });
+    });
+
+    // External cleanup happens after the database transaction commits.
     try {
       const avatarPublicId = `user_avatars/user_${userId}`;
       await cloudinary.uploader.destroy(avatarPublicId);
     } catch (cloudinaryError) {
       console.error("Cloudinary avatar deletion error:", cloudinaryError);
     }
-
-    await CommunityPost.destroy({
-      where: { userId },
-    });
-
-    await Notifications.destroy({
-      where: { userId },
-    });
-
-    await User.destroy({
-      where: { id: userId },
-    });
 
     res.status(200).json({
       message: "Account Deleted Successfully",
@@ -562,7 +656,7 @@ const deleteAccount = async (req, res) => {
     console.error("Delete Account Error", error);
     res.status(500).json({ message: "Failed to delete account" });
   }
-}
+};
 // Complete first-time user profile onboarding
 // Google users: firstName, lastName, password (required), bio, avatar
 // Email users: bio, avatar
@@ -591,10 +685,10 @@ const completeProfile = async (req, res) => {
     const { firstName, lastName, password, bio } = req.body;
 
     // Apply missing fields if provided
-    if (firstName && firstName.trim() !== '') {
+    if (firstName && firstName.trim() !== "") {
       user.firstName = firstName;
     }
-    if (lastName && lastName.trim() !== '') {
+    if (lastName && lastName.trim() !== "") {
       user.lastName = lastName;
     }
     if (user.firstName || user.lastName) {
@@ -613,13 +707,13 @@ const completeProfile = async (req, res) => {
 
     // Avatar upload via Cloudinary (required if not already set)
     // Store image locally instead of Cloudinary
-if (req.file) {
-  user.avatar_url = `/uploads/${req.file.filename}`;
-} else if (!user.avatar_url) {
-  return res.status(400).json({
-    message: "Profile photo is required",
-  });
-}
+    if (req.file) {
+      user.avatar_url = `/uploads/${req.file.filename}`;
+    } else if (!user.avatar_url) {
+      return res.status(400).json({
+        message: "Profile photo is required",
+      });
+    }
 
     user.isProfileComplete = true; // Temporary flag to trigger save check
     await user.save();
@@ -635,7 +729,7 @@ if (req.file) {
 
       return res.status(400).json({
         message: `Profile is still incomplete. Missing: ${missingFields.join(", ")}`,
-        missingFields
+        missingFields,
       });
     }
 
@@ -657,13 +751,13 @@ if (req.file) {
   } catch (error) {
     console.error("COMPLETE PROFILE ERROR:", error);
 
-  res.status(500).json({
-    success: false,
-    message: error.message,
-    error: error,
-  });
-}
-}
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      error: error,
+    });
+  }
+};
 
 // EXPORTS
 export {
@@ -676,6 +770,7 @@ export {
   getWatchedVideos,
   updateUserSettings,
   updateUserProfile,
+  removeProfileAvatar,
   removePurchasedCourse,
   deleteAccount,
   changePassword,
