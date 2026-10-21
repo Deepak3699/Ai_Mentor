@@ -69,3 +69,21 @@ def test_api_does_not_overwrite_shutdown_failed_job_as_ready():
     assert (
         "if base_filename not in shutdown_failed_jobs:" in source
     )
+
+def test_shutdown_marks_queued_job_failed():
+    async def scenario():
+        active_jobs = {"job-queued"}
+        job_status = {"job-queued": {"status": "queued"}}
+        failed_jobs = set()
+
+        await wait_for_jobs_to_finish(
+            active_jobs,
+            job_status,
+            failed_jobs,
+            timeout_seconds=0,
+        )
+
+        assert "job-queued" in failed_jobs
+        assert job_status["job-queued"]["status"] == "failed"
+
+    asyncio.run(scenario())
