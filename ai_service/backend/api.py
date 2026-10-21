@@ -1221,7 +1221,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 timestamps["completed_at"] = datetime.datetime.now(
                     datetime.timezone.utc
                 ).isoformat()
-        log_event("READY", "Lesson generation completed", job=base_filename, provider=provider_used, duration=f"{duration_ms / 1000:.1f}s", audio=f"{audio_seconds:.1f}s", words=len(script.split()))
+        log_event("READY", "Lesson generation completed", job=base_filename, provider=provider_used, duration=f"{duration_ms / 1000:.1f}s", audio=f"{audio_seconds:.1f}s", words=len(script.split()), delivery="cloud" if cloudinary_url else "local")
 
         # 8️⃣ Storage Cleanup
         if cloudinary_url:
