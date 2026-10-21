@@ -19,3 +19,9 @@ export const generateFlashcardsSchema = z.object({
 export const updateFlashcardMasterySchema = z.object({
   mastered: z.boolean(),
 });
+
+export const explainCodeSchema = z.object({
+  code: z.string().trim().min(1, "Code is required").max(20000),
+  language: z.string().trim().min(1, "Programming language is required").max(50),
+  mode: z.enum(["explain", "debug", "optimize"]),
+});

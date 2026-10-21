@@ -1,5 +1,7 @@
 import asyncio
 import base64
+import inspect
+import os
 
 import requests
 
@@ -52,7 +54,7 @@ def upload_audio(audio_path: str) -> str:
                 headers=headers,
                 files={
                     "audio": (
-                        audio_path.split("/")[-1],
+                        os.path.basename(str(audio_path).replace("\\", "/")),
                         audio_file,
                         "audio/mpeg",
                     )
@@ -84,14 +86,7 @@ def upload_audio(audio_path: str) -> str:
     return audio_url
 
 
-class AwaitableStr(str):
-    def __await__(self):
-        async def _wrapper():
-            return str(self)
-        return _wrapper().__await__()
-
-
-def create_avatar_video(audio_path: str) -> str:
+async def create_avatar_video(audio_path: str) -> str:
     """
     Create a talking-avatar video from a local audio file.
 
@@ -101,23 +96,35 @@ def create_avatar_video(audio_path: str) -> str:
     if not DID_SOURCE_URL:
         raise RuntimeError("DID_SOURCE_URL is not configured")
 
-    audio_url = upload_audio(audio_path)
+    if inspect.iscoroutinefunction(upload_audio):
+        audio_url = await upload_audio(audio_path)
+    else:
+        audio_url = await asyncio.to_thread(upload_audio, audio_path)
 
-    response = requests.post(
-        f"{DID_API_URL}/talks",
-        headers={
-            "Authorization": _get_auth_header(),
-            "Content-Type": "application/json",
+    headers = {
+        "Authorization": _get_auth_header(),
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "source_url": DID_SOURCE_URL,
+        "script": {
+            "type": "audio",
+            "audio_url": audio_url,
         },
-        json={
-            "source_url": DID_SOURCE_URL,
-            "script": {
-                "type": "audio",
-                "audio_url": audio_url,
-            },
-        },
-        timeout=60,
-    )
+    }
+
+    try:
+        response = await asyncio.to_thread(
+            requests.post,
+            f"{DID_API_URL}/talks",
+            headers=headers,
+            json=payload,
+            timeout=60,
+        )
+    except requests.RequestException as exc:
+        raise RuntimeError(
+            f"D-ID avatar creation request failed: {exc}"
+        ) from exc
 
     if not 200 <= response.status_code < 300:
         raise RuntimeError(
@@ -134,19 +141,9 @@ def create_avatar_video(audio_path: str) -> str:
     if not talk_id:
         raise RuntimeError("D-ID creation response did not return a talk ID")
 
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
+    video_url = await _poll_for_video(talk_id)
 
-    if loop and loop.is_running():
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            video_url = executor.submit(asyncio.run, _poll_for_video(talk_id)).result()
-    else:
-        video_url = asyncio.run(_poll_for_video(talk_id))
-
-    return AwaitableStr(video_url)
+    return video_url
 
 
 async def _poll_for_video(talk_id: str) -> str:
@@ -176,7 +173,7 @@ async def _poll_for_video(talk_id: str) -> str:
 
         result = response.json()
         status = result.get("status")
-        print(f"🔄 D-ID status: {status}")
+        print(f"[INFO] D-ID status | state={status}", flush=True)
 
         if status == "done":
             video_url = result.get("result_url")

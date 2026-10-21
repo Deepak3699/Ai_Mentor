@@ -89,6 +89,15 @@ def get_voice(voice_id: str) -> str:
         return DEFAULT_VOICE_ID
     return voice_id
 
-def get_all_voices() -> list:
-    """Return the full list of available voices with metadata."""
-    return list(VOICE_REGISTRY.values())
+def get_all_voices(language: str | None = None, gender: str | None = None) -> list:
+    """Return available voices with metadata, optionally filtered.
+
+    ``language`` and ``gender`` are matched case-insensitively and combine with
+    AND. Values that match nothing yield an empty list rather than an error.
+    """
+    result = list(VOICE_REGISTRY.values())
+    if language:
+        result = [v for v in result if v["language"].casefold() == language.strip().casefold()]
+    if gender:
+        result = [v for v in result if v["gender"].casefold() == gender.strip().casefold()]
+    return result

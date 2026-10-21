@@ -10,7 +10,7 @@
     "seed:courses": "node scripts/seedCourses.js",
     "clear:preferences": "node scripts/clearPreferences.js",
     "lint": "eslint .",
-    "test": "node --test"
+    "test": "node -e \"process.env.NODE_ENV='test'; import('node:child_process').then(({spawnSync}) => { const r = spawnSync(process.execPath, ['--test'], { stdio: 'inherit', env: process.env }); process.exit(r.status ?? 1); })\""
   },
   "dependencies": {
     "@google/genai": "^2.7.0",
@@ -32,6 +32,7 @@
     "pdf-lib": "^1.17.1",
     "pg": "^8.18.0",
     "pg-hstore": "^2.3.4",
+    "pino": "^10.4.0",
     "razorpay": "^2.9.6",
     "sequelize": "^6.37.8",
     "stripe": "^21.0.1",

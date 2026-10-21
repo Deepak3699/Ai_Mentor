@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { OPEN_ASSISTANT_EVENT } from "../dashboard/QuickActions";
 
 const ANCHOR_KEY = "floatingAssistantAnchor";
 const EDGE_GAP = 16;
@@ -249,6 +250,18 @@ const FloatingAssistant = () => {
     };
     window.addEventListener("resize", handleViewportResize);
     return () => window.removeEventListener("resize", handleViewportResize);
+  }, []);
+
+  useEffect(() => {
+    const openAssistant = (event) => {
+      setIsOpen(true);
+      setIsMinimized(false);
+      if (event?.detail?.prompt) {
+        setInput(event.detail.prompt);
+      }
+    };
+    window.addEventListener(OPEN_ASSISTANT_EVENT, openAssistant);
+    return () => window.removeEventListener(OPEN_ASSISTANT_EVENT, openAssistant);
   }, []);
 
   useEffect(() => {

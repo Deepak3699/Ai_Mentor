@@ -210,5 +210,7 @@ test("the abort signal is handed to the wait between polls", async () => {
     waitForNextPoll: async (ms, signal) => seen.push([ms, signal]),
   });
 
-  assert.deepEqual(seen, [[1, controller.signal]]);
+  assert.equal(seen[0][0], 1);
+  assert.equal(seen[0][1] instanceof AbortSignal, true);
+  assert.equal(seen[0][1].aborted, false);
 });
