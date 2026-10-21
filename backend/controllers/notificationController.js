@@ -1,5 +1,5 @@
 import Notification from "../models/Notification.js";
-import { sendServerError } from "../utils/apiError.js";
+import { sendServerError, describeError } from "../utils/apiError.js";
 
 // @desc    Get unread notification count
 // @route   GET /api/notifications/unread-count
@@ -107,7 +107,7 @@ export const createNotification = async (
 
     return notification;
   } catch (error) {
-    console.error("Error creating notification:", error.message);
+    console.error("Error creating notification:", JSON.stringify(describeError(error)));
 
     if (transaction) {
       throw error;

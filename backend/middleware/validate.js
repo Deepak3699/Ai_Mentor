@@ -27,6 +27,7 @@ const validate = (schema) => (req, res, next) => {
 
       return res.status(400).json({
         message: "Validation failed",
+        requestId: req.id,
         errors: issues.map((issue) => ({
           path: issue.path.join("."),
           message: issue.message,

@@ -92,9 +92,10 @@ app.use(
         }
       }
 
-      console.error(`❌ Blocked by CORS: ${origin}`);
+      console.warn("Blocked by CORS");
       const corsError = new Error("Not allowed by CORS");
       corsError.status = 403;
+      corsError.expose = true;
       return callback(corsError);
     },
     credentials: true,
@@ -139,9 +140,10 @@ app.use("/api/calendar", CalendarTaskRoutes);
 
 // ================= 404 HANDLER =================
 app.use((req, res) => {
-  res.status(404).json({
+  return res.status(404).json({
     success: false,
-    message: `Route not found: ${req.originalUrl}`,
+    message: "Route not found",
+    requestId: req.id,
   });
 });
 
@@ -180,8 +182,8 @@ const startServer = async () => {
       console.log(`[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`);
       console.log("[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.");
     });
-  } catch (error) {
-    console.error("[FAILED] Backend startup failed:", error);
+  } catch {
+    console.error("[FAILED] Backend startup failed:");
     process.exit(1);
   }
 };

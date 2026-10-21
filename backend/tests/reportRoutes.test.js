@@ -14,6 +14,7 @@ const { default: AdminNotification } = await import("../models/AdminNotification
 const { default: Notification } = await import("../models/Notification.js");
 const { sequelize } = await import("../config/db.js");
 const { default: reportRoutes } = await import("../routes/reportRoutes.js");
+const { default: requestContext } = await import("../middleware/requestContext.js");
 const { MODERATOR_ROLES, createReport } = await import("../controllers/reportController.js");
 
 const REPORTER_ID = "11111111-1111-1111-1111-111111111111";
@@ -154,13 +155,15 @@ const seedUsers = () => {
 
 // ---------------------------------------------------------------------------
 // HTTP harness: the real route module with the real protect + validate +
-// controller chain, mounted the same way server.js mounts it.
+// controller chain, mounted the same way server.js mounts it (requestContext
+// first, so every response carries a request id).
 // ---------------------------------------------------------------------------
 let server;
 let baseUrl;
 
 before(async () => {
   const app = express();
+  app.use(requestContext);
   app.use(express.json());
   app.use("/api/course-reports", reportRoutes);
   server = http.createServer(app);
@@ -431,17 +434,25 @@ test("runs every write in one committed transaction", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Failure handling: any failure rolls everything back and answers 500
+// Failure handling: any failure rolls everything back and answers a generic 500
 // ---------------------------------------------------------------------------
 const assertRolledBack = async (res) => {
   const body = await res.json();
   assert.equal(res.status, 500);
-  assert.equal(body.message, "Failed to submit report");
+  assert.equal(body.success, false);
+  assert.equal(body.message, "Internal server error");
+  // `error` is a deprecated mirror of `message`; if present it must be identical
+  if ("error" in body) assert.equal(body.error, body.message);
+  assert.ok(body.requestId, "response must carry a request id");
+  assert.equal(body.requestId, res.headers.get("x-request-id"));
   assert.ok(!JSON.stringify(body).includes("injected"), "internal error text must not leak");
   assert.equal(transactions.length, 1);
   assert.equal(transactions[0].state, "rolled_back");
   assertNothingPersisted();
   assert.ok(console.error.mock.callCount() > 0, "failure must be logged");
+  const logged = console.error.mock.calls.map((c) => c.arguments.join(" ")).join("\n");
+  assert.ok(logged.includes(body.requestId), "log must carry the request id");
+  assert.ok(!logged.includes("injected"), "internal error text must not reach the logs");
 };
 
 test("report creation failure rolls back and sends no notifications", async () => {

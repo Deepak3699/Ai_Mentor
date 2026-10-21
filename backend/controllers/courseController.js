@@ -1,6 +1,6 @@
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
 import { sequelize } from "../config/db.js";
-import { sendServerError, logServerError } from "../utils/apiError.js";
+import { sendServerError, logServerError, dependencyFailure } from "../utils/apiError.js";
 
 /* =========================
    HELPERS
@@ -408,12 +408,17 @@ const generateCourseSyllabusWithAI = async (req, res) => {
         course_title: course.title,
         category: course.category,
       }),
-    });
+    }).catch(() => null);
 
+    // fetch failed (service down, connection refused): log a fixed code, never the error text
+    if (!aiResponse) {
+      logServerError(req, dependencyFailure("AI_SERVICE_UNREACHABLE"), "generateSyllabus.provider");
+      return syllabusUnavailable(req, res);
+    }
     if (!aiResponse.ok) {
       logServerError(
         req,
-        new Error(`AI service responded ${aiResponse.status}`),
+        dependencyFailure("AI_SERVICE_BAD_STATUS", aiResponse.status),
         "generateSyllabus.provider",
       );
       return syllabusUnavailable(req, res);
@@ -423,7 +428,7 @@ const generateCourseSyllabusWithAI = async (req, res) => {
     if (data.error) {
       logServerError(
         req,
-        new Error(`AI service error: ${String(data.error)}`),
+        dependencyFailure("AI_SERVICE_ERROR_PAYLOAD"),
         "generateSyllabus.provider",
       );
       return syllabusUnavailable(req, res);

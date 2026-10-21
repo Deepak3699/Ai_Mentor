@@ -54,6 +54,7 @@ test("validate returns normalized nested field errors", async () => {
   assert.equal(result.statusCode, 400);
   assert.equal(result.nextCalls, 0);
   assert.equal(result.payload.message, "Validation failed");
+  assert.equal(result.payload.requestId, "test-id");
   assert.equal(result.payload.errors[0].path, "profile.email");
 });
 
@@ -64,6 +65,7 @@ test("validate returns a generic 500 when no schema is provided", async () => {
   assert.deepEqual(result.payload, {
     success: false,
     message: "Internal server error",
+    error: "Internal server error",
     requestId: "test-id",
   });
   assert.ok(!JSON.stringify(result.payload).includes("No schema provided"));

@@ -5,6 +5,7 @@ import { createNotification } from "../controllers/notificationController.js";
 import { sequelize } from "../config/db.js";
 import { paymentGatewayServices } from "../services/paymentGatewayServices.js";
 import buildLogger from "../utils/logger.js";
+import { describeError } from "../utils/apiError.js";
 
 const router = express.Router();
 
@@ -31,8 +32,9 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
       process.env.STRIPE_WEBHOOK_SECRET,
     );
   } catch (err) {
-    // Invalid signature = possible attack or corrupted payload
-    log.error({ err, requestId: req.id }, "Signature verification failed");
+    // Invalid signature = possible attack or corrupted payload.
+    // Log safe metadata only: the Stripe message can contain secret fragments.
+    log.error({ requestId: req.id, ...describeError(err) }, "Signature verification failed");
     return res.status(400).json({
       success: false,
       message: "Webhook signature verification failed",
@@ -100,13 +102,13 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
             metadata: { courseId },
           });
         } catch (err) {
-          log.error({ err }, "Notification error:");
+          log.error({ requestId: req.id, ...describeError(err) }, "Notification error");
         }
         log.info({ courseId }, "Payment Processed:");
       } catch (err) {
         await transaction.rollback();
 
-        log.error({ err }, "DB Error:");
+        log.error({ requestId: req.id, ...describeError(err) }, "DB Error");
 
         return res.status(500).send("Internal Server Error");
       }
@@ -120,7 +122,12 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
         await Payment.update(
           { status: "failed" },
           { where: { stripeSessionId: session.id } },
-        ).catch((err) => log.error({ err }, "Failed to mark expired session as failed"));
+        ).catch((err) =>
+          log.error(
+            { requestId: req.id, ...describeError(err) },
+            "Failed to mark expired session as failed",
+          ),
+        );
         log.info({ stripeSessionId: session.id }, "Session expired - marked failed:");
       }
       break;
