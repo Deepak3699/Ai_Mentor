@@ -335,9 +335,10 @@ const hasValidLessons = (lessons) =>
       (lesson.type === undefined || typeof lesson.type === "string"),
   );
 
+
 const addLessons = async (req, res) => {
   try {
-const { courseId, moduleId } = req.params;
+    const { courseId, moduleId } = req.params;
     const lessons = req.body?.lessons;
 
     if (!hasValidLessons(lessons)) {
@@ -346,18 +347,19 @@ const { courseId, moduleId } = req.params;
       });
     }
 
-    // Ensure the module belongs to the course in the URL.
-    const module = await Module.findOne({
-      where: { id: moduleId, courseId },
-    });
-
-    if (!module) {
-      return res.status(404).json({
-        message: "Module not found for the specified course",
-      });
-    }
-
     const createdLessons = await sequelize.transaction(async (transaction) => {
+      // Lock the module so concurrent lesson batches are serialized.
+      // Also verify that this module belongs to the requested course.
+      const module = await Module.findOne({
+        where: { id: moduleId, courseId },
+        transaction,
+        lock: true,
+      });
+
+      if (!module) {
+        return null;
+      }
+
       const maxOrder =
         (await Lesson.max("order", {
           where: { moduleId },
@@ -384,9 +386,15 @@ const { courseId, moduleId } = req.params;
       return results;
     });
 
+    if (createdLessons === null) {
+      return res.status(404).json({
+        message: "Module not found for the specified course",
+      });
+    }
+
     return res.status(201).json(createdLessons);
   } catch (error) {
-   console.error("ADD LESSONS ERROR:", error);
+    console.error("ADD LESSONS ERROR:", error);
     return res.status(500).json({
       message: "Failed to add lessons",
     });
@@ -405,6 +413,10 @@ const addModules = async (req, res) => {
     }
 
     const createdModules = await sequelize.transaction(async (transaction) => {
+      await Course.findByPk(courseId, {
+        transaction,
+        lock: true,
+      });
       const maxOrder =
         (await Module.max("order", {
           where: { courseId },

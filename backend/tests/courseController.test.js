@@ -30,7 +30,6 @@ const originals = {
   courseDestroy: Course.destroy,
   moduleFindAll: Module.findAll,
   lessonFindAll: Lesson.findAll,
-
   moduleMax: Module.max,
   moduleCreate: Module.create,
   lessonMax: Lesson.max,
