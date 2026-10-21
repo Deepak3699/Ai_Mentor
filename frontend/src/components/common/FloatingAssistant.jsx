@@ -117,10 +117,7 @@ const FloatingAssistant = () => {
 
     requestInFlight.current = true;
     setLoading(true);
-    setMessages((previous) => [
-      ...previous,
-      { sender: "user", text: message },
-    ]);
+    setMessages((previous) => [...previous, { sender: "user", text: message }]);
     setInput("");
 
     try {
