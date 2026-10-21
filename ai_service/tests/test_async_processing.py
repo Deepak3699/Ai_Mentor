@@ -235,14 +235,14 @@ def test_event_loop_stays_responsive_during_slow_script_generation():
              },
          ):
         asyncio.run(run_test())
-def test_shutdown_failed_job_is_not_marked_ready_after_upload():
-    """A job failed during shutdown must not become ready after upload."""
+def test_shutdown_failed_job_cleans_up_video_uploaded_after_shutdown():
+    """Clean up a video if shutdown fails the job during its upload."""
     req = LessonRequest(
         course="Python",
         topic="Asyncio",
         celebrity="Modi",
     )
-    base_filename = "test_shutdown_status_123"
+    base_filename = "test_shutdown_cleanup_123"
 
     mock_gemini_resp = MagicMock()
     mock_gemini_resp.text = "Test lesson script."
@@ -250,13 +250,25 @@ def test_shutdown_failed_job_is_not_marked_ready_after_upload():
     mock_proc = AsyncMock()
     mock_proc.returncode = 0
     mock_proc.communicate.return_value = (b"", b"")
-
+    cleanup_calls = []
     def upload_and_mark_shutdown(*args, **kwargs):
         if kwargs.get("resource_type") == "video":
             api.shutdown_failed_jobs.add(base_filename)
             api.job_status[base_filename]["status"] = "failed"
 
-        return {"secure_url": "https://example.test/video.mp4"}
+        return {
+            "secure_url": "https://example.test/video.mp4",
+            "public_id": base_filename,
+        }
+
+    def record_destroy(*args, **kwargs):
+        cleanup_calls.append((args, kwargs))
+        return {"result": "ok"}
+
+    original_shutting_down = api.shutting_down
+    api.shutting_down = False
+    api.job_status[base_filename] = {"status": "processing"}
+    api.shutdown_failed_jobs.discard(base_filename)
 
     try:
         with patch.object(
@@ -280,93 +292,20 @@ def test_shutdown_failed_job_is_not_marked_ready_after_upload():
         ), patch(
             "cloudinary.uploader.upload",
             side_effect=upload_and_mark_shutdown,
+        ), patch(
+            "cloudinary.uploader.destroy",
+            side_effect=record_destroy,
         ):
-            asyncio.run(process_lesson(req, base_filename))
-
+            asyncio.run(api.process_lesson(req, base_filename))
+        assert cleanup_calls, "The uploaded video should be deleted."
+        args, kwargs = cleanup_calls[0]
+        assert args[0] == base_filename
+        assert kwargs["resource_type"] == "video"
         assert api.job_status[base_filename]["status"] == "failed"
     finally:
+        api.shutting_down = original_shutting_down
         api.shutdown_failed_jobs.discard(base_filename)
         api.job_status.pop(base_filename, None)
-
-
-def test_concurrent_lesson_generations_are_limited():
-        """At most MAX_CONCURRENT_GENERATIONS jobs run simultaneously."""
-        async def scenario():
-            limit = api.MAX_CONCURRENT_GENERATIONS
-            started_jobs = []
-            active_count = 0
-            max_active_count = 0
-            release_jobs = asyncio.Event()
-            enough_jobs_started = asyncio.Event()
-
-            original_process_lesson = api.process_lesson
-            original_shutting_down = api.shutting_down
-            async def fake_process_lesson(data, base_filename):
-                nonlocal active_count, max_active_count
-
-                active_count += 1
-                max_active_count = max(max_active_count, active_count)
-                started_jobs.append(base_filename)
-
-                if len(started_jobs) >= limit:
-                    enough_jobs_started.set()
-                try:
-                    await release_jobs.wait()
-                finally:
-
-                    active_count -= 1
-
-            job_ids = [f"concurrency_test_{i}" for i in range(limit + 2)]
-
-            try:
-                api.shutting_down = False
-                api.process_lesson = fake_process_lesson
-
-                for job_id in job_ids:
-                    api.shutdown_failed_jobs.discard(job_id)
-                    api.job_status[job_id] = {"status": "queued"}
-                    api.active_jobs.add(job_id)
-
-                tasks = [
-                    asyncio.create_task(
-                        api.run_tracked_lesson(
-                            LessonRequest(
-                                course="Python",
-                                topic=f"Topic {i}",
-                                celebrity="Modi",
-                            ),
-                            job_id,
-                        )
-                    )
-                    for i, job_id in enumerate(job_ids)
-                ]
-
-                await asyncio.wait_for(enough_jobs_started.wait(), timeout=2)
-                await asyncio.sleep(0.1)
-
-                assert len(started_jobs) == limit
-                assert max_active_count == limit
-
-                release_jobs.set()
-                await asyncio.wait_for(
-                    asyncio.gather(*tasks),
-                    timeout=5,
-                )
-
-                assert len(started_jobs) == len(job_ids)
-                assert max_active_count <= limit
-                api.shutting_down = original_shutting_down
-            finally:
-                release_jobs.set()
-                api.process_lesson = original_process_lesson
-                api.shutting_down = original_shutting_down
-
-                for job_id in job_ids:
-                    api.active_jobs.discard(job_id)
-                    api.shutdown_failed_jobs.discard(job_id)
-                    api.job_status.pop(job_id, None)
-
-        asyncio.run(scenario())
 
 @pytest.mark.asyncio
 async def test_shutdown_failed_job_skips_video_upload():

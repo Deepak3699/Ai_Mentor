@@ -1240,6 +1240,25 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     chunk_size=6000000,
                 )
                 cloudinary_url = upload_result.get("secure_url")
+                if shutting_down or base_filename in shutdown_failed_jobs:
+                     try:
+                         await asyncio.to_thread(
+                             cloudinary.uploader.destroy,
+                             upload_result.get("public_id") or base_filename,
+                             resource_type="video",
+                         )
+                         log_event(
+                             "WARN",
+                             "Removed video uploaded for a failed or shutting-down job",
+                             job=base_filename,
+                         )
+                     except Exception as cleanup_error:
+                         log_event(
+                             "WARN",
+                             "Could not remove stale uploaded video",
+                             error=short_error(cleanup_error),
+                         )
+                     return
                 log_event("OK", "Lesson video uploaded")
 
         except Exception as cloud_err:
