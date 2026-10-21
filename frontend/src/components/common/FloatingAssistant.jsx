@@ -66,6 +66,7 @@ const FloatingAssistant = () => {
   const [loading, setLoading] = useState(false);
 
   const messagesEndRef = useRef(null);
+  const requestInFlight = useRef(false);
   const dragState = useRef({ offsetX: 0, offsetY: 0, moved: false });
   const resizeState = useRef({
     startWidth: 0,
@@ -111,10 +112,16 @@ const FloatingAssistant = () => {
 
   const sendMessage = async () => {
     const message = input.trim();
-    if (!message || loading) return;
-    setMessages((previous) => [...previous, { sender: "user", text: message }]);
-    setInput("");
+
+    if (!message || requestInFlight.current) return;
+
+    requestInFlight.current = true;
     setLoading(true);
+    setMessages((previous) => [
+      ...previous,
+      { sender: "user", text: message },
+    ]);
+    setInput("");
 
     try {
       const token = localStorage.getItem("token");
@@ -123,6 +130,7 @@ const FloatingAssistant = () => {
         { message },
         { headers: { Authorization: `Bearer ${token}` } },
       );
+
       setMessages((previous) => [
         ...previous,
         {
@@ -141,6 +149,7 @@ const FloatingAssistant = () => {
         },
       ]);
     } finally {
+      requestInFlight.current = false;
       setLoading(false);
     }
   };
@@ -400,11 +409,12 @@ const FloatingAssistant = () => {
                 <div className="flex items-end gap-2 rounded-xl border border-border bg-canvas-alt p-2 transition focus-within:border-[#3867D6] focus-within:ring-4 focus-within:ring-[#3867D6]/10">
                   <textarea
                     value={input}
+                    disabled={loading}
                     onChange={(event) => setInput(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" && !event.shiftKey) {
                         event.preventDefault();
-                        sendMessage();
+                        if (!loading && !requestInFlight.current) sendMessage();
                       }
                     }}
                     rows={1}
