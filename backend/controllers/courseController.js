@@ -323,20 +323,16 @@ const hasValidItems = (items) =>
       typeof item === "object" &&
       !Array.isArray(item) &&
       typeof item.title === "string" &&
-      item.title.trim().length > 0
+      item.title.trim().length > 0,
   ) &&
-  new Set(
-    items.map((item) => item.title.trim().toLowerCase())
-  ).size === items.length;
-
+  new Set(items.map((item) => item.title.trim().toLowerCase())).size === items.length;
 
 const hasValidLessons = (lessons) =>
   hasValidItems(lessons) &&
   lessons.every(
     (lesson) =>
-      (lesson.duration === undefined ||
-        typeof lesson.duration === "string") &&
-      (lesson.type === undefined || typeof lesson.type === "string")
+      (lesson.duration === undefined || typeof lesson.duration === "string") &&
+      (lesson.type === undefined || typeof lesson.type === "string"),
   );
 
 const addLessons = async (req, res) => {
@@ -351,34 +347,32 @@ const addLessons = async (req, res) => {
       });
     }
 
-    const createdLessons = await sequelize.transaction(
-      async (transaction) => {
-        const maxOrder =
-          (await Lesson.max("order", {
-            where: { moduleId },
-            transaction,
-          })) || 0;
+    const createdLessons = await sequelize.transaction(async (transaction) => {
+      const maxOrder =
+        (await Lesson.max("order", {
+          where: { moduleId },
+          transaction,
+        })) || 0;
 
-        const results = [];
+      const results = [];
 
-        for (const [index, lesson] of lessons.entries()) {
-          const createdLesson = await Lesson.create(
-            {
-              moduleId,
-              title: lesson.title,
-              duration: lesson.duration || "5 mins",
-              type: lesson.type || "video",
-              order: maxOrder + index + 1,
-            },
-            { transaction }
-          );
+      for (const [index, lesson] of lessons.entries()) {
+        const createdLesson = await Lesson.create(
+          {
+            moduleId,
+            title: lesson.title,
+            duration: lesson.duration || "5 mins",
+            type: lesson.type || "video",
+            order: maxOrder + index + 1,
+          },
+          { transaction },
+        );
 
-          results.push(createdLesson);
-        }
-
-        return results;
+        results.push(createdLesson);
       }
-    );
+
+      return results;
+    });
 
     return res.status(201).json(createdLessons);
   } catch (error) {
@@ -394,39 +388,36 @@ const addModules = async (req, res) => {
     const { courseId } = req.params;
     const modules = req.body?.modules;
 
-
     if (!hasValidItems(modules)) {
       return res.status(400).json({
         message: "Invalid modules payload",
       });
     }
 
-    const createdModules = await sequelize.transaction(
-      async (transaction) => {
-        const maxOrder =
-          (await Module.max("order", {
-            where: { courseId },
-            transaction,
-          })) || 0;
+    const createdModules = await sequelize.transaction(async (transaction) => {
+      const maxOrder =
+        (await Module.max("order", {
+          where: { courseId },
+          transaction,
+        })) || 0;
 
-        const results = [];
+      const results = [];
 
-        for (const [index, module] of modules.entries()) {
-          const createdModule = await Module.create(
-            {
-              courseId,
-              title: module.title,
-              order: maxOrder + index + 1,
-            },
-            { transaction }
-          );
+      for (const [index, module] of modules.entries()) {
+        const createdModule = await Module.create(
+          {
+            courseId,
+            title: module.title,
+            order: maxOrder + index + 1,
+          },
+          { transaction },
+        );
 
-          results.push(createdModule);
-        }
-
-        return results;
+        results.push(createdModule);
       }
-    );
+
+      return results;
+    });
 
     return res.status(201).json(createdModules);
   } catch (error) {
@@ -434,10 +425,8 @@ const addModules = async (req, res) => {
     return res.status(500).json({
       message: "Failed to add modules",
     });
-
   }
 };
-
 
 const generateCourseSyllabusWithAI = async (req, res) => {
   try {

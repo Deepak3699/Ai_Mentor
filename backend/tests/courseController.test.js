@@ -36,9 +36,6 @@ const originals = {
   lessonCreate: Lesson.create,
   sequelizeTransaction: sequelize.transaction,
 
-  lessonMax: Lesson.max,
-  lessonCreate: Lesson.create,
-
 };
 
 const response = () => {
