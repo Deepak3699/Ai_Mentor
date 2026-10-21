@@ -318,8 +318,19 @@ const addSubtopics = async (req, res) => {
 
 const addLessons = async (req, res) => {
   try {
-    const { moduleId } = req.params;
+    const { courseId, moduleId } = req.params;
     const { lessons } = req.body;
+
+    // Ensure the module belongs to the course in the URL.
+    const module = await Module.findOne({
+      where: { id: moduleId, courseId },
+    });
+
+    if (!module) {
+      return res.status(404).json({
+        message: "Module not found for the specified course",
+      });
+    }
 
     const createdLessons = await sequelize.transaction(async (transaction) => {
       const maxOrder =
@@ -344,9 +355,10 @@ const addLessons = async (req, res) => {
       );
     });
 
-    res.status(201).json(createdLessons);
-  } catch {
-    res.status(500).json({ message: "Failed to add lessons" });
+    return res.status(201).json(createdLessons);
+  } catch (error) {
+    console.error("ADD LESSONS ERROR:", error);
+    return res.status(500).json({ message: "Failed to add lessons" });
   }
 };
 

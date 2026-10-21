@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import inspect
 import os
 
 import requests
@@ -86,8 +87,6 @@ def upload_audio(audio_path: str) -> str:
 
 
 
-
-
 async def create_avatar_video(audio_path: str) -> str:
     """
     Create a talking-avatar video from a local audio file.
@@ -101,23 +100,29 @@ async def create_avatar_video(audio_path: str) -> str:
     # Run the synchronous audio upload outside the event loop.
     audio_url = await asyncio.to_thread(upload_audio, audio_path)
 
-    # Run the synchronous D-ID creation request outside the event loop.
-    response = await asyncio.to_thread(
-        requests.post,
-        f"{DID_API_URL}/talks",
-        headers={
-            "Authorization": _get_auth_header(),
-            "Content-Type": "application/json",
+    headers = {
+        "Authorization": _get_auth_header(),
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "source_url": DID_SOURCE_URL,
+        "script": {
+            "type": "audio",
+            "audio_url": audio_url,
         },
-        json={
-            "source_url": DID_SOURCE_URL,
-            "script": {
-                "type": "audio",
-                "audio_url": audio_url,
-            },
-        },
-        timeout=60,
-    )
+    }
+    try:
+        response = await asyncio.to_thread(
+            requests.post,
+            f"{DID_API_URL}/talks",
+            headers=headers,
+            json=payload,
+            timeout=60,
+        )
+    except requests.RequestException as exc:
+        raise RuntimeError(
+            f"D-ID avatar creation request failed: {exc}"
+        ) from exc
 
     if not 200 <= response.status_code < 300:
         raise RuntimeError(
@@ -138,9 +143,7 @@ async def create_avatar_video(audio_path: str) -> str:
             "D-ID creation response did not return a talk ID"
         )
 
-    # Poll asynchronously instead of blocking the event loop.
     return await _poll_for_video(talk_id)
-
 
 
 async def _poll_for_video(talk_id: str) -> str:
