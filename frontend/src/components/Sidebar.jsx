@@ -1,10 +1,9 @@
 import { apiFetch as fetch } from "../lib/api";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   ChevronRight,
-  LogOut,
   Settings,
   Rocket,
   LayoutDashboard,
@@ -14,7 +13,6 @@ import {
   Video,
   Award,
   Flag,
-  CircleHelp,
 } from "lucide-react";
 import API_BASE_URL from "../lib/api";
 import { useSidebar } from "../context/SidebarContext";
@@ -35,25 +33,10 @@ const Sidebar = ({ activePage = "dashboard" }) => {
 
   const { sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed } = useSidebar();
 
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [navigationItems, setNavigationItems] = useState([]);
-  const [profilePopupOpen, setProfilePopupOpen] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-
-  const profileRef = useRef(null);
-
-  const handleLogout = () => {
-    setShowLogoutConfirm(true);
-  };
-
-  const confirmLogout = () => {
-    logout();
-    setShowLogoutConfirm(false);
-    setProfilePopupOpen(false);
-    navigate("/login", { state: { logoutSuccess: true } });
-  };
 
   const displayName = user?.name || user?.email?.split("@")[0] || "User";
 
@@ -70,19 +53,6 @@ const Sidebar = ({ activePage = "dashboard" }) => {
     certificates: Award,
     report: Flag,
   };
-
-  // Close profile popup when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
-        setProfilePopupOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   // Fetch navigation items
   useEffect(() => {
@@ -135,35 +105,6 @@ const Sidebar = ({ activePage = "dashboard" }) => {
         />
       )}
 
-      {/* ================= LOGOUT CONFIRMATION ================= */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 ui-overlay-motion">
-          <div className="bg-card border border-border/50 rounded-2xl shadow-2xl p-6 w-full max-w-xs text-center">
-            <LogOut className="w-9 h-9 text-red-500 mx-auto mb-3" />
-
-            <h3 className="text-sm font-bold text-main mb-2">Logout</h3>
-
-            <p className="text-xs text-muted mb-5">Are you sure you want to logout?</p>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-3 rounded-lg text-xs font-semibold border border-border hover:bg-canvas-alt transition-all"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={confirmLogout}
-                className="flex-1 py-3 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ================= SIDEBAR ================= */}
       <aside
         className={`
@@ -186,7 +127,6 @@ const Sidebar = ({ activePage = "dashboard" }) => {
           ${sidebarCollapsed ? "lg:w-[72px]" : "w-[245px] lg:w-[245px]"}
         `}
       >
-        {/* ================= COLLAPSE BUTTON ================= */}
         {/* ================= COLLAPSE BUTTON ================= */}
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -383,124 +323,12 @@ const Sidebar = ({ activePage = "dashboard" }) => {
 
         {/* ================= BOTTOM SECTION ================= */}
         <div className="shrink-0 px-3 pb-5">
-          {/* ================= USER PROFILE ================= */}
-          <div className="relative mt-3 pt-3 border-t border-border/70" ref={profileRef}>
-            {profilePopupOpen && (
-              <div
-                className={`sidebar-account-popup absolute bottom-full z-[90] mb-2 overflow-hidden rounded-xl border border-border bg-card shadow-2xl ${
-                  sidebarCollapsed ? "left-1/2 w-56 -translate-x-1/2" : "left-0 right-0"
-                }`}
-              >
-                <div className="flex items-center gap-3 border-b border-border bg-[#3867D6]/5 p-3 text-left">
-                  <img
-                    src={
-                      user?.avatar_url ||
-                      `https://api.dicebear.com/8.x/initials/svg?backgroundColor=3867d6&textColor=ffffff&seed=${encodeURIComponent(
-                        `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-                          user?.name ||
-                          displayName,
-                      )}`
-                    }
-                    className="h-10 w-10 shrink-0 rounded-full border border-border object-cover"
-                    alt="User"
-                    onError={(e) => {
-                      const seed = encodeURIComponent(
-                        `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-                          user?.name ||
-                          displayName,
-                      );
-
-                      e.target.src = `https://api.dicebear.com/8.x/initials/svg?backgroundColor=3867d6&textColor=ffffff&seed=${seed}&backgroundColor=3b82f6&textColor=ffffff`;
-                    }}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-bold leading-5 text-main">
-                      {displayName}
-                    </div>
-                    <div className="truncate text-[11px] font-medium leading-4 text-muted">
-                      Account
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-1 p-2">
-                  <button
-                    onClick={() => {
-                      navigate("/settings");
-                      setProfilePopupOpen(false);
-                      setSidebarOpen(false);
-                    }}
-                    className="flex h-11 w-full items-center rounded-lg px-3 text-sm font-semibold text-main transition-colors hover:bg-[#3867D6]/10 hover:text-[#3867D6] dark:hover:text-[#7FA7FF]"
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    Settings
-                  </button>
-
-                  <button
-                    onClick={handleLogout}
-                    className="flex h-11 w-full items-center rounded-lg px-3 text-sm font-semibold text-red-500 transition-colors hover:bg-red-500/10"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Logout
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Profile */}
-            <button
-              onClick={() => setProfilePopupOpen(!profilePopupOpen)}
-              className={`
-                w-full
-                flex
-                items-center
-                ${sidebarCollapsed ? "justify-center" : "justify-start"}
-                gap-3
-                ${sidebarCollapsed ? "px-0" : "px-3"}
-                py-2.5
-                rounded-xl
-                border
-                ${profilePopupOpen ? "border-[#3867D6]/45 bg-[#3867D6]/10" : "border-border bg-card hover:border-[#3867D6]/35 hover:bg-[#3867D6]/5"}
-                transition-all
-              `}
-            >
-              <img
-                src={
-                  user?.avatar_url ||
-                  `https://api.dicebear.com/8.x/initials/svg?backgroundColor=3867d6&textColor=ffffff&seed=${encodeURIComponent(
-                    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-                      user?.name ||
-                      displayName,
-                  )}`
-                }
-                className="h-9 w-9 min-w-9 shrink-0 aspect-square rounded-full object-cover"
-                alt="Avatar"
-                onError={(e) => {
-                  const seed = encodeURIComponent(
-                    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
-                      user?.name ||
-                      displayName,
-                  );
-
-                  e.target.src = `https://api.dicebear.com/8.x/initials/svg?backgroundColor=3867d6&textColor=ffffff&seed=${seed}&backgroundColor=3b82f6&textColor=ffffff`;
-                }}
-              />
-
-              {!sidebarCollapsed && (
-                <>
-                  <div className="min-w-0 flex-1 text-left">
-                    <div className="truncate text-[13px] font-semibold text-main">
-                      {displayName}
-                    </div>
-                    <div className="text-[11px] text-muted">Account</div>
-                  </div>
-                  <ChevronRight
-                    className={`h-4 w-4 shrink-0 text-muted transition-transform ${profilePopupOpen ? "-rotate-90" : "rotate-90"}`}
-                  />
-                </>
-              )}
-            </button>
-          </div>
+          {/* Account actions live in the header; the sidebar keeps identity only. */}
+          {!sidebarCollapsed && (
+            <div className="mt-3 border-t border-border/70 px-2 pt-4 text-xs text-muted">
+              Signed in as <span className="font-medium text-main">{displayName}</span>
+            </div>
+          )}
         </div>
       </aside>
     </>

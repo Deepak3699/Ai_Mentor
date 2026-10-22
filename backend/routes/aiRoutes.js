@@ -2,7 +2,7 @@ import AIVideo from "../models/AIVideo.js";
 import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
-import { generateVideoSchema } from "../schemas/aiSchema.js";
+import { generateVideoSchema, explainCodeSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
 import { getVideoQueue } from "../queues/videoQueue.js";
@@ -430,26 +430,24 @@ router.get("/status/:jobId", protect, async (req, res) => {
 
     const data = await response.json();
 
-    // 🌥️ If video is ready and Cloudinary URL is available, persist it to DB
-    const aiVideo = await AIVideo.findOne({
-      where: { jobId: String(jobId) },
-      attributes: ["courseId"],
-    });
-
-    if (data.status === "ready" && data.local_video_url && aiVideo) {
+    // Persist ready results by the database record ID. The Python job ID is only
+    // used for polling the AI service and must never be used as the DB identity.
+    if (data.status === "ready" && data.local_video_url) {
       const filename = data.local_video_url.split("/").pop();
-      data.local_video_url = "/api/ai/video/" + aiVideo.courseId + "/" + filename;
+      data.local_video_url = `/api/ai/video/${videoJob.courseId}/${jobId}/${filename}`;
     }
 
     if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
       try {
-        await AIVideo.update(
-          { videoUrl: data.cloudinary_url, status: "completed", meta: data.meta },
-          { where: { id: jobId } },
-        );
-        console.log(`☁️ AIVideo DB updated with Cloudinary URL for DB ID: ${jobId}`);
+        await videoJob.update({
+          videoUrl: data.cloudinary_url || data.local_video_url,
+          status: "completed",
+          meta: data.meta,
+          transcriptName: data.transcript_name || data.text_file || videoJob.transcriptName,
+        });
+        console.log(`☁️ AIVideo DB updated for DB ID: ${jobId}`);
       } catch (dbErr) {
-        console.error("⚠️ Failed to update AIVideo with Cloudinary URL:", dbErr.message);
+        console.error("⚠️ Failed to update AIVideo ready result:", dbErr.message);
       }
     } else if (data.status === "failed") {
       await AIVideo.update(
@@ -459,6 +457,8 @@ router.get("/status/:jobId", protect, async (req, res) => {
     }
 
     data.jobId = jobId; // ensure frontend gets our DB id, not python id
+    data.transcript_name =
+      data.transcript_name || data.text_file || videoJob.transcriptName || null;
 
     res.json(data);
   } catch (error) {
@@ -550,6 +550,36 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
   }
 });
 
+router.post("/explain-code", protect, validate(explainCodeSchema), async (req, res) => {
+  try {
+    const response = await fetch(`${process.env.AI_SERVICE_URL}/explain-code`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(req.body),
+      signal: AbortSignal.timeout(60000),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("AI code explanation failed:", errorText);
+
+      return res.status(502).json({
+        message: "AI code explanation service failed",
+      });
+    }
+
+    const data = await response.json();
+    return res.json(data);
+  } catch (error) {
+    console.error("AI code explanation error:", error);
+
+    return res.status(500).json({
+      message: "Unable to explain or debug code right now",
+    });
+  }
+});
 // ----------------------------------------------------
 // Proxy Voices from Python
 // ----------------------------------------------------
