@@ -160,6 +160,44 @@ class QuizResponse(BaseModel):
 # --------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+def sanitize_lesson_script(text: str) -> str:
+    """Remove Markdown formatting while preserving lesson content."""
+    if not isinstance(text, str):
+        return ""
+
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    # Remove fenced code block markers while preserving their content.
+    text = re.sub(r"(?m)^\s*```[^\n]*$", "", text)
+
+    # Remove inline code markers.
+    text = re.sub(r"`([^`]*)`", r"\1", text)
+
+    # Remove Markdown headings.
+    text = re.sub(r"(?m)^\s{0,3}#{1,6}\s+", "", text)
+
+    # Remove bold, italic, and strikethrough markers.
+    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+    text = re.sub(r"__(.*?)__", r"\1", text)
+    text = re.sub(r"~~(.*?)~~", r"\1", text)
+    text = re.sub(r"\*([^*\n]+)\*", r"\1", text)
+    text = re.sub(r"_([^_\n]+)_", r"\1", text)
+
+    # Convert Markdown links to readable labels.
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+
+    # Remove list markers.
+    text = re.sub(r"(?m)^\s*[-+*]\s+", "", text)
+    text = re.sub(r"(?m)^\s*\d+[.)]\s+", "", text)
+
+    # Preserve paragraph breaks and normalize whitespace.
+    lines = [line.strip() for line in text.splitlines()]
+    text = "\n".join(lines)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    return text.strip()
+
+
 async def generate_tts(text: str, output_file: str, voice_id: str = "en-US-GuyNeural", rate: str = "+0%", pitch: str = "+0Hz"):
     communicate = edge_tts.Communicate(
         text=text,
@@ -653,7 +691,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 contents=prompt
             )
 
-            script = response.text.strip().replace("\n", " ")
+            script = sanitize_lesson_script(response.text)
             provider_used = "gemini"
             model_used = GEMINI_MODEL
             print("✅ Gemini response generated")
@@ -677,7 +715,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                     max_tokens=300,
                 )
 
-                script = groq_response.choices[0].message.content.strip().replace("\n", " ")
+                script = sanitize_lesson_script(groq_response.choices[0].message.content)
                 provider_used = "groq"
                 model_used = "llama-3.3-70b-versatile"
                 print("✅ Groq fallback response generated")
