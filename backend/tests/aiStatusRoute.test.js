@@ -117,6 +117,7 @@ test("local-only ready status persists the filename and returns a playable proxy
     status: "ready",
     local_video_url: `/api/ai/video/12/${videoId}.mp4`,
     jobId: videoId,
+    transcript_name: "lesson.txt",
   });
   assert.equal(findOneCalls.length, 1, "status should use the already-loaded AIVideo record");
   assert.deepEqual(upstreamCalls, [

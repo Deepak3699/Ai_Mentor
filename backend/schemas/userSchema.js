@@ -19,7 +19,9 @@ export const changePasswordSchema = z.object({
 });
 export const purchaseCourseSchema = z.object({
   courseId: z.union([z.string(), z.number()]).transform((val) => Number(val)),
-  courseTitle: z.string().min(1, "Course title is required"),
+  // Accepted for backwards compatibility but ignored — the server uses the
+  // authoritative course title from the database.
+  courseTitle: z.string().optional(),
 });
 
 export const courseProgressSchema = z.object({

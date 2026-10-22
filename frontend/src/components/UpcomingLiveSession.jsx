@@ -55,7 +55,7 @@ const UpcomingLiveSession = ({ sessions = [], onJoin, className = "" }) => {
           })}
         </div>
       ) : (
-        <div className="grid min-h-48 place-items-center rounded-2xl border border-dashed border-border bg-canvas-alt px-5 text-center">
+        <div className="grid min-h-[220px] place-items-center rounded-2xl border border-dashed border-border bg-canvas-alt px-5 text-center">
           <div>
             <Calendar className="mx-auto h-8 w-8 text-violet-500" />
             <h3 className="mt-3 font-extrabold text-main">No live sessions scheduled</h3>
