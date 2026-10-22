@@ -178,16 +178,10 @@ function CoursesPage() {
   const [newCourse, setNewCourse] = useState({
     title: "",
     category: "",
-    categoryColor: "#14b8a6",
-    lessons: "",
-    lessonsCount: 0,
     level: "Beginner",
     price: "",
     priceValue: "",
     currency: "INR",
-    rating: 0,
-    students: "",
-    studentsCount: 0,
     image: "",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -391,16 +385,10 @@ function CoursesPage() {
       setNewCourse({
         title: "",
         category: "",
-        categoryColor: "#14b8a6",
-        lessons: "",
-        lessonsCount: 0,
         level: "Beginner",
         price: "",
         priceValue: "",
         currency: "INR",
-        rating: 0,
-        students: "",
-        studentsCount: 0,
         image: "",
       });
 
@@ -1018,59 +1006,6 @@ function CoursesPage() {
                 </select>
               </div>
 
-              {/* Lessons Count */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-1">
-                  Number of Lessons
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  className="w-full h-12 px-5 rounded-2xl bg-canvas border border-border outline-none focus:border-teal-500 text-main"
-                  placeholder="e.g. 20"
-                  value={newCourse.lessonsCount}
-                  onChange={(e) =>
-                    setNewCourse({ ...newCourse, lessonsCount: Number(e.target.value) })
-                  }
-                />
-              </div>
-
-              {/* Rating */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-1">
-                  Rating
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="5"
-                  step="0.1"
-                  className="w-full h-12 px-5 rounded-2xl bg-canvas border border-border outline-none focus:border-teal-500 text-main"
-                  placeholder="e.g. 4.5"
-                  value={newCourse.rating}
-                  onChange={(e) => setNewCourse({ ...newCourse, rating: Number(e.target.value) })}
-                />
-              </div>
-
-              {/* Students Count */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-1">
-                  Students Count
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  className="w-full h-12 px-5 rounded-2xl bg-canvas border border-border outline-none focus:border-teal-500 text-main"
-                  placeholder="e.g. 150"
-                  value={newCourse.studentsCount}
-                  onChange={(e) =>
-                    setNewCourse({
-                      ...newCourse,
-                      studentsCount: Number(e.target.value),
-                    })
-                  }
-                />
-              </div>
               <div className="pt-2 flex gap-3">
                 <button
                   type="button"

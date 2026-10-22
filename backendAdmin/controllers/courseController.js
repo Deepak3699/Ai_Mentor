@@ -67,21 +67,9 @@ export const getAllCourses = async (req, res) => {
  */
 export const createCourse = async (req, res) => {
   try {
-    const {
-      title,
-      category,
-      categoryColor,
-      lessons,
-      lessonsCount,
-      level,
-      price,
-      priceValue,
-      currency,
-      rating,
-      students,
-      studentsCount,
-      image,
-    } = req.body;
+    // Derived statistics (rating, students, lessons) are intentionally not
+    // accepted from the client. They are owned by the learner-facing services.
+    const { title, category, level, price, priceValue, currency, image } = req.body;
 
     if (!title || !title.trim()) {
       return res.status(400).json({
@@ -109,16 +97,10 @@ export const createCourse = async (req, res) => {
     const course = await Course.create({
       title: title.trim(),
       category: category.trim(),
-      categoryColor,
-      lessons,
-      lessonsCount,
       level,
       price,
       priceValue: parsedPrice,
       currency: currency || "INR",
-      rating,
-      students,
-      studentsCount,
       image,
       status: "published",
     });

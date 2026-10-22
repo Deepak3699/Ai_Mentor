@@ -1,5 +1,11 @@
 {
   "name": "@ai-mentor/shared-models",
   "version": "1.0.0",
-  "type": "module"
+  "private": true,
+  "description": "Shared Sequelize model definitions for the Ai Mentor services",
+  "type": "module",
+  "main": "./Course.js",
+  "exports": {
+    ".": "./Course.js"
+  }
 }

@@ -1,4 +1,8 @@
 export const defineCourse = (sequelize, DataTypes) => {
+  if (sequelize.models?.Course) {
+    return sequelize.models.Course;
+  }
+
   return sequelize.define(
     "Course",
     {
@@ -19,7 +23,10 @@ export const defineCourse = (sequelize, DataTypes) => {
       },
       categoryColor: { type: DataTypes.STRING },
       lessons: { type: DataTypes.STRING },
-      lessonsCount: { type: DataTypes.INTEGER },
+      lessonsCount: {
+        type: DataTypes.INTEGER,
+        validate: { min: { args: [0], msg: "Lessons count cannot be negative" } },
+      },
       level: { type: DataTypes.STRING },
       price: { type: DataTypes.STRING },
       priceValue: {
@@ -28,9 +35,19 @@ export const defineCourse = (sequelize, DataTypes) => {
         validate: { min: { args: [0], msg: "Price value cannot be negative" } },
       },
       currency: { type: DataTypes.STRING, defaultValue: "INR" },
-      rating: { type: DataTypes.FLOAT },
+      rating: {
+        type: DataTypes.FLOAT,
+        validate: {
+          min: { args: [0], msg: "Rating cannot be negative" },
+          max: { args: [5], msg: "Rating cannot exceed 5" },
+        },
+      },
       students: { type: DataTypes.STRING },
-      studentsCount: { type: DataTypes.INTEGER, defaultValue: 0 },
+      studentsCount: {
+        type: DataTypes.INTEGER,
+        defaultValue: 0,
+        validate: { min: { args: [0], msg: "Students count cannot be negative" } },
+      },
       image: {
         type: DataTypes.STRING,
         comment: "Course thumbnail path. Example: /uploads/courses/react.png",
