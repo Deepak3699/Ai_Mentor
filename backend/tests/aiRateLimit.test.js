@@ -7,7 +7,7 @@ import jwt from "jsonwebtoken";
 process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = "test-jwt-secret-for-rate-limits";
 process.env.AI_SERVICE_URL = "http://ai-service.test";
-// Test default environment limits
+// Test default environment limits (500ms window, 2 requests max)
 process.env.AI_RATE_LIMIT_WINDOW_MS = "500";
 process.env.AI_RATE_LIMIT_MAX_REQUESTS = "2";
 
@@ -15,28 +15,36 @@ const { default: express } = await import("express");
 const { default: AIVideo } = await import("../models/AIVideo.js");
 const { default: User } = await import("../models/User.js");
 const { default: Course } = await import("../models/Course.js");
+const { default: Module } = await import("../models/Module.js");
 const { default: Lesson } = await import("../models/Lesson.js");
 const { default: Preferences } = await import("../models/Preference.js");
 const { setVideoQueue, closeVideoQueue } = await import("../queues/videoQueue.js");
 const { default: aiRoutes } = await import("../routes/aiRoutes.js");
+const { default: courseRoutes } = await import("../routes/courseRoutes.js");
 const { createAIRateLimiter } = await import("../middleware/aiRateLimiter.js");
 
 const USERS = {
-  1: { id: 1, purchasedCourses: [{ courseId: 1 }] },
-  2: { id: 2, purchasedCourses: [{ courseId: 1 }] },
-  3: { id: 3, purchasedCourses: [] }, // not enrolled
+  1: { id: 1, role: "student", purchasedCourses: [{ courseId: 1 }] },
+  2: { id: 2, role: "student", purchasedCourses: [{ courseId: 1 }] },
+  3: { id: 3, role: "student", purchasedCourses: [] }, // not enrolled
+  10: { id: 10, role: "admin", purchasedCourses: [{ courseId: 1 }] },
+  20: { id: 20, role: "admin", purchasedCourses: [{ courseId: 1 }] },
 };
 
 const queueCalls = [];
+const syllabusProviderCalls = [];
 
 const originals = {
   findOneVideo: AIVideo.findOne,
   createVideo: AIVideo.create,
   findByPkUser: User.findByPk,
   findByPkCourse: Course.findByPk,
+  createModule: Module.create,
+  createLesson: Lesson.create,
   findByPkLesson: Lesson.findByPk,
   findOnePreferences: Preferences.findOne,
   consoleWarn: console.warn,
+  fetch: globalThis.fetch,
 };
 
 let server;
@@ -47,7 +55,13 @@ before(async () => {
   AIVideo.findOne = async () => null; // cache miss so it proceeds to generation
   AIVideo.create = async () => ({ id: "mock-video-job-id" });
   User.findByPk = async (id) => USERS[id] ?? null;
-  Course.findByPk = async (id) => ({ id: Number(id), title: `Course ${id}` });
+  Course.findByPk = async (id) => ({
+    id: Number(id),
+    title: `Course ${id}`,
+    category: "Programming",
+  });
+  Module.create = async (data) => ({ id: 1, ...data });
+  Lesson.create = async (data) => ({ id: 1, ...data });
   Lesson.findByPk = async (id) => ({ id: Number(id), title: `Lesson ${id}` });
   Preferences.findOne = async () => null;
 
@@ -62,9 +76,35 @@ before(async () => {
     loggedWarnings.push(args.join(" "));
   };
 
+  // Mock external AI service provider fetch for syllabus generation
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input?.url || "";
+    if (
+      url.includes("/generate-syllabus") &&
+      !url.includes("127.0.0.1") &&
+      !url.includes("localhost")
+    ) {
+      syllabusProviderCalls.push({ input, init });
+      return new Response(
+        JSON.stringify({
+          modules: [
+            {
+              title: "Module 1",
+              lessons: [{ title: "Lesson 1", duration: "5 mins", type: "video" }],
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    return originalFetch(input, init);
+  };
+
   const app = express();
   app.use(express.json());
   app.use("/api/ai", aiRoutes);
+  app.use("/api/courses", courseRoutes);
   server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -75,15 +115,19 @@ after(async () => {
   AIVideo.create = originals.createVideo;
   User.findByPk = originals.findByPkUser;
   Course.findByPk = originals.findByPkCourse;
+  Module.create = originals.createModule;
+  Lesson.create = originals.createLesson;
   Lesson.findByPk = originals.findByPkLesson;
   Preferences.findOne = originals.findOnePreferences;
   console.warn = originals.consoleWarn;
+  globalThis.fetch = originals.fetch;
   await closeVideoQueue();
   await new Promise((resolve) => server.close(resolve));
 });
 
 beforeEach(() => {
   queueCalls.length = 0;
+  syllabusProviderCalls.length = 0;
   loggedWarnings.length = 0;
 });
 
@@ -108,6 +152,18 @@ const postGenerate = (userId, body = {}) => {
   });
 };
 
+const postGenerateSyllabus = (userId, courseId = 1) => {
+  const headers = { "Content-Type": "application/json" };
+  if (userId) {
+    headers.Authorization = `Bearer ${jwt.sign({ id: userId }, process.env.JWT_SECRET)}`;
+  }
+
+  return fetch(`${baseUrl}/api/courses/${courseId}/generate-syllabus`, {
+    method: "POST",
+    headers,
+  });
+};
+
 test("unauthenticated request returns 401 and never touches rate limits or starts video generation", async () => {
   const res = await postGenerate(null);
   assert.equal(res.status, 401);
@@ -128,7 +184,7 @@ test("user within limit successfully triggers generation and enqueues job", asyn
   assert.equal(queueCalls[0].data.celebrity, "salman");
 });
 
-test("enforces per-user limit with 429 response, Retry-After header, and blocks queue execution", async () => {
+test("enforces per-user limit with 429 response, Retry-After header, blocks queue execution, and does not log raw user IDs or IPs", async () => {
   // User 1 makes requests up to the max limit (2 allowed per 500ms)
   await new Promise((resolve) => setTimeout(resolve, 600));
 
@@ -161,10 +217,13 @@ test("enforces per-user limit with 429 response, Retry-After header, and blocks 
   // Rejected request must NOT enqueue another job or call AI service
   assert.equal(queueCalls.length, 2, "Queue should not receive jobs for rejected 429 requests");
 
-  // Verify sensitive payload is not leaked in the 429 response or logs
+  // Verify sensitive payload is not leaked in response or logs
   assert.ok(!JSON.stringify(data3).includes("super-secret-user-prompt"));
   assert.ok(!loggedWarnings.some((w) => w.includes("super-secret-user-prompt")));
-  assert.ok(loggedWarnings.some((w) => w.includes("User 1 exceeded rate limit")));
+
+  // Verify safe logging: logs rate limit warning without logging raw user IDs or raw IPs
+  assert.ok(loggedWarnings.some((w) => w.includes("Rate limit exceeded")));
+  assert.ok(!loggedWarnings.some((w) => w.includes("User 1") || w.includes("127.0.0.1")));
 });
 
 test("different users are tracked independently (user isolation)", async () => {
@@ -237,6 +296,158 @@ test("cached video requests do not consume rate limit quota and remain accessibl
 
   // Restore cache miss mock for other tests
   AIVideo.findOne = async () => null;
+});
+
+test("concurrent cache-miss requests create only one DB record and one queue job", async () => {
+  const inMemoryVideos = new Map();
+  const originalFindOne = AIVideo.findOne;
+  const originalCreate = AIVideo.create;
+
+  try {
+    AIVideo.findOne = async ({ where }) => {
+      const key = `${where.courseId}:${where.lessonId}:${where.celebrity}`;
+      return inMemoryVideos.get(key) || null;
+    };
+
+    AIVideo.create = async (data) => {
+      const key = `${data.courseId}:${data.lessonId}:${data.celebrity}`;
+      if (inMemoryVideos.has(key)) {
+        const err = new Error("Validation error");
+        err.name = "SequelizeUniqueConstraintError";
+        throw err;
+      }
+      const record = {
+        id: `ai-rec-${Date.now()}-${Math.random()}`,
+        ...data,
+        status: "pending",
+        reload: async () => {},
+      };
+      inMemoryVideos.set(key, record);
+      return record;
+    };
+
+    // Wait to ensure window starts clean
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    // Two concurrent requests for the exact same un-cached lesson
+    const lessonKey = "concurrent-lesson-123";
+    const [res1, res2] = await Promise.all([
+      postGenerate(1, { lessonId: lessonKey }),
+      postGenerate(2, { lessonId: lessonKey }),
+    ]);
+
+    assert.equal(res1.status, 200);
+    assert.equal(res2.status, 200);
+
+    const data1 = await res1.json();
+    const data2 = await res2.json();
+
+    assert.equal(data1.status, "processing");
+    assert.equal(data2.status, "processing");
+
+    // Proves only ONE record was created in the database
+    assert.equal(inMemoryVideos.size, 1);
+
+    // Proves only ONE BullMQ queue job was created
+    assert.equal(queueCalls.length, 1);
+    assert.equal(queueCalls[0].data.lessonId, lessonKey);
+
+    // One request started generation and the other was returned in-progress state
+    const messages = [data1.message, data2.message];
+    assert.ok(messages.includes("Video generation started"));
+    assert.ok(messages.includes("Video generation is already in progress"));
+  } finally {
+    AIVideo.findOne = originalFindOne;
+    AIVideo.create = originalCreate;
+  }
+});
+
+/* =========================================================
+   Route-level Syllabus Generation Tests
+   ========================================================= */
+
+test("syllabus generation returns 401 when unauthenticated and never invokes AI provider", async () => {
+  const res = await postGenerateSyllabus(null);
+  assert.equal(res.status, 401);
+  const data = await res.json();
+  assert.equal(data.message, "Not authorized, no token");
+  assert.equal(syllabusProviderCalls.length, 0);
+});
+
+test("syllabus generation returns 403 when user is not an admin and never invokes AI provider", async () => {
+  const res = await postGenerateSyllabus(1); // User 1 is student
+  assert.equal(res.status, 403);
+  const data = await res.json();
+  assert.equal(data.message, "Not authorized, admin access required");
+  assert.equal(syllabusProviderCalls.length, 0);
+});
+
+test("admin within rate limit successfully generates syllabus and invokes provider", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  const res = await postGenerateSyllabus(10); // User 10 is admin
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.message, "Syllabus generated successfully");
+  assert.equal(syllabusProviderCalls.length, 1);
+});
+
+test("syllabus generation enforces per-user rate limit with 429, Retry-After, and rejects provider calls", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  // Admin 10 makes 2 requests (limit is 2 per 500ms)
+  const res1 = await postGenerateSyllabus(10);
+  assert.equal(res1.status, 200);
+  assert.equal(syllabusProviderCalls.length, 1);
+
+  const res2 = await postGenerateSyllabus(10);
+  assert.equal(res2.status, 200);
+  assert.equal(syllabusProviderCalls.length, 2);
+
+  // 3rd request exceeds rate limit
+  const res3 = await postGenerateSyllabus(10);
+  assert.equal(res3.status, 429);
+
+  // Check headers and structure
+  const retryHeader = res3.headers.get("retry-after");
+  assert.ok(retryHeader, "Expected Retry-After header on 429 response");
+  assert.ok(Number(retryHeader) >= 1);
+
+  const data3 = await res3.json();
+  assert.equal(data3.error, "Too Many Requests");
+  assert.ok(data3.message.includes("Too many AI generation requests"));
+  assert.ok(data3.retryAfter > 0);
+
+  // Provider was NOT called for rejected 429 request
+  assert.equal(syllabusProviderCalls.length, 2);
+});
+
+test("syllabus generation maintains user isolation (admin 1 exhausted does not block admin 2)", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  // Exhaust Admin 10
+  assert.equal((await postGenerateSyllabus(10)).status, 200);
+  assert.equal((await postGenerateSyllabus(10)).status, 200);
+  assert.equal((await postGenerateSyllabus(10)).status, 429);
+
+  // Admin 20 should succeed
+  const resAdmin20 = await postGenerateSyllabus(20);
+  assert.equal(resAdmin20.status, 200);
+});
+
+test("video and syllabus generation quotas are isolated by default", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  // Admin 10 exhausts video generation quota (2 allowed)
+  assert.equal((await postGenerate(10)).status, 200);
+  assert.equal((await postGenerate(10)).status, 200);
+  assert.equal((await postGenerate(10)).status, 429);
+
+  // Admin 10 should STILL be able to generate syllabus because quotas are separate
+  const syllabusRes = await postGenerateSyllabus(10);
+  assert.equal(syllabusRes.status, 200);
+  const data = await syllabusRes.json();
+  assert.equal(data.message, "Syllabus generated successfully");
 });
 
 test("createAIRateLimiter allows custom configuration and standalone usage", async () => {

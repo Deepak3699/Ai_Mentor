@@ -13,4 +13,10 @@ export const registerLimiter = createLimiter(10, 60, "Too many accounts created.
 
 export const forgotLimiter = createLimiter(5, 60, "Too many reset requests. Try later.");
 
-export { aiGenerationLimiter, createAIRateLimiter } from "./aiRateLimiter.js";
+export {
+  aiGenerationLimiter,
+  videoGenerationLimiter,
+  syllabusGenerationLimiter,
+  createAIRateLimiter,
+  createRedisRateLimitStore,
+} from "./aiRateLimiter.js";

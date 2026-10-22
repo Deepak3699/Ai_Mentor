@@ -23,7 +23,7 @@ import {
   updateLessonVideoSchema,
   addSubtopicsSchema,
 } from "../schemas/courseSchema.js";
-import { aiGenerationLimiter } from "../middleware/aiRateLimiter.js";
+import { syllabusGenerationLimiter } from "../middleware/aiRateLimiter.js";
 import feedbackRoutes from "./feedbackRoutes.js";
 
 const router = express.Router();
@@ -50,7 +50,7 @@ router.route("/").post(protect, admin, validate(addCourseSchema), addCourse);
 router.route("/:id").delete(protect, admin, deleteCourse);
 router
   .route("/:id/generate-syllabus")
-  .post(protect, admin, aiGenerationLimiter, generateCourseSyllabusWithAI);
+  .post(protect, admin, syllabusGenerationLimiter, generateCourseSyllabusWithAI);
 router.route("/:courseId/modules").post(protect, admin, validate(addModulesSchema), addModules);
 router
   .route("/:courseId/modules/:moduleId/lessons")

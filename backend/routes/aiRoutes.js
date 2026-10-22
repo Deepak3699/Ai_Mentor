@@ -6,14 +6,81 @@ import { generateVideoSchema, explainCodeSchema } from "../schemas/aiSchema.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
 import { getVideoQueue } from "../queues/videoQueue.js";
-import { aiGenerationLimiter } from "../middleware/aiRateLimiter.js";
+import { videoGenerationLimiter } from "../middleware/aiRateLimiter.js";
 import { Op } from "sequelize";
 import dotenv from "dotenv";
 dotenv.config();
 
 const router = express.Router();
 
-const serveCachedVideo = async (req, res, next) => {
+export const tryServeExistingVideo = async (aiVideo, res) => {
+  if (!aiVideo) return false;
+
+  // Never delete or replace a record whose generation is in progress.
+  if (["pending", "processing"].includes(aiVideo.status)) {
+    res.json({
+      jobId: aiVideo.id,
+      status: "processing",
+      message: "Video generation is already in progress",
+    });
+    return true;
+  }
+
+  // Return a valid completed Cloudinary cache immediately.
+  if ((aiVideo.status === "completed" || !aiVideo.status) && aiVideo.videoUrl) {
+    let parsedUrl;
+
+    try {
+      parsedUrl = new URL(aiVideo.videoUrl);
+    } catch {
+      parsedUrl = null;
+    }
+
+    if (
+      parsedUrl &&
+      parsedUrl.protocol === "https:" &&
+      parsedUrl.hostname.endsWith("res.cloudinary.com")
+    ) {
+      res.json({
+        videoUrl: aiVideo.videoUrl,
+        transcriptName: aiVideo.transcriptName,
+        jobId: aiVideo.jobId,
+        meta: aiVideo.meta,
+        cached: true,
+      });
+      return true;
+    }
+
+    // Verify a local video only when a URL exists.
+    if (aiVideo.videoUrl.trim()) {
+      const filename = aiVideo.videoUrl.split("/").pop();
+
+      try {
+        const check = await fetch(
+          `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`,
+          { method: "HEAD" },
+        );
+
+        if (check.ok) {
+          res.json({
+            videoUrl: aiVideo.videoUrl,
+            transcriptName: aiVideo.transcriptName,
+            jobId: aiVideo.jobId,
+            meta: aiVideo.meta,
+            cached: true,
+          });
+          return true;
+        }
+      } catch (error) {
+        console.warn("Cached video verification failed:", error.message);
+      }
+    }
+  }
+
+  return false;
+};
+
+export const serveCachedVideo = async (req, res, next) => {
   try {
     const { courseId, lessonId, celebrity } = req.body;
 
@@ -33,63 +100,8 @@ const serveCachedVideo = async (req, res, next) => {
     };
 
     const aiVideo = await AIVideo.findOne({ where: key });
-
-    // Never delete or replace a record whose generation is in progress.
-    if (aiVideo && ["pending", "processing"].includes(aiVideo.status)) {
-      return res.json({
-        jobId: aiVideo.id,
-        status: "processing",
-        message: "Video generation is already in progress",
-      });
-    }
-
-    // Return a valid completed Cloudinary cache immediately.
-    if (aiVideo && (aiVideo.status === "completed" || !aiVideo.status) && aiVideo.videoUrl) {
-      let parsedUrl;
-
-      try {
-        parsedUrl = new URL(aiVideo.videoUrl);
-      } catch {
-        parsedUrl = null;
-      }
-
-      if (
-        parsedUrl &&
-        parsedUrl.protocol === "https:" &&
-        parsedUrl.hostname.endsWith("res.cloudinary.com")
-      ) {
-        return res.json({
-          videoUrl: aiVideo.videoUrl,
-          transcriptName: aiVideo.transcriptName,
-          jobId: aiVideo.jobId,
-          meta: aiVideo.meta,
-          cached: true,
-        });
-      }
-
-      // Verify a local video only when a URL exists.
-      if (aiVideo.videoUrl.trim()) {
-        const filename = aiVideo.videoUrl.split("/").pop();
-
-        try {
-          const check = await fetch(
-            `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`,
-            { method: "HEAD" },
-          );
-
-          if (check.ok) {
-            return res.json({
-              videoUrl: aiVideo.videoUrl,
-              transcriptName: aiVideo.transcriptName,
-              jobId: aiVideo.jobId,
-              meta: aiVideo.meta,
-              cached: true,
-            });
-          }
-        } catch (error) {
-          console.warn("Cached video verification failed:", error.message);
-        }
-      }
+    if (await tryServeExistingVideo(aiVideo, res)) {
+      return;
     }
 
     // Cache miss or needs generation: pass to rate limiter and generation handler
@@ -105,7 +117,7 @@ router.post(
   protect,
   validate(generateVideoSchema),
   serveCachedVideo,
-  aiGenerationLimiter,
+  videoGenerationLimiter,
   async (req, res) => {
     let aiVideo;
 
@@ -158,58 +170,8 @@ router.post(
 
       aiVideo = await AIVideo.findOne({ where: key });
 
-      // Never delete or replace a record whose generation is in progress.
-      if (aiVideo && ["pending", "processing"].includes(aiVideo.status)) {
-        return sendProcessing(aiVideo);
-      }
-
-      // Return a valid completed Cloudinary cache immediately.
-      if (aiVideo && (aiVideo.status === "completed" || !aiVideo.status) && aiVideo.videoUrl) {
-        let parsedUrl;
-
-        try {
-          parsedUrl = new URL(aiVideo.videoUrl);
-        } catch {
-          parsedUrl = null;
-        }
-
-        if (
-          parsedUrl &&
-          parsedUrl.protocol === "https:" &&
-          parsedUrl.hostname.endsWith("res.cloudinary.com")
-        ) {
-          return res.json({
-            videoUrl: aiVideo.videoUrl,
-            transcriptName: aiVideo.transcriptName,
-            jobId: aiVideo.jobId,
-            meta: aiVideo.meta,
-            cached: true,
-          });
-        }
-
-        // Verify a local video only when a URL exists.
-        if (aiVideo.videoUrl.trim()) {
-          const filename = aiVideo.videoUrl.split("/").pop();
-
-          try {
-            const check = await fetch(
-              `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`,
-              { method: "HEAD" },
-            );
-
-            if (check.ok) {
-              return res.json({
-                videoUrl: aiVideo.videoUrl,
-                transcriptName: aiVideo.transcriptName,
-                jobId: aiVideo.jobId,
-                meta: aiVideo.meta,
-                cached: true,
-              });
-            }
-          } catch (error) {
-            console.warn("Cached video verification failed:", error.message);
-          }
-        }
+      if (aiVideo && (await tryServeExistingVideo(aiVideo, res))) {
+        return;
       }
 
       const titles = await getCourseAndLessonTitles(courseId, lessonId);
@@ -258,34 +220,8 @@ router.post(
             throw error;
           }
 
-          if (["pending", "processing"].includes(aiVideo.status)) {
-            return sendProcessing(aiVideo);
-          }
-
-          if (aiVideo && (aiVideo.status === "completed" || !aiVideo.status) && aiVideo.videoUrl) {
-            let parsedUrl;
-
-            try {
-              parsedUrl = new URL(aiVideo.videoUrl);
-            } catch {
-              parsedUrl = null;
-            }
-
-            if (
-              parsedUrl &&
-              parsedUrl.protocol === "https:" &&
-              parsedUrl.hostname.endsWith("res.cloudinary.com")
-            ) {
-              return res.json({
-                videoUrl: aiVideo.videoUrl,
-                transcriptName: aiVideo.transcriptName,
-                jobId: aiVideo.jobId,
-                meta: aiVideo.meta,
-                cached: true,
-              });
-            }
-
-            return sendProcessing(aiVideo, "An existing video record was found");
+          if (await tryServeExistingVideo(aiVideo, res)) {
+            return;
           }
 
           const claimed = await claimExistingVideo(aiVideo);

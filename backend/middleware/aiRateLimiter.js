@@ -1,4 +1,6 @@
 import rateLimit from "express-rate-limit";
+import { RedisStore } from "rate-limit-redis";
+import Redis from "ioredis";
 
 const DEFAULT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const DEFAULT_MAX_REQUESTS = 5;
@@ -25,8 +27,41 @@ export const parseLimitOptions = (overrides = {}) => {
   };
 };
 
+/**
+ * Creates a shared RedisStore for rate-limit-redis when deploying in multi-instance production.
+ */
+export const createRedisRateLimitStore = (options = {}) => {
+  const host = options.host || process.env.REDIS_HOST || "127.0.0.1";
+  const port = Number(options.port || process.env.REDIS_PORT || 6379);
+  const client =
+    options.client || new Redis(process.env.REDIS_URL || { host, port, enableOfflineQueue: false });
+
+  return new RedisStore({
+    sendCommand: (...args) => client.call(...args),
+    prefix: options.prefix || "rl:ai:",
+  });
+};
+
 export const createAIRateLimiter = (options = {}) => {
   const parsed = parseLimitOptions(options);
+  const sharedQuota = process.env.AI_RATE_LIMIT_SHARED_QUOTA === "true";
+  const scope = sharedQuota ? "ai" : options.scope || "ai";
+
+  let store = options.store;
+  if (
+    !store &&
+    (process.env.USE_REDIS_RATE_LIMIT === "true" ||
+      (process.env.NODE_ENV === "production" && !process.env.DISABLE_REDIS_RATE_LIMIT))
+  ) {
+    try {
+      store = createRedisRateLimitStore({ prefix: `rl:${scope}:` });
+    } catch (err) {
+      console.warn(
+        "[AI Rate Limit] Failed to initialize Redis store, falling back to memory store:",
+        err.message,
+      );
+    }
+  }
 
   return rateLimit({
     windowMs: parsed.windowMs,
@@ -34,11 +69,12 @@ export const createAIRateLimiter = (options = {}) => {
     standardHeaders: true,
     legacyHeaders: false,
     validate: false,
+    store,
     keyGenerator: (req) => {
       if (req.user?.id) {
-        return `user:${req.user.id}`;
+        return `${scope}:user:${req.user.id}`;
       }
-      return req.ip || "unknown";
+      return `${scope}:ip:${req.ip || "unknown"}`;
     },
     handler: (req, res, _next, limiterOptions) => {
       const headerRetry = res.getHeader("Retry-After");
@@ -55,9 +91,9 @@ export const createAIRateLimiter = (options = {}) => {
       const hint =
         safeRetrySeconds < 60 ? `${safeRetrySeconds} second(s)` : `${retryMinutes} minute(s)`;
 
-      const identifier = req.user?.id ? `User ${req.user.id}` : `IP ${req.ip || "unknown"}`;
+      // Safe logging: log event without raw user IDs or IP addresses
       console.warn(
-        `[AI Rate Limit] ${identifier} exceeded rate limit on ${req.method} ${req.originalUrl || req.url}`,
+        `[AI Rate Limit] Rate limit exceeded on ${req.method} ${req.originalUrl || req.url}`,
       );
 
       return res.status(429).json({
@@ -70,4 +106,6 @@ export const createAIRateLimiter = (options = {}) => {
   });
 };
 
-export const aiGenerationLimiter = createAIRateLimiter();
+export const videoGenerationLimiter = createAIRateLimiter({ scope: "video" });
+export const syllabusGenerationLimiter = createAIRateLimiter({ scope: "syllabus" });
+export const aiGenerationLimiter = videoGenerationLimiter;
