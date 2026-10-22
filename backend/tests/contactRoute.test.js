@@ -62,14 +62,18 @@ after(async () => {
 });
 
 test("anonymous submission stores userId as null", async () => {
-  ContactMessage.create = async (data) => ({ id: 1, ...data });
+  let saved;
+  ContactMessage.create = async (data) => {
+    saved = data;
+    return { id: 1, ...data };
+  };
 
   const res = await post(validBody);
   const data = await res.json();
 
   assert.equal(res.status, 201);
   assert.equal(data.success, true);
-  assert.equal(data.data.userId, null);
+  assert.equal(saved.userId, null);
 });
 
 test("authenticated submission derives userId from verified token", async () => {
@@ -81,6 +85,7 @@ test("authenticated submission derives userId from verified token", async () => 
     email: "authuser@example.com",
     isBlocked: false,
   });
+
   ContactMessage.create = async (data) => ({ id: 2, ...data });
 
   const res = await post(validBody, token);
@@ -167,6 +172,7 @@ test("short subject and message are rejected before persistence", async () => {
 
 test("invalid email returns 400", async () => {
   const res = await post({ ...validBody, email: "invalid" });
+
   assert.equal(res.status, 400);
   assert.equal((await res.json()).success, false);
 });

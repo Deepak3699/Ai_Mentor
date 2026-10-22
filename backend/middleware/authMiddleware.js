@@ -21,6 +21,7 @@ const protect = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
     const user = await User.findByPk(decoded.id, {
       attributes: { exclude: ["password"] },
     });
@@ -58,6 +59,7 @@ const protect = async (req, res, next) => {
 const optionalProtect = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
+  // No token is allowed for public contact-form submissions.
   if (!authHeader) {
     return next();
   }
@@ -78,6 +80,7 @@ const optionalProtect = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
     const user = await User.findByPk(decoded.id, {
       attributes: { exclude: ["password"] },
     });
