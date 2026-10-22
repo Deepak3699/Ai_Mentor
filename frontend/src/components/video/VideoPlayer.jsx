@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { apiFetch } from "../../lib/api";
 import LoadingSpinner from "../common/LoadingSpinner";
 import {
   Play,
@@ -38,7 +39,54 @@ const VideoPlayer = ({
   const [isBuffering, setIsBuffering] = useState(false);
   const [showCaptions, setShowCaptions] = useState(true);
   const [showControls, setShowControls] = useState(true);
+  const [authenticatedVideoUrl, setAuthenticatedVideoUrl] = useState(null);
+  const [isLoadingAuthenticatedVideo, setIsLoadingAuthenticatedVideo] = useState(false);
+  const [authenticatedVideoError, setAuthenticatedVideoError] = useState(false);
   const controlsTimeoutRef = useRef(null);
+  const requiresAuthenticatedFetch = aiVideoUrl?.startsWith("/api/ai/video/") ?? false;
+
+  useEffect(() => {
+    if (!requiresAuthenticatedFetch) {
+      setAuthenticatedVideoUrl(null);
+      setIsLoadingAuthenticatedVideo(false);
+      setAuthenticatedVideoError(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    let objectUrl;
+    let active = true;
+    setAuthenticatedVideoUrl(null);
+    setIsLoadingAuthenticatedVideo(true);
+    setAuthenticatedVideoError(false);
+
+    apiFetch(aiVideoUrl, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Video request failed with status ${response.status}`);
+        }
+        return response.blob();
+      })
+      .then((videoBlob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(videoBlob);
+        setAuthenticatedVideoUrl(objectUrl);
+      })
+      .catch((error) => {
+        if (error.name === "AbortError") return;
+        console.error("Failed to load AI video:", error);
+        if (active) setAuthenticatedVideoError(true);
+      })
+      .finally(() => {
+        if (active) setIsLoadingAuthenticatedVideo(false);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [aiVideoUrl, requiresAuthenticatedFetch]);
 
   // Handle buffering states
   useEffect(() => {
@@ -79,10 +127,17 @@ const VideoPlayer = ({
     } else {
       v.pause();
     }
-  }, [isPlaying, aiVideoUrl, videoRef]);
+  }, [isPlaying, aiVideoUrl, authenticatedVideoUrl, videoRef]);
 
   // Unified loading state
-  const showLoading = isAIVideoLoading || isBuffering;
+  const showLoading = isAIVideoLoading || isBuffering || isLoadingAuthenticatedVideo;
+  const videoSource = aiVideoUrl
+    ? requiresAuthenticatedFetch
+      ? authenticatedVideoUrl
+      : aiVideoUrl
+    : selectedCelebrity
+      ? celebrityVideoMap[selectedCelebrity]?.video
+      : currentLesson?.videoUrl;
 
   // Auto-hide controls
   const resetControlsTimeout = () => {
@@ -110,12 +165,7 @@ const VideoPlayer = ({
       <video
         key={aiVideoUrl || selectedCelebrity || currentLesson?.id}
         ref={videoRef}
-        src={
-          aiVideoUrl ||
-          (selectedCelebrity
-            ? celebrityVideoMap[selectedCelebrity]?.video
-            : currentLesson?.videoUrl)
-        }
+        src={videoSource || undefined}
         className="w-full h-full object-contain"
         preload="metadata"
         controls={false}
@@ -133,6 +183,14 @@ const VideoPlayer = ({
             <LoadingSpinner variant="compact" light label="Loading video" />
             <p className="text-white mt-2 text-sm">Loading video...</p>
           </div>
+        </div>
+      )}
+
+      {authenticatedVideoError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-10">
+          <p role="alert" className="px-4 text-center text-white">
+            Unable to load this video. Please refresh the page and try again.
+          </p>
         </div>
       )}
 

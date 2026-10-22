@@ -11,6 +11,21 @@ dotenv.config();
 
 const router = express.Router();
 
+const isCloudinaryUrl = (value) => {
+  try {
+    const parsedUrl = new URL(value);
+    return (
+      parsedUrl.protocol === "https:" &&
+      (parsedUrl.hostname === "res.cloudinary.com" ||
+        parsedUrl.hostname.endsWith(".res.cloudinary.com"))
+    );
+  } catch {
+    return false;
+  }
+};
+
+const getLocalVideoUrl = (video) => `/api/ai/video/${video.courseId}/${video.id}.mp4`;
+
 router.post("/generate-video", protect, validate(generateVideoSchema), async (req, res) => {
   try {
     const { courseId, lessonId, celebrity, voice_id, speech_rate, speech_pitch } = req.body;
@@ -34,17 +49,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
     });
 
     if (cachedVideo) {
-      let parsedUrl;
-      try {
-        parsedUrl = new URL(cachedVideo.videoUrl);
-      } catch {
-        parsedUrl = null;
-      }
-      if (
-        parsedUrl &&
-        parsedUrl.protocol === "https:" &&
-        parsedUrl.hostname.endsWith("res.cloudinary.com")
-      ) {
+      if (isCloudinaryUrl(cachedVideo.videoUrl)) {
         return res.json({
           videoUrl: cachedVideo.videoUrl,
           transcriptName: cachedVideo.transcriptName,
@@ -69,7 +74,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
         console.log("✅ Cached video verified.");
 
         return res.json({
-          videoUrl: cachedVideo.videoUrl,
+          videoUrl: getLocalVideoUrl(cachedVideo),
           transcriptName: cachedVideo.transcriptName,
           jobId: cachedVideo.jobId,
           meta: cachedVideo.meta,
@@ -187,9 +192,12 @@ router.get("/status/:jobId", protect, async (req, res) => {
     }
 
     if (videoJob.status === "completed" && videoJob.videoUrl) {
+      const isCloudinaryVideo = isCloudinaryUrl(videoJob.videoUrl);
       return res.json({
         status: "ready",
-        cloudinary_url: videoJob.videoUrl,
+        ...(isCloudinaryVideo
+          ? { cloudinary_url: videoJob.videoUrl }
+          : { local_video_url: getLocalVideoUrl(videoJob) }),
         transcriptName: videoJob.transcriptName,
         jobId: jobId, // return same ID to frontend
         meta: videoJob.meta,
@@ -214,32 +222,24 @@ router.get("/status/:jobId", protect, async (req, res) => {
 
     const data = await response.json();
 
-    // 🌥️ If video is ready and Cloudinary URL is available, persist it to DB
-    const aiVideo = await AIVideo.findOne({
-      where: { jobId: String(jobId) },
-      attributes: ["courseId"],
-    });
-
-    if (data.status === "ready" && data.local_video_url && aiVideo) {
-      const filename = data.local_video_url.split("/").pop();
-      data.local_video_url = "/api/ai/video/" + aiVideo.courseId + "/" + filename;
-    }
-
     if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
-      try {
-        await AIVideo.update(
-          { videoUrl: data.cloudinary_url, status: "completed", meta: data.meta },
-          { where: { id: jobId } },
-        );
-        console.log(`☁️ AIVideo DB updated with Cloudinary URL for DB ID: ${jobId}`);
-      } catch (dbErr) {
-        console.error("⚠️ Failed to update AIVideo with Cloudinary URL:", dbErr.message);
+      const localVideoFilename = data.local_video_url?.split(/[\\/]/).pop();
+      if (!data.cloudinary_url && !/^[\w.-]+\.mp4$/i.test(localVideoFilename || "")) {
+        throw new Error("AI service returned an invalid local video filename");
+      }
+
+      const storedVideoUrl = data.cloudinary_url || localVideoFilename;
+      await videoJob.update({
+        videoUrl: storedVideoUrl,
+        status: "completed",
+        meta: data.meta,
+      });
+
+      if (!data.cloudinary_url) {
+        data.local_video_url = getLocalVideoUrl(videoJob);
       }
     } else if (data.status === "failed") {
-      await AIVideo.update(
-        { status: "failed", error: "Failed in AI service" },
-        { where: { id: jobId } },
-      );
+      await videoJob.update({ status: "failed", error: "Failed in AI service" });
     }
 
     data.jobId = jobId; // ensure frontend gets our DB id, not python id
