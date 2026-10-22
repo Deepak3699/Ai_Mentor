@@ -17,6 +17,13 @@ let baseUrl;
 
 const originalCreate = ContactMessage.create;
 const originalFindByPk = User.findByPk;
+const originalConsoleError = console.error;
+
+const validBody = {
+  email: "test@example.com",
+  subject: "Need Help",
+  message: "This is a valid test message.",
+};
 
 const post = (body, token) => {
   const headers = { "Content-Type": "application/json" };
@@ -32,12 +39,6 @@ const post = (body, token) => {
   });
 };
 
-const validBody = {
-  email: "test@example.com",
-  subject: "Need Help",
-  message: "This is a valid test message.",
-};
-
 before(async () => {
   const app = express();
   app.use(express.json());
@@ -51,6 +52,7 @@ before(async () => {
 afterEach(() => {
   ContactMessage.create = originalCreate;
   User.findByPk = originalFindByPk;
+  console.error = originalConsoleError;
 });
 
 after(async () => {
@@ -145,10 +147,7 @@ test("short subject and message are rejected before persistence", async () => {
     creates += 1;
   };
 
-  let res = await post({
-    ...validBody,
-    subject: "Hi",
-  });
+  let res = await post({ ...validBody, subject: "Hi" });
 
   assert.equal(res.status, 400);
   assert.equal(
@@ -156,10 +155,7 @@ test("short subject and message are rejected before persistence", async () => {
     "Subject must be at least 3 characters"
   );
 
-  res = await post({
-    ...validBody,
-    message: "Short",
-  });
+  res = await post({ ...validBody, message: "Short" });
 
   assert.equal(res.status, 400);
   assert.equal(
@@ -167,6 +163,12 @@ test("short subject and message are rejected before persistence", async () => {
     "Message must be at least 10 characters"
   );
   assert.equal(creates, 0);
+});
+
+test("invalid email returns 400", async () => {
+  const res = await post({ ...validBody, email: "invalid" });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).success, false);
 });
 
 test("values are trimmed before saving", async () => {
@@ -192,18 +194,13 @@ test("persistence failure returns a safe 500 response", async () => {
   ContactMessage.create = async () => {
     throw new Error("database unavailable");
   };
-
-  const originalError = console.error;
   console.error = () => {};
 
-  try {
-    const res = await post(validBody);
-    const data = await res.json();
+  const res = await post(validBody);
+  const data = await res.json();
 
-    assert.equal(res.status, 500);
-    assert.equal(data.success, false);
-    assert.equal(data.message, "Server error while sending message");
-  } finally {
-    console.error = originalError;
-  }
+  assert.equal(res.status, 500);
+  assert.equal(data.success, false);
+  assert.equal(data.message, "Server error while sending message");
 });
+
