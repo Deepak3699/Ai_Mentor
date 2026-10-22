@@ -214,3 +214,27 @@ test("the abort signal is handed to the wait between polls", async () => {
   assert.equal(seen[0][1] instanceof AbortSignal, true);
   assert.equal(seen[0][1].aborted, false);
 });
+
+test("429 rate limit errors produce a distinct retryable rate_limit error", () => {
+  const http429Error = new Error(
+    "Too many AI generation requests. Please try again in 15 minute(s).",
+  );
+  http429Error.status = 429;
+  http429Error.retryAfter = 900;
+
+  const result = classifyGenerationError(http429Error);
+  assert.equal(result.type, "rate_limit");
+  assert.equal(result.retryable, true);
+  assert.equal(
+    result.message,
+    "Too many AI generation requests. Please try again in 15 minute(s).",
+  );
+  assert.equal(result.details.retryAfter, 900);
+});
+
+test("errors mentioning rate limit are categorized as rate_limit", () => {
+  const genericError = new Error("Rate limit exceeded for user");
+  const result = classifyGenerationError(genericError);
+  assert.equal(result.type, "rate_limit");
+  assert.equal(result.retryable, true);
+});

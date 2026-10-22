@@ -248,3 +248,55 @@ The AI route (`/api/ai/generate-video`) implements a **cache-first** strategy:
 3. If the cache is valid → return immediately (no generation cost).
 4. If cache is stale/missing → call the Python AI service, then save the result to the DB.
 5. When the job completes and a Cloudinary URL is available, it is persisted to the `AIVideo` record for CDN serving.
+
+---
+
+## ⏱️ AI Generation Rate Limiting
+
+Expensive AI generation endpoints (`/api/ai/generate-video` and `/api/courses/:id/generate-syllabus`) enforce server-side, per-user rate limits to prevent provider quota exhaustion and protect server resources.
+
+### Architecture & Shared Store
+
+- **Multi-Instance Production Deployments**: Rate limits are backed by Redis via `rate-limit-redis` and `ioredis`. All backend instances share the same rate-limit counters, surviving server restarts and scaling horizontally.
+  - Enabled automatically in `production` environment (or explicitly with `USE_REDIS_RATE_LIMIT=true`).
+  - Configurable via `REDIS_URL` or `REDIS_HOST` / `REDIS_PORT`.
+- **Local Development & Testing**: When Redis is not configured or in development/test environments, an in-memory store is used by default with zero setup required.
+
+### Quota Scopes: Video vs. Syllabus
+
+- **Independent Quotas (Default)**: Video generation (`videoGenerationLimiter`, key: `video:user:<id>`) and syllabus generation (`syllabusGenerationLimiter`, key: `syllabus:user:<id>`) have separate quota pools. Because video generation is learner-facing and syllabus generation is admin-facing, heavy video generation by learners does not starve admin syllabus workflows.
+- **Shared Quota Option**: Setting `AI_RATE_LIMIT_SHARED_QUOTA=true` merges both endpoints into a single unified quota pool (`ai:user:<id>`) if an operator prefers a combined cap.
+
+### Cache Deduplication & Concurrency Guarantees
+
+- **Cache-Hit Bypass**: Completed, verified video caches or in-progress jobs are served directly without consuming the user's generation rate limit quota.
+- **Single Authoritative Cache Path**: All cache-lookup, validation, and in-progress status handling is centralized in `tryServeExistingVideo`.
+- **Concurrent Cache-Miss Safety**: Under concurrent generation requests for the same un-cached lesson, atomic database constraints and state checks guarantee that only one DB record is created and only one BullMQ queue job is submitted. Concurrently arriving requests receive the in-progress status and wait cleanly.
+
+### Safe Logging & Privacy
+
+Rate limit rejections log the HTTP method and route only (e.g. `[AI Rate Limit] Rate limit exceeded on POST /api/ai/generate-video`). Raw user IDs, IP addresses, and sensitive generation prompts are never written to logs or returned in error payloads.
+
+### Configuration
+
+Limits are configured via environment variables with safe defaults:
+
+- `AI_RATE_LIMIT_WINDOW_MS`: Rate limit time window in milliseconds (default: `900000` = 15 minutes). Alternatively, specify `AI_RATE_LIMIT_WINDOW_MINUTES`.
+- `AI_RATE_LIMIT_MAX_REQUESTS`: Maximum requests allowed per user within the window (default: `5`).
+- `USE_REDIS_RATE_LIMIT`: Set to `true` to force Redis shared store in any environment (default: `false` in dev/test, enabled in production).
+- `REDIS_URL`: Redis connection string (e.g., `redis://127.0.0.1:6379`).
+- `AI_RATE_LIMIT_SHARED_QUOTA`: Set to `true` to share quota between video and syllabus (default: `false`).
+
+### Response Format
+
+When a user exceeds the limit, the server responds with HTTP `429 Too Many Requests` including standard `Retry-After: <seconds>` headers and a clear user-facing retry hint:
+
+```json
+{
+  "message": "Too many AI generation requests. Please try again in 15 minute(s).",
+  "error": "Too Many Requests",
+  "retryAfter": 900
+}
+```
+
+Rejected requests are intercepted before enqueueing BullMQ jobs or calling third-party AI providers. Unauthenticated requests are rejected with `401 Unauthorized` and cannot bypass rate limiting. Non-admin syllabus requests are rejected with `403 Forbidden`.

@@ -114,4 +114,28 @@ describe("generation submission reliability", () => {
     );
     await expect(getAIVideo({})).rejects.toMatchObject({ type: "invalid_response" });
   });
+
+  it("attaches 429 status and retryAfter hint when rate limited", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: false,
+        status: 429,
+        headers: new Headers({ "Retry-After": "900" }),
+        json: async () => ({
+          message: "Too many AI generation requests. Please try again in 15 minute(s).",
+          retryAfter: 900,
+        }),
+      })),
+    );
+
+    try {
+      await getAIVideo({});
+      expect.unreachable();
+    } catch (err) {
+      expect(err.type).toBe("rate_limit");
+      expect(err.status).toBe(429);
+      expect(err.retryAfter).toBe(900);
+    }
+  });
 });

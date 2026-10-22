@@ -21,6 +21,18 @@ export const createAbortError = () => {
 export const classifyGenerationError = (error) => {
   if (error instanceof AIGenerationError) return error;
   if (isAbortError(error)) return error;
+
+  if (error?.status === 429 || /rate limit|too many requests/i.test(error?.message || "")) {
+    return new AIGenerationError(
+      "rate_limit",
+      error.message || "Too many AI generation requests. Please try again later.",
+      {
+        retryable: true,
+        details: error,
+      },
+    );
+  }
+
   if (error instanceof TypeError || /network|fetch failed|offline/i.test(error?.message || "")) {
     return new AIGenerationError(
       "connectivity",
@@ -28,10 +40,11 @@ export const classifyGenerationError = (error) => {
       { retryable: true, details: error },
     );
   }
+
   return new AIGenerationError(
     "generation",
     "The AI video could not be generated. Please try again.",
-    { retryable: true },
+    { retryable: true, details: error },
   );
 };
 export const wait = (milliseconds, signal) =>
@@ -102,52 +115,75 @@ export const isVideoUrl = (value) => {
 export const httpGenerationError = (response) => {
   const status = response.status;
   let retryAfterMs = 0;
+  let retryAfterSeconds = null;
   const header = response.headers?.get?.("Retry-After");
   if (header) {
     const seconds = Number(header);
-    const delay = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(header) - Date.now();
-    if (Number.isFinite(delay)) retryAfterMs = Math.max(0, delay);
+    if (Number.isFinite(seconds)) {
+      retryAfterSeconds = seconds;
+      retryAfterMs = seconds * 1000;
+    } else {
+      const delay = Date.parse(header) - Date.now();
+      if (Number.isFinite(delay)) retryAfterMs = Math.max(0, delay);
+    }
   }
-  const details = { status, retryAfterMs, retryAt: Date.now() + retryAfterMs };
+  const details = {
+    status,
+    retryAfterMs,
+    retryAt: Date.now() + retryAfterMs,
+    retryAfter: retryAfterSeconds,
+  };
+  let error;
   if (status === 401)
-    return new AIGenerationError(
+    error = new AIGenerationError(
       "authentication",
       "Your session has expired. Sign in again to continue.",
       { details },
     );
-  if (status === 403)
-    return new AIGenerationError(
+  else if (status === 403)
+    error = new AIGenerationError(
       "permission",
       "You do not have permission to generate this lesson.",
       { details },
     );
-  if (status === 429)
-    return new AIGenerationError(
+  else if (status === 429)
+    error = new AIGenerationError(
       "rate_limit",
       "The AI service is receiving too many requests. Please try again shortly.",
       { retryable: true, details },
     );
-  if (status === 408 || status === 504)
-    return new AIGenerationError(
+  else if (status === 408 || status === 504)
+    error = new AIGenerationError(
       "timeout",
       "The AI service took too long to respond. Please try again.",
       { retryable: true, details },
     );
-  if (status >= 500)
-    return new AIGenerationError(
+  else if (status >= 500)
+    error = new AIGenerationError(
       "service",
       "The AI service is temporarily unavailable. Please try again.",
       { retryable: true, details },
     );
-  if (status === 404)
-    return new AIGenerationError(
+  else if (status === 404)
+    error = new AIGenerationError(
       "not_found",
       "This generation job or lesson is no longer available.",
       { details },
     );
-  return new AIGenerationError("invalid_request", "The AI service could not accept this request.", {
-    details,
-  });
+  else
+    error = new AIGenerationError(
+      "invalid_request",
+      "The AI service could not accept this request.",
+      {
+        details,
+      },
+    );
+
+  error.status = status;
+  if (retryAfterSeconds !== null) {
+    error.retryAfter = retryAfterSeconds;
+  }
+  return error;
 };
 export const readGenerationJson = async (response) => {
   try {

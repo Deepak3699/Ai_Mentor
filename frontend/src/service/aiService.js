@@ -71,7 +71,11 @@ export const explainCode = async (payload) => {
   }
 
   if (!response.ok) {
-    throw new Error(data?.message || "Code explanation request failed");
+    const error = new Error(data?.message || "Code explanation request failed");
+    error.status = response.status;
+    error.retryAfter =
+      data?.retryAfter ?? (response.headers?.get ? response.headers.get("Retry-After") : null);
+    throw error;
   }
 
   return data;

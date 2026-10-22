@@ -1,0 +1,589 @@
+import { test, before, after, beforeEach } from "node:test";
+import assert from "node:assert/strict";
+import http from "node:http";
+import jwt from "jsonwebtoken";
+
+// Configure test environment variables before module imports
+process.env.NODE_ENV = "test";
+process.env.JWT_SECRET = "test-jwt-secret-for-rate-limits";
+process.env.AI_SERVICE_URL = "http://ai-service.test";
+// Test default environment limits (500ms window, 2 requests max)
+process.env.AI_RATE_LIMIT_WINDOW_MS = "500";
+process.env.AI_RATE_LIMIT_MAX_REQUESTS = "2";
+
+const { default: express } = await import("express");
+const { default: AIVideo } = await import("../models/AIVideo.js");
+const { default: User } = await import("../models/User.js");
+const { default: Course } = await import("../models/Course.js");
+const { default: Module } = await import("../models/Module.js");
+const { default: Lesson } = await import("../models/Lesson.js");
+const { default: Preferences } = await import("../models/Preference.js");
+const { setVideoQueue, closeVideoQueue } = await import("../queues/videoQueue.js");
+const { default: aiRoutes } = await import("../routes/aiRoutes.js");
+const { default: courseRoutes } = await import("../routes/courseRoutes.js");
+const { createAIRateLimiter } = await import("../middleware/aiRateLimiter.js");
+
+const USERS = {
+  1: { id: 1, role: "student", purchasedCourses: [{ courseId: 1 }] },
+  2: { id: 2, role: "student", purchasedCourses: [{ courseId: 1 }] },
+  3: { id: 3, role: "student", purchasedCourses: [] }, // not enrolled
+  10: { id: 10, role: "admin", purchasedCourses: [{ courseId: 1 }] },
+  20: { id: 20, role: "admin", purchasedCourses: [{ courseId: 1 }] },
+};
+
+const queueCalls = [];
+const syllabusProviderCalls = [];
+
+const originals = {
+  findOneVideo: AIVideo.findOne,
+  createVideo: AIVideo.create,
+  findByPkUser: User.findByPk,
+  findByPkCourse: Course.findByPk,
+  createModule: Module.create,
+  createLesson: Lesson.create,
+  findByPkLesson: Lesson.findByPk,
+  findOnePreferences: Preferences.findOne,
+  consoleWarn: console.warn,
+  fetch: globalThis.fetch,
+};
+
+let server;
+let baseUrl;
+const loggedWarnings = [];
+
+before(async () => {
+  AIVideo.findOne = async () => null; // cache miss so it proceeds to generation
+  AIVideo.create = async () => ({ id: "mock-video-job-id" });
+  User.findByPk = async (id) => USERS[id] ?? null;
+  Course.findByPk = async (id) => ({
+    id: Number(id),
+    title: `Course ${id}`,
+    category: "Programming",
+  });
+  Module.create = async (data) => ({ id: 1, ...data });
+  Lesson.create = async (data) => ({ id: 1, ...data });
+  Lesson.findByPk = async (id) => ({ id: Number(id), title: `Lesson ${id}` });
+  Preferences.findOne = async () => null;
+
+  setVideoQueue({
+    add: async (jobName, data) => {
+      queueCalls.push({ jobName, data });
+      return { id: `bull-job-${queueCalls.length}` };
+    },
+  });
+
+  console.warn = (...args) => {
+    loggedWarnings.push(args.join(" "));
+  };
+
+  // Mock external AI service provider fetch for syllabus generation
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init) => {
+    const url = typeof input === "string" ? input : input?.url || "";
+    if (
+      url.includes("/generate-syllabus") &&
+      !url.includes("127.0.0.1") &&
+      !url.includes("localhost")
+    ) {
+      syllabusProviderCalls.push({ input, init });
+      return new Response(
+        JSON.stringify({
+          modules: [
+            {
+              title: "Module 1",
+              lessons: [{ title: "Lesson 1", duration: "5 mins", type: "video" }],
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    return originalFetch(input, init);
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use("/api/ai", aiRoutes);
+  app.use("/api/courses", courseRoutes);
+  server = http.createServer(app);
+  await new Promise((resolve) => server.listen(0, resolve));
+  baseUrl = `http://127.0.0.1:${server.address().port}`;
+});
+
+after(async () => {
+  AIVideo.findOne = originals.findOneVideo;
+  AIVideo.create = originals.createVideo;
+  User.findByPk = originals.findByPkUser;
+  Course.findByPk = originals.findByPkCourse;
+  Module.create = originals.createModule;
+  Lesson.create = originals.createLesson;
+  Lesson.findByPk = originals.findByPkLesson;
+  Preferences.findOne = originals.findOnePreferences;
+  console.warn = originals.consoleWarn;
+  globalThis.fetch = originals.fetch;
+  await closeVideoQueue();
+  await new Promise((resolve) => server.close(resolve));
+});
+
+beforeEach(() => {
+  queueCalls.length = 0;
+  syllabusProviderCalls.length = 0;
+  loggedWarnings.length = 0;
+});
+
+const postGenerate = (userId, body = {}) => {
+  const defaultBody = {
+    courseId: 1,
+    lessonId: "1",
+    celebrity: "salman",
+    speech_rate: "1.0",
+    speech_pitch: "0Hz",
+  };
+
+  const headers = { "Content-Type": "application/json" };
+  if (userId) {
+    headers.Authorization = `Bearer ${jwt.sign({ id: userId }, process.env.JWT_SECRET)}`;
+  }
+
+  return fetch(`${baseUrl}/api/ai/generate-video`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ ...defaultBody, ...body }),
+  });
+};
+
+const postGenerateSyllabus = (userId, courseId = 1) => {
+  const headers = { "Content-Type": "application/json" };
+  if (userId) {
+    headers.Authorization = `Bearer ${jwt.sign({ id: userId }, process.env.JWT_SECRET)}`;
+  }
+
+  return fetch(`${baseUrl}/api/courses/${courseId}/generate-syllabus`, {
+    method: "POST",
+    headers,
+  });
+};
+
+test("unauthenticated request returns 401 and never touches rate limits or starts video generation", async () => {
+  const res = await postGenerate(null);
+  assert.equal(res.status, 401);
+  const data = await res.json();
+  assert.equal(data.message, "Not authorized, no token");
+  assert.equal(queueCalls.length, 0);
+});
+
+test("user within limit successfully triggers generation and enqueues job", async () => {
+  // Wait to ensure window starts clean for user 1
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  const res = await postGenerate(1);
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.status, "processing");
+  assert.equal(queueCalls.length, 1);
+  assert.equal(queueCalls[0].data.celebrity, "salman");
+});
+
+test("enforces per-user limit with 429 response, Retry-After header, blocks queue execution, and does not log raw user IDs or IPs", async () => {
+  // User 1 makes requests up to the max limit (2 allowed per 500ms)
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  const res1 = await postGenerate(1);
+  assert.equal(res1.status, 200);
+  assert.equal(queueCalls.length, 1);
+
+  const res2 = await postGenerate(1);
+  assert.equal(res2.status, 200);
+  assert.equal(queueCalls.length, 2);
+
+  // 3rd request from User 1 exceeds the limit
+  const res3 = await postGenerate(1, { sensitivePrompt: "super-secret-user-prompt-do-not-leak" });
+  assert.equal(res3.status, 429);
+
+  // Headers check
+  const retryHeader = res3.headers.get("retry-after");
+  assert.ok(retryHeader, "Expected Retry-After header on 429 response");
+  assert.ok(Number(retryHeader) >= 1, "Retry-After should be a positive number of seconds");
+
+  // Consistent body format check
+  const data3 = await res3.json();
+  assert.equal(data3.error, "Too Many Requests");
+  assert.ok(
+    data3.message.includes("Too many AI generation requests"),
+    `Unexpected message: ${data3.message}`,
+  );
+  assert.ok(typeof data3.retryAfter === "number" && data3.retryAfter > 0);
+
+  // Rejected request must NOT enqueue another job or call AI service
+  assert.equal(queueCalls.length, 2, "Queue should not receive jobs for rejected 429 requests");
+
+  // Verify sensitive payload is not leaked in response or logs
+  assert.ok(!JSON.stringify(data3).includes("super-secret-user-prompt"));
+  assert.ok(!loggedWarnings.some((w) => w.includes("super-secret-user-prompt")));
+
+  // Verify safe logging: logs rate limit warning without logging raw user IDs or raw IPs
+  assert.ok(loggedWarnings.some((w) => w.includes("Rate limit exceeded")));
+  assert.ok(!loggedWarnings.some((w) => w.includes("User 1") || w.includes("127.0.0.1")));
+});
+
+test("different users are tracked independently (user isolation)", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  // Exhaust User 1 limit
+  const u1_req1 = await postGenerate(1);
+  assert.equal(u1_req1.status, 200);
+  const u1_req2 = await postGenerate(1);
+  assert.equal(u1_req2.status, 200);
+  const u1_blocked = await postGenerate(1);
+  assert.equal(u1_blocked.status, 429);
+
+  // User 2 should NOT be blocked by User 1 reaching their limit
+  const u2_req1 = await postGenerate(2);
+  assert.equal(u2_req1.status, 200);
+  const u2_data = await u2_req1.json();
+  assert.equal(u2_data.status, "processing");
+});
+
+test("limit resets after the window expires", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  // Exhaust User 1
+  assert.equal((await postGenerate(1)).status, 200);
+  assert.equal((await postGenerate(1)).status, 200);
+  assert.equal((await postGenerate(1)).status, 429);
+
+  // Wait for the window (500ms + buffer) to expire
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  // User 1 should now be allowed again
+  const resAfterExpiry = await postGenerate(1);
+  assert.equal(resAfterExpiry.status, 200);
+  const data = await resAfterExpiry.json();
+  assert.equal(data.status, "processing");
+});
+
+test("cached video requests do not consume rate limit quota and remain accessible when quota is exhausted", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  // Exhaust User 1's generation quota (2 allowed)
+  assert.equal((await postGenerate(1)).status, 200);
+  assert.equal((await postGenerate(1)).status, 200);
+
+  // 3rd generation request (cache miss) is rate-limited (429)
+  const blockedMiss = await postGenerate(1);
+  assert.equal(blockedMiss.status, 429);
+
+  // Mock an existing verified cached video
+  AIVideo.findOne = async () => ({
+    courseId: 1,
+    lessonId: "1",
+    celebrity: "salman",
+    videoUrl: "https://res.cloudinary.com/test-cloud/video/upload/sample.mp4",
+    transcriptName: "sample.vtt",
+    jobId: "cached-job-123",
+    meta: { provider: "gemini" },
+  });
+
+  // Cached request from the same rate-limited user must succeed (200 OK) without 429
+  const cachedRes = await postGenerate(1);
+  assert.equal(cachedRes.status, 200);
+  const cachedData = await cachedRes.json();
+  assert.equal(cachedData.cached, true);
+  assert.equal(
+    cachedData.videoUrl,
+    "https://res.cloudinary.com/test-cloud/video/upload/sample.mp4",
+  );
+
+  // Restore cache miss mock for other tests
+  AIVideo.findOne = async () => null;
+});
+
+test("real database-backed concurrency test: creates only one DB record and one queue job under racing cache misses", async () => {
+  const { Sequelize, DataTypes } = await import("sequelize");
+  const sqliteDb = new Sequelize({
+    dialect: "sqlite",
+    storage: ":memory:",
+    logging: false,
+  });
+
+  const SqliteAIVideo = sqliteDb.define(
+    "AIVideo",
+    {
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+      },
+      userId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      courseId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      lessonId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      celebrity: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      videoUrl: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      transcriptName: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      status: {
+        type: DataTypes.ENUM("pending", "processing", "completed", "failed"),
+        defaultValue: "pending",
+      },
+      error: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      meta: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
+    },
+    {
+      indexes: [
+        {
+          unique: true,
+          fields: ["courseId", "lessonId", "celebrity"],
+        },
+      ],
+    },
+  );
+
+  await sqliteDb.sync({ force: true });
+
+  const originalFindOne = AIVideo.findOne;
+  const originalCreate = AIVideo.create;
+  const originalUpdate = AIVideo.update;
+
+  try {
+    AIVideo.findOne = (opts) => SqliteAIVideo.findOne(opts);
+    AIVideo.create = (opts) => SqliteAIVideo.create(opts);
+    AIVideo.update = (values, opts) => SqliteAIVideo.update(values, opts);
+
+    // Wait to ensure window starts clean
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    // Two concurrent requests for the exact same un-cached lesson racing against real SQLite DB
+    const lessonId = 777;
+    const [res1, res2] = await Promise.all([
+      postGenerate(1, { lessonId }),
+      postGenerate(2, { lessonId }),
+    ]);
+
+    assert.equal(res1.status, 200);
+    assert.equal(res2.status, 200);
+
+    const data1 = await res1.json();
+    const data2 = await res2.json();
+
+    assert.equal(data1.status, "processing");
+    assert.equal(data2.status, "processing");
+
+    // Proves only ONE record was persisted in the real database
+    const allRecords = await SqliteAIVideo.findAll();
+    assert.equal(allRecords.length, 1);
+    assert.equal(allRecords[0].lessonId, lessonId);
+
+    // Proves only ONE BullMQ queue job was created
+    assert.equal(queueCalls.length, 1);
+    assert.equal(Number(queueCalls[0].data.lessonId), lessonId);
+
+    // Proves appropriate response was given to each caller
+    const messages = [data1.message, data2.message];
+    assert.ok(messages.includes("Video generation started"));
+    assert.ok(messages.includes("Video generation is already in progress"));
+  } finally {
+    AIVideo.findOne = originalFindOne;
+    AIVideo.create = originalCreate;
+    AIVideo.update = originalUpdate;
+    await sqliteDb.close();
+  }
+});
+
+test("private in-flight jobs are not returned to other learners from the cache-before-limiter path", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  const originalFindOne = AIVideo.findOne;
+
+  // Learner 1 has an in-flight video generation in progress
+  const inFlightRecord = {
+    id: "job-owned-by-user-1",
+    userId: 1,
+    courseId: 1,
+    lessonId: 10,
+    celebrity: "salman",
+    status: "processing",
+    videoUrl: null,
+  };
+
+  AIVideo.findOne = async () => inFlightRecord;
+
+  // Learner 1 (the owner) requests the video:
+  // serveCachedVideo identifies them as owner and returns their in-flight job without consuming generation quota
+  const ownerRes = await postGenerate(1, { lessonId: 10 });
+  assert.equal(ownerRes.status, 200);
+  const ownerData = await ownerRes.json();
+  assert.equal(ownerData.jobId, "job-owned-by-user-1");
+  assert.equal(ownerData.status, "processing");
+  assert.equal(queueCalls.length, 0); // No job was queued
+
+  // Learner 2 requests the same lesson while Learner 1's generation is in-flight:
+  // serveCachedVideo must NOT return Learner 1's private in-flight job!
+  // It passes through to the rate limiter (consuming Learner 2's quota), then in generation handler
+  // informs them that generation is in progress without leaking Learner 1's private jobId
+  const learner2Res = await postGenerate(2, { lessonId: 10 });
+  assert.equal(learner2Res.status, 200);
+  const learner2Data = await learner2Res.json();
+  assert.equal(learner2Data.status, "processing");
+  assert.equal(learner2Data.message, "Video generation is already in progress");
+  // CRITICAL: Learner 1's private jobId is NOT leaked to Learner 2!
+  assert.equal(learner2Data.jobId, undefined);
+
+  // When the video completes, it becomes a shared course asset:
+  inFlightRecord.status = "completed";
+  inFlightRecord.videoUrl = "https://res.cloudinary.com/test-cloud/video/upload/lesson10.mp4";
+
+  // Now both Learner 1 and Learner 2 can access the completed cached video from serveCachedVideo!
+  const completedRes = await postGenerate(2, { lessonId: 10 });
+  assert.equal(completedRes.status, 200);
+  const completedData = await completedRes.json();
+  assert.equal(completedData.cached, true);
+  assert.equal(
+    completedData.videoUrl,
+    "https://res.cloudinary.com/test-cloud/video/upload/lesson10.mp4",
+  );
+
+  AIVideo.findOne = originalFindOne;
+});
+
+/* =========================================================
+   Route-level Syllabus Generation Tests
+   ========================================================= */
+
+test("syllabus generation returns 401 when unauthenticated and never invokes AI provider", async () => {
+  const res = await postGenerateSyllabus(null);
+  assert.equal(res.status, 401);
+  const data = await res.json();
+  assert.equal(data.message, "Not authorized, no token");
+  assert.equal(syllabusProviderCalls.length, 0);
+});
+
+test("syllabus generation returns 403 when user is not an admin and never invokes AI provider", async () => {
+  const res = await postGenerateSyllabus(1); // User 1 is student
+  assert.equal(res.status, 403);
+  const data = await res.json();
+  assert.equal(data.message, "Not authorized, admin access required");
+  assert.equal(syllabusProviderCalls.length, 0);
+});
+
+test("admin within rate limit successfully generates syllabus and invokes provider", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  const res = await postGenerateSyllabus(10); // User 10 is admin
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.message, "Syllabus generated successfully");
+  assert.equal(syllabusProviderCalls.length, 1);
+});
+
+test("syllabus generation enforces per-user rate limit with 429, Retry-After, and rejects provider calls", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  // Admin 10 makes 2 requests (limit is 2 per 500ms)
+  const res1 = await postGenerateSyllabus(10);
+  assert.equal(res1.status, 200);
+  assert.equal(syllabusProviderCalls.length, 1);
+
+  const res2 = await postGenerateSyllabus(10);
+  assert.equal(res2.status, 200);
+  assert.equal(syllabusProviderCalls.length, 2);
+
+  // 3rd request exceeds rate limit
+  const res3 = await postGenerateSyllabus(10);
+  assert.equal(res3.status, 429);
+
+  // Check headers and structure
+  const retryHeader = res3.headers.get("retry-after");
+  assert.ok(retryHeader, "Expected Retry-After header on 429 response");
+  assert.ok(Number(retryHeader) >= 1);
+
+  const data3 = await res3.json();
+  assert.equal(data3.error, "Too Many Requests");
+  assert.ok(data3.message.includes("Too many AI generation requests"));
+  assert.ok(data3.retryAfter > 0);
+
+  // Provider was NOT called for rejected 429 request
+  assert.equal(syllabusProviderCalls.length, 2);
+});
+
+test("syllabus generation maintains user isolation (admin 1 exhausted does not block admin 2)", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  // Exhaust Admin 10
+  assert.equal((await postGenerateSyllabus(10)).status, 200);
+  assert.equal((await postGenerateSyllabus(10)).status, 200);
+  assert.equal((await postGenerateSyllabus(10)).status, 429);
+
+  // Admin 20 should succeed
+  const resAdmin20 = await postGenerateSyllabus(20);
+  assert.equal(resAdmin20.status, 200);
+});
+
+test("video and syllabus generation quotas are isolated by default", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  // Admin 10 exhausts video generation quota (2 allowed)
+  assert.equal((await postGenerate(10)).status, 200);
+  assert.equal((await postGenerate(10)).status, 200);
+  assert.equal((await postGenerate(10)).status, 429);
+
+  // Admin 10 should STILL be able to generate syllabus because quotas are separate
+  const syllabusRes = await postGenerateSyllabus(10);
+  assert.equal(syllabusRes.status, 200);
+  const data = await syllabusRes.json();
+  assert.equal(data.message, "Syllabus generated successfully");
+});
+
+test("createAIRateLimiter allows custom configuration and standalone usage", async () => {
+  const customLimiter = createAIRateLimiter({ windowMs: 200, max: 1 });
+  const app = express();
+  app.use(express.json());
+  app.post(
+    "/test-ai",
+    (req, _res, next) => {
+      req.user = { id: 99 };
+      next();
+    },
+    customLimiter,
+    (_req, res) => res.json({ ok: true }),
+  );
+
+  const localServer = http.createServer(app);
+  await new Promise((resolve) => localServer.listen(0, resolve));
+  const url = `http://127.0.0.1:${localServer.address().port}/test-ai`;
+
+  try {
+    const first = await fetch(url, { method: "POST" });
+    assert.equal(first.status, 200);
+
+    const second = await fetch(url, { method: "POST" });
+    assert.equal(second.status, 429);
+    const data = await second.json();
+    assert.equal(data.error, "Too Many Requests");
+    assert.ok(data.retryAfter > 0);
+  } finally {
+    await new Promise((resolve) => localServer.close(resolve));
+  }
+});
