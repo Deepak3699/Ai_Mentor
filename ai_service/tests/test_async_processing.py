@@ -402,3 +402,66 @@ async def test_status_and_voices_respond_during_lesson_processing():
         api.active_jobs.discard(job_id)
         api.shutdown_failed_jobs.discard(job_id)
         api.job_status.pop(job_id, None)
+def test_concurrent_lesson_generation_respects_limit():
+    async def scenario():
+        limit = api.MAX_CONCURRENT_GENERATIONS
+        assert limit == 3
+
+        active_count = 0
+        max_active_count = 0
+        started_count = 0
+
+        async def fake_process_lesson(data, base_filename):
+            nonlocal active_count, max_active_count, started_count
+
+            active_count += 1
+            started_count += 1
+            max_active_count = max(max_active_count, active_count)
+
+            try:
+                await asyncio.sleep(0.05)
+            finally:
+                active_count -= 1
+
+        old_semaphore = api.generation_semaphore
+
+        try:
+            api.generation_semaphore = asyncio.Semaphore(limit)
+            api.shutting_down = False
+
+            job_ids = [f"concurrency-test-{i}" for i in range(7)]
+
+            for job_id in job_ids:
+                api.shutdown_failed_jobs.discard(job_id)
+                api.job_status[job_id] = {"status": "queued"}
+
+            with patch.object(
+                api, "process_lesson", new=fake_process_lesson
+            ):
+                await asyncio.gather(
+                    *[
+                        api.run_tracked_lesson(
+                            LessonRequest(
+                                course="Python",
+                                topic="Concurrency",
+                                celebrity="Test",
+                            ),
+                            job_id,
+                        )
+                        for job_id in job_ids
+                    ]
+                )
+
+            assert started_count == 7
+            assert max_active_count == limit
+            assert active_count == 0
+
+        finally:
+            api.generation_semaphore = old_semaphore
+
+            for job_id in job_ids:
+                api.job_status.pop(job_id, None)
+                api.shutdown_failed_jobs.discard(job_id)
+                api.active_jobs.discard(job_id)
+
+    asyncio.run(scenario())
