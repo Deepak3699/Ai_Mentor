@@ -298,42 +298,88 @@ test("cached video requests do not consume rate limit quota and remain accessibl
   AIVideo.findOne = async () => null;
 });
 
-test("concurrent cache-miss requests create only one DB record and one queue job", async () => {
-  const inMemoryVideos = new Map();
+test("real database-backed concurrency test: creates only one DB record and one queue job under racing cache misses", async () => {
+  const { Sequelize, DataTypes } = await import("sequelize");
+  const sqliteDb = new Sequelize({
+    dialect: "sqlite",
+    storage: ":memory:",
+    logging: false,
+  });
+
+  const SqliteAIVideo = sqliteDb.define(
+    "AIVideo",
+    {
+      id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+      },
+      userId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
+      courseId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      lessonId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+      },
+      celebrity: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      videoUrl: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      transcriptName: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      status: {
+        type: DataTypes.ENUM("pending", "processing", "completed", "failed"),
+        defaultValue: "pending",
+      },
+      error: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
+      meta: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
+    },
+    {
+      indexes: [
+        {
+          unique: true,
+          fields: ["courseId", "lessonId", "celebrity"],
+        },
+      ],
+    },
+  );
+
+  await sqliteDb.sync({ force: true });
+
   const originalFindOne = AIVideo.findOne;
   const originalCreate = AIVideo.create;
+  const originalUpdate = AIVideo.update;
 
   try {
-    AIVideo.findOne = async ({ where }) => {
-      const key = `${where.courseId}:${where.lessonId}:${where.celebrity}`;
-      return inMemoryVideos.get(key) || null;
-    };
-
-    AIVideo.create = async (data) => {
-      const key = `${data.courseId}:${data.lessonId}:${data.celebrity}`;
-      if (inMemoryVideos.has(key)) {
-        const err = new Error("Validation error");
-        err.name = "SequelizeUniqueConstraintError";
-        throw err;
-      }
-      const record = {
-        id: `ai-rec-${Date.now()}-${Math.random()}`,
-        ...data,
-        status: "pending",
-        reload: async () => {},
-      };
-      inMemoryVideos.set(key, record);
-      return record;
-    };
+    AIVideo.findOne = (opts) => SqliteAIVideo.findOne(opts);
+    AIVideo.create = (opts) => SqliteAIVideo.create(opts);
+    AIVideo.update = (values, opts) => SqliteAIVideo.update(values, opts);
 
     // Wait to ensure window starts clean
     await new Promise((resolve) => setTimeout(resolve, 600));
 
-    // Two concurrent requests for the exact same un-cached lesson
-    const lessonKey = "concurrent-lesson-123";
+    // Two concurrent requests for the exact same un-cached lesson racing against real SQLite DB
+    const lessonId = 777;
     const [res1, res2] = await Promise.all([
-      postGenerate(1, { lessonId: lessonKey }),
-      postGenerate(2, { lessonId: lessonKey }),
+      postGenerate(1, { lessonId }),
+      postGenerate(2, { lessonId }),
     ]);
 
     assert.equal(res1.status, 200);
@@ -345,21 +391,81 @@ test("concurrent cache-miss requests create only one DB record and one queue job
     assert.equal(data1.status, "processing");
     assert.equal(data2.status, "processing");
 
-    // Proves only ONE record was created in the database
-    assert.equal(inMemoryVideos.size, 1);
+    // Proves only ONE record was persisted in the real database
+    const allRecords = await SqliteAIVideo.findAll();
+    assert.equal(allRecords.length, 1);
+    assert.equal(allRecords[0].lessonId, lessonId);
 
     // Proves only ONE BullMQ queue job was created
     assert.equal(queueCalls.length, 1);
-    assert.equal(queueCalls[0].data.lessonId, lessonKey);
+    assert.equal(Number(queueCalls[0].data.lessonId), lessonId);
 
-    // One request started generation and the other was returned in-progress state
+    // Proves appropriate response was given to each caller
     const messages = [data1.message, data2.message];
     assert.ok(messages.includes("Video generation started"));
     assert.ok(messages.includes("Video generation is already in progress"));
   } finally {
     AIVideo.findOne = originalFindOne;
     AIVideo.create = originalCreate;
+    AIVideo.update = originalUpdate;
+    await sqliteDb.close();
   }
+});
+
+test("private in-flight jobs are not returned to other learners from the cache-before-limiter path", async () => {
+  await new Promise((resolve) => setTimeout(resolve, 600));
+
+  const originalFindOne = AIVideo.findOne;
+
+  // Learner 1 has an in-flight video generation in progress
+  const inFlightRecord = {
+    id: "job-owned-by-user-1",
+    userId: 1,
+    courseId: 1,
+    lessonId: 10,
+    celebrity: "salman",
+    status: "processing",
+    videoUrl: null,
+  };
+
+  AIVideo.findOne = async () => inFlightRecord;
+
+  // Learner 1 (the owner) requests the video:
+  // serveCachedVideo identifies them as owner and returns their in-flight job without consuming generation quota
+  const ownerRes = await postGenerate(1, { lessonId: 10 });
+  assert.equal(ownerRes.status, 200);
+  const ownerData = await ownerRes.json();
+  assert.equal(ownerData.jobId, "job-owned-by-user-1");
+  assert.equal(ownerData.status, "processing");
+  assert.equal(queueCalls.length, 0); // No job was queued
+
+  // Learner 2 requests the same lesson while Learner 1's generation is in-flight:
+  // serveCachedVideo must NOT return Learner 1's private in-flight job!
+  // It passes through to the rate limiter (consuming Learner 2's quota), then in generation handler
+  // informs them that generation is in progress without leaking Learner 1's private jobId
+  const learner2Res = await postGenerate(2, { lessonId: 10 });
+  assert.equal(learner2Res.status, 200);
+  const learner2Data = await learner2Res.json();
+  assert.equal(learner2Data.status, "processing");
+  assert.equal(learner2Data.message, "Video generation is already in progress");
+  // CRITICAL: Learner 1's private jobId is NOT leaked to Learner 2!
+  assert.equal(learner2Data.jobId, undefined);
+
+  // When the video completes, it becomes a shared course asset:
+  inFlightRecord.status = "completed";
+  inFlightRecord.videoUrl = "https://res.cloudinary.com/test-cloud/video/upload/lesson10.mp4";
+
+  // Now both Learner 1 and Learner 2 can access the completed cached video from serveCachedVideo!
+  const completedRes = await postGenerate(2, { lessonId: 10 });
+  assert.equal(completedRes.status, 200);
+  const completedData = await completedRes.json();
+  assert.equal(completedData.cached, true);
+  assert.equal(
+    completedData.videoUrl,
+    "https://res.cloudinary.com/test-cloud/video/upload/lesson10.mp4",
+  );
+
+  AIVideo.findOne = originalFindOne;
 });
 
 /* =========================================================
