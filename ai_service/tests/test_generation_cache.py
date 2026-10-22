@@ -156,3 +156,33 @@ def test_force_regeneration_does_not_replace_normal_cache_entry():
     assert forced["jobId"] != normal["jobId"]
     assert cached["cached"] is True
     assert cached["jobId"] == normal["jobId"]
+
+
+def test_long_topic_truncates_base_filename_and_cache():
+    long_topic = "A" * 200
+    req = make_request(topic=long_topic)
+
+    # First request: generates a new job and filename
+    result = generate(req)
+    assert result["cached"] is False
+
+    job_id = result["jobId"]
+    assert job_id.startswith("A" * 81 + "_")
+    assert not job_id.startswith("A" * 82)
+    assert len(job_id) == 113
+    assert result["filename"] == f"{job_id}.mp4"
+
+    # Cached request: reuses the truncated base_filename
+    cached_result = generate(req)
+    assert cached_result["cached"] is True
+    assert cached_result["jobId"] == job_id
+    assert cached_result["filename"] == f"{job_id}.mp4"
+
+    # Forced regeneration: also produces truncated filename
+    forced_result = api.generate_lesson(req, BackgroundTasks(), force=True)
+    assert forced_result["cached"] is False
+    assert forced_result["jobId"] != job_id
+    assert forced_result["jobId"].startswith("A" * 81 + "_")
+    assert not forced_result["jobId"].startswith("A" * 82)
+    assert len(forced_result["jobId"]) == 113
+
