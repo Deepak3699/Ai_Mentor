@@ -376,11 +376,8 @@ export const generateCourseSyllabusWithAI = async (req, res) => {
           mod.title.trim() &&
           Array.isArray(mod.lessons) &&
           mod.lessons.every(
-            (lesson) =>
-              lesson &&
-              typeof lesson.title === "string" &&
-              lesson.title.trim()
-          )
+            (lesson) => lesson && typeof lesson.title === "string" && lesson.title.trim(),
+          ),
       )
     ) {
       logServerError(
