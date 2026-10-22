@@ -2,6 +2,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
+
 const protect = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -26,19 +27,23 @@ const protect = async (req, res, next) => {
     });
 
     if (!user) {
-      return res.status(401).json({ message: "User not found" });
+      return res.status(401).json({
+        message: "User not found",
+      });
     }
 
     if (user.isBlocked) {
-      return res.status(403).json({ message: "Account suspended" });
+      return res.status(403).json({
+        message: "Account suspended",
+      });
     }
 
     if (user.passwordChangedAt) {
-      const changedAt = Math.floor(
+      const passwordChangedAt = Math.floor(
         user.passwordChangedAt.getTime() / 1000
       );
 
-      if (changedAt > decoded.iat) {
+      if (passwordChangedAt > decoded.iat) {
         return res.status(401).json({
           message: "Token revoked, Please Log in again",
         });
@@ -54,6 +59,7 @@ const protect = async (req, res, next) => {
     });
   }
 };
+
 
 const optionalProtect = async (req, res, next) => {
   const authHeader = req.headers.authorization;
