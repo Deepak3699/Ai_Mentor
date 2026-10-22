@@ -5,6 +5,10 @@ import Module from "../models/Module.js";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
 import { generateFlashcardsSchema, updateFlashcardMasterySchema } from "../schemas/aiSchema.js";
+import fetchWithTimeout, {
+  AI_SERVICE_TIMEOUT_MESSAGE,
+  isTimeoutError,
+} from "../utils/fetchWithTimeout.js";
 
 const router = express.Router();
 
@@ -65,7 +69,7 @@ router.post("/", protect, validate(generateFlashcardsSchema), async (req, res) =
       return res.status(503).json({ message: "AI service is unavailable" });
     }
 
-    const response = await fetch(`${process.env.AI_SERVICE_URL}/generate-flashcards`, {
+    const response = await fetchWithTimeout(`${process.env.AI_SERVICE_URL}/generate-flashcards`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -114,6 +118,9 @@ router.post("/", protect, validate(generateFlashcardsSchema), async (req, res) =
     return res.status(201).json({ deck });
   } catch (error) {
     console.error("Flashcard generation failed:", error.message);
+    if (isTimeoutError(error)) {
+      return res.status(503).json({ message: AI_SERVICE_TIMEOUT_MESSAGE });
+    }
     return res.status(500).json({ message: "Failed to generate flashcards" });
   }
 });

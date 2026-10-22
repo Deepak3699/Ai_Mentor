@@ -1,6 +1,10 @@
 import { Queue, Worker } from "bullmq";
 import dotenv from "dotenv";
 import AIVideo from "../models/AIVideo.js";
+import fetchWithTimeout, {
+  AI_SERVICE_TIMEOUT_MESSAGE,
+  isTimeoutError,
+} from "../utils/fetchWithTimeout.js";
 
 dotenv.config();
 
@@ -18,16 +22,24 @@ const processVideoJob = async (job) => {
 
   const { courseTitle, lessonTitle, celebrity, userPreferences, aiVideoId } = job.data;
 
-  const response = await fetch(`${AI_SERVICE_URL}/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      course: courseTitle,
-      topic: lessonTitle,
-      celebrity,
-      preferences: userPreferences || null,
-    }),
-  });
+  let response;
+  try {
+    response = await fetchWithTimeout(`${AI_SERVICE_URL}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        course: courseTitle,
+        topic: lessonTitle,
+        celebrity,
+        preferences: userPreferences || null,
+      }),
+    });
+  } catch (error) {
+    if (isTimeoutError(error)) {
+      throw new Error(AI_SERVICE_TIMEOUT_MESSAGE, { cause: error });
+    }
+    throw error;
+  }
 
   if (!response.ok) {
     const errText = await response.text();
