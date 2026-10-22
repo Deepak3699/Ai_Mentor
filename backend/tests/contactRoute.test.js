@@ -155,18 +155,12 @@ test("short subject and message are rejected before persistence", async () => {
   let res = await post({ ...validBody, subject: "Hi" });
 
   assert.equal(res.status, 400);
-  assert.equal(
-    (await res.json()).message,
-    "Subject must be at least 3 characters"
-  );
+  assert.equal((await res.json()).message, "Subject must be at least 3 characters");
 
   res = await post({ ...validBody, message: "Short" });
 
   assert.equal(res.status, 400);
-  assert.equal(
-    (await res.json()).message,
-    "Message must be at least 10 characters"
-  );
+  assert.equal((await res.json()).message, "Message must be at least 10 characters");
   assert.equal(creates, 0);
 });
 

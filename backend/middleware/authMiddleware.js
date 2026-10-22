@@ -37,9 +37,7 @@ const protect = async (req, res, next) => {
     }
 
     if (user.passwordChangedAt) {
-      const passwordChangedAt = Math.floor(
-        user.passwordChangedAt.getTime() / 1000
-      );
+      const passwordChangedAt = Math.floor(user.passwordChangedAt.getTime() / 1000);
 
       if (passwordChangedAt > decoded.iat) {
         return res.status(401).json({
@@ -94,9 +92,7 @@ const optionalProtect = async (req, res, next) => {
     }
 
     if (user.passwordChangedAt) {
-      const changedAt = Math.floor(
-        user.passwordChangedAt.getTime() / 1000
-      );
+      const changedAt = Math.floor(user.passwordChangedAt.getTime() / 1000);
 
       if (changedAt > decoded.iat) {
         return res.status(401).json({

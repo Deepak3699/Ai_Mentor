@@ -1,0 +1,4 @@
+warning: in the working copy of 'backend/middleware/authMiddleware.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/routes/contactus.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/tests/authMiddleware.test.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/tests/contactRoute.test.js', LF will be replaced by CRLF the next time Git touches it

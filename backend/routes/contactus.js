@@ -5,6 +5,10 @@ import { optionalProtect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+const logContactFailure = (classification) => {
+  console.error(JSON.stringify({ event: "contact_failure", classification }));
+};
+
 /*
 POST /api/contactus
 Body:
@@ -59,16 +63,16 @@ router.post("/", optionalProtect, async (req, res) => {
       data: savedMessage,
     });
   } catch (error) {
-    console.error("❌ ContactUs Error:", error);
-    
     // Sequelize validation errors
-    if (error.name === "SequelizeValidationError") {
+    if (error?.name === "SequelizeValidationError") {
+      logContactFailure("validation_error");
       return res.status(400).json({
         success: false,
-        message: error.errors[0].message,
+        message: error.errors?.[0]?.message ?? "Invalid contact message",
       });
     }
 
+    logContactFailure("persistence_error");
     return res.status(500).json({
       success: false,
       message: "Server error while sending message",
