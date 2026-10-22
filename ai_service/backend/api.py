@@ -877,18 +877,11 @@ def generate_lesson(
     cache_key = hashlib.sha256(
         cache_data.encode("utf-8")
     ).hexdigest()
-    topic_clean = re.sub(
-        r'[^\w\s-]', '', data.topic
-    ).strip().replace(" ", "_")
-    topic_clean = topic_clean[:81]
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
 
     if not force and cache_key in generation_cache:
         base_filename = generation_cache[cache_key]
         existing_status = job_status.get(
             base_filename,
-
             {"status": "processing"}
         )
 
@@ -903,13 +896,9 @@ def generate_lesson(
 
     topic_clean = re.sub(
         r'[^\w\s-]', '', data.topic
-    ).strip().replace(" ", "_")
-
-    if force:
-        base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
-    else:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
+    ).strip().replace(" ", "_")[:81]
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
 
     if not force:
         generation_cache[cache_key] = base_filename
