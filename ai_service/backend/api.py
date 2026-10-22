@@ -473,6 +473,42 @@ def get_status(job_id: str):
 # --------------------------
 # Generate Syllabus Endpoint
 # --------------------------
+def parse_syllabus_json(text: str) -> dict:
+    """Parse and validate JSON returned by a syllabus AI provider."""
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("AI provider returned an empty response")
+
+    cleaned = re.sub(
+        r"^\s*```(?:json)?\s*|\s*```\s*$",
+        "",
+        text.strip(),
+        flags=re.IGNORECASE,
+    )
+
+    decoder = json.JSONDecoder()
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError:
+        parsed = None
+        for index, character in enumerate(cleaned):
+            if character == "{":
+                try:
+                    candidate, _ = decoder.raw_decode(cleaned[index:])
+                    if isinstance(candidate, dict):
+                        parsed = candidate
+                        break
+                except json.JSONDecodeError:
+                    continue
+
+    if not isinstance(parsed, dict):
+        raise ValueError("AI provider did not return a valid JSON object")
+
+    if not isinstance(parsed.get("modules"), list):
+        raise ValueError("Syllabus JSON must contain a modules list")
+
+    return parsed
+
+
 @app.post("/generate-syllabus")
 def generate_syllabus(data: SyllabusRequest):
     """
@@ -525,8 +561,8 @@ def generate_syllabus(data: SyllabusRequest):
             text = text[:-3]
 
         try:
-            return json.loads(text.strip())
-        except json.JSONDecodeError as json_error:
+            return parse_syllabus_json(text)
+        except ValueError as json_error:
             log_event("ERROR", "Gemini returned invalid syllabus JSON", error=short_error(json_error))
             raise
 
@@ -552,8 +588,8 @@ def generate_syllabus(data: SyllabusRequest):
                 text = text[:-3]
 
             try:
-                return json.loads(text.strip())
-            except json.JSONDecodeError as json_error:
+                return parse_syllabus_json(text)
+            except ValueError as json_error:
                 log_event("ERROR", "Groq returned invalid syllabus JSON", error=short_error(json_error))
                 raise
 
