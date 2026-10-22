@@ -40,6 +40,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
       });
 
     const resetVideoFields = {
+      userId: req.user.id,
       videoUrl: "",
       transcriptName: "",
       jobId: null,
@@ -148,6 +149,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
       try {
         aiVideo = await AIVideo.create({
           ...key,
+          userId: req.user.id,
           videoUrl: "",
           transcriptName: "",
           status: "pending",
@@ -301,11 +303,20 @@ router.get("/status/:jobId", protect, async (req, res) => {
       return res.status(404).json({ status: "not_found" });
     }
 
-    if (videoJob.status === "failed") {
-      return res.json({ status: "failed", error: videoJob.error });
-    }
+    const isAdmin = req.user.role === "admin" || req.user.role === "superadmin";
 
+    // 1. Shared course-video cache authorization:
+    // If the video is completed and has a videoUrl, it is a shared course asset.
+    // Any learner enrolled in this course, the creator, or an admin can access it.
     if (videoJob.status === "completed" && videoJob.videoUrl) {
+      const isEnrolled = (req.user.purchasedCourses || []).some(
+        (c) => Number(c.courseId) === Number(videoJob.courseId),
+      );
+
+      if (!isAdmin && videoJob.userId !== req.user.id && !isEnrolled) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
       return res.json({
         status: "ready",
         cloudinary_url: videoJob.videoUrl,
@@ -313,6 +324,18 @@ router.get("/status/:jobId", protect, async (req, res) => {
         jobId: jobId, // return same ID to frontend
         meta: videoJob.meta,
       });
+    }
+
+    // 2. In-flight (pending / processing) and failed generation requests:
+    // These represent private generation requests.
+    // Only the verified job owner or an authorized administrator may view in-flight status or poll.
+    // For legacy/ownerless records (userId === null), normal users fail closed (403), while admins can access.
+    if (!isAdmin && (!videoJob.userId || videoJob.userId !== req.user.id)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (videoJob.status === "failed") {
+      return res.json({ status: "failed", error: videoJob.error });
     }
 
     if (videoJob.status === "pending") {
@@ -333,30 +356,65 @@ router.get("/status/:jobId", protect, async (req, res) => {
 
     const data = await response.json();
 
-    // Persist ready results by the database record ID. The Python job ID is only
-    // used for polling the AI service and must never be used as the DB identity.
-    if (data.status === "ready" && data.local_video_url) {
+    if (data.status === "ready" && data.local_video_url && videoJob) {
       const filename = data.local_video_url.split("/").pop();
-      data.local_video_url = `/api/ai/video/${videoJob.courseId}/${jobId}/${filename}`;
+      data.local_video_url = `/api/ai/video/${videoJob.courseId}/${filename}`;
     }
 
-    if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
-      try {
-        await videoJob.update({
-          videoUrl: data.cloudinary_url || data.local_video_url,
-          status: "completed",
-          meta: data.meta,
-          transcriptName: data.transcript_name || data.text_file || videoJob.transcriptName,
+    const updateWhere = isAdmin ? { id: jobId } : { id: jobId, userId: req.user.id };
+
+    if (data.status === "ready") {
+      const completedVideoUrl = data.cloudinary_url || data.local_video_url;
+
+      if (!completedVideoUrl) {
+        console.error(`⚠️ AI service reported ready for jobId ${jobId} without video URL output`);
+        return res.status(502).json({
+          status: "error",
+          error: "AI service reported ready without video output",
         });
+      }
+
+      try {
+        const [affectedRows] = await AIVideo.update(
+          {
+            videoUrl: completedVideoUrl,
+            status: "completed",
+            meta: data.meta || null,
+            transcriptName:
+              data.transcript_name || data.text_file || videoJob.transcriptName || null,
+          },
+          { where: updateWhere },
+        );
+
+        if (affectedRows === 0) {
+          console.warn(`⚠️ Zero rows updated for ready AIVideo id: ${jobId}`);
+          return res.status(403).json({
+            error: "Failed to update status: unauthorized or record not found",
+          });
+        }
+
         console.log(`☁️ AIVideo DB updated for DB ID: ${jobId}`);
       } catch (dbErr) {
         console.error("⚠️ Failed to update AIVideo ready result:", dbErr.message);
+        return res.status(500).json({ status: "error", error: "Database update failed" });
       }
     } else if (data.status === "failed") {
-      await AIVideo.update(
-        { status: "failed", error: "Failed in AI service" },
-        { where: { id: jobId } },
-      );
+      try {
+        const [affectedRows] = await AIVideo.update(
+          { status: "failed", error: data.error || "Failed in AI service" },
+          { where: updateWhere },
+        );
+
+        if (affectedRows === 0) {
+          console.warn(`⚠️ Zero rows updated for failed AIVideo id: ${jobId}`);
+          return res.status(403).json({
+            error: "Failed to update status: unauthorized or record not found",
+          });
+        }
+      } catch (dbErr) {
+        console.error("⚠️ Failed to update AIVideo with failure status:", dbErr.message);
+        return res.status(500).json({ status: "error", error: "Database update failed" });
+      }
     }
 
     data.jobId = jobId; // ensure frontend gets our DB id, not python id
