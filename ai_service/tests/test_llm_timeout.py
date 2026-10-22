@@ -275,11 +275,12 @@ async def test_both_providers_timeout_marks_job_failed():
     assert api.job_status[job_id]["status"] == "failed"
     assert api.job_status[job_id]["status"] != "processing"
 
-    # Must provide clear reason explaining both failures
+    # Public failure details are stable and do not expose provider diagnostics.
     error_msg = api.job_status[job_id].get("error", "")
-    assert "Gemini" in error_msg
-    assert "Groq" in error_msg
-    assert "failed" in error_msg.lower() or "timeout" in error_msg.lower()
+    assert error_msg == "AI provider generation failed."
+    assert api.job_status[job_id]["failure_code"] == "provider_failed"
+    assert "Gemini connection timed out" not in error_msg
+    assert "api.groq.com" not in error_msg
 
     # Reason field should also be populated
     assert "reason" in api.job_status[job_id]
