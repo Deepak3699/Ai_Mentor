@@ -2,6 +2,7 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
+import crypto from "crypto";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
 import { registerSchema, loginSchema } from "../schemas/authSchema.js";
@@ -31,19 +32,97 @@ import {
   completeProfile,
 } from "../controllers/userController.js";
 
+import {
+  UPLOAD_DIR,
+  ALLOWED_MIME_TYPES,
+  ALLOWED_EXTENSIONS,
+  MAX_AVATAR_SIZE,
+  safeDeleteFile,
+  validateImageFile,
+} from "../utils/uploadUtils.js";
+
 const router = express.Router();
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/");
+    cb(null, UPLOAD_DIR);
   },
   filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname);
-    cb(null, Date.now() + ext);
+    const ext = path.extname(file.originalname || "").toLowerCase();
+    const safeExt = ALLOWED_EXTENSIONS.has(ext) ? ext : ".jpg";
+    const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}`;
+    cb(null, `avatar-${uniqueSuffix}${safeExt}`);
   },
 });
 
-const upload = multer({ storage });
+const fileFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname || "").toLowerCase();
+  if (!ALLOWED_MIME_TYPES.has(file.mimetype) || !ALLOWED_EXTENSIONS.has(ext)) {
+    const error = new Error("Invalid file type. Only JPEG, PNG, WEBP, and GIF images are allowed.");
+    error.status = 400;
+    return cb(error, false);
+  }
+  cb(null, true);
+};
+
+const upload = multer({
+  storage,
+  limits: { fileSize: MAX_AVATAR_SIZE },
+  fileFilter,
+});
+
+const uploadAvatar = (req, res, next) => {
+  upload.single("avatar")(req, res, async (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          return res.status(400).json({
+            success: false,
+            message: "File too large. Maximum size is 5MB.",
+          });
+        }
+        return res.status(400).json({ success: false, message: err.message });
+      }
+      return res.status(err.status || 400).json({ success: false, message: err.message });
+    }
+
+    if (req.file) {
+      // Validate actual file magic bytes on disk
+      const ext = path.extname(req.file.originalname || "").toLowerCase();
+      const validation = await validateImageFile(req.file.path, req.file.mimetype, ext);
+
+      if (!validation.valid) {
+        await safeDeleteFile(req.file.path);
+        return res.status(400).json({
+          success: false,
+          message: `Invalid image content: ${validation.reason}.`,
+        });
+      }
+
+      let cleanedUp = false;
+      const cleanup = () => {
+        if (!cleanedUp && req.file?.path) {
+          cleanedUp = true;
+          safeDeleteFile(req.file.path);
+        }
+      };
+
+      res.on("finish", () => {
+        if (res.statusCode >= 400) {
+          cleanup();
+        }
+      });
+
+      res.on("close", () => {
+        if (!res.writableEnded) {
+          cleanup();
+        }
+      });
+    }
+
+    next();
+  });
+};
 
 /* ---------- AUTH ROUTES ---------- */
 
@@ -52,14 +131,14 @@ router.post("/login", validate(loginSchema), loginUser);
 
 /* ---------- FIRST-TIME ONBOARDING ---------- */
 // Accepts avatar via multipart form data, requires JWT auth
-router.post("/complete-profile", protect, upload.single("avatar"), completeProfile);
+router.post("/complete-profile", protect, uploadAvatar, completeProfile);
 
 /* ---------- USER ROUTES ---------- */
 
 router
   .route("/profile")
   .get(protect, getUserProfile)
-  .put(protect, upload.single("avatar"), validate(updateProfileSchema), updateUserProfile);
+  .put(protect, uploadAvatar, validate(updateProfileSchema), updateUserProfile);
 router.delete("/profile/avatar", protect, removeProfileAvatar);
 
 router.put("/change-password", protect, validate(changePasswordSchema), changePassword);

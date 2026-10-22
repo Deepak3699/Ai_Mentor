@@ -6,6 +6,7 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import healthRoutes from "./routes/healthRoutes.js";
+import { UPLOAD_DIR, safeDeleteFile } from "./utils/uploadUtils.js";
 
 import { connectDB, sequelize } from "./config/db.js";
 
@@ -99,7 +100,22 @@ app.use(express.json({ limit: "100kb" }));
 
 // ================= STATIC FILES =================
 app.use("/videos", express.static(path.join(__dirname, "videos")));
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Security-Policy", "default-src 'none'");
+    next();
+  },
+  express.static(UPLOAD_DIR, {
+    dotfiles: "ignore",
+    index: false,
+    setHeaders: (res) => {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Content-Security-Policy", "default-src 'none'");
+    },
+  }),
+);
 
 // ================= HEALTH CHECK =================
 app.get("/", (req, res) => {
@@ -140,10 +156,21 @@ app.use((req, res) => {
 
 // ================= GLOBAL ERROR HANDLER =================
 app.use((err, req, res, _next) => {
-  if (err.type === "entity.too.large") {
+  if (req.file?.path) {
+    safeDeleteFile(req.file.path);
+  }
+
+  if (err.type === "entity.too.large" || err.code === "LIMIT_FILE_SIZE") {
     return res.status(413).json({
       success: false,
       message: "Payload Too Large",
+    });
+  }
+
+  if (err.name === "MulterError") {
+    return res.status(400).json({
+      success: false,
+      message: err.message,
     });
   }
 

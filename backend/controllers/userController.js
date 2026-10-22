@@ -5,9 +5,9 @@ import Notifications from "../models/Notification.js";
 import jwt from "jsonwebtoken";
 import { Transaction } from "sequelize";
 import cloudinary from "../config/cloudinary.js";
-import fs from "fs";
 import path from "path";
 import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
+import { UPLOAD_DIR, isPathInsideUploadDir, safeDeleteFile } from "../utils/uploadUtils.js";
 import { createNotification } from "./notificationController.js";
 import { Course } from "../models/modelAssociations.js";
 import Payment from "../models/Payment.js";
@@ -504,22 +504,21 @@ const removeProfileAvatar = async (req, res) => {
     }
 
     const previousAvatar = user.avatar_url;
-    if (previousAvatar?.startsWith("/uploads/")) {
+    let oldPathToDelete = null;
+    if (typeof previousAvatar === "string" && previousAvatar.startsWith("/uploads/")) {
       const filename = path.basename(previousAvatar);
-      const uploadRoot = path.resolve("uploads");
-      const avatarPath = path.resolve(uploadRoot, filename);
-      if (path.dirname(avatarPath) !== uploadRoot) {
-        return res.status(400).json({ message: "Invalid avatar path" });
-      }
-      try {
-        await fs.promises.unlink(avatarPath);
-      } catch (error) {
-        if (error.code !== "ENOENT") throw error;
+      const avatarPath = path.resolve(UPLOAD_DIR, filename);
+      if (isPathInsideUploadDir(avatarPath)) {
+        oldPathToDelete = avatarPath;
       }
     }
 
     user.avatar_url = null;
     await user.save();
+
+    if (oldPathToDelete) {
+      await safeDeleteFile(oldPathToDelete);
+    }
     return res.status(200).json({
       id: user.id,
       firstName: user.firstName,
@@ -548,11 +547,24 @@ const updateUserProfile = async (req, res) => {
 
     const user = await User.findByPk(req.user.id);
     if (!user) {
+      if (req.file?.path) {
+        await safeDeleteFile(req.file.path);
+      }
       return res.status(404).json({ message: "User not found" });
     }
 
+    let previousLocalAvatarToDelete = null;
+
     // Avatar Upload Handling
     if (req.file) {
+      const previousAvatar = user.avatar_url;
+      if (typeof previousAvatar === "string" && previousAvatar.startsWith("/uploads/")) {
+        const oldFilename = path.basename(previousAvatar);
+        const oldPath = path.resolve(UPLOAD_DIR, oldFilename);
+        if (isPathInsideUploadDir(oldPath)) {
+          previousLocalAvatarToDelete = oldPath;
+        }
+      }
       user.avatar_url = `/uploads/${req.file.filename}`;
     }
 
@@ -568,6 +580,9 @@ const updateUserProfile = async (req, res) => {
         },
       });
       if (emailExists) {
+        if (req.file?.path) {
+          await safeDeleteFile(req.file.path);
+        }
         return res.status(400).json({
           message: "Email already in use",
         });
@@ -577,6 +592,11 @@ const updateUserProfile = async (req, res) => {
     user.bio = req.body.bio ?? user.bio;
 
     await user.save();
+
+    // Persist new avatar first! Only AFTER successful save do we delete previous local file
+    if (previousLocalAvatarToDelete) {
+      await safeDeleteFile(previousLocalAvatarToDelete);
+    }
 
     res.status(200).json({
       id: user.id,
@@ -593,6 +613,9 @@ const updateUserProfile = async (req, res) => {
       purchasedCourses: user.purchasedCourses,
     });
   } catch (error) {
+    if (req.file?.path) {
+      await safeDeleteFile(req.file.path);
+    }
     console.error("UPDATE PROFILE ERROR:", error);
     res.status(500).json({ message: "Server error" });
   }
@@ -667,6 +690,9 @@ const completeProfile = async (req, res) => {
 
     // Prevent re-completion for already completed profiles
     if (user.isProfileComplete) {
+      if (req.file?.path) {
+        await safeDeleteFile(req.file.path);
+      }
       // Return gracefully instead of erroring, letting the frontend handle redirection
       return res.json({
         id: user.id,
@@ -705,9 +731,19 @@ const completeProfile = async (req, res) => {
       return res.status(400).json({ message: "Bio is required" });
     }
 
+    let previousLocalAvatarToDelete = null;
+
     // Avatar upload via Cloudinary (required if not already set)
     // Store image locally instead of Cloudinary
     if (req.file) {
+      const previousAvatar = user.avatar_url;
+      if (typeof previousAvatar === "string" && previousAvatar.startsWith("/uploads/")) {
+        const oldFilename = path.basename(previousAvatar);
+        const oldPath = path.resolve(UPLOAD_DIR, oldFilename);
+        if (isPathInsideUploadDir(oldPath)) {
+          previousLocalAvatarToDelete = oldPath;
+        }
+      }
       user.avatar_url = `/uploads/${req.file.filename}`;
     } else if (!user.avatar_url) {
       return res.status(400).json({
@@ -717,6 +753,10 @@ const completeProfile = async (req, res) => {
 
     user.isProfileComplete = true; // Temporary flag to trigger save check
     await user.save();
+
+    if (previousLocalAvatarToDelete) {
+      await safeDeleteFile(previousLocalAvatarToDelete);
+    }
 
     // Final safety check: if the hook found it's STILL incomplete, return a list of missing fields.
     if (!user.isProfileComplete) {
@@ -749,6 +789,9 @@ const completeProfile = async (req, res) => {
       purchasedCourses: user.purchasedCourses,
     });
   } catch (error) {
+    if (req.file?.path) {
+      await safeDeleteFile(req.file.path);
+    }
     console.error("COMPLETE PROFILE ERROR:", error);
 
     res.status(500).json({
