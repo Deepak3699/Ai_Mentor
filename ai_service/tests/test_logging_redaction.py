@@ -89,3 +89,30 @@ def test_log_event_rejects_non_ascii_message(caplog):
 
     assert private_message not in caplog.text
     assert "Log event omitted: invalid message" in caplog.text
+
+
+def test_log_event_rejects_unsafe_approved_field_values(caplog):
+    with caplog.at_level("INFO", logger=api.logger.name):
+        api.log_event(
+            "INFO",
+            "Lesson generation started",
+            provider="PRIVATE_TOPIC_SENTINEL",
+            job=r"C:\Users\someone\private-file",
+            words=True,
+            duration=float("inf"),
+        )
+
+    assert "PRIVATE_TOPIC_SENTINEL" not in caplog.text
+    assert r"C:\Users\someone\private-file" not in caplog.text
+    assert "words=True" not in caplog.text
+    assert "duration=inf" not in caplog.text
+
+
+def test_log_event_rejects_unapproved_model(caplog):
+    private_model = "PRIVATE_MODEL_SENTINEL"
+
+    with caplog.at_level("INFO", logger=api.logger.name):
+        api.log_event("INFO", "Lesson script generated", model=private_model)
+
+    assert private_model not in caplog.text
+    assert "model=" not in caplog.text

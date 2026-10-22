@@ -10,6 +10,7 @@ class GracefulServer(Server):
 
 
 if __name__ == "__main__":
+    api.configure_logging()
     config = Config(
         "api:app",
         host="127.0.0.1",
