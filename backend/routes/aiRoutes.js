@@ -17,7 +17,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
 
     // 🔐 Check purchase
     const purchasedCourse = req.user.purchasedCourses.find(
-      (c) => Number(c.courseId) === Number(courseId)
+      (c) => Number(c.courseId) === Number(courseId),
     );
 
     if (!purchasedCourse) {
@@ -49,6 +49,7 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
           videoUrl: cachedVideo.videoUrl,
           transcriptName: cachedVideo.transcriptName,
           jobId: cachedVideo.jobId,
+          meta: cachedVideo.meta,
           cached: true,
         });
       }
@@ -57,14 +58,13 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
 
       const videoCheck = await fetch(
         `${process.env.AI_SERVICE_URL}/video-stream/${filename}`,
-        { method: "HEAD" }   // lightweight check
+        { method: "HEAD" }, // lightweight check
       );
 
       if (!videoCheck.ok) {
         console.log("⚠️ Cached video missing. Removing from DB...");
 
-        await cachedVideo.destroy();  // delete bad cache
-
+        await cachedVideo.destroy(); // delete bad cache
       } else {
         console.log("✅ Cached video verified.");
 
@@ -72,11 +72,11 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
           videoUrl: cachedVideo.videoUrl,
           transcriptName: cachedVideo.transcriptName,
           jobId: cachedVideo.jobId,
+          meta: cachedVideo.meta,
           cached: true,
         });
       }
     }
-
 
     // Get titles from JSON
     const titles = await getCourseAndLessonTitles(courseId, lessonId);
@@ -88,12 +88,10 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
     const { courseTitle, lessonTitle } = titles;
 
     const userPreferencesRecord = await Preferences.findOne({
-      where: { user_id: req.user.id }   // 👈 FIX
+      where: { user_id: req.user.id }, // 👈 FIX
     });
 
-    const userPreferences = userPreferencesRecord
-      ? userPreferencesRecord.toJSON()
-      : null;
+    const userPreferences = userPreferencesRecord ? userPreferencesRecord.toJSON() : null;
 
     // Create DB record immediately as pending
     const aiVideo = await AIVideo.create({
@@ -127,7 +125,6 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
       status: "processing",
       message: "Video generation started",
     });
-
   } catch (error) {
     console.error("AI GENERATE ERROR:", error);
     res.status(500).json({ message: "Failed to generate AI video" });
@@ -168,7 +165,6 @@ router.get("/transcript/:filename", async (req, res) => {
     }
 
     res.json(data);
-
   } catch (error) {
     console.error("❌ Transcript Proxy Error:", error.message);
     res.status(500).json({ error: "Failed to load transcript" });
@@ -181,7 +177,7 @@ router.get("/status/:jobId", protect, async (req, res) => {
 
     // Check DB first
     const videoJob = await AIVideo.findOne({ where: { id: jobId } });
-    
+
     if (!videoJob) {
       return res.status(404).json({ status: "not_found" });
     }
@@ -195,7 +191,8 @@ router.get("/status/:jobId", protect, async (req, res) => {
         status: "ready",
         cloudinary_url: videoJob.videoUrl,
         transcriptName: videoJob.transcriptName,
-        jobId: jobId // return same ID to frontend
+        jobId: jobId, // return same ID to frontend
+        meta: videoJob.meta,
       });
     }
 
@@ -231,20 +228,20 @@ router.get("/status/:jobId", protect, async (req, res) => {
     if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
       try {
         await AIVideo.update(
-          { videoUrl: data.cloudinary_url, status: "completed" },
-          { where: { id: jobId } }
+          { videoUrl: data.cloudinary_url, status: "completed", meta: data.meta },
+          { where: { id: jobId } },
         );
         console.log(`☁️ AIVideo DB updated with Cloudinary URL for DB ID: ${jobId}`);
       } catch (dbErr) {
         console.error("⚠️ Failed to update AIVideo with Cloudinary URL:", dbErr.message);
       }
     } else if (data.status === "failed") {
-        await AIVideo.update(
-          { status: "failed", error: "Failed in AI service" },
-          { where: { id: jobId } }
-        );
+      await AIVideo.update(
+        { status: "failed", error: "Failed in AI service" },
+        { where: { id: jobId } },
+      );
     }
-    
+
     data.jobId = jobId; // ensure frontend gets our DB id, not python id
 
     res.json(data);
@@ -268,7 +265,7 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
 
     // 🔐 The user must be enrolled in the course named in the URL
     const isEnrolled = (req.user.purchasedCourses || []).some(
-      (c) => Number(c.courseId) === numericCourseId
+      (c) => Number(c.courseId) === numericCourseId,
     );
 
     if (!isEnrolled) {
@@ -291,12 +288,17 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
       return res.status(404).json({ error: "Video not found" });
     }
 
-    // Python service expects <pythonJobId>.mp4
+    // Python service expects &lt;pythonJobId&gt;.mp4
     const pythonFilename = `${video.jobId}.mp4`;
-    const pythonVideoUrl =
-      `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(pythonFilename)}`;
+    const pythonVideoUrl = `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(pythonFilename)}`;
+    const requestHeaders = {};
+    if (req.headers.range) {
+      requestHeaders.Range = req.headers.range;
+    }
 
-    const response = await fetch(pythonVideoUrl);
+    const response = await fetch(pythonVideoUrl, {
+      headers: requestHeaders,
+    });
 
     if (!response.ok) {
       return res.status(404).json({
@@ -304,17 +306,26 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
       });
     }
 
+    const headersToForward = ["content-range", "content-length", "accept-ranges"];
+
     res.setHeader("Content-Type", "video/mp4");
-    // Streams the response body directly to the client
-    const reader = response.body.getReader();
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(value);
+    for (const header of headersToForward) {
+      const value = response.headers.get(header);
+      if (value) {
+        res.setHeader(header, value);
+      }
     }
-    res.end();
 
+    res.status(response.status);
+
+    if (!response.body) {
+      return res.status(502).json({
+        error: "Empty video response from AI service",
+      });
+    }
+    const { Readable } = await import("node:stream");
+    Readable.fromWeb(response.body).pipe(res);
   } catch (error) {
     console.error("❌ Proxy Error:", error.message);
     res.status(500).json({

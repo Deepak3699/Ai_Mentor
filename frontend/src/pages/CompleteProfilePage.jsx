@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/auth/AuthLayout";
+import LoadingSpinner from "../components/common/LoadingSpinner";
 import { Eye, EyeOff, Check, X, Camera, User as UserIcon } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -34,7 +35,7 @@ const ValidationItem = ({ label, met }) => (
 const CompleteProfilePage = () => {
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
-  
+
   // Graceful redirect: If profile is already complete, don't show the form
   useEffect(() => {
     if (user?.isProfileComplete) {
@@ -55,40 +56,43 @@ const CompleteProfilePage = () => {
   const showAvatarField = user?.isNewUser || !user?.avatar_url?.trim();
 
   /* ─── Form state ─── */
-//Lazy initialize form fields with existing user data (if any) to allow editing before submission
-const [firstName, setFirstName] = useState(() => user?.firstName || "");
-const [lastName, setLastName] = useState(() => user?.lastName || "");
-const [bio, setBio] = useState(() => user?.bio || "");
-const [password, setPassword] = useState("");
-const [showPassword, setShowPassword] = useState(false);
-const [avatar, setAvatar] = useState(null);
-const [loading, setLoading] = useState(false);
-const [errors, setErrors] = useState({});
+  //Lazy initialize form fields with existing user data (if any) to allow editing before submission
+  const [firstName, setFirstName] = useState(() => user?.firstName || "");
+  const [lastName, setLastName] = useState(() => user?.lastName || "");
+  const [bio, setBio] = useState(() => user?.bio || "");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [avatar, setAvatar] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  
   // Pre-fill avatar preview with existing URL, or a DiceBear fallback for Google users without a photo
   const getInitialAvatar = () => {
     if (user?.avatar_url) return user.avatar_url;
     // Only use DiceBear initials for Google users
     if (isGoogleUser || user?.googleId || user?.isGoogleUser) {
-      const seed = encodeURIComponent(`${firstName || user?.firstName || ""} ${lastName || user?.lastName || ""}`.trim() || user?.name || "User");
+      const seed = encodeURIComponent(
+        `${firstName || user?.firstName || ""} ${lastName || user?.lastName || ""}`.trim() ||
+          user?.name ||
+          "User",
+      );
       return `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
     }
     return null;
   };
 
-const [avatarPreview, setAvatarPreview] = useState(() => getInitialAvatar());
+  const [avatarPreview, setAvatarPreview] = useState(() => getInitialAvatar());
 
-useEffect(() => {
-  if (!avatar) return;
+  useEffect(() => {
+    if (!avatar) return;
 
-  const objectUrl = URL.createObjectURL(avatar);
-  setAvatarPreview(objectUrl);
+    const objectUrl = URL.createObjectURL(avatar);
+    setAvatarPreview(objectUrl);
 
-  return () => {
-    URL.revokeObjectURL(objectUrl);
-  };
-}, [avatar]);
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [avatar]);
 
   /* ─── Password requirements (Google users only) ─── */
   const passwordRequirements = {
@@ -108,7 +112,10 @@ useEffect(() => {
     // Validate file type
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     if (!allowedTypes.includes(file.type)) {
-      setErrors((prev) => ({ ...prev, avatar: "Only JPEG, PNG, WebP, and GIF images are allowed" }));
+      setErrors((prev) => ({
+        ...prev,
+        avatar: "Only JPEG, PNG, WebP, and GIF images are allowed",
+      }));
       return;
     }
 
@@ -186,7 +193,7 @@ useEffect(() => {
             Authorization: `Bearer ${token}`,
           },
           body: formData,
-        }
+        },
       );
 
       const data = await response.json();
@@ -224,51 +231,50 @@ useEffect(() => {
         {/* ─── Dynamic Field: Profile Picture ─── */}
         {showAvatarField && (
           <div className="flex flex-col items-center mb-2">
-          <label
-            htmlFor="avatar-upload"
-            className="relative cursor-pointer group"
-          >
-            <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-slate-800 transition-all group-hover:border-[#00BEA5] group-hover:shadow-lg group-hover:shadow-teal-500/20">
-              {avatarPreview ? (
-                <img
-                  src={avatarPreview}
-                  alt="Avatar preview"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Only use DiceBear fallback for Google users
-                    if (isGoogleUser || user?.googleId || user?.isGoogleUser) {
-                      const seed = encodeURIComponent(`${firstName || user?.firstName || ""} ${lastName || user?.lastName || ""}`.trim() || user?.name || "User");
-                      e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
-                    } else {
-                      // For email users, clear the broken preview so the generic icon shows
-                      setAvatarPreview(null);
-                    }
-                  }}
-                />
-              ) : (
-                <UserIcon className="w-8 h-8 text-gray-400 dark:text-gray-500" />
-              )}
-            </div>
-            {/* Camera overlay */}
-            <div className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-gradient-to-r from-[#2186df] to-[#02ffbb] flex items-center justify-center shadow-md border-2 border-white dark:border-[#0f172a] group-hover:scale-110 transition-transform">
-              <Camera className="w-3.5 h-3.5 text-white" />
-            </div>
-          </label>
-          <input
-            id="avatar-upload"
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            onChange={handleAvatarChange}
-            className="hidden"
-          />
-          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5">
-            Click to upload photo
-          </p>
-          {errors.avatar && (
-            <p className="text-[10px] text-red-500 mt-0.5">{errors.avatar}</p>
-          )}
-        </div>
-      )}
+            <label htmlFor="avatar-upload" className="relative cursor-pointer group">
+              <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-slate-800 transition-all group-hover:border-[#00BEA5] group-hover:shadow-lg group-hover:shadow-teal-500/20">
+                {avatarPreview ? (
+                  <img
+                    src={avatarPreview}
+                    alt="Avatar preview"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      // Only use DiceBear fallback for Google users
+                      if (isGoogleUser || user?.googleId || user?.isGoogleUser) {
+                        const seed = encodeURIComponent(
+                          `${firstName || user?.firstName || ""} ${lastName || user?.lastName || ""}`.trim() ||
+                            user?.name ||
+                            "User",
+                        );
+                        e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
+                      } else {
+                        // For email users, clear the broken preview so the generic icon shows
+                        setAvatarPreview(null);
+                      }
+                    }}
+                  />
+                ) : (
+                  <UserIcon className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                )}
+              </div>
+              {/* Camera overlay */}
+              <div className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-gradient-to-r from-[#2186df] to-[#02ffbb] flex items-center justify-center shadow-md border-2 border-white dark:border-[#0f172a] group-hover:scale-110 transition-transform">
+                <Camera className="w-3.5 h-3.5 text-white" />
+              </div>
+            </label>
+            <input
+              id="avatar-upload"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleAvatarChange}
+              className="hidden"
+            />
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1.5">
+              Click to upload photo
+            </p>
+            {errors.avatar && <p className="text-[10px] text-red-500 mt-0.5">{errors.avatar}</p>}
+          </div>
+        )}
 
         {/* ─── Dynamic Field: First & Last Name ─── */}
         {showNameFields && (
@@ -342,9 +348,7 @@ useEffect(() => {
               <ValidationItem label="Number" met={passwordRequirements.number} />
               <ValidationItem label="Symbol" met={passwordRequirements.symbol} />
             </div>
-            {errors.password && (
-              <p className="text-[10px] text-red-500 mt-1">{errors.password}</p>
-            )}
+            {errors.password && <p className="text-[10px] text-red-500 mt-1">{errors.password}</p>}
           </div>
         )}
 
@@ -367,11 +371,7 @@ useEffect(() => {
               required
             />
             <div className="flex justify-between mt-0.5">
-              {errors.bio ? (
-                <p className="text-[10px] text-red-500">{errors.bio}</p>
-              ) : (
-                <span />
-              )}
+              {errors.bio ? <p className="text-[10px] text-red-500">{errors.bio}</p> : <span />}
               <span className="text-[10px] text-gray-400">{bio.length}/500</span>
             </div>
           </div>
@@ -385,10 +385,7 @@ useEffect(() => {
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">
-              <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
+              <LoadingSpinner variant="compact" light label="Completing profile" />
               Saving...
             </span>
           ) : (

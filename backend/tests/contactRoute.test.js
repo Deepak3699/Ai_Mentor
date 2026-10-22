@@ -1,4 +1,3 @@
-
 import { after, afterEach, before, test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
@@ -211,4 +210,21 @@ test("persistence failure returns a safe 500 response", async () => {
   assert.equal(data.success, false);
   assert.equal(data.message, "Server error while sending message");
 });
+test("Sequelize validation errors are converted to a safe 400 response", async () => {
+  ContactMessage.create = async () => {
+    const error = new Error("validation failed");
+    error.name = "SequelizeValidationError";
+    error.errors = [{ message: "Please enter a valid email address" }];
+    throw error;
+  };
 
+  console.error = () => {};
+
+  const res = await post(validBody);
+
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    message: "Please enter a valid email address",
+  });
+});
