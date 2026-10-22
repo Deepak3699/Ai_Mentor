@@ -1,3 +1,4 @@
+import subprocess
 import os
 import datetime
 import re
@@ -6,7 +7,7 @@ import asyncio
 import edge_tts
 import cloudinary
 import cloudinary.uploader
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -66,6 +67,9 @@ class LessonRequest(BaseModel):
     topic: str
     celebrity: str
     preferences: dict | None = None
+    language: str = "English"
+    gender: str | None = None
+    voice_id: str | None = None
 
 class SyllabusRequest(BaseModel):
     course_title: str
@@ -76,12 +80,100 @@ class SyllabusRequest(BaseModel):
 # --------------------------
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-async def generate_tts(text: str, output_file: str):
+LANGUAGE_CODES = {
+    "english": "en",
+    "spanish": "es",
+    "french": "fr",
+    "hindi": "hi",
+    "bengali": "bn",
+    "portuguese": "pt",
+    "japanese": "ja",
+    "chinese": "zh",
+    "german": "de",
+    "arabic": "ar",
+    "italian": "it",
+    "korean": "ko",
+    "russian": "ru",
+    "tamil": "ta",
+    "telugu": "te",
+}
+
+
+async def select_voice(
+    language: str,
+    gender: str | None,
+    voice_id: str | None,
+):
+    try:
+        voices = await edge_tts.list_voices()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to retrieve available text-to-speech voices.",
+        ) from exc
+
+    if voice_id:
+        selected = next(
+            (
+                voice for voice in voices
+                if voice.get("ShortName") == voice_id
+            ),
+            None,
+        )
+        if selected is None:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Unknown voice_id: {voice_id}",
+            )
+        return selected["ShortName"]
+
+    language_code = LANGUAGE_CODES.get(language.strip().casefold())
+    if not language_code:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported language: {language}",
+        )
+
+    normalized_gender = gender.strip().casefold() if gender else None
+    if normalized_gender and normalized_gender not in {"male", "female"}:
+        raise HTTPException(
+            status_code=422,
+            detail="gender must be 'male' or 'female'.",
+        )
+
+    candidates = [
+        voice for voice in voices
+        if voice.get("Locale", "").casefold().startswith(
+            language_code + "-"
+        )
+        and (
+            normalized_gender is None
+            or voice.get("Gender", "").casefold() == normalized_gender
+        )
+    ]
+
+    if not candidates:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"No available voice for language '{language}' "
+                f"and gender '{gender}'."
+            ),
+        )
+
+    return candidates[0]["ShortName"]
+
+
+async def generate_tts(
+    text: str,
+    output_file: str,
+    voice_id: str = "en-US-GuyNeural",
+):
     communicate = edge_tts.Communicate(
         text=text,
-        voice="en-US-GuyNeural",
+        voice=voice_id,
         rate="+0%",
-        pitch="+0Hz"
+        pitch="+0Hz",
     )
     await communicate.save(output_file)
 
@@ -117,6 +209,28 @@ app.mount("/transcript-stream", StaticFiles(directory=text_output_path), name="t
 @app.get("/")
 def home():
     return {"message": "AI Lesson Generator Backend Running"}
+
+
+# Available Voices Route
+@app.get("/voices")
+async def get_voices():
+    try:
+        voices = await edge_tts.list_voices()
+        return [
+            {
+                "voice_id": voice["ShortName"],
+                "language": voice["Locale"],
+                "gender": voice["Gender"],
+                "name": voice.get("FriendlyName", voice["ShortName"]),
+            }
+            for voice in voices
+        ]
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Unable to retrieve available text-to-speech voices.",
+        ) from exc
+
 
 @app.get("/transcript/{filename}")
 def get_transcript(filename: str):
@@ -172,7 +286,7 @@ def generate_syllabus(data: SyllabusRequest):
     try:
         print("⚡ Trying Gemini Primary Model for Syllabus...")
         response = gemini_client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.8-flash",
             contents=prompt
         )
         text = response.text.strip()
@@ -184,7 +298,7 @@ def generate_syllabus(data: SyllabusRequest):
         print(f"❌ Gemini failed: {e}. Trying Groq...")
         try:
             groq_response = groq_client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[{ "role": "user", "content": prompt }],
                 temperature=0.7,
                 max_tokens=1000,
@@ -205,28 +319,48 @@ def generate_syllabus(data: SyllabusRequest):
 job_status = {}
 
 @app.post("/generate")
-def generate_lesson(data: LessonRequest, background_tasks: BackgroundTasks):
+async def generate_lesson(
+    data: LessonRequest,
+    background_tasks: BackgroundTasks,
+):
+    selected_voice = await select_voice(
+        data.language,
+        data.gender,
+        data.voice_id,
+    )
 
-    topic_clean = re.sub(r'[^\w\s-]', '', data.topic).strip().replace(" ", "_")
+    topic_clean = re.sub(
+        r"[^\w\s-]", "", data.topic
+    ).strip().replace(" ", "_")
+
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     base_filename = f"{topic_clean}_{timestamp}"
 
     job_status[base_filename] = {"status": "processing"}
 
-    background_tasks.add_task(process_lesson, data, base_filename)
+    background_tasks.add_task(
+        process_lesson,
+        data,
+        base_filename,
+        selected_voice,
+    )
 
     return {
         "status": "Processing",
         "filename": f"{base_filename}.mp4",
         "text_file": f"{base_filename}.txt",
         "audio_file": f"{base_filename}.mp3",
-        "jobId": base_filename
+        "jobId": base_filename,
     }
 
 # --------------------------
 # Background Task Logic
 # --------------------------
-def process_lesson(data: LessonRequest, base_filename: str):
+def process_lesson(
+    data: LessonRequest,
+    base_filename: str,
+    selected_voice: str,
+):
 
     print("\n📥 RAW REQUEST DATA:")
     print(data.dict())
@@ -252,11 +386,11 @@ def process_lesson(data: LessonRequest, base_filename: str):
         Create a 50 word educational explanation about '{data.topic}' in the subject '{data.course}'.
 
         Rules:
-        - 100% English only
-        - No Hindi
-        - No Hinglish
-        - Simple classroom teaching tone
-        - Between 45 and 60 words
+        - Write the explanation entirely in {data.language}.
+        - Use the correct script and natural phrasing for that language.
+        - Keep technical terms and code accurate.
+        - Use a simple classroom teaching tone.
+        - Keep the explanation between 45 and 60 words.
 
         Narration style inspired by the celebrity {data.celebrity}.
 
@@ -277,7 +411,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
             print("⚡ Trying Gemini Primary Model...")
 
             response = gemini_client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3.8-flash",
                 contents=prompt
             )
 
@@ -293,7 +427,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
                 print("⚡ Switching to Groq fallback...")
 
                 groq_response = groq_client.chat.completions.create(
-                    model="llama-3.3-70b-versatile",
+                    model="openai/gpt-oss-120b",
                     messages=[
                         {
                             "role": "user",
@@ -350,7 +484,9 @@ def process_lesson(data: LessonRequest, base_filename: str):
             if os.path.exists(audio_path):
                 os.remove(audio_path)
 
-            asyncio.run(generate_tts(script, audio_path))
+            asyncio.run(
+                generate_tts(script, audio_path, selected_voice)
+            )
 
             print(f"✅ Audio saved: {audio_path}")
 
@@ -370,25 +506,50 @@ def process_lesson(data: LessonRequest, base_filename: str):
 
         # 6️⃣ Merge Video + Audio (FFmpeg)
 
-        ffmpeg_command = (
-            f'ffmpeg -y -stream_loop -1 -i "{input_video}" '
-            f'-i "{audio_path}" '
-            f'-map 0:v:0 -map 1:a:0 '
-            f'-c:v copy -c:a aac -shortest "{final_video}"'
+        ffmpeg_path = (
+            r"C:\Users\bisha\Downloads\ffmpeg-9.0.2-essentials_build\bin\ffmpeg.exe"
         )
 
-        print(f"🎥 Running ffmpeg command...")
-
-        os.system(ffmpeg_command)
-
-        if not os.path.exists(final_video):
-            print(f"❌ FFmpeg failed — video file not found at {final_video}")
-
-            job_status[base_filename] = {
-                "status": "failed"
-            }
-
+        if not os.path.isfile(ffmpeg_path):
+            print(f"❌ FFmpeg executable not found: {ffmpeg_path}")
+            job_status[base_filename] = {"status": "failed"}
             return
+
+        ffmpeg_command = [
+            ffmpeg_path,
+            "-y",
+            "-stream_loop", "-1",
+            "-i", input_video,
+            "-i", audio_path,
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-shortest",
+            final_video,
+        ]
+
+        print("🎥 Running FFmpeg command...")
+
+        result = subprocess.run(
+            ffmpeg_command,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            print(f"❌ FFmpeg failed with exit code {result.returncode}")
+            print(result.stderr)
+            job_status[base_filename] = {"status": "failed"}
+            return
+
+        if not os.path.isfile(final_video):
+            print(f"❌ Final video was not created: {final_video}")
+            job_status[base_filename] = {"status": "failed"}
+            return
+
+        print(f"✅ Video created successfully: {final_video}")
 
         # 7️⃣ Upload to Cloudinary
 
