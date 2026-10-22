@@ -141,6 +141,7 @@ test("missing email returns 400", async () => {
   });
 
   const data = await res.json();
+
   assert.equal(res.status, 400);
   assert.equal(data.success, false);
   assert.equal(data.message, "Email is required");
@@ -200,6 +201,7 @@ test("persistence failure returns a safe 500 response", async () => {
   ContactMessage.create = async () => {
     throw new Error("database unavailable");
   };
+
   console.error = () => {};
 
   const res = await post(validBody);

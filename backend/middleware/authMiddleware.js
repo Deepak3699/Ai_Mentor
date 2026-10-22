@@ -12,14 +12,13 @@ const protect = async (req, res, next) => {
   }
 
   try {
-    const token = authHeader.split(" ")[1];
-
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({
         message: "JWT secret not configured",
       });
     }
 
+    const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findByPk(decoded.id, {
@@ -59,7 +58,6 @@ const protect = async (req, res, next) => {
 const optionalProtect = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
-  // No token is allowed for public contact-form submissions.
   if (!authHeader) {
     return next();
   }
@@ -71,14 +69,13 @@ const optionalProtect = async (req, res, next) => {
   }
 
   try {
-    const token = authHeader.split(" ")[1];
-
     if (!process.env.JWT_SECRET) {
       return res.status(500).json({
         message: "JWT secret not configured",
       });
     }
 
+    const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findByPk(decoded.id, {
