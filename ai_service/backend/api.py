@@ -1030,9 +1030,6 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         "Lesson request accepted",
         correlation_id=correlation_id,
     )
-
-    correlation_id = safe_correlation_id(base_filename)
-    log_event("QUEUE", "Lesson request accepted", correlation_id=correlation_id)
     start_time = time.time()
     provider_used = "unknown"
     model_used = "unknown"
