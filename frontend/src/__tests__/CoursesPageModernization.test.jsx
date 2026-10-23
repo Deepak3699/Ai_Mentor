@@ -25,6 +25,17 @@ describe("modern courses experience", () => {
     expect(coursesSource).toContain("Visible results");
   });
 
+  it("keeps report course selection separate from enrollment and submits with the stored token", () => {
+    expect(coursesSource).toContain('const [reportCourse, setReportCourse] = useState("")');
+    expect(coursesSource).toContain("selectedCourse={reportCourse}");
+    expect(coursesSource).toContain("setSelectedCourse={setReportCourse}");
+    expect(coursesSource).toContain('const token = localStorage.getItem("token")');
+    expect(coursesSource).toContain('courseName: reportCourse || "General"');
+    expect(coursesSource).toContain('toast.success("Report submitted successfully.")');
+    expect(coursesSource).toContain("const closeEnrollPopup = () => {");
+    expect(coursesSource).toContain("setSelectedCourse(null);");
+  });
+
   it("allows pointer dragging from the collapsed launcher", () => {
     expect(assistantSource).toContain("onPointerDown={beginLauncherDrag}");
     expect(assistantSource).toContain("allowButton");
