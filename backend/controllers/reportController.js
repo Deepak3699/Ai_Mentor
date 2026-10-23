@@ -17,17 +17,6 @@ const DASHBOARD_MESSAGE_MAX_LENGTH = 255;
 
 const truncate = (text, max) => (text.length > max ? `${text.slice(0, max - 3)}...` : text);
 
-// Roles that moderate course reports. These are the User.role enum values in
-// backend/models/User.js ("superadmin" is lowercase there, as in
-// communityController and sidebarController). The separate Admin table
-// (issue #116) is not queried here.
-export const MODERATOR_ROLES = ["admin", "superadmin"];
-
-// AdminNotifications.message is a VARCHAR(255) column.
-const DASHBOARD_MESSAGE_MAX_LENGTH = 255;
-
-const truncate = (text, max) => (text.length > max ? `${text.slice(0, max - 3)}...` : text);
-
 // @desc    Submit a course report and notify every moderator
 // @route   POST /api/course-reports
 // @access  Private
