@@ -2,6 +2,7 @@ import os
 import sys
 import asyncio
 import inspect
+import time
 from pathlib import Path
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -170,3 +171,47 @@ def test_did_video_is_normalized_before_delivery():
 def test_create_avatar_video_is_coroutine_function():
     """Verify that create_avatar_video is defined as an async coroutine function in api."""
     assert inspect.iscoroutinefunction(api.create_avatar_video)
+
+
+def test_slow_script_generation_does_not_block_event_loop():
+    """Blocking LLM retries must run off the event loop during lesson processing."""
+    req = LessonRequest(course="Python", topic="Asyncio", celebrity="Modi")
+    base_filename = "test_nonblocking_script_123"
+    timeline = []
+    finished = asyncio.Event()
+
+    def slow_script(_data):
+        timeline.append(("script_start", time.monotonic()))
+        time.sleep(0.2)
+        timeline.append(("script_end", time.monotonic()))
+        return "Test script for the non-blocking generation check.", "gemini", "test-model"
+
+    async def ticker():
+        while not finished.is_set():
+            timeline.append(("tick", time.monotonic()))
+            await asyncio.sleep(0.02)
+
+    mock_proc = AsyncMock()
+    mock_proc.returncode = 0
+    mock_proc.communicate.return_value = (b"", b"")
+
+    async def scenario():
+        ticker_task = asyncio.create_task(ticker())
+        try:
+            await process_lesson(req, base_filename)
+        finally:
+            finished.set()
+        await ticker_task
+
+    with patch("api.generate_lesson_script", new=slow_script), \
+         patch("api.generate_tts", new_callable=AsyncMock), \
+         patch("api.create_avatar_video", side_effect=Exception("D-ID disabled")), \
+         patch("os.path.exists", side_effect=lambda p: False if p.endswith(".mp3") else True), \
+         patch("os.remove"), \
+         patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
+         patch("cloudinary.uploader.upload", return_value={"secure_url": "http://cloudinary.com/test.mp4"}):
+        asyncio.run(scenario())
+
+    start = next(moment for name, moment in timeline if name == "script_start")
+    end = next(moment for name, moment in timeline if name == "script_end")
+    assert any(start < moment < end for name, moment in timeline if name == "tick")

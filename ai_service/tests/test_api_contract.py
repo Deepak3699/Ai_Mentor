@@ -5,6 +5,9 @@ API_PATH = Path(__file__).resolve().parents[1] / "backend" / "api.py"
 SOURCE = API_PATH.read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE)
 
+LLM_SERVICE_PATH = Path(__file__).resolve().parents[1] / "backend" / "llm_service.py"
+LLM_SERVICE_SOURCE = LLM_SERVICE_PATH.read_text(encoding="utf-8")
+
 
 def class_fields(name):
     node = next(n for n in TREE.body if isinstance(n, ast.ClassDef) and n.name == name)
@@ -54,7 +57,12 @@ def test_job_and_transcript_routes_remain_available():
 
 
 def test_api_uses_declared_config_model_for_primary_gemini_calls():
-    assert "model=GEMINI_MODEL" in SOURCE, "Primary Gemini calls should use the configured GEMINI_MODEL"
+    assert "model=GEMINI_MODEL" in LLM_SERVICE_SOURCE, "Primary Gemini calls should use the configured GEMINI_MODEL"
+
+
+def test_llm_service_models_come_from_config_not_hardcoded():
+    assert "llama-3.3-70b-versatile" not in LLM_SERVICE_SOURCE, "Groq model must be configured via GROQ_MODEL, not hard-coded"
+    assert "def generate_text" in LLM_SERVICE_SOURCE, "All LLM call sites should share one generate_text helper"
 
 
 def test_api_does_not_embed_secret_values():
