@@ -365,6 +365,29 @@ export const generateCourseSyllabusWithAI = async (req, res) => {
       return syllabusUnavailable(req, res);
     }
 
+    // Validate the complete AI response before writing anything to the database.
+    if (
+      !data ||
+      !Array.isArray(data.modules) ||
+      !data.modules.every(
+        (mod) =>
+          mod &&
+          typeof mod.title === "string" &&
+          mod.title.trim() &&
+          Array.isArray(mod.lessons) &&
+          mod.lessons.every(
+            (lesson) => lesson && typeof lesson.title === "string" && lesson.title.trim(),
+          ),
+      )
+    ) {
+      logServerError(
+        req,
+        new Error("AI service returned an invalid syllabus format"),
+        "generateSyllabus.validation",
+      );
+      return syllabusUnavailable(req, res);
+    }
+
     // Insert into DB
     let moduleOrder = 1;
     for (const mod of data.modules) {
