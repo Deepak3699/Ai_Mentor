@@ -879,11 +879,16 @@ def explain_code(data: ExplainCodeRequest):
 # Generate Lesson Endpoint
 # --------------------------
 
+
+# Job status cache:
+# - Entries expire automatically after 1 hour
+MAX_CONCURRENT_GENERATIONS = 3
+
 active_jobs = set()
 shutdown_failed_jobs = set()
 shutting_down = False
-# Job status cache:
-# - Entries expire automatically after 1 hour.
+generation_semaphore = asyncio.Semaphore(MAX_CONCURRENT_GENERATIONS)
+
 # - Cache is limited to 1000 jobs.
 # - This prevents the dictionary from growing indefinitely.
 job_status = TTLCache(maxsize=1000, ttl=3600)
@@ -1015,17 +1020,35 @@ def remove_failed_generation_cache(base_filename: str) -> None:
 # --------------------------
 # Background Task Logic
 # --------------------------
+
 async def run_tracked_lesson(data: LessonRequest, base_filename: str):
     try:
-        await process_lesson(data, base_filename)
+        if shutting_down or base_filename in shutdown_failed_jobs:
+            return
+
+        async with generation_semaphore:
+            # Recheck after waiting for a concurrency slot.
+            if shutting_down or base_filename in shutdown_failed_jobs:
+                return
+
+            if job_status.get(base_filename, {}).get("status") == "failed":
+                return
+
+            await process_lesson(data, base_filename)
     finally:
         active_jobs.discard(base_filename)
 
-
 async def process_lesson(data: LessonRequest, base_filename: str):
-    correlation_id = safe_correlation_id(base_filename)
-    log_event("QUEUE", "Lesson request accepted", correlation_id=correlation_id)
 
+    # Do not restart jobs that have already failed during shutdown.
+    if shutting_down or base_filename in shutdown_failed_jobs:
+        return
+    correlation_id = safe_correlation_id(base_filename)
+    log_event(
+        "QUEUE",
+        "Lesson request accepted",
+        correlation_id=correlation_id,
+    )
     start_time = time.time()
     provider_used = "unknown"
     model_used = "unknown"
@@ -1053,7 +1076,10 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         log_event("START", "Lesson generation started", correlation_id=correlation_id)
 
         log_event("INFO", "User preferences", configured=bool(data.preferences))
-        script, provider_used, model_used = generate_lesson_script(data)
+        script, provider_used, model_used = await asyncio.to_thread(
+            generate_lesson_script,
+            data,
+)
         log_event("INFO", "Script prepared", words=len(script.split()))
 
         # 2️⃣ Create Output Folders
@@ -1095,7 +1121,7 @@ async def process_lesson(data: LessonRequest, base_filename: str):
             await generate_tts(script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch)
 
             try:
-                audio = MP3(audio_path)
+                audio = await asyncio.to_thread(MP3, audio_path)
                 audio_seconds = audio.info.length
             except Exception as e:
                 log_event("WARN", "Could not read audio duration", error=short_error(e))
@@ -1180,41 +1206,80 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         # 6.5 Generate subtitles (.vtt + .srt)
         vtt_path, srt_path = None, None
         try:
-            vtt_path, srt_path = write_subtitles(
-                script, audio_path, os.path.join(video_dir, base_filename)
-            )
+            vtt_path, srt_path = await asyncio.to_thread(
+                    write_subtitles,
+                    script,
+                    audio_path,
+                    os.path.join(video_dir, base_filename),
+)
             log_event("OK", "Subtitle files created")
         except Exception as sub_err:
             log_event("WARN", "Subtitle generation failed; video remains available", error=short_error(sub_err))
 
         # 7️⃣ Upload to Cloudinary
 
+
         cloudinary_url = None
 
         try:
             log_event("RUN", "Uploading lesson video")
 
-            upload_result = cloudinary.uploader.upload(
-                final_video,
-                resource_type="video",
-                folder="ai_mentor/videos",
-                public_id=base_filename,
-                overwrite=True,
-                chunk_size=6000000,
-            )
-
-            cloudinary_url = upload_result.get("secure_url")
-
-            log_event("OK", "Lesson video uploaded")
+            if shutting_down or base_filename in shutdown_failed_jobs:
+                log_event(
+                    "WARN",
+                    "Skipping video upload for failed or shutting-down job",
+                    job=base_filename,
+                )
+                upload_result = {}
+            else:
+                upload_result = await asyncio.to_thread(
+                    cloudinary.uploader.upload,
+                    final_video,
+                    resource_type="video",
+                    folder="ai_mentor/videos",
+                    public_id=base_filename,
+                    overwrite=True,
+                    chunk_size=6000000,
+                )
+                cloudinary_url = upload_result.get("secure_url")
+                if shutting_down or base_filename in shutdown_failed_jobs:
+                     try:
+                         await asyncio.to_thread(
+                             cloudinary.uploader.destroy,
+                             upload_result.get("public_id") or base_filename,
+                             resource_type="video",
+                         )
+                         log_event(
+                             "WARN",
+                             "Removed video uploaded for a failed or shutting-down job",
+                             job=base_filename,
+                         )
+                     except Exception as cleanup_error:
+                         log_event(
+                             "WARN",
+                             "Could not remove stale uploaded video",
+                             error=short_error(cleanup_error),
+                         )
+                     return
+                log_event("OK", "Lesson video uploaded")
 
         except Exception as cloud_err:
+            log_event(
+                "WARN",
+                "Video upload failed; using local proxy",
+                error=short_error(cloud_err),
+            )
 
-            log_event("WARN", "Video upload failed; using local proxy", error=short_error(cloud_err))
+        if (
+            not shutting_down
+            and base_filename not in shutdown_failed_jobs
+            and base_filename in job_status
+        ):
+            job_status[base_filename].update({
+                "status": "ready",
+                "cloudinary_url": cloudinary_url,
+            })
 
-        job_status[base_filename].update({
-            "status": "ready",
-            "cloudinary_url": cloudinary_url,
-        })
         # Upload subtitles to Cloudinary when available. Local static URLs remain
         # available as a fallback when video or subtitle upload fails.
         local_video_url = f"/video-stream/{base_filename}.mp4"
@@ -1222,34 +1287,59 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         local_srt_url = f"/video-stream/{base_filename}.srt" if srt_path else None
         vtt_url, srt_url = None, None
 
-        if vtt_path and srt_path:
+        if (
+            vtt_path
+            and srt_path
+            and not shutting_down
+            and base_filename not in shutdown_failed_jobs
+        ):
+
             try:
-                vtt_url = cloudinary.uploader.upload(
+                vtt_upload_result = await asyncio.to_thread(
+                    cloudinary.uploader.upload,
                     vtt_path,
                     resource_type="raw",
                     folder="ai_mentor/subtitles",
                     public_id=f"{base_filename}.vtt",
                     overwrite=True,
-                ).get("secure_url")
-                srt_url = cloudinary.uploader.upload(
+                )
+                vtt_url = vtt_upload_result.get("secure_url")
+
+                srt_upload_result = await asyncio.to_thread(
+                    cloudinary.uploader.upload,
                     srt_path,
                     resource_type="raw",
                     folder="ai_mentor/subtitles",
                     public_id=f"{base_filename}.srt",
                     overwrite=True,
-                ).get("secure_url")
+                )
+                srt_url = srt_upload_result.get("secure_url")
+
                 log_event("OK", "Subtitle files uploaded")
             except Exception as sub_up_err:
-                log_event("WARN", "Subtitle upload failed; using local files", error=short_error(sub_up_err))
+                log_event(
+                    "WARN",
+                    "Subtitle upload failed; using local files",
+                    error=short_error(sub_up_err),
+                )
+
 
         subtitle_vtt_url = vtt_url or local_vtt_url
         subtitle_srt_url = srt_url or local_srt_url
         duration_ms = int((time.time() - start_time) * 1000)
         media_metadata = {}
         try:
-            media_metadata = probe_video_metadata(final_video)
+            media_metadata = await asyncio.to_thread(
+            probe_video_metadata,
+            final_video,
+        )
         except Exception as probe_error:
-            log_event("WARN", "Video metadata probe failed", error=short_error(probe_error))
+            log_event(
+                "WARN",
+                "Video metadata probe failed",
+                error=short_error(probe_error),
+            )
+
         if base_filename not in shutdown_failed_jobs:
             if base_filename in job_status:
                 job_status[base_filename]["status"] = "ready"
