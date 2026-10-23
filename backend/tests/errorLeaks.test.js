@@ -220,7 +220,7 @@ describe("unexpected errors are sanitized", () => {
 describe("dependency failures and programming errors", () => {
   test("database connection failure is classified, not described", async () => {
     mock.method(Notification, "count", async () => {
-      const e = new Error("connect ECONNREFUSED 10.0.0.5:5432 password=hunter2");
+      const e = new Error("connect ECONNREFUSED 10.0.0.5:5432 password=TEST_PASSWORD");
       e.name = "SequelizeConnectionError";
       throw e;
     });
@@ -229,8 +229,8 @@ describe("dependency failures and programming errors", () => {
     const logged = loggedText();
     assert.ok(logged.includes(res.body.requestId));
     assert.ok(logged.includes('"category":"database_connection"'));
-    assert.ok(!logged.includes("10.0.0.5") && !logged.includes("hunter2"));
-    assert.ok(!res.text.includes("10.0.0.5") && !res.text.includes("hunter2"));
+    assert.ok(!logged.includes("10.0.0.5") && !logged.includes("TEST_PASSWORD"));
+    assert.ok(!res.text.includes("10.0.0.5") && !res.text.includes("TEST_PASSWORD"));
   });
 
   test("unexpected programming error keeps a useful category", async () => {
@@ -249,10 +249,10 @@ describe("secret-like text never reaches responses or any log level", () => {
   const CANARIES = [
     "REDACTED_API_KEY", // API key
     "sk-header-canary", // key sent as a request header
-    "REDACTED_CONNECTION_STRING", // connection string
+    "postgres://admin:TEST-PASSWORD@db.internal:5432/app", // connection string
     "body-canary-9f3a", // request body content
     "authorization-canary-7d2f", // authorisation header
-    "hunter2-password", // password field in the body
+    "TEST_PASSWORD-password", // password field in the body
     "invalid api key", // provider-supplied text
     "SELECT * FROM", // SQL attached to the error
     "/srv/models", // file path
@@ -264,7 +264,7 @@ describe("secret-like text never reaches responses or any log level", () => {
     mock.method(sequelize, "transaction", async (cb) => cb({}));
     mock.method(CourseReport, "create", async () => {
       const e = new Error(
-        "connect failed REDACTED_CONNECTION_STRING invalid api key REDACTED_API_KEY",
+        "connect failed postgres://admin:TEST-PASSWORD@db.internal:5432/app invalid api key REDACTED_API_KEY",
       );
       e.name = "SequelizeConnectionError";
       e.parent = {
@@ -281,7 +281,7 @@ describe("secret-like text never reaches responses or any log level", () => {
       {
         reportType: "bug",
         description: "body-canary-9f3a",
-        password: "hunter2-password",
+        password: "TEST_PASSWORD-password",
       },
       {
         "X-Api-Key": "sk-header-canary",
@@ -485,7 +485,7 @@ describe("global error handler", () => {
     });
     // 4xx from a library-style error that is NOT marked public: message must be hidden
     a.get("/leaky-400", () => {
-      throw Object.assign(new Error("db password hunter2"), { status: 400 });
+      throw Object.assign(new Error("db password TEST_PASSWORD"), { status: 400 });
     });
     // 4xx explicitly marked public keeps its message
     a.get("/public-403", () => {
@@ -533,7 +533,7 @@ describe("global error handler", () => {
     const res = await miniCall("/leaky-400");
     assert.equal(res.status, 400);
     assert.equal(res.body.message, "Bad Request");
-    assert.ok(!res.text.includes("hunter2"));
+    assert.ok(!res.text.includes("TEST_PASSWORD"));
     assert.equal(res.body.requestId, res.headers.get("x-request-id"));
   });
 
