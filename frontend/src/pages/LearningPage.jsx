@@ -78,13 +78,73 @@ export default function Learning() {
   const lastCelebrityRef = useRef(null);
   const hasRestoredProgressRef = useRef(false);
   const jumpToTimeRef = useRef(null);
+  const studySecondsRef = useRef(0);
   const lastSavedTimeRef = useRef(0);
+  const studySaveRef = useRef(Promise.resolve());
   const generationRequestIdRef = useRef(0);
   const generationResumeRef = useRef(null);
   const playRequestedRef = useRef(false);
   const userRef = useRef(user);
 
   userRef.current = user;
+
+  const saveStudyTime = useCallback(() => {
+    const seconds = studySecondsRef.current;
+
+    if (seconds <= 0) return;
+
+    // Keep unsaved seconds until the API request succeeds.
+    studySecondsRef.current = 0;
+
+    studySaveRef.current = studySaveRef.current
+      .then(async () => {
+        const response = await fetch("/api/analytics/study-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            hours: seconds / 3600,
+            date: new Date().toISOString(),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Study session API error: ${response.status}`);
+        }
+      })
+      .catch((error) => {
+        studySecondsRef.current += seconds;
+        console.error("Failed to save study time:", error);
+      });
+
+    return studySaveRef.current;
+  }, []);
+
+  useEffect(() => {
+    if (!isPlaying || selectedCelebrity || !aiVideoUrl) return;
+
+    const intervalId = setInterval(() => {
+      studySecondsRef.current += 1;
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isPlaying, selectedCelebrity, aiVideoUrl]);
+
+  const handlePlaybackChange = useCallback(
+    (playing) => {
+      setIsPlaying(playing);
+
+      if (!playing) {
+        void saveStudyTime();
+      }
+    },
+    [saveStudyTime],
+  );
+
+  useEffect(() => {
+    return () => {
+      void saveStudyTime();
+    };
+  }, [saveStudyTime]);
 
   // Auto-scroll transcript
   useEffect(() => {
@@ -966,7 +1026,7 @@ export default function Learning() {
                 toggleFullscreen={toggleFullscreen}
                 formatTime={formatTime}
                 onCancelGeneration={cancelGeneration}
-                onPlaybackChange={setIsPlaying}
+                onPlaybackChange={handlePlaybackChange}
                 generationError={aiGenerationError}
                 onRetryGeneration={handleRetryGeneration}
                 playbackBlocked={isCelebrityModalOpen || isFlashcardStudyOpen}
