@@ -291,6 +291,7 @@ const deleteCommunityPost = async (req, res) => {
     }
 
     // Remove related report rows first to satisfy Reports.postId FK constraint.
+    // Remove related report rows first to satisfy Reports.postId FK constraint.
     await sequelize.transaction(async (transaction) => {
       await Report.destroy({
         where: { postId: post.id },
