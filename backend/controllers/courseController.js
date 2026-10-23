@@ -449,10 +449,15 @@ const addModules = async (req, res) => {
     }
 
     const createdModules = await sequelize.transaction(async (transaction) => {
-      await Course.findByPk(courseId, {
+      const course = await Course.findByPk(courseId, {
         transaction,
         lock: true,
       });
+
+      if (!course) {
+        return null;
+      }
+
       const maxOrder =
         (await Module.max("order", {
           where: { courseId },
@@ -476,6 +481,12 @@ const addModules = async (req, res) => {
 
       return results;
     });
+
+    if (createdModules === null) {
+      return res.status(404).json({
+        message: "Course not found",
+      });
+    }
 
     return res.status(201).json(createdModules);
   } catch (error) {

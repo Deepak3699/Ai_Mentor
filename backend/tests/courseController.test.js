@@ -376,6 +376,8 @@ test("addCourse forces published status and deleteCourse handles missing and del
 test("addModules creates all modules in one transaction with sequential order", async () => {
   const inserted = [];
 
+  Course.findByPk = async () => ({ id: "7" });
+
   configureOrderLookup(Module, 2, { courseId: "7" });
 
   const getCreateCalls = configureTransactionalInsert(Module, "pendingModules", {
@@ -409,6 +411,43 @@ test("addModules creates all modules in one transaction with sequential order", 
   });
 });
 
+test("addModules returns 404 when the course does not exist", async () => {
+  Course.findByPk = async () => null;
+
+  let maxCalls = 0;
+  let createCalls = 0;
+
+  Module.max = async () => {
+    maxCalls += 1;
+    return 0;
+  };
+
+  Module.create = async () => {
+    createCalls += 1;
+    return {};
+  };
+
+  const { state, res } = response();
+
+  await addModules(
+    {
+      params: { courseId: "99" },
+      body: {
+        modules: [{ title: "Module One" }],
+      },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 404);
+  assert.deepEqual(state.body, {
+    message: "Course not found",
+  });
+  assert.equal(maxCalls, 0);
+  assert.equal(createCalls, 0);
+  assert.equal(persistedModules.length, 0);
+});
+
 test("addModules rejects invalid items before starting a transaction", async () => {
   const { state, res } = response();
 
@@ -425,6 +464,7 @@ test("addModules rejects invalid items before starting a transaction", async () 
 });
 
 test("addModules rolls back when an insert fails", async () => {
+  Course.findByPk = async () => ({ id: "7" });
   configureOrderLookup(Module, 0, { courseId: "7" });
 
   const getCreateCalls = configureTransactionalInsert(Module, "pendingModules", {
