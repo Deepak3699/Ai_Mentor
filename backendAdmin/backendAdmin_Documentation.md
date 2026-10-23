@@ -1,8 +1,8 @@
-# Backend Admin Documentation
+# AI Mentor — Backend Admin Documentation
 
 ## Introduction
 
-The `backendAdmin` module is an isolated Express.js management service running on Node.js. It acts as the dedicated administrative terminal for the platform, providing content moderation, system configuration overrides, analytical metrics aggregation, dynamic schema toggles, database auditing, and validation logic.
+The `backendAdmin` module is an isolated Express.js management service running on Node.js. It acts as the dedicated administrative API for the _AI Mentor_ platform, providing course management, user management, discussion moderation, enrollment and payment analytics, notification management, and content reporting.
 
 ---
 

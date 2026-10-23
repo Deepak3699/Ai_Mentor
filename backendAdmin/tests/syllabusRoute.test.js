@@ -32,7 +32,16 @@ app.use(express.json());
 
 const audits = [];
 app.use((req, res, next) => {
-  const audit = { reqAdded: [], reqRemoved: [], resAdded: [], resRemoved: [] };
+  const audit = {
+    reqAdded: [],
+    reqRemoved: [],
+    resAdded: [],
+    resRemoved: [],
+    cleanupWaiters: new Set(),
+  };
+  const notifyCleanup = () => {
+    for (const check of audit.cleanupWaiters) check();
+  };
   const reqOn = req.on.bind(req);
   const reqOff = req.off.bind(req);
   const resOn = res.on.bind(res);
@@ -43,7 +52,10 @@ app.use((req, res, next) => {
     return reqOn(event, listener);
   };
   req.off = (event, listener) => {
-    if (event === "aborted") audit.reqRemoved.push(listener);
+    if (event === "aborted") {
+      audit.reqRemoved.push(listener);
+      notifyCleanup();
+    }
     return reqOff(event, listener);
   };
   res.on = (event, listener) => {
@@ -51,7 +63,10 @@ app.use((req, res, next) => {
     return resOn(event, listener);
   };
   res.off = (event, listener) => {
-    if (event === "close") audit.resRemoved.push(listener);
+    if (event === "close") {
+      audit.resRemoved.push(listener);
+      notifyCleanup();
+    }
     return resOff(event, listener);
   };
   req.syllabusAudit = audit;
@@ -113,6 +128,36 @@ const assertListenersRemoved = (audit) => {
   assert.deepEqual(audit.reqRemoved, audit.reqAdded);
   assert.equal(audit.resAdded.length, 1);
   assert.deepEqual(audit.resRemoved, audit.resAdded);
+};
+
+const waitForCleanup = (audit) =>
+  new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      audit.cleanupWaiters.delete(check);
+      reject(new Error("Timed out waiting for request listener cleanup"));
+    }, 1000);
+    const check = () => {
+      if (
+        audit.reqAdded.length === audit.reqRemoved.length &&
+        audit.resAdded.length === audit.resRemoved.length
+      ) {
+        clearTimeout(timeout);
+        audit.cleanupWaiters.delete(check);
+        resolve();
+      }
+    };
+    audit.cleanupWaiters.add(check);
+    check();
+  });
+
+const withinOneSecond = (promise, label) => {
+  let timeout;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timeout = setTimeout(() => reject(new Error(`Timed out waiting for ${label}`)), 1000);
+    }),
+  ]).finally(() => clearTimeout(timeout));
 };
 
 test("rejects unauthenticated requests before reaching the provider", async () => {
@@ -285,32 +330,12 @@ test("client disconnect aborts the provider call and removes request listeners",
   req.on("error", () => {});
   req.end();
 
-  await providerCalled;
+  await withinOneSecond(providerCalled, "provider call");
   const audit = audits.at(-1);
-  const listenerCleanup = new Promise((resolve) => {
-    const check = () => {
-      if (
-        audit.reqAdded.length === audit.reqRemoved.length &&
-        audit.resAdded.length === audit.resRemoved.length
-      ) {
-        resolve();
-      }
-    };
-    const reqOff = req.off.bind(req);
-    const resOff = audit.resOff;
-    void reqOff;
-    void resOff;
-    const timer = setInterval(check, 1);
-    timer.unref();
-    audit.cleanupCheck = () => {
-      clearInterval(timer);
-      check();
-    };
-  });
-
+  const listenerCleanup = waitForCleanup(audit);
   req.destroy();
-  await providerAborted;
-  await listenerCleanup;
-  assert.ok(providerSignal.aborted);
+  await withinOneSecond(providerAborted, "provider abort");
+  await withinOneSecond(listenerCleanup, "request listener cleanup");
+  assert.equal(providerSignal.aborted, true);
   assertListenersRemoved(audit);
 });

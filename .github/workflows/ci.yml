@@ -247,6 +247,10 @@ jobs:
         working-directory: backendAdmin
         run: npm test
 
+      - name: Run PostgreSQL rollback integration test
+        working-directory: backendAdmin
+        run: npm run test:postgres-rollback
+
   # ─────────────────────────────────────────────────────────────
   # AI SERVICE (Python + FastAPI, port 8000)
   # ─────────────────────────────────────────────────────────────
