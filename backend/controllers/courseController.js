@@ -1,9 +1,10 @@
+import buildLogger from "../utils/logger.js";
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
 import { sequelize } from "../config/db.js";
 /* =========================
    HELPERS
 ========================= */
-
+const logger = buildLogger("COURSE_CONTROLLER");
 const parseLessonsCount = (lessons) => {
   if (typeof lessons !== "string") return 0;
 
@@ -57,7 +58,10 @@ const getCourses = async (req, res) => {
     // Directly return the mapped array so the frontend doesn't break
     res.json(rows.map(formatCourse));
   } catch (error) {
-    console.error("GET COURSES ERROR:", error);
+    logger.error(
+      { errorName: error instanceof Error ? error.name : "UnknownError", operation: "get_courses" },
+      "Failed to load courses",
+    );
     res.status(500).json({ message: "Failed to load courses" });
   }
 };
@@ -79,7 +83,13 @@ const getCourseById = async (req, res) => {
 
     res.json(formatCourse(course));
   } catch (error) {
-    console.error("GET COURSE BY ID ERROR:", error);
+    logger.error(
+      {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        operation: "get_course_by_id",
+      },
+      "Failed to load course",
+    );
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -119,7 +129,13 @@ const getMyCourses = async (req, res) => {
       })),
     );
   } catch (error) {
-    console.error("MY COURSES ERROR:", error);
+    logger.error(
+      {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        operation: "get_my_courses",
+      },
+      "Failed to fetch user courses",
+    );
     res.status(500).json({
       success: false,
       message: "Failed to fetch your courses. Please try again.",
@@ -236,7 +252,13 @@ const getCourseLearningData = async (req, res) => {
       currentLesson,
     });
   } catch (error) {
-    console.error("GET COURSE LEARNING DATA ERROR:", error);
+    logger.error(
+      {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        operation: "get_course_learning_data",
+      },
+      "Failed to load course learning data",
+    );
     res.status(500).json({ message: "Failed to load learning data" });
   }
 };
@@ -256,7 +278,13 @@ const getCourseAndLessonTitles = async (courseId, lessonId) => {
       lessonTitle: lesson.title || null,
     };
   } catch (error) {
-    console.error("Error reading course/lesson titles:", error);
+    logger.error(
+      {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        operation: "get_course_lesson_titles",
+      },
+      "Failed to read course and lesson titles",
+    );
     return null;
   }
 };
@@ -275,7 +303,13 @@ const getStatsCards = async (req, res) => {
       certificates: 0,
     });
   } catch (error) {
-    console.error("GET STATS CARDS ERROR:", error);
+    logger.error(
+      {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        operation: "get_stats_cards",
+      },
+      "Failed to load course statistics",
+    );
     res.status(500).json({ message: "Failed to load stats" });
   }
 };
@@ -335,7 +369,6 @@ const hasValidLessons = (lessons) =>
       (lesson.type === undefined || typeof lesson.type === "string"),
   );
 
-
 const addLessons = async (req, res) => {
   try {
     const { courseId, moduleId } = req.params;
@@ -394,7 +427,10 @@ const addLessons = async (req, res) => {
 
     return res.status(201).json(createdLessons);
   } catch (error) {
-    console.error("ADD LESSONS ERROR:", error);
+    logger.error(
+      { errorName: error instanceof Error ? error.name : "UnknownError", operation: "add_lessons" },
+      "Failed to add lessons",
+    );
     return res.status(500).json({
       message: "Failed to add lessons",
     });
@@ -443,7 +479,10 @@ const addModules = async (req, res) => {
 
     return res.status(201).json(createdModules);
   } catch (error) {
-    console.error("Failed to add modules:", error);
+    logger.error(
+      { errorName: error instanceof Error ? error.name : "UnknownError", operation: "add_modules" },
+      "Failed to add modules",
+    );
     return res.status(500).json({
       message: "Failed to add modules",
     });
@@ -500,7 +539,13 @@ const generateCourseSyllabusWithAI = async (req, res) => {
 
     res.json({ message: "Syllabus generated successfully", data: data });
   } catch (error) {
-    console.error("GENERATE SYLLABUS ERROR:", error);
+    logger.error(
+      {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        operation: "generate_syllabus",
+      },
+      "Failed to generate syllabus",
+    );
     res.status(500).json({ message: "Server error" });
   }
 };

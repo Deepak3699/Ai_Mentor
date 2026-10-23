@@ -5,13 +5,9 @@ process.env.NODE_ENV = "test";
 
 const { sequelize } = await import("../config/db.js");
 
-const { Course, Module, Lesson } = await import(
-  "../models/modelAssociations.js"
-);
+const { Course, Module, Lesson } = await import("../models/modelAssociations.js");
 
-const { addModules, addLessons } = await import(
-  "../controllers/courseController.js"
-);
+const { addModules, addLessons } = await import("../controllers/courseController.js");
 
 const createdCourseIds = [];
 
@@ -99,10 +95,7 @@ test("addModules rolls back real database inserts when a later insert fails", as
       {
         params: { courseId: course.id },
         body: {
-          modules: [
-            { title: "Rollback module A" },
-            { title: "Rollback module B" },
-          ],
+          modules: [{ title: "Rollback module A" }, { title: "Rollback module B" }],
         },
       },
       res,
@@ -153,10 +146,7 @@ test("addLessons rolls back real database inserts when a later insert fails", as
           moduleId: module.id,
         },
         body: {
-          lessons: [
-            { title: "Rollback lesson A" },
-            { title: "Rollback lesson B" },
-          ],
+          lessons: [{ title: "Rollback lesson A" }, { title: "Rollback lesson B" }],
         },
       },
       res,
@@ -191,14 +181,8 @@ test("concurrent module batches receive unique sequential order values", async (
   };
 
   const [firstResponse, secondResponse] = await Promise.all([
-    sendModuleBatch([
-      { title: "Concurrent module A" },
-      { title: "Concurrent module B" },
-    ]),
-    sendModuleBatch([
-      { title: "Concurrent module C" },
-      { title: "Concurrent module D" },
-    ]),
+    sendModuleBatch([{ title: "Concurrent module A" }, { title: "Concurrent module B" }]),
+    sendModuleBatch([{ title: "Concurrent module C" }, { title: "Concurrent module D" }]),
   ]);
 
   assert.equal(firstResponse.statusCode, 201);
@@ -240,14 +224,8 @@ test("concurrent lesson batches receive unique sequential order values", async (
   };
 
   const [firstResponse, secondResponse] = await Promise.all([
-    sendLessonBatch([
-      { title: "Concurrent lesson A" },
-      { title: "Concurrent lesson B" },
-    ]),
-    sendLessonBatch([
-      { title: "Concurrent lesson C" },
-      { title: "Concurrent lesson D" },
-    ]),
+    sendLessonBatch([{ title: "Concurrent lesson A" }, { title: "Concurrent lesson B" }]),
+    sendLessonBatch([{ title: "Concurrent lesson C" }, { title: "Concurrent lesson D" }]),
   ]);
 
   assert.equal(firstResponse.statusCode, 201);
