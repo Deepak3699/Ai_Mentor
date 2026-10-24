@@ -177,6 +177,7 @@ const CoursesPage = () => {
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [reportCourse, setReportCourse] = useState("");
   const [reportText, setReportText] = useState("");
   const [subType, setSubType] = useState("");
   const [reportType, setReportType] = useState("Select Issue Type");
@@ -274,6 +275,16 @@ const CoursesPage = () => {
     setSelectedCourse(null);
     setActiveTab("my-courses");
     window.dispatchEvent(new Event("refreshNotifications"));
+  };
+
+  const closeEnrollPopup = () => {
+    setShowEnrollPopup(false);
+    setSelectedCourse(null);
+  };
+
+  const closeReportModal = () => {
+    setShowReportModal(false);
+    setReportCourse("");
   };
 
   const handleFreeEnrollment = async () => {
@@ -381,24 +392,26 @@ const CoursesPage = () => {
   const handleReportSubmit = async () => {
     try {
       setReportLoading(true);
+      const token = localStorage.getItem("token");
       const response = await fetch(`${API_BASE_URL}/api/course-reports`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${user?.token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           reportType,
           subType,
           description: reportText,
-          courseName: selectedCourse || "General",
+          courseName: reportCourse || "General",
         }),
       });
       if (!response.ok) throw new Error("Failed to submit report");
-      setShowReportModal(false);
+      closeReportModal();
       setReportText("");
       setReportType("Select Issue Type");
       setSubType("");
+      toast.success("Report submitted successfully.");
     } catch (error) {
       console.error(error);
-      toast.error(error.message);
+      toast.error("Failed to submit report. Please try again.");
     } finally {
       setReportLoading(false);
     }
@@ -808,7 +821,7 @@ const CoursesPage = () => {
 
       <ReportModal
         show={showReportModal}
-        onClose={() => setShowReportModal(false)}
+        onClose={closeReportModal}
         onSubmit={handleReportSubmit}
         reportText={reportText}
         setReportText={setReportText}
@@ -817,8 +830,8 @@ const CoursesPage = () => {
         enrolledCourses={myCourses}
         subType={subType}
         setSubType={setSubType}
-        selectedCourse={selectedCourse}
-        setSelectedCourse={setSelectedCourse}
+        selectedCourse={reportCourse}
+        setSelectedCourse={setReportCourse}
         loading={reportLoading}
       />
 
@@ -839,7 +852,7 @@ const CoursesPage = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
               <button
                 type="button"
-                onClick={() => setShowEnrollPopup(false)}
+                onClick={closeEnrollPopup}
                 className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-xl bg-black/55 text-white backdrop-blur"
                 aria-label="Close enrollment"
               >
