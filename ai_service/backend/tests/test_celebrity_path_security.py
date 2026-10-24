@@ -59,17 +59,17 @@ def test_invalid_celebrity_falls_back_to_modi(celebrity_video_module, name):
     assert Path(result) == input_dir / "modi.mp4"
 
 
-def test_logs_do_not_contain_absolute_video_path(
+def test_video_selection_does_not_print_paths(
     celebrity_video_module, capsys
 ):
     module, input_dir = celebrity_video_module
 
-    module["get_celebrity_video"]("srk")
+    result = module["get_celebrity_video"]("srk")
     output = capsys.readouterr().out
 
-    assert "srk" in output.lower()
+    assert Path(result) == input_dir / "srk.mp4"
     assert str(input_dir) not in output
-    assert str(Path(module["get_celebrity_video"]("modi")).parent) not in output
+    assert str(Path(result).parent) not in output
 
 
 def test_missing_allowed_video_falls_back_to_modi(
