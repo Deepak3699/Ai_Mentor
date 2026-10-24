@@ -1,4 +1,5 @@
 import { apiFetch as fetch } from "../lib/api";
+import { getErrorMessage } from "../lib/errorHandling.js";
 import {
   AIGenerationError,
   AI_REQUEST_TIMEOUT_MS,
@@ -67,11 +68,20 @@ export const explainCode = async (payload) => {
   try {
     data = await response.json();
   } catch {
-    throw new Error("Server returned empty or invalid JSON");
+    throw {
+      response: { status: response.status, data: null },
+      message: "Server returned empty or invalid JSON",
+    };
   }
 
   if (!response.ok) {
-    throw new Error(data?.message || "Code explanation request failed");
+    throw {
+      response: { status: response.status, data },
+      message: getErrorMessage(
+        { response: { status: response.status, data } },
+        "Code explanation request failed",
+      ),
+    };
   }
 
   return data;

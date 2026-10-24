@@ -57,7 +57,10 @@ after(() => {
 test("protect rejects a request without a bearer token", async () => {
   const { result } = await invoke(protect);
   assert.equal(result.statusCode, 401);
-  assert.deepEqual(result.body, { message: "Not authorized, no token" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Not authorized, no token", details: [] },
+  });
   assert.equal(result.nextCalls, 0);
 });
 
@@ -66,28 +69,40 @@ test("protect rejects a malformed or invalid token", async () => {
     invoke(protect, { authorization: "Bearer invalid-token" }),
   );
   assert.equal(result.statusCode, 401);
-  assert.deepEqual(result.body, { message: "Not authorized, token failed" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Not authorized, token failed", details: [] },
+  });
 });
 
 test("protect reports a missing JWT secret before verification", async () => {
   delete process.env.JWT_SECRET;
   const { result } = await invoke(protect, { authorization: "Bearer any-token" });
   assert.equal(result.statusCode, 500);
-  assert.deepEqual(result.body, { message: "JWT secret not configured" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "INTERNAL_SERVER_ERROR", message: "JWT secret not configured", details: [] },
+  });
 });
 
 test("protect rejects an expired token", async () => {
   const token = jwt.sign({ id: "user-1" }, SECRET, { expiresIn: -1 });
   const { result } = await quietErrors(() => invoke(protect, { authorization: `Bearer ${token}` }));
   assert.equal(result.statusCode, 401);
-  assert.deepEqual(result.body, { message: "Not authorized, token failed" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Not authorized, token failed", details: [] },
+  });
 });
 
 test("protect rejects a valid token when the user no longer exists", async () => {
   const token = jwt.sign({ id: "missing-user" }, SECRET);
   const { result } = await invoke(protect, { authorization: `Bearer ${token}` });
   assert.equal(result.statusCode, 401);
-  assert.deepEqual(result.body, { message: "User not found" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "User not found", details: [] },
+  });
 });
 
 test("protect rejects blocked users", async () => {
@@ -95,7 +110,10 @@ test("protect rejects blocked users", async () => {
   const token = jwt.sign({ id: "blocked" }, SECRET);
   const { result } = await invoke(protect, { authorization: `Bearer ${token}` });
   assert.equal(result.statusCode, 403);
-  assert.deepEqual(result.body, { message: "Account suspended" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "FORBIDDEN", message: "Account suspended", details: [] },
+  });
 });
 
 test("protect rejects tokens issued before a password change", async () => {
@@ -107,7 +125,10 @@ test("protect rejects tokens issued before a password change", async () => {
   });
   const { result } = await invoke(protect, { authorization: `Bearer ${token}` });
   assert.equal(result.statusCode, 401);
-  assert.deepEqual(result.body, { message: "Token revoked, Please Log in again" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Token revoked, Please Log in again", details: [] },
+  });
 });
 
 test("protect attaches an active user and calls next", async () => {
@@ -129,6 +150,9 @@ test("admin permits only a user with the admin role", async () => {
   for (const user of [undefined, { role: "user" }, { role: "superadmin" }]) {
     const { result } = await invoke(admin, { user });
     assert.equal(result.statusCode, 403);
-    assert.deepEqual(result.body, { message: "Not authorized, admin access required" });
+    assert.deepEqual(result.body, {
+      success: false,
+      error: { code: "FORBIDDEN", message: "Not authorized, admin access required", details: [] },
+    });
   }
 });

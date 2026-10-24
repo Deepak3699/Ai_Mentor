@@ -12,10 +12,14 @@ const originalCreate = ContactMessage.create;
 let server;
 let baseUrl;
 
+const { errorHandler, notFoundMiddleware } = await import("../middleware/errorMiddleware.js");
+
 before(async () => {
   const app = express();
   app.use(express.json());
   app.use("/api/contactus", contactRoutes);
+  app.use(notFoundMiddleware);
+  app.use(errorHandler);
   server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -40,7 +44,14 @@ const post = (body) =>
 test("contact route requires an email", async () => {
   const res = await post({ subject: "Help", message: "A sufficiently long message" });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { success: false, message: "Email is required" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: {
+      code: "BAD_REQUEST",
+      message: "Email is required",
+      details: [],
+    },
+  });
 });
 
 test("contact route validates subject and message lengths before persistence", async () => {
@@ -54,10 +65,10 @@ test("contact route validates subject and message lengths before persistence", a
     message: "A sufficiently long message",
   });
   assert.equal(res.status, 400);
-  assert.equal((await res.json()).message, "Subject must be at least 3 characters");
+  assert.equal((await res.json()).error.message, "Subject must be at least 3 characters");
   res = await post({ email: "user@example.com", subject: "Help", message: "short" });
   assert.equal(res.status, 400);
-  assert.equal((await res.json()).message, "Message must be at least 10 characters");
+  assert.equal((await res.json()).error.message, "Message must be at least 10 characters");
   assert.equal(creates, 0);
 });
 
@@ -118,7 +129,11 @@ test("contact route converts Sequelize validation errors to a safe 400 response"
     assert.equal(res.status, 400);
     assert.deepEqual(await res.json(), {
       success: false,
-      message: "Please enter a valid email address",
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Request validation failed",
+        details: [{ message: "Please enter a valid email address", path: "email" }],
+      },
     });
   } finally {
     console.error = original;
@@ -140,7 +155,11 @@ test("contact route hides unexpected persistence failures", async () => {
     assert.equal(res.status, 500);
     assert.deepEqual(await res.json(), {
       success: false,
-      message: "Server error while sending message",
+      error: {
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Internal Server Error",
+        details: [],
+      },
     });
   } finally {
     console.error = original;

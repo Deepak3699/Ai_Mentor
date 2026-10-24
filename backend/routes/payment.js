@@ -34,12 +34,18 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
       !course.priceValue ||
       Number(course.priceValue) <= 0
     ) {
-      return res.status(400).json({ error: "Invalid course data" });
+      return res.status(400).json({
+        success: false,
+        error: { code: "BAD_REQUEST", message: "Invalid course data", details: [] },
+      });
     }
 
     // Idempotency key must be generated once client-side and reused on retry
     if (!idempotencyKey) {
-      return res.status(400).json({ error: "idempotencyKey is required" });
+      return res.status(400).json({
+        success: false,
+        error: { code: "BAD_REQUEST", message: "idempotencyKey is required", details: [] },
+      });
     }
 
     // ─────────────────────────────────────────────────
@@ -113,7 +119,10 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
     return res.status(200).json(cachedResponse);
   } catch (error) {
     log.error({ err: error }, " Stripe Error:");
-    return res.status(500).json({ error: "Stripe session failed" });
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
   }
 });
 
@@ -123,12 +132,18 @@ router.get("/status/:paymentId", protect, async (req, res) => {
     const payment = await Payment.findByPk(req.params.paymentId);
 
     if (!payment) {
-      return res.status(404).json({ error: "Payment not found" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Payment not found", details: [] },
+      });
     }
 
     // Only allow user to check their own payment
     if (payment.userId !== req.user.id) {
-      return res.status(403).json({ error: "Unauthorized" });
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Unauthorized", details: [] },
+      });
     }
 
     return res.status(200).json({
@@ -143,7 +158,10 @@ router.get("/status/:paymentId", protect, async (req, res) => {
     });
   } catch (error) {
     log.error({ err: error }, " Payment Status Error:");
-    return res.status(500).json({ error: "Failed to fetch payment status" });
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
   }
 });
 

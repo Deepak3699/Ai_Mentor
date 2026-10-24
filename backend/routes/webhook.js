@@ -8,6 +8,9 @@ import buildLogger from "../utils/logger.js";
 
 const router = express.Router();
 
+// Webhook routes intentionally keep provider-specific plain-text failures for Stripe:
+// Stripe requires a 4xx response body for invalid signatures and missing headers,
+// and the receiver must not be forced into the standard JSON API schema here.
 const prodRedactPaths = ["stripeSessionId", "courseId", "intentId"];
 
 const log = buildLogger("WEBHOOK", prodRedactPaths);

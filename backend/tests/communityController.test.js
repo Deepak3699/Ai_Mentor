@@ -85,7 +85,14 @@ test("course discussions require enrollment", async () => {
     res,
   );
   assert.equal(state.statusCode, 403);
-  assert.equal(state.body.requiresEnrollment, true);
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "FORBIDDEN",
+      message: "You must be enrolled in this course to view its community discussions",
+      details: [],
+    },
+  });
 });
 
 test("course discussions sanitize pagination and expose metadata headers", async () => {

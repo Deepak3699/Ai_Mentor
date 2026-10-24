@@ -11,7 +11,14 @@ const protect = async (req, res, next) => {
 
       // 2️⃣ Ensure JWT secret exists
       if (!process.env.JWT_SECRET) {
-        return res.status(500).json({ message: "JWT secret not configured" });
+        return res.status(500).json({
+          success: false,
+          error: {
+            code: "INTERNAL_SERVER_ERROR",
+            message: "JWT secret not configured",
+            details: [],
+          },
+        });
       }
 
       // 3️⃣ Verify token
@@ -23,16 +30,29 @@ const protect = async (req, res, next) => {
       });
 
       if (!user) {
-        return res.status(401).json({ message: "User not found" });
+        return res.status(401).json({
+          success: false,
+          error: { code: "UNAUTHORIZED", message: "User not found", details: [] },
+        });
       }
 
       if (user.isBlocked) {
-        return res.status(403).json({ message: "Account suspended" });
+        return res.status(403).json({
+          success: false,
+          error: { code: "FORBIDDEN", message: "Account suspended", details: [] },
+        });
       }
       if (user.passwordChangedAt) {
         const passwordChangedAt = Math.floor(user.passwordChangedAt.getTime() / 1000);
         if (passwordChangedAt > decoded.iat) {
-          return res.status(401).json({ message: "Token revoked, Please Log in again" });
+          return res.status(401).json({
+            success: false,
+            error: {
+              code: "UNAUTHORIZED",
+              message: "Token revoked, Please Log in again",
+              details: [],
+            },
+          });
         }
       }
 
@@ -40,12 +60,18 @@ const protect = async (req, res, next) => {
       return next();
     } catch (error) {
       console.error("AUTH ERROR:", error.message);
-      return res.status(401).json({ message: "Not authorized, token failed" });
+      return res.status(401).json({
+        success: false,
+        error: { code: "UNAUTHORIZED", message: "Not authorized, token failed", details: [] },
+      });
     }
   }
 
   // 5️⃣ No token provided
-  return res.status(401).json({ message: "Not authorized, no token" });
+  return res.status(401).json({
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Not authorized, no token", details: [] },
+  });
 };
 
 export { protect };
@@ -54,7 +80,10 @@ const admin = (req, res, next) => {
   if (req.user && req.user.role === "admin") {
     return next();
   }
-  return res.status(403).json({ message: "Not authorized, admin access required" });
+  return res.status(403).json({
+    success: false,
+    error: { code: "FORBIDDEN", message: "Not authorized, admin access required", details: [] },
+  });
 };
 
 export { admin };
