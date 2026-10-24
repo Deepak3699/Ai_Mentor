@@ -1,7 +1,8 @@
 import Notification from "../models/Notification.js";
+import { sendServerError, describeError } from "../utils/apiError.js";
 
-// @desc    Get user notifications
-// @route   GET /api/notifications
+// @desc    Get unread notification count
+// @route   GET /api/notifications/unread-count
 // @access  Private
 export const getUnreadCount = async (req, res) => {
   try {
@@ -14,7 +15,7 @@ export const getUnreadCount = async (req, res) => {
 
     res.status(200).json({ count });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return sendServerError(req, res, error, "notificationController.getUnreadCount");
   }
 };
 
@@ -28,7 +29,7 @@ export const getNotifications = async (req, res) => {
 
     res.status(200).json(notifications);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return sendServerError(req, res, error, "notificationController.getNotifications");
   }
 };
 
@@ -50,7 +51,7 @@ export const markAsRead = async (req, res) => {
 
     res.status(200).json(notification);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return sendServerError(req, res, error, "notificationController.markAsRead");
   }
 };
 
@@ -63,7 +64,7 @@ export const markAllAsRead = async (req, res) => {
 
     res.status(200).json({ message: "All notifications marked as read" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return sendServerError(req, res, error, "notificationController.markAllAsRead");
   }
 };
 
@@ -78,7 +79,7 @@ export const clearAll = async (req, res) => {
 
     res.status(200).json({ message: "All notifications cleared" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return sendServerError(req, res, error, "notificationController.clearAll");
   }
 };
 
@@ -106,7 +107,7 @@ export const createNotification = async (
 
     return notification;
   } catch (error) {
-    console.error("Error creating notification:", error.message);
+    console.error("Error creating notification:", JSON.stringify(describeError(error)));
 
     if (transaction) {
       throw error;

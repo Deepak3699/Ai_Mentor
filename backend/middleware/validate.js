@@ -1,9 +1,14 @@
+import { sendServerError } from "../utils/apiError.js";
 import fs from "fs";
 
 const validate = (schema) => (req, res, next) => {
   if (!schema) {
-    console.error("❌ Validation Error: No schema provided to validate middleware");
-    return res.status(500).json({ message: "Internal Server Error: No schema provided" });
+    return sendServerError(
+      req,
+      res,
+      new Error("validate middleware called without a schema"),
+      "VALIDATE_NO_SCHEMA",
+    );
   }
   try {
     const validationResult = schema.safeParse(req.body);
@@ -12,16 +17,24 @@ const validate = (schema) => (req, res, next) => {
         fs.unlink(req.file.path, () => {});
       }
       const issues = validationResult.error.issues;
-      const errorPaths = issues.map((err) => err.path.join(".")).join(", ");
-      console.error(
-        `❌ Validation Failed for ${req.method} ${req.originalUrl || req.url}. Fields: ${errorPaths}`,
+
+      // Log field paths and codes only, never the request body (may contain secrets)
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          requestId: req.id,
+          context: "VALIDATION_FAILED",
+          route: req.originalUrl?.split("?")[0],
+          issues: issues.map((i) => ({ path: i.path.join("."), code: i.code })),
+        }),
       );
 
       return res.status(400).json({
         message: "Validation failed",
-        errors: issues.map((err) => ({
-          path: err.path.join("."),
-          message: err.message,
+        requestId: req.id,
+        errors: issues.map((issue) => ({
+          path: issue.path.join("."),
+          message: issue.message,
         })),
       });
     }
@@ -30,14 +43,7 @@ const validate = (schema) => (req, res, next) => {
     if (req.file?.path) {
       fs.unlink(req.file.path, () => {});
     }
-    console.error("❌ Validation Middleware Internal Error:", error.message || error);
-    const response = {
-      message: "Internal Server Error during validation",
-    };
-    if (process.env.NODE_ENV !== "production") {
-      response.details = error.message || "Unknown error";
-    }
-    return res.status(500).json(response);
+    return sendServerError(req, res, error, "VALIDATE_MIDDLEWARE");
   }
 };
 

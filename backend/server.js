@@ -43,6 +43,8 @@ dotenv.config();
 
 import { validateEnv } from "./env-validator.js";
 import { securityHeaders } from "./config/securityHeaders.js";
+import requestContext from "./middleware/requestContext.js";
+import errorHandler from "./middleware/errorHandler.js";
 
 validateEnv();
 
@@ -67,6 +69,9 @@ const defaultDevOrigins = [
 
 const allowedOrigins = Array.from(new Set([...envOrigins, ...defaultDevOrigins]));
 
+// Request ID first, so every response and log line (even CORS rejections) has one
+app.use(requestContext);
+
 app.use(securityHeaders());
 
 app.use(
@@ -88,8 +93,11 @@ app.use(
         }
       }
 
-      console.error(`❌ Blocked by CORS: ${origin}`);
-      return callback(new Error("Not allowed by CORS"));
+      console.warn("Blocked by CORS");
+      const corsError = new Error("Not allowed by CORS");
+      corsError.status = 403;
+      corsError.expose = true;
+      return callback(corsError);
     },
     credentials: true,
   }),
@@ -137,40 +145,15 @@ app.use("/api/calendar", CalendarTaskRoutes);
 
 // ================= 404 HANDLER =================
 app.use((req, res) => {
-  res.status(404).json({
+  return res.status(404).json({
     success: false,
-    message: `Route not found: ${req.originalUrl}`,
+    message: "Route not found",
+    requestId: req.id,
   });
 });
 
-// ================= GLOBAL ERROR HANDLER =================
-app.use((err, req, res, _next) => {
-  if (err.type === "entity.too.large") {
-    return res.status(413).json({
-      success: false,
-      message: "Payload Too Large",
-    });
-  }
-
-  if (err.type === "entity.parse.failed") {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid JSON",
-    });
-  }
-
-  console.error("🔥 Global Error:", err);
-
-  const status = err.status || 500;
-  const isProd = process.env.NODE_ENV === "production";
-  const message =
-    status === 500 && isProd ? "Internal Server Error" : err.message || "Internal Server Error";
-
-  res.status(status).json({
-    success: false,
-    message,
-  });
-});
+// ================= GLOBAL ERROR HANDLER (must be last) =================
+app.use(errorHandler);
 
 // ================= SERVER START =================
 const PORT = process.env.PORT || 5000;
@@ -204,8 +187,8 @@ const startServer = async () => {
       console.log(`[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`);
       console.log("[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.");
     });
-  } catch (error) {
-    console.error("[FAILED] Backend startup failed:", error);
+  } catch {
+    console.error("[FAILED] Backend startup failed:");
     process.exit(1);
   }
 };

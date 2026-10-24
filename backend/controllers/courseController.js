@@ -1,9 +1,18 @@
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
 import { sequelize } from "../config/db.js";
+import { sendServerError, logServerError, dependencyFailure } from "../utils/apiError.js";
 
 /* =========================
    HELPERS
 ========================= */
+
+// Stable client message for any AI/syllabus failure (details go to logs only)
+const syllabusUnavailable = (req, res) =>
+  res.status(500).json({
+    success: false,
+    message: "Syllabus generation is temporarily unavailable",
+    requestId: req.id,
+  });
 
 const parseLessonsCount = (lessons) => {
   if (typeof lessons !== "string") return 0;
@@ -298,7 +307,7 @@ const addCourse = async (req, res) => {
     });
     res.status(201).json(course);
   } catch (error) {
-    res.status(500).json({ message: "Failed to add course", error: error.message });
+    return sendServerError(req, res, error, "courseController.addCourse");
   }
 };
 
@@ -309,8 +318,8 @@ const deleteCourse = async (req, res) => {
       return res.status(404).json({ message: "Course not found" });
     }
     res.json({ message: "Course deleted successfully" });
-  } catch {
-    res.status(500).json({ message: "Failed to delete course" });
+  } catch (error) {
+    return sendServerError(req, res, error, "courseController.deleteCourse");
   }
 };
 
@@ -386,8 +395,8 @@ const addModules = async (req, res) => {
     );
 
     res.status(201).json(createdModules);
-  } catch {
-    res.status(500).json({ message: "Failed to add modules" });
+  } catch (error) {
+    return sendServerError(req, res, error, "courseController.addModules");
   }
 };
 
@@ -405,17 +414,30 @@ const generateCourseSyllabusWithAI = async (req, res) => {
         course_title: course.title,
         category: course.category,
       }),
-    });
+    }).catch(() => null);
 
+    // fetch failed (service down, connection refused): log a fixed code, never the error text
+    if (!aiResponse) {
+      logServerError(req, dependencyFailure("AI_SERVICE_UNREACHABLE"), "generateSyllabus.provider");
+      return syllabusUnavailable(req, res);
+    }
     if (!aiResponse.ok) {
-      return res.status(aiResponse.status).json({
-        message: "AI Service failed to generate syllabus",
-      });
+      logServerError(
+        req,
+        dependencyFailure("AI_SERVICE_BAD_STATUS", aiResponse.status),
+        "generateSyllabus.provider",
+      );
+      return syllabusUnavailable(req, res);
     }
 
     const data = await aiResponse.json();
     if (data.error) {
-      return res.status(500).json({ message: data.error });
+      logServerError(
+        req,
+        dependencyFailure("AI_SERVICE_ERROR_PAYLOAD"),
+        "generateSyllabus.provider",
+      );
+      return syllabusUnavailable(req, res);
     }
 
     // 2. Insert into DB
@@ -441,8 +463,7 @@ const generateCourseSyllabusWithAI = async (req, res) => {
 
     res.json({ message: "Syllabus generated successfully", data: data });
   } catch (error) {
-    console.error("GENERATE SYLLABUS ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return sendServerError(req, res, error, "courseController.generateSyllabus");
   }
 };
 

@@ -123,11 +123,11 @@ describe("AI syllabus errors", () => {
     mock.method(Course, "findByPk", async () => course);
     mock.method(globalThis, "fetch", async () => ({
       ok: true,
-      json: async () => ({ error: "401 invalid api key sk-abc123 for model xyz" }),
+      json: async () => ({ error: "401 invalid api key REDACTED_API_KEY for model xyz" }),
     }));
     const res = await call("POST", path);
     expectStable500(res, STABLE_SYLLABUS);
-    expectLogged(res, "sk-abc123"); // provider text exists in logs only
+    expectLogged(res, "REDACTED_API_KEY"); // provider text exists in logs only
   });
 
   test("AI service responds with a failure status", async () => {
