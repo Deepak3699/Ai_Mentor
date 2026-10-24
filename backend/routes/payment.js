@@ -2,6 +2,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import { protect } from "../middleware/authMiddleware.js";
 import Payment from "../models/Payment.js";
+import Course from "../models/Course.js";
 import { paymentGatewayServices } from "../services/paymentGatewayServices.js";
 import buildLogger from "../utils/logger.js";
 
@@ -23,17 +24,13 @@ const paymentLimiter = rateLimit({
 //  CREATE CHECKOUT SESSION — with idempotency protection
 router.post("/create-checkout-session", protect, paymentLimiter, async (req, res) => {
   try {
-    const { course, idempotencyKey } = req.body;
+    const { course, courseId: bodyCourseId, idempotencyKey } = req.body;
     const userId = req.user.id; //  from JWT token — never trust req.body for userId
 
+    const targetCourseId = bodyCourseId || course?.id;
+
     // Validate inputs
-    if (
-      !course ||
-      !course.id ||
-      !course.title ||
-      !course.priceValue ||
-      Number(course.priceValue) <= 0
-    ) {
+    if (!targetCourseId) {
       return res.status(400).json({ error: "Invalid course data" });
     }
 
@@ -42,28 +39,46 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
       return res.status(400).json({ error: "idempotencyKey is required" });
     }
 
+    // Load course from database — NEVER trust client price or metadata
+    const courseRecord = await Course.findByPk(targetCourseId);
+    if (!courseRecord || courseRecord.status !== "published") {
+      return res.status(404).json({ error: "Course not found or unavailable" });
+    }
+
+    const priceValue = Number(courseRecord.priceValue);
+    if (!Number.isFinite(priceValue) || priceValue <= 0) {
+      return res.status(400).json({ error: "Invalid course price" });
+    }
+
     // ─────────────────────────────────────────────────
     // STEP 1: CHECK IDEMPOTENCY
-    // If cacheExpiresAt has passed, request is NOT idempotent — process as new payment
+    // Ensure idempotency lookup is scoped to the requesting user
     // ─────────────────────────────────────────────────
     const existing = await Payment.findOne({ where: { idempotencyKey } });
 
-    if (existing && existing.cachedResponse && existing.cacheExpiresAt > new Date()) {
-      log.info({ idempotencyKey }, "Returning cached response for key: {idempotencyKey}");
-      return res.status(200).json(existing.cachedResponse);
+    if (existing) {
+      if (existing.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized idempotency key" });
+      }
+      if (existing.cachedResponse && existing.cacheExpiresAt > new Date()) {
+        log.info({ idempotencyKey }, "Returning cached response for key: {idempotencyKey}");
+        return res.status(200).json(existing.cachedResponse);
+      }
     }
 
     // ─────────────────────────────────────────────────
     // STEP 2: SAVE payment record FIRST (status: initiated)
     // ─────────────────────────────────────────────────
-    const amount = Math.round(Number(course.priceValue) * 100); // ₹ → paise
+    const amount = Math.round(priceValue * 100); // ₹ → paise
+    const currency = (courseRecord.currency || "inr").toLowerCase();
+    const courseTitle = courseRecord.title;
 
     const payment = await Payment.create({
       userId,
-      courseId: course.id,
-      courseTitle: course.title,
+      courseId: courseRecord.id,
+      courseTitle,
       amount,
-      currency: "inr",
+      currency,
       status: "initiated",
       idempotencyKey,
       gateway: "stripe",
@@ -73,7 +88,7 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
     // ─────────────────────────────────────────────────
     // STEP 3: CREATE Stripe session
     // ─────────────────────────────────────────────────
-    const successUrl = `${process.env.FRONTEND_URL}/success?courseId=${course.id}&title=${encodeURIComponent(course.title)}`;
+    const successUrl = `${process.env.FRONTEND_URL}/success?courseId=${courseRecord.id}&title=${encodeURIComponent(courseTitle)}`;
 
     const session = await paymentGatewayServices.createStripeCheckoutSession({
       payment_method_types: ["card"],
@@ -81,16 +96,16 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
       line_items: [
         {
           price_data: {
-            currency: "inr",
-            product_data: { name: course.title },
+            currency,
+            product_data: { name: courseTitle },
             unit_amount: amount,
           },
           quantity: 1,
         },
       ],
       metadata: {
-        courseId: course.id.toString(),
-        courseTitle: course.title,
+        courseId: courseRecord.id.toString(),
+        courseTitle,
         userId: userId.toString(), //  from JWT — secure
         paymentId: payment.id,
         idempotencyKey,

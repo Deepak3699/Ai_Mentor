@@ -38,7 +38,7 @@ from config import (
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
-GROQ_ENABLED,
+    GROQ_ENABLED,
     CLOUDINARY_ENABLED,
     validate_config,
 )
@@ -76,9 +76,30 @@ def log_event(level: str, message: str, **details):
     logger.log(_EVENT_LEVELS.get(level, logging.INFO), message, extra={"fields": fields})
 
 
-def short_error(error: Exception, limit: int = 180) -> str:
-    message = " ".join(str(error).split())
-    return message if len(message) <= limit else f"{message[: limit - 3]}..."
+def short_error(error: Exception) -> str:
+    """Return a safe diagnostic category without exposing exception text."""
+    if isinstance(error, ProviderGenerationError):
+        return "provider_failed"
+    if isinstance(error, TimeoutError) or "timeout" in type(error).__name__.lower():
+        return "timeout"
+    if isinstance(error, FileNotFoundError):
+        return "missing_file"
+    if isinstance(error, PermissionError):
+        return "permission_denied"
+    if isinstance(error, subprocess.CalledProcessError):
+        return "subprocess_failed"
+    if isinstance(error, ValueError):
+        return "invalid_data"
+    return "processing_error"
+
+
+def safe_correlation_id(value: str) -> str:
+    """Hash topic-derived job identifiers before writing them to logs."""
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+
+
+class ProviderGenerationError(RuntimeError):
+    """Safe marker for exhausted lesson script providers."""
 
 
 def check_ffmpeg() -> None:
@@ -126,6 +147,7 @@ async def lifespan(app: FastAPI):
         job_status=job_status,
         shutdown_failed_jobs=shutdown_failed_jobs,
         timeout_seconds=0,
+        generation_cache=generation_cache,
     )
     reset_logging()
 
@@ -265,6 +287,20 @@ UNTRUSTED_INPUT_INSTRUCTION = (
 )
 
 
+def validate_lesson_script(value: object) -> str:
+    """Normalize and validate generated lesson narration before saving."""
+    if not isinstance(value, str):
+        raise ValueError("Generated lesson must be text.")
+
+    script = " ".join(value.split())
+    if not script:
+        raise ValueError("Generated lesson is empty.")
+    if len(script) > 10000:
+        raise ValueError("Generated lesson exceeds the maximum length.")
+
+    return script
+
+
 def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
     system_instruction = f"""
     {UNTRUSTED_INPUT_INSTRUCTION}
@@ -291,8 +327,9 @@ def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
     try:
         log_event("RUN", "Trying Gemini for lesson script")
         response = _generate_gemini_content(system_instruction, user_data)
+        script = validate_lesson_script(getattr(response, "text", None))
         log_event("OK", "Gemini lesson script generated")
-        return response.text.strip().replace("\n", " "), "gemini", GEMINI_MODEL
+        return script, "gemini", GEMINI_MODEL
     except Exception as gemini_error:
         gemini_failure = short_error(gemini_error)
         log_event(
@@ -309,19 +346,23 @@ def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
             max_tokens=300,
             timeout=LLM_TIMEOUT_SECONDS,
         )
+
+        choices = getattr(groq_response, "choices", None)
+        if not choices:
+            raise ValueError("Generated lesson response is missing choices.")
+
+        message = getattr(choices[0], "message", None)
+        content = getattr(message, "content", None)
+        script = validate_lesson_script(content)
     except Exception as groq_error:
-        raise RuntimeError(
+        raise ProviderGenerationError(
             "LLM generation failed: primary provider (Gemini) failed: "
             f"{gemini_failure}; fallback provider (Groq) failed: "
             f"{short_error(groq_error)}"
         ) from groq_error
 
     log_event("OK", "Groq fallback lesson script generated")
-    return (
-        groq_response.choices[0].message.content.strip().replace("\n", " "),
-        "groq",
-        "llama-3.3-70b-versatile",
-    )
+    return script, "groq", "llama-3.3-70b-versatile"
 
 # --------------------------
 # Helpers
@@ -368,6 +409,7 @@ def get_celebrity_video(celebrity_name: str) -> str:
 VIDEO_WIDTH = 1280
 VIDEO_HEIGHT = 720
 
+
 def build_landscape_video_filter() -> str:
     """Return the shared uncropped 16:9 blurred-background composition."""
     return (
@@ -396,6 +438,7 @@ def build_fallback_ffmpeg_args(input_video: str, audio_path: str, output_path: s
         "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "aac",
         "-movflags", "+faststart", "-shortest", output_path,
     ]
+
 
 async def run_ffmpeg_command(args: list[str]) -> tuple[int, str]:
     """Run FFmpeg and always return its exit code and safely decoded diagnostics."""
@@ -689,7 +732,10 @@ def generate_flashcards(data: FlashcardRequest):
                 )
                 text = response.text.strip()
             except Exception as gemini_error:
-                logger.warning("Gemini flashcard generation failed: %s", gemini_error)
+                logger.warning(
+                    "Gemini flashcard generation failed: %s",
+                    short_error(gemini_error),
+                )
                 if not groq_client:
                     raise
                 groq_response = _generate_groq_content(
@@ -719,7 +765,9 @@ def generate_flashcards(data: FlashcardRequest):
             ]
         except Exception as error:
             logger.warning(
-                "Flashcard generation attempt %s failed: %s", attempt + 1, error
+                "Flashcard generation attempt %s failed: %s",
+                attempt + 1,
+                short_error(error),
             )
 
     raise HTTPException(status_code=503, detail="Failed to generate flashcards")
@@ -796,7 +844,7 @@ def explain_code(data: ExplainCodeRequest):
         result_text = response.text.strip()
 
     except Exception as gemini_error:
-        print(f"Gemini failed: {gemini_error}. Trying Groq...")
+        print(f"Gemini failed ({short_error(gemini_error)}). Trying Groq...")
         try:
             groq_response = groq_client.chat.completions.create(
                 model="openai/gpt-oss-120b",
@@ -807,7 +855,7 @@ def explain_code(data: ExplainCodeRequest):
             result_text = groq_response.choices[0].message.content.strip()
 
         except Exception as groq_error:
-            print(f"Groq failed: {groq_error}")
+            print(f"Groq failed ({short_error(groq_error)})")
             raise HTTPException(
                 status_code=502,
                 detail="Both AI providers failed to analyze the code.",
@@ -839,7 +887,7 @@ def explain_code(data: ExplainCodeRequest):
         return result
 
     except (json.JSONDecodeError, ValueError) as error:
-        print(f"Invalid AI response: {error}")
+        print(f"Invalid AI response ({short_error(error)})")
         raise HTTPException(
             status_code=502,
             detail="AI returned an invalid code analysis response.",
@@ -858,6 +906,40 @@ shutting_down = False
 # - This prevents the dictionary from growing indefinitely.
 job_status = TTLCache(maxsize=1000, ttl=3600)
 generation_cache = TTLCache(maxsize=1000, ttl=3600)
+
+
+def mark_job_failed(
+    base_filename: str,
+    error: Exception | str | None = None,
+    *,
+    failure_code: str = "generation_failed",
+) -> None:
+    """Record a safe failure state and always remove its generation cache entry."""
+    try:
+        status = job_status.setdefault(base_filename, {})
+        if base_filename not in shutdown_failed_jobs:
+            public_messages = {
+                "narration_failed": "Narration generation failed.",
+                "source_video_missing": "Video rendering failed.",
+                "ffmpeg_failed": "Video rendering failed.",
+                "output_missing": "Video rendering failed.",
+                "provider_failed": "AI provider generation failed.",
+                "generation_failed": "Lesson generation failed.",
+            }
+            message = public_messages.get(failure_code, public_messages["generation_failed"])
+            status["status"] = "failed"
+            status["error"] = message
+            status["reason"] = message
+            status["failure_code"] = failure_code if failure_code in public_messages else "generation_failed"
+        meta = status.setdefault("meta", {})
+        timestamps = meta.setdefault("timestamps", {})
+        timestamps.setdefault(
+            "failed_at",
+            datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        )
+    finally:
+        remove_failed_generation_cache(base_filename)
+
 
 @app.post("/generate")
 def generate_lesson(
@@ -894,18 +976,11 @@ def generate_lesson(
     cache_key = hashlib.sha256(
         cache_data.encode("utf-8")
     ).hexdigest()
-    topic_clean = re.sub(
-        r'[^\w\s-]', '', data.topic
-    ).strip().replace(" ", "_")
-    topic_clean = topic_clean[:81]
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
 
     if not force and cache_key in generation_cache:
         base_filename = generation_cache[cache_key]
         existing_status = job_status.get(
             base_filename,
-
             {"status": "processing"}
         )
 
@@ -920,13 +995,9 @@ def generate_lesson(
 
     topic_clean = re.sub(
         r'[^\w\s-]', '', data.topic
-    ).strip().replace(" ", "_")
-
-    if force:
-        base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
-    else:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
+    ).strip().replace(" ", "_")[:81]
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
 
     if not force:
         generation_cache[cache_key] = base_filename
@@ -1028,7 +1099,7 @@ async def _process_lesson(data: LessonRequest, base_filename: str):
         with open(text_path, "w", encoding="utf-8") as f:
             f.write(script)
 
-        log_event("OK", "Transcript saved", file=os.path.basename(text_path))
+        log_event("OK", "Transcript saved")
 
         # 4️⃣ Convert Text to Speech (edge-tts)
 
@@ -1055,28 +1126,8 @@ async def _process_lesson(data: LessonRequest, base_filename: str):
             log_event("OK", "Narration audio ready", duration=f"{audio_seconds:.2f}s")
 
         except Exception as e:
-
             log_event("ERROR", "Narration generation failed", error=short_error(e))
-
-            if base_filename not in shutdown_failed_jobs:
-                if base_filename in job_status:
-                    job_status[base_filename]["status"] = "failed"
-
-                    if "meta" not in job_status[base_filename]:
-                        job_status[base_filename]["meta"] = {
-                            "timestamps": {}
-                        }
-
-                    if "timestamps" not in job_status[base_filename]["meta"]:
-                        job_status[base_filename]["meta"]["timestamps"] = {}
-
-                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
-                        datetime.datetime.now(
-                            datetime.timezone.utc
-                        ).isoformat()
-                    )
-
-            remove_failed_generation_cache(base_filename)
+            mark_job_failed(base_filename, e, failure_code="narration_failed")
             return
 
         # 5️⃣ Try AI Avatar Video
@@ -1100,7 +1151,7 @@ async def _process_lesson(data: LessonRequest, base_filename: str):
             avatar_download = os.path.join(video_dir, f"{base_filename}.avatar-source.mp4")
             with open(avatar_download, "wb") as video_file:
                 video_file.write(video_response.content)
-            log_event("OK", "Avatar video downloaded", file=os.path.basename(avatar_download))
+            log_event("OK", "Avatar video downloaded")
             normalize_process = await asyncio.create_subprocess_exec(
                 *build_avatar_normalization_args(avatar_download, final_video),
                 stdout=asyncio.subprocess.PIPE,
@@ -1116,7 +1167,7 @@ async def _process_lesson(data: LessonRequest, base_filename: str):
                 raise RuntimeError(normalize_stderr.decode(errors="replace"))
             if not os.path.exists(final_video):
                 raise RuntimeError("Avatar normalization completed without an output video")
-            log_event("OK", "Avatar video normalized to landscape", file=os.path.basename(final_video))
+            log_event("OK", "Avatar video normalized to landscape")
 
         except Exception as avatar_error:
             renderer_used = "ffmpeg_fallback"
@@ -1127,26 +1178,8 @@ async def _process_lesson(data: LessonRequest, base_filename: str):
             input_video = get_celebrity_video(data.celebrity)
 
             if not os.path.exists(input_video):
-                log_event("ERROR", "Fallback source video not found", file=os.path.basename(input_video))
-                if base_filename not in shutdown_failed_jobs:
-                    if base_filename in job_status:
-                        job_status[base_filename]["status"] = "failed"
-
-                        if "meta" not in job_status[base_filename]:
-                            job_status[base_filename]["meta"] = {
-                                "timestamps": {}
-                            }
-
-                        if "timestamps" not in job_status[base_filename]["meta"]:
-                            job_status[base_filename]["meta"]["timestamps"] = {}
-
-                        job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
-                            datetime.datetime.now(
-                                datetime.timezone.utc
-                            ).isoformat()
-                        )
-
-                remove_failed_generation_cache(base_filename)
+                log_event("ERROR", "Fallback source video not found")
+                mark_job_failed(base_filename, failure_code="source_video_missing")
                 return
 
             log_event("RUN", "Rendering lesson video with FFmpeg")
@@ -1157,42 +1190,15 @@ async def _process_lesson(data: LessonRequest, base_filename: str):
             if ffmpeg_returncode != 0:
                 error_msg = error_msg or "FFmpeg exited without diagnostic output"
                 log_event("ERROR", "FFmpeg render failed", code=ffmpeg_returncode, error=short_error(RuntimeError(error_msg)))
-                if base_filename in job_status:
-                    job_status[base_filename]["status"] = "failed"
-                    if "meta" not in job_status[base_filename]:
-                        job_status[base_filename]["meta"] = {"timestamps": {}}
-                    if "timestamps" not in job_status[base_filename]["meta"]:
-                        job_status[base_filename]["meta"]["timestamps"] = {}
-                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-                remove_failed_generation_cache(base_filename)
+                mark_job_failed(base_filename, RuntimeError(error_msg), failure_code="ffmpeg_failed")
                 return
 
             if not os.path.exists(final_video):
                 log_event("ERROR", "FFmpeg completed without an output video")
-                if base_filename not in shutdown_failed_jobs:
-                    if base_filename in job_status:
-                        job_status[base_filename]["status"] = "failed"
-
-                        if "meta" not in job_status[base_filename]:
-                            job_status[base_filename]["meta"] = {
-                                "timestamps": {}
-                            }
-
-                        if "timestamps" not in job_status[base_filename]["meta"]:
-                            job_status[base_filename]["meta"]["timestamps"] = {}
-
-                        job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
-                            datetime.datetime.now(
-                                datetime.timezone.utc
-                            ).isoformat()
-                        )
-
-                remove_failed_generation_cache(base_filename)
+                mark_job_failed(base_filename, failure_code="output_missing")
                 return
 
             log_event("OK", "FFmpeg video render completed")
-
-
 
         # 6.5 Generate subtitles (.vtt + .srt)
         vtt_path, srt_path = None, None
@@ -1303,9 +1309,9 @@ async def _process_lesson(data: LessonRequest, base_filename: str):
                 try:
                     if local_file and os.path.exists(local_file):
                         os.remove(local_file)
-                        log_event("CLEAN", "Temporary file removed", file=os.path.basename(local_file))
+                        log_event("CLEAN", "Temporary file removed")
                 except Exception as cleanup_err:
-                    log_event("WARN", "Temporary file cleanup failed", file=os.path.basename(local_file), error=short_error(cleanup_err))
+                    log_event("WARN", "Temporary file cleanup failed", error=short_error(cleanup_err))
         else:
             log_event("WARN", "Local media retained because upload failed")
             log_event("INFO", "Local fallback files require later cleanup")

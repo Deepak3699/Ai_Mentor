@@ -1,8 +1,13 @@
 // routes/contactus.js
 import express from "express";
 import ContactMessage from "../models/Contactmessage.js";
+import { optionalProtect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+const logContactFailure = (classification) => {
+  console.error(JSON.stringify({ event: "contact_failure", classification }));
+};
 
 /*
 POST /api/contactus
@@ -13,9 +18,9 @@ Body:
   message: "My message here..."
 }
 */
-router.post("/", async (req, res) => {
+router.post("/", optionalProtect, async (req, res) => {
   try {
-    let { userId, email, subject, message } = req.body;
+    let { email, subject, message } = req.body;
 
     // Clean values
     email = email?.trim();
@@ -44,9 +49,9 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Save message in DB
+    // Save message in DB - userId derived securely from auth token, not body
     const savedMessage = await ContactMessage.create({
-      userId: userId || null,
+      userId: req.user?.id ?? null,
       email,
       subject,
       message,
@@ -58,16 +63,16 @@ router.post("/", async (req, res) => {
       data: savedMessage,
     });
   } catch (error) {
-    console.error("❌ ContactUs Error:", error);
-
     // Sequelize validation errors
-    if (error.name === "SequelizeValidationError") {
+    if (error?.name === "SequelizeValidationError") {
+      logContactFailure("validation_error");
       return res.status(400).json({
         success: false,
-        message: error.errors[0].message,
+        message: error.errors?.[0]?.message ?? "Invalid contact message",
       });
     }
 
+    logContactFailure("persistence_error");
     return res.status(500).json({
       success: false,
       message: "Server error while sending message",

@@ -194,7 +194,7 @@ test("learning data permits an owner, admin, and free course", async () => {
   const scenarios = [
     { user: { role: "user", purchasedCourses: [{ courseId: 1 }] }, priceValue: 499 },
     { user: { role: "admin", purchasedCourses: [] }, priceValue: 499 },
-    { user: { role: "user", purchasedCourses: [] }, priceValue: 1 },
+    { user: { role: "user", purchasedCourses: [] }, priceValue: 0 },
   ];
   for (const scenario of scenarios) {
     Course.findByPk = async () => course({ priceValue: scenario.priceValue });
@@ -205,6 +205,17 @@ test("learning data permits an owner, admin, and free course", async () => {
     assert.deepEqual(state.body.modules, []);
     assert.equal(state.body.currentLesson, null);
   }
+});
+
+test("learning data rejects unpurchased ₹1 course", async () => {
+  Course.findByPk = async () => course({ priceValue: 1 });
+  const outcome = response();
+  await getCourseLearningData(
+    { params: { id: "1" }, user: { role: "user", purchasedCourses: [] } },
+    outcome.res,
+  );
+  assert.equal(outcome.state.statusCode, 403);
+  assert.match(outcome.state.body.message, /purchase\/enroll/);
 });
 
 test("learning data returns ordered modules, lessons, content, and first current lesson", async () => {
