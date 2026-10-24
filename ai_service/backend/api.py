@@ -13,9 +13,9 @@ import requests
 from fastapi import FastAPI, BackgroundTasks, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, ConfigDict, Field
 import json
 import hashlib
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 import uuid
 import time
 from mutagen.mp3 import MP3
@@ -189,7 +189,12 @@ class LessonRequest(BaseModel):
     gender: str | None = None
     speech_rate: str | None = "+0%"
     speech_pitch: str | None = "+0Hz"
-
+    @field_validator("course", "topic")
+    @classmethod
+    def reject_blank_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Field must not be empty or whitespace-only")
+        return value
 class SyllabusRequest(BaseModel):
     course_title: str = Field(..., min_length=1, max_length=100)
     category: str | None = Field(None, max_length=100)
@@ -198,6 +203,14 @@ class ExplainCodeRequest(BaseModel):
     code: str = Field(..., min_length=1, max_length=20000)
     language: str = Field(..., min_length=1, max_length=50)
     mode: str = Field(..., pattern="^(explain|debug|optimize)$")
+class InferenceRequest(BaseModel):
+    prompt: str = Field(..., min_length=1, max_length=20000)
+    @field_validator("prompt")
+    @classmethod
+    def validate_prompt(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Prompt is required and must not be empty")
+        return value
 class QuizRequest(BaseModel):
     lesson: str = Field(..., min_length=1, max_length=30000)
 
@@ -922,7 +935,51 @@ def mark_job_failed(
     finally:
         remove_failed_generation_cache(base_filename)
 
+@app.post("/inference")
+def inference(data: InferenceRequest):
+    system_instruction = (
+        f"{UNTRUSTED_INPUT_INSTRUCTION}\n"
+        "Answer the user's prompt clearly and helpfully."
+    )
+    user_data = {"prompt": data.prompt}
 
+    try:
+        response = _generate_gemini_content(
+            system_instruction, user_data
+        )
+        answer = getattr(response, "text", None)
+        if isinstance(answer, str) and answer.strip():
+            return {"response": answer.strip()}
+    except Exception as gemini_error:
+        log_event(
+            "WARN",
+            "Gemini inference failed",
+            error=short_error(gemini_error),
+        )
+
+    try:
+        response = _generate_groq_content(
+            system_instruction,
+            user_data,
+            max_tokens=1000,
+        )
+        choices = getattr(response, "choices", None)
+        answer = (
+            getattr(
+                getattr(choices[0], "message", None),
+                "content",
+                None,
+            )
+            if choices
+            else None
+        )
+        if isinstance(answer, str) and answer.strip():
+            return {"response": answer.strip()}
+        raise ValueError("Generated response is empty.")
+    except Exception as groq_error:
+        raise ProviderGenerationError(
+            "Inference failed for both Gemini and Groq."
+        ) from groq_error
 @app.post("/generate")
 def generate_lesson(
     data: LessonRequest,
