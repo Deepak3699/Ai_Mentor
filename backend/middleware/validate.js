@@ -1,3 +1,5 @@
+import fs from "fs";
+
 import { AppError, ValidationError } from "../utils/error.js";
 
 const validate = (schema) => (req, res, next) => {
@@ -23,9 +25,14 @@ const validate = (schema) => (req, res, next) => {
   try {
     const validationResult = schema.safeParse(req.body);
     if (!validationResult.success) {
+      if (req.file?.path) {
+        fs.unlink(req.file.path, () => {});
+      }
       const issues = validationResult.error.issues;
-      console.error("❌ Validation Failed for body:", JSON.stringify(req.body, null, 2));
-      console.error("❌ Issues:", JSON.stringify(issues, null, 2));
+       const errorPaths = issues.map((err) => err.path.join(".")).join(", ");
+      console.error(
+        `❌ Validation Failed for ${req.method} ${req.originalUrl || req.url}. Fields: ${errorPaths}`,
+      );
 
       const details = issues.map((err) => ({
         path: err.path.join("."),
@@ -44,22 +51,30 @@ const validate = (schema) => (req, res, next) => {
     }
     return next();
   } catch (error) {
-    console.error("❌ Validation Middleware Internal Error:", error);
-    const appError = new AppError(
-      "Internal Server Error during validation",
-      500,
-      "INTERNAL_SERVER_ERROR",
-      [],
-      error?.message || "Unknown validation error",
-    );
-    return res.status(appError.statusCode).json({
-      success: false,
-      error: {
-        code: appError.code,
-        message: appError.message,
-        details: appError.details,
-      },
-    });
+   if (req.file?.path) {
+    fs.unlink(req.file.path, () => {});
+  }
+
+  console.error("❌ Validation Middleware Internal Error:", error);
+
+  const appError = new AppError(
+    "Internal Server Error during validation",
+    500,
+    "INTERNAL_SERVER_ERROR",
+    process.env.NODE_ENV !== "production"
+      ? [error?.message || "Unknown validation error"]
+      : [],
+    error?.message || "Unknown validation error"
+  );
+
+  return res.status(appError.statusCode).json({
+    success: false,
+    error: {
+      code: appError.code,
+      message: appError.message,
+      details: appError.details,
+    },
+  });
   }
 };
 

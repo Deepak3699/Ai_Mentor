@@ -183,9 +183,9 @@ const getCourseLearningData = async (req, res, next) => {
     const hasAccess = purchasedCourses.includes(String(course.id));
 
     const priceValue = parseFloat(course.priceValue) || 0;
-    const isFreeOrOne = priceValue <= 1;
+    const isFree = priceValue === 0;
 
-    if (!hasAccess && req.user.role !== "admin" && !isFreeOrOne) {
+    if (!hasAccess && req.user.role !== "admin" && !isFree) {
       return forwardError(
         next,
         res,
@@ -290,6 +290,12 @@ const getCourseAndLessonTitles = async (courseId, lessonId) => {
     const lesson = await Lesson.findByPk(lessonId);
 
     if (!course || !lesson) return null;
+
+    const module = await Module.findOne({
+      where: { id: lesson.moduleId, courseId: course.id },
+    });
+
+    if (!module) return null;
 
     return {
       courseTitle: course.title || null,

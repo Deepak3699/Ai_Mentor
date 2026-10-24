@@ -1,9 +1,14 @@
 // routes/contactus.js
 import express from "express";
 import ContactMessage from "../models/Contactmessage.js";
+import { optionalProtect } from "../middleware/authMiddleware.js";
 import { BadRequestError, ValidationError } from "../utils/error.js";
 
 const router = express.Router();
+
+const logContactFailure = (classification) => {
+  console.error(JSON.stringify({ event: "contact_failure", classification }));
+};
 
 /*
 POST /api/contactus
@@ -14,9 +19,9 @@ Body:
   message: "My message here..."
 }
 */
-router.post("/", async (req, res, next) => {
+router.post("/", optionalProtect, async (req, res, next) => {
   try {
-    let { userId, email, subject, message } = req.body;
+    let { email, subject, message } = req.body;
 
     email = email?.trim();
     subject = subject?.trim();
@@ -34,8 +39,9 @@ router.post("/", async (req, res, next) => {
       throw new BadRequestError("Message must be at least 10 characters");
     }
 
+    // Save message in DB - userId derived securely from auth token, not body
     const savedMessage = await ContactMessage.create({
-      userId: userId || null,
+      userId: req.user?.id ?? null,
       email,
       subject,
       message,
@@ -47,9 +53,8 @@ router.post("/", async (req, res, next) => {
       data: savedMessage,
     });
   } catch (error) {
-    console.error("❌ ContactUs Error:", error);
-
-    if (error.name === "SequelizeValidationError") {
+    if (error?.name === "SequelizeValidationError") {
+      logContactFailure("validation_error");
       const details = (error.errors || []).map((issue) => ({
         path: issue.path || "email",
         message: issue.message,
@@ -65,6 +70,7 @@ router.post("/", async (req, res, next) => {
       });
     }
 
+    logContactFailure("persistence_error");
     return next(error);
   }
 });

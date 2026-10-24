@@ -15,7 +15,8 @@ export const protectAdmin = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const jwtSecret = process.env.JWT_SECRET || "fallback_secret";
+    const decoded = jwt.verify(token, jwtSecret);
     req.admin = await Admin.findByPk(decoded.id);
 
     if (!req.admin) {
@@ -24,6 +25,13 @@ export const protectAdmin = async (req, res, next) => {
 
     if (req.admin.status === "on-hold") {
       return res.status(403).json({ message: "Your account has been suspended" });
+    }
+
+    if (req.admin.passwordChangedAt) {
+      const passwordChangedAt = Math.floor(req.admin.passwordChangedAt.getTime() / 1000);
+      if (passwordChangedAt > decoded.iat) {
+        return res.status(401).json({ message: "Token revoked, please log in again" });
+      }
     }
 
     next();

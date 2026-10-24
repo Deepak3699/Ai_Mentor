@@ -12,17 +12,21 @@ dotenv.config();
 
 const router = express.Router();
 
+const hasCourseAccess = (user, courseId) => {
+  if (!user) return false;
+  if (user.role === "admin" || user.role === "superadmin") return true;
+  return (user.purchasedCourses || []).some(
+    (course) => Number(course.courseId) === Number(courseId),
+  );
+};
+
 router.post("/generate-video", protect, validate(generateVideoSchema), async (req, res) => {
   let aiVideo;
 
   try {
     const { courseId, lessonId, celebrity, voice_id, speech_rate, speech_pitch } = req.body;
 
-    const purchasedCourse = (req.user.purchasedCourses || []).find(
-      (course) => Number(course.courseId) === Number(courseId),
-    );
-
-    if (!purchasedCourse) {
+    if (!hasCourseAccess(req.user, courseId)) {
       return res.status(403).json({
         success: false,
         error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
@@ -272,17 +276,33 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
 
 // Proxy Transcript Content from Python
 // ----------------------------------------------------
-router.get("/transcript/:filename", async (req, res) => {
+router.get("/transcript/:filename", protect, async (req, res) => {
   try {
     const { filename } = req.params;
 
-    // 🕵️ Check Cache First
+    // Check DB record to enforce course access
     const cachedVideo = await AIVideo.findOne({
       where: { transcriptName: filename },
     });
 
-    if (cachedVideo && cachedVideo.transcript) {
-      console.log("🎯 Serving cached transcript for:", filename);
+    if (!cachedVideo) {
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Transcript not found", details: [] },
+      });
+    }
+
+    if (!hasCourseAccess(req.user, cachedVideo.courseId)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+      });
+    }
+
+    if (cachedVideo.transcript) {
+      if (process.env.NODE_ENV !== "test") {
+        console.log("[AI] Serving cached transcript for:", filename);
+      }
       return res.json({ content: cachedVideo.transcript });
     }
 
@@ -298,16 +318,18 @@ router.get("/transcript/:filename", async (req, res) => {
 
     const data = await response.json();
 
-    // 💾 Save to Cache if we found the record
-    if (cachedVideo) {
-      cachedVideo.transcript = data.content;
-      await cachedVideo.save();
-      console.log("💾 Transcript cached for:", filename);
+    // Save to Cache
+    cachedVideo.transcript = data.content;
+    await cachedVideo.save();
+    if (process.env.NODE_ENV !== "test") {
+      console.log("[AI] Transcript cached for:", filename);
     }
 
     res.json(data);
   } catch (error) {
-    console.error("❌ Transcript Proxy Error:", error.message);
+    if (process.env.NODE_ENV !== "test") {
+      console.error("[AI] Transcript Proxy Error:", error.message);
+    }
     return res.status(500).json({
       success: false,
       error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
@@ -326,6 +348,22 @@ router.get("/status/:jobId", protect, async (req, res) => {
       return res.status(404).json({
         success: false,
         error: { code: "NOT_FOUND", message: "Video job not found", details: [] },
+      });
+    }
+
+    // Enforce course entitlement before returning video status or URLs
+    if (!hasCourseAccess(req.user, videoJob.courseId)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+      });
+    }
+
+    // Enforce course entitlement before returning video status or URLs
+    if (!hasCourseAccess(req.user, videoJob.courseId)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
       });
     }
 
@@ -364,8 +402,7 @@ router.get("/status/:jobId", protect, async (req, res) => {
     // Persist ready results by the database record ID. The Python job ID is only
     // used for polling the AI service and must never be used as the DB identity.
     if (data.status === "ready" && data.local_video_url) {
-      const filename = data.local_video_url.split("/").pop();
-      data.local_video_url = `/api/ai/video/${videoJob.courseId}/${jobId}/${filename}`;
+      data.local_video_url = `/api/ai/video/${videoJob.courseId}/${jobId}.mp4`;
     }
 
     if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
@@ -416,12 +453,8 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
       });
     }
 
-    // 🔐 The user must be enrolled in the course named in the URL
-    const isEnrolled = (req.user.purchasedCourses || []).some(
-      (c) => Number(c.courseId) === numericCourseId,
-    );
-
-    if (!isEnrolled) {
+    // 🔐 The user must be enrolled in the course named in the URL (or admin)
+    if (!hasCourseAccess(req.user, numericCourseId)) {
       return res.status(403).json({
         success: false,
         error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },

@@ -126,7 +126,7 @@ const WatchedVideos = () => {
     const matchesSearch =
       video.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (video.course || "").toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCourse = courseFilter === "All Courses" || video.course === courseFilter;
+    const matchesCourse = courseFilter === "All Courses" || String(video.courseId) === courseFilter;
     const matchesStatus =
       statusFilter === "All Status" ||
       (statusFilter === "Completed" && video.status === "completed") ||
@@ -308,7 +308,7 @@ const WatchedVideos = () => {
           >
             <option value="All Courses">{t("watched.all_courses")}</option>
             {courses.map((course) => (
-              <option key={course.id} value={course.title}>
+              <option key={course.id} value={String(course.id)}>
                 {course.title}
               </option>
             ))}

@@ -157,6 +157,7 @@ const changePassword = async (req, res, next) => {
     }
 
     user.password = newPassword;
+    user.passwordChangedAt = new Date();
 
     await user.save();
 
@@ -437,7 +438,7 @@ const getWatchedVideos = async (req, res, next) => {
     const courses = user.purchasedCourses || [];
 
     const watchedVideos = [];
-    const uniqueCourses = [];
+    const uniqueCourses = new Map();
 
     let totalSeconds = 0;
     let completedCount = 0;
@@ -470,8 +471,10 @@ const getWatchedVideos = async (req, res, next) => {
           status: watchHistory.status || "in-progress",
         });
 
-        if (!uniqueCourses.includes(course.courseId)) {
-          uniqueCourses.push(course.courseId);
+        const courseId = String(course.courseId);
+        const courseTitle = course.courseTitle || "Course";
+        if (!uniqueCourses.has(courseId)) {
+          uniqueCourses.set(courseId, { id: course.courseId, title: courseTitle });
         }
 
         if (watchHistory.currentTime > 0) {
@@ -499,7 +502,7 @@ const getWatchedVideos = async (req, res, next) => {
     const avgRemainingSeconds = Math.floor(avgSeconds % 60);
 
     const metrics = {
-      totalHours: (totalSeconds / 60).toFixed(1),
+      totalHours: (totalSeconds / 3600).toFixed(1),
       videosCompleted: completedCount,
       avgSession: `${avgMinutes}m ${avgRemainingSeconds}s`,
       learningStreak: `${uniqueDays.size} days`,
@@ -508,7 +511,7 @@ const getWatchedVideos = async (req, res, next) => {
     res.json({
       videos: watchedVideos,
       metrics,
-      courses: [...uniqueCourses],
+      courses: [...uniqueCourses.values()],
     });
   } catch (error) {
     console.error("Failed to fetch watched videos:", error);
@@ -681,6 +684,9 @@ const updateUserProfile = async (req, res, next) => {
         },
       });
       if (emailExists) {
+        if (req.file?.path) {
+          fs.unlink(req.file.path, () => {});
+        }
         return forwardError(next, res, new ConflictError("Email already in use"));
       }
       user.email = req.body.email.trim().toLowerCase();
@@ -704,6 +710,9 @@ const updateUserProfile = async (req, res, next) => {
       purchasedCourses: user.purchasedCourses,
     });
   } catch (error) {
+    if (req.file?.path) {
+      fs.unlink(req.file.path, () => {});
+    }
     console.error("UPDATE PROFILE ERROR:", error);
     return forwardError(
       next,

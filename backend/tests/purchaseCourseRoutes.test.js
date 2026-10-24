@@ -128,6 +128,15 @@ test("the Zod validation middleware rejects a request without a course id", asyn
   assert.ok(Array.isArray(body.error.details));
 });
 
+test("the Zod validation middleware rejects a blank course id", async () => {
+  const res = await postPurchase({ courseId: "" }, tokenFor());
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.message, "Validation failed");
+  assert.ok(Array.isArray(body.error.details));
+  assert.match(body.error.details[0].message, /Course ID is required|positive integer/i);
+});
+
 test("authenticated user enrolls in a free course through the real route", async () => {
   const res = await postPurchase({ courseId: 1, courseTitle: "Spoofed Client Title" }, tokenFor());
 
