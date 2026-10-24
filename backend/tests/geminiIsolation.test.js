@@ -6,10 +6,12 @@ const { askGemini } = await import("../services/geminiChatService.js");
 test("Gemini service imports without requiring an API key", () => {
   assert.equal(typeof askGemini, "function");
 });
-test("Gemini service returns an offline message when its key is absent", async () => {
+test("Gemini service returns a config failure when its key is absent", async () => {
   const result = await askGemini("context", "message");
-  assert.equal(
-    result,
-    "The AI Assistant is currently offline due to missing API configuration. Please try again later.",
-  );
+  assert.deepEqual(result, {
+    ok: false,
+    category: "config",
+    message:
+      "The AI Assistant is currently offline due to missing API configuration. Please try again later.",
+  });
 });

@@ -215,24 +215,20 @@ export const chatWithAssistant = async (req, res) => {
 
     const context = buildUserContext(user, preferences);
 
-    const geminiReply = await askGemini(context, message);
+    const result = await askGemini(context, message, { requestId: req.id });
 
-    // Check if Gemini returned a route
+    if (!result.ok) {
+      return res.json({ reply: result.message, route: null, error: result.category });
+    }
+
     let route = null;
-
-    const routeMatch = geminiReply.match(/ROUTE:(.+)/i);
-
+    const routeMatch = result.text.match(/ROUTE:(.+)/i);
     if (routeMatch) {
       route = routeMatch[1].trim();
     }
+    const cleanedReply = result.text.replace(/ROUTE:.*/i, "").trim();
 
-    // Remove ROUTE from visible message
-    const cleanedReply = geminiReply.replace(/ROUTE:.*/i, "").trim();
-
-    return res.json({
-      reply: cleanedReply,
-      route,
-    });
+    return res.json({ reply: cleanedReply, route });
   } catch (error) {
     console.error("CHAT ERROR:", error);
 
