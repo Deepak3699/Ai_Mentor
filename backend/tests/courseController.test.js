@@ -3,14 +3,15 @@ import assert from "node:assert/strict";
 
 process.env.NODE_ENV = "test";
 
+const { sequelize } = await import("../config/db.js");
 const associations = await import("../models/modelAssociations.js");
 const { Course, Module, Lesson, LessonContent } = associations;
-const { sequelize } = await import("../config/db.js");
 const { addLessonsSchema } = await import("../schemas/courseSchema.js");
 const validate = (await import("../middleware/validate.js")).default;
 const {
   addCourse,
   addLessons,
+  addModules,
   deleteCourse,
   getCourseById,
   getCourseLearningData,
@@ -29,9 +30,11 @@ const originals = {
   courseDestroy: Course.destroy,
   moduleFindAll: Module.findAll,
   lessonFindAll: Lesson.findAll,
+  moduleMax: Module.max,
+  moduleCreate: Module.create,
   lessonMax: Lesson.max,
   lessonCreate: Lesson.create,
-  transaction: sequelize.transaction,
+  sequelizeTransaction: sequelize.transaction,
 };
 
 const response = () => {
@@ -71,6 +74,9 @@ const course = (overrides = {}) => ({
   ...overrides,
 });
 
+let transactionStats;
+let persistedModules;
+let persistedLessons;
 beforeEach(() => {
   Course.findAndCountAll = async () => ({ rows: [], count: 0 });
   Course.findByPk = async () => null;
@@ -80,8 +86,40 @@ beforeEach(() => {
   Course.destroy = async () => 0;
   Module.findAll = async () => [];
   Lesson.findAll = async () => [];
+
+  persistedModules = [];
+  persistedLessons = [];
+
+  Module.max = async () => 0;
+  Module.create = async (data) => ({ id: 1, ...data });
+
   Lesson.max = async () => 0;
   Lesson.create = async (data) => ({ id: 1, ...data });
+
+  transactionStats = {
+    calls: 0,
+    commits: 0,
+    rollbacks: 0,
+  };
+
+  sequelize.transaction = async (callback) => {
+    transactionStats.calls += 1;
+    const transaction = {
+      pendingModules: [],
+      pendingLessons: [],
+    };
+
+    try {
+      const result = await callback(transaction);
+      persistedModules.push(...transaction.pendingModules);
+      persistedLessons.push(...transaction.pendingLessons);
+      transactionStats.commits += 1;
+      return result;
+    } catch (error) {
+      transactionStats.rollbacks += 1;
+      throw error;
+    }
+  };
 });
 
 after(() => {
@@ -94,10 +132,63 @@ after(() => {
   Module.findAll = originals.moduleFindAll;
   Module.findOne = originals.moduleFindOne;
   Lesson.findAll = originals.lessonFindAll;
+
+  Module.max = originals.moduleMax;
+  Module.create = originals.moduleCreate;
+
   Lesson.max = originals.lessonMax;
   Lesson.create = originals.lessonCreate;
-  sequelize.transaction = originals.transaction;
+
+  sequelize.transaction = originals.sequelizeTransaction;
 });
+
+const configureOrderLookup = (model, order, expectedWhere, error) => {
+  let calls = 0;
+
+  model.max = async (field, options) => {
+    calls += 1;
+
+    assert.equal(field, "order");
+    assert.ok(options.transaction);
+
+    if (expectedWhere) {
+      assert.deepEqual(options.where, expectedWhere);
+    }
+
+    if (error) {
+      throw error;
+    }
+
+    return order;
+  };
+
+  return () => calls;
+};
+
+const configureTransactionalInsert = (
+  model,
+  pendingKey,
+  { failAt, errorMessage, onInsert } = {},
+) => {
+  let calls = 0;
+
+  model.create = async (data, options = {}) => {
+    calls += 1;
+
+    if (calls === failAt) {
+      throw new Error(errorMessage ?? "Simulated insert failure");
+    }
+
+    assert.ok(options.transaction);
+    options.transaction[pendingKey].push(data);
+
+    onInsert?.(data, calls);
+
+    return { id: calls, ...data };
+  };
+
+  return () => calls;
+};
 
 test("getCourses sanitizes pagination and returns only formatted published courses", async () => {
   let query;
@@ -293,77 +384,269 @@ test("addCourse forces published status and deleteCourse handles missing and del
   assert.deepEqual(outcome.state.body, { message: "Course deleted successfully" });
 });
 
-test("addLessons creates all lessons in one transaction", async () => {
-  const pending = [];
-  const saved = [];
-  const transaction = { pending };
-  let transactionCompleted = false;
+test("addModules creates all modules in one transaction with sequential order", async () => {
+  const inserted = [];
 
-  sequelize.transaction = async (work) => {
-    const result = await work(transaction);
-    saved.push(...pending);
-    transactionCompleted = true;
-    return result;
-  };
-  Lesson.max = async (field, options) => {
-    assert.equal(field, "order");
-    assert.equal(options.transaction, transaction);
-    return 2;
-  };
-  Lesson.create = async (data, options) => {
-    assert.equal(options.transaction, transaction);
-    pending.push(data);
-    return { id: pending.length, ...data };
-  };
+  Course.findByPk = async () => ({ id: "7" });
+
+  configureOrderLookup(Module, 2, { courseId: "7" });
+
+  const getCreateCalls = configureTransactionalInsert(Module, "pendingModules", {
+    onInsert: (data) => inserted.push(data),
+  });
 
   const { state, res } = response();
-  await addLessons(
+
+  await addModules(
     {
-      params: { courseId: "1", moduleId: "10" },
-      body: { lessons: [{ title: "Lesson One" }, { title: "Lesson Two", duration: "10 mins" }] },
+      params: { courseId: "7" },
+      body: {
+        modules: [{ title: "Module One" }, { title: "Module Two" }],
+      },
     },
     res,
   );
 
   assert.equal(state.statusCode, 201);
-  assert.equal(transactionCompleted, true);
-  assert.equal(saved.length, 2);
   assert.deepEqual(
-    state.body.map(({ order }) => order),
+    inserted.map((item) => item.order),
     [3, 4],
   );
-  assert.equal(state.body[0].duration, "5 mins");
-  assert.equal(state.body[1].duration, "10 mins");
+  assert.equal(state.body.length, 2);
+  assert.equal(persistedModules.length, 2);
+  assert.equal(getCreateCalls(), 2);
+  assert.deepEqual(transactionStats, {
+    calls: 1,
+    commits: 1,
+    rollbacks: 0,
+  });
 });
 
-test("addLessons rolls back earlier inserts when a later lesson fails", async () => {
-  const pending = [];
-  const saved = [];
-  const transaction = { pending };
-  let transactionRolledBack = false;
+test("addModules returns 404 when the course does not exist", async () => {
+  Course.findByPk = async () => null;
+
+  let maxCalls = 0;
   let createCalls = 0;
 
-  sequelize.transaction = async (work) => {
-    try {
-      const result = await work(transaction);
-      saved.push(...pending);
-      return result;
-    } catch (error) {
-      pending.length = 0;
-      transactionRolledBack = true;
-      throw error;
-    }
+  Module.max = async () => {
+    maxCalls += 1;
+    return 0;
   };
-  Lesson.max = async () => 0;
-  Lesson.create = async (data, options) => {
-    assert.equal(options.transaction, transaction);
+
+  Module.create = async () => {
     createCalls += 1;
-    if (createCalls === 3) throw new Error("Lesson creation failed");
-    pending.push(data);
-    return { id: createCalls, ...data };
+    return {};
   };
 
   const { state, res } = response();
+
+  await addModules(
+    {
+      params: { courseId: "99" },
+      body: {
+        modules: [{ title: "Module One" }],
+      },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 404);
+  assert.deepEqual(state.body, {
+    message: "Course not found",
+  });
+  assert.equal(maxCalls, 0);
+  assert.equal(createCalls, 0);
+  assert.equal(persistedModules.length, 0);
+});
+
+test("addModules rejects invalid items before starting a transaction", async () => {
+  const { state, res } = response();
+
+  await addModules(
+    {
+      params: { courseId: "7" },
+      body: { modules: [{ title: "Valid Module" }, { title: "  " }] },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 400);
+  assert.equal(transactionStats.calls, 0);
+});
+
+test("addModules rolls back when an insert fails", async () => {
+  Course.findByPk = async () => ({ id: "7" });
+  configureOrderLookup(Module, 0, { courseId: "7" });
+
+  const getCreateCalls = configureTransactionalInsert(Module, "pendingModules", {
+    failAt: 2,
+    errorMessage: "Simulated module insert failure",
+  });
+
+  const { state, res } = response();
+
+  await addModules(
+    {
+      params: { courseId: "7" },
+      body: {
+        modules: [{ title: "Module One" }, { title: "Module Two" }],
+      },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 500);
+  assert.equal(getCreateCalls(), 2);
+  assert.equal(persistedModules.length, 0);
+  assert.deepEqual(transactionStats, {
+    calls: 1,
+    commits: 0,
+    rollbacks: 1,
+  });
+});
+
+test("addLessons creates all lessons in one transaction with sequential order", async () => {
+  const inserted = [];
+
+  configureOrderLookup(Lesson, 4, { moduleId: "10" });
+
+  const getCreateCalls = configureTransactionalInsert(Lesson, "pendingLessons", {
+    onInsert: (data) => inserted.push(data),
+  });
+
+  const { state, res } = response();
+
+  await addLessons(
+    {
+      params: { courseId: "7", moduleId: "10" },
+      body: {
+        lessons: [
+          {
+            id: "lesson-1",
+            title: "Lesson One",
+            duration: "3 mins",
+            type: "article",
+          },
+          { id: "lesson-2", title: "Lesson Two" },
+        ],
+      },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 201);
+  assert.deepEqual(
+    inserted.map((item) => item.order),
+    [5, 6],
+  );
+  assert.equal(inserted[0].duration, "3 mins");
+  assert.equal(inserted[1].duration, "5 mins");
+  assert.equal(inserted[1].type, "video");
+  assert.equal(state.body.length, 2);
+  assert.equal(getCreateCalls(), 2);
+  assert.equal(persistedLessons.length, 2);
+  assert.deepEqual(transactionStats, {
+    calls: 1,
+    commits: 1,
+    rollbacks: 0,
+  });
+});
+
+test("addLessons rejects invalid items before starting a transaction", async () => {
+  const { state, res } = response();
+
+  await addLessons(
+    {
+      params: { courseId: "7", moduleId: "10" },
+      body: { lessons: [{ id: "lesson-1", title: "  " }] },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 400);
+  assert.equal(transactionStats.calls, 0);
+});
+
+test("addLessons rolls back when an insert fails", async () => {
+  configureOrderLookup(Lesson, 0, { moduleId: "10" });
+
+  const getCreateCalls = configureTransactionalInsert(Lesson, "pendingLessons", {
+    failAt: 2,
+    errorMessage: "Simulated lesson insert failure",
+  });
+
+  const { state, res } = response();
+
+  await addLessons(
+    {
+      params: { courseId: "7", moduleId: "10" },
+      body: {
+        lessons: [
+          { id: "lesson-1", title: "Lesson One" },
+          { id: "lesson-2", title: "Lesson Two" },
+        ],
+      },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 500);
+  assert.equal(getCreateCalls(), 2);
+  assert.equal(persistedLessons.length, 0);
+  assert.deepEqual(transactionStats, {
+    calls: 1,
+    commits: 0,
+    rollbacks: 1,
+  });
+});
+
+test("addModules rejects duplicate titles before starting a transaction", async () => {
+  const { state, res } = response();
+
+  await addModules(
+    {
+      params: { courseId: "7" },
+      body: {
+        modules: [{ title: "Introduction" }, { title: " introduction " }],
+      },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 400);
+  assert.equal(transactionStats.calls, 0);
+});
+
+test("addLessons rejects duplicate titles before starting a transaction", async () => {
+  const { state, res } = response();
+
+  await addLessons(
+    {
+      params: { courseId: "7", moduleId: "10" },
+      body: {
+        lessons: [
+          { id: "lesson-1", title: "Introduction" },
+          { id: "lesson-2", title: " introduction " },
+        ],
+      },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 400);
+  assert.equal(transactionStats.calls, 0);
+});
+
+test("addLessons rolls back earlier inserts when a later lesson fails", async () => {
+  configureOrderLookup(Lesson, 0, { moduleId: "10" });
+
+  const getCreateCalls = configureTransactionalInsert(Lesson, "pendingLessons", {
+    failAt: 3,
+    errorMessage: "Lesson creation failed",
+  });
+
+  const { state, res } = response();
+
   await addLessons(
     {
       params: { courseId: "1", moduleId: "10" },
@@ -375,32 +658,30 @@ test("addLessons rolls back earlier inserts when a later lesson fails", async ()
   );
 
   assert.equal(state.statusCode, 500);
-  assert.deepEqual(state.body, { message: "Failed to add lessons" });
-  assert.equal(transactionRolledBack, true);
-  assert.deepEqual(saved, []);
-  assert.equal(createCalls, 3);
+  assert.deepEqual(state.body, {
+    message: "Failed to add lessons",
+  });
+  assert.equal(getCreateCalls(), 3);
+  assert.equal(persistedLessons.length, 0);
+  assert.deepEqual(transactionStats, {
+    calls: 1,
+    commits: 0,
+    rollbacks: 1,
+  });
 });
 
 test("addLessons rolls back when the order lookup fails", async () => {
-  let transactionRolledBack = false;
-  let createCalls = 0;
-  sequelize.transaction = async (work) => {
-    try {
-      return await work({});
-    } catch (error) {
-      transactionRolledBack = true;
-      throw error;
-    }
-  };
-  Lesson.max = async () => {
-    throw new Error("Order lookup failed");
-  };
-  Lesson.create = async () => {
-    createCalls += 1;
-    return {};
-  };
+  const getOrderLookupCalls = configureOrderLookup(
+    Lesson,
+    0,
+    { moduleId: "10" },
+    new Error("Order lookup failed"),
+  );
+
+  const getCreateCalls = configureTransactionalInsert(Lesson, "pendingLessons");
 
   const { state, res } = response();
+
   await addLessons(
     {
       params: { courseId: "1", moduleId: "10" },
@@ -411,29 +692,23 @@ test("addLessons rolls back when the order lookup fails", async () => {
 
   assert.equal(state.statusCode, 500);
   assert.deepEqual(state.body, { message: "Failed to add lessons" });
-  assert.equal(transactionRolledBack, true);
-  assert.equal(createCalls, 0);
+  assert.equal(getOrderLookupCalls(), 1);
+  assert.equal(getCreateCalls(), 0);
+  assert.equal(persistedLessons.length, 0);
+  assert.deepEqual(transactionStats, {
+    calls: 1,
+    commits: 0,
+    rollbacks: 1,
+  });
 });
 
 test("addLessons preserves the empty-list success behavior", async () => {
-  const transaction = {};
-  let transactionCompleted = false;
-  let createCalls = 0;
-  sequelize.transaction = async (work) => {
-    const result = await work(transaction);
-    transactionCompleted = true;
-    return result;
-  };
-  Lesson.max = async (_field, options) => {
-    assert.equal(options.transaction, transaction);
-    return null;
-  };
-  Lesson.create = async () => {
-    createCalls += 1;
-    return {};
-  };
+  const getOrderLookupCalls = configureOrderLookup(Lesson, null, { moduleId: "10" });
+
+  const getCreateCalls = configureTransactionalInsert(Lesson, "pendingLessons");
 
   const { state, res } = response();
+
   await addLessons(
     {
       params: { courseId: "1", moduleId: "10" },
@@ -444,8 +719,13 @@ test("addLessons preserves the empty-list success behavior", async () => {
 
   assert.equal(state.statusCode, 201);
   assert.deepEqual(state.body, []);
-  assert.equal(transactionCompleted, true);
-  assert.equal(createCalls, 0);
+  assert.equal(getOrderLookupCalls(), 1);
+  assert.equal(getCreateCalls(), 0);
+  assert.deepEqual(transactionStats, {
+    calls: 1,
+    commits: 1,
+    rollbacks: 0,
+  });
 });
 
 test("addLessons route validation rejects invalid input before the controller runs", () => {
@@ -463,18 +743,20 @@ test("addLessons route validation rejects invalid input before the controller ru
 });
 
 test("addLessons accepts a module belonging to the requested course", async () => {
-  const { res, state } = response();
   const created = [];
 
   Module.findOne = async (options) => {
     assert.deepEqual(options.where, { id: "10", courseId: "1" });
     return { id: 10, courseId: 1 };
   };
-  Lesson.max = async () => 2;
-  Lesson.create = async (data) => {
-    created.push(data);
-    return { id: created.length, ...data };
-  };
+
+  configureOrderLookup(Lesson, 2, { moduleId: "10" });
+
+  const getCreateCalls = configureTransactionalInsert(Lesson, "pendingLessons", {
+    onInsert: (data) => created.push(data),
+  });
+
+  const { res, state } = response();
 
   await addLessons(
     {
@@ -490,22 +772,21 @@ test("addLessons accepts a module belonging to the requested course", async () =
   assert.equal(created.length, 2);
   assert.equal(created[0].order, 3);
   assert.equal(created[1].order, 4);
+  assert.equal(getCreateCalls(), 2);
+  assert.equal(persistedLessons.length, 2);
 });
 
 test("addLessons rejects a module belonging to another course", async () => {
-  const { res, state } = response();
-  let createCalled = false;
-  let maxCalled = false;
+  Module.findOne = async (options) => {
+    assert.deepEqual(options.where, { id: "10", courseId: "1" });
+    return null;
+  };
 
-  Module.findOne = async () => null;
-  Lesson.max = async () => {
-    maxCalled = true;
-    return 0;
-  };
-  Lesson.create = async () => {
-    createCalled = true;
-    return {};
-  };
+  const getOrderLookupCalls = configureOrderLookup(Lesson, 0, { moduleId: "10" });
+
+  const getCreateCalls = configureTransactionalInsert(Lesson, "pendingLessons");
+
+  const { res, state } = response();
 
   await addLessons(
     {
@@ -517,6 +798,7 @@ test("addLessons rejects a module belonging to another course", async () => {
 
   assert.equal(state.statusCode, 404);
   assert.equal(state.body.message, "Module not found for the specified course");
-  assert.equal(maxCalled, false);
-  assert.equal(createCalled, false);
+  assert.equal(getOrderLookupCalls(), 0);
+  assert.equal(getCreateCalls(), 0);
+  assert.equal(persistedLessons.length, 0);
 });
