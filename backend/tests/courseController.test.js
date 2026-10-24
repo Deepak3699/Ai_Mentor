@@ -150,12 +150,17 @@ test("getMyCourses returns empty without purchases and queries only owned publis
   let query;
   Course.findAll = async (options) => {
     query = options;
-    return [course({ id: "2" })];
+    return [
+      course({ id: "2", modules: [{ lessons: [{ duration: "45 min" }, { duration: "30 min" }] }] }),
+    ];
   };
   outcome = response();
   await getMyCourses({ user: { purchasedCourses: [{ courseId: 2 }] } }, outcome.res);
   assert.deepEqual(query.where, { id: ["2"], status: "published" });
   assert.equal(outcome.state.body[0].id, "2");
+  assert.equal(outcome.state.body[0].duration, "1h 15m");
+  assert.equal(query.include[0].as, "modules");
+  assert.equal(query.include[0].include[0].as, "lessons");
   assert.equal("priceValue" in outcome.state.body[0], false);
 });
 
