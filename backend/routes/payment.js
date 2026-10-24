@@ -95,14 +95,16 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
     const session = await paymentGatewayServices.createStripeCheckoutSession({
       payment_method_types: ["card"],
       mode: "payment",
-      line_items: [{
-        price_data: {
-          currency,
-          product_data: { name: courseTitle },
-          unit_amount: amount,
+      line_items: [
+        {
+          price_data: {
+            currency,
+            product_data: { name: courseTitle },
+            unit_amount: amount,
+          },
+          quantity: 1,
         },
-        quantity: 1,
-      }],
+      ],
       metadata: {
         courseId: courseRecord.id.toString(),
         courseTitle,

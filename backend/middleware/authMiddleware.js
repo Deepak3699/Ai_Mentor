@@ -1,4 +1,3 @@
-
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
@@ -20,10 +19,8 @@ const logAuthFailure = (scope, classification, error = null) => {
       event: "auth_failure",
       scope,
       classification,
-      ...(error && process.env.NODE_ENV !== "production"
-        ? { internalMessage: error.message }
-        : {}),
-    })
+      ...(error && process.env.NODE_ENV !== "production" ? { internalMessage: error.message } : {}),
+    }),
   );
 };
 
@@ -55,7 +52,7 @@ const authenticate = async (authHeader) => {
       500,
       "Authentication temporarily unavailable",
       "auth_config_missing",
-      "INTERNAL_SERVER_ERROR"
+      "INTERNAL_SERVER_ERROR",
     );
   }
 
@@ -70,7 +67,7 @@ const authenticate = async (authHeader) => {
       401,
       "Not authorized, token failed",
       classifyJwtError(error),
-      "UNAUTHORIZED"
+      "UNAUTHORIZED",
     );
   }
 
@@ -80,34 +77,22 @@ const authenticate = async (authHeader) => {
   });
 
   if (!user) {
-    throw new AuthError(
-      401,
-      "User not found",
-      "user_not_found",
-      "UNAUTHORIZED"
-    );
+    throw new AuthError(401, "User not found", "user_not_found", "UNAUTHORIZED");
   }
 
   if (user.isBlocked) {
-    throw new AuthError(
-      403,
-      "Account suspended",
-      "user_blocked",
-      "FORBIDDEN"
-    );
+    throw new AuthError(403, "Account suspended", "user_blocked", "FORBIDDEN");
   }
 
   if (user.passwordChangedAt) {
-    const changedAt = Math.floor(
-      user.passwordChangedAt.getTime() / 1000
-    );
+    const changedAt = Math.floor(user.passwordChangedAt.getTime() / 1000);
 
     if (changedAt > decoded.iat) {
       throw new AuthError(
         401,
         "Token revoked, Please Log in again",
         "token_revoked",
-        "UNAUTHORIZED"
+        "UNAUTHORIZED",
       );
     }
   }
@@ -118,33 +103,18 @@ const authenticate = async (authHeader) => {
 const respondWithAuthError = (res, error, scope) => {
   if (error instanceof AuthError) {
     logAuthFailure(scope, error.classification);
-    return sendError(
-      res,
-      error.status,
-      error.code,
-      error.message
-    );
+    return sendError(res, error.status, error.code, error.message);
   }
 
   logAuthFailure(scope, "auth_internal_error", error);
-  return sendError(
-    res,
-    500,
-    "INTERNAL_SERVER_ERROR",
-    "Internal Server Error"
-  );
+  return sendError(res, 500, "INTERNAL_SERVER_ERROR", "Internal Server Error");
 };
 
 const protect = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return sendError(
-      res,
-      401,
-      "UNAUTHORIZED",
-      "Not authorized, no token"
-    );
+    return sendError(res, 401, "UNAUTHORIZED", "Not authorized, no token");
   }
 
   try {
@@ -163,12 +133,7 @@ const optionalProtect = async (req, res, next) => {
   }
 
   if (!authHeader.startsWith("Bearer ")) {
-    return sendError(
-      res,
-      401,
-      "UNAUTHORIZED",
-      "Not authorized, token failed"
-    );
+    return sendError(res, 401, "UNAUTHORIZED", "Not authorized, token failed");
   }
 
   try {
@@ -184,12 +149,7 @@ const admin = (req, res, next) => {
     return next();
   }
 
-  return sendError(
-    res,
-    403,
-    "FORBIDDEN",
-    "Not authorized, admin access required"
-  );
+  return sendError(res, 403, "FORBIDDEN", "Not authorized, admin access required");
 };
 
 export { protect, optionalProtect, admin };

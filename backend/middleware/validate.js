@@ -29,7 +29,7 @@ const validate = (schema) => (req, res, next) => {
         fs.unlink(req.file.path, () => {});
       }
       const issues = validationResult.error.issues;
-       const errorPaths = issues.map((err) => err.path.join(".")).join(", ");
+      const errorPaths = issues.map((err) => err.path.join(".")).join(", ");
       console.error(
         `❌ Validation Failed for ${req.method} ${req.originalUrl || req.url}. Fields: ${errorPaths}`,
       );
@@ -51,30 +51,28 @@ const validate = (schema) => (req, res, next) => {
     }
     return next();
   } catch (error) {
-   if (req.file?.path) {
-    fs.unlink(req.file.path, () => {});
-  }
+    if (req.file?.path) {
+      fs.unlink(req.file.path, () => {});
+    }
 
-  console.error("❌ Validation Middleware Internal Error:", error);
+    console.error("❌ Validation Middleware Internal Error:", error);
 
-  const appError = new AppError(
-    "Internal Server Error during validation",
-    500,
-    "INTERNAL_SERVER_ERROR",
-    process.env.NODE_ENV !== "production"
-      ? [error?.message || "Unknown validation error"]
-      : [],
-    error?.message || "Unknown validation error"
-  );
+    const appError = new AppError(
+      "Internal Server Error during validation",
+      500,
+      "INTERNAL_SERVER_ERROR",
+      process.env.NODE_ENV !== "production" ? [error?.message || "Unknown validation error"] : [],
+      error?.message || "Unknown validation error",
+    );
 
-  return res.status(appError.statusCode).json({
-    success: false,
-    error: {
-      code: appError.code,
-      message: appError.message,
-      details: appError.details,
-    },
-  });
+    return res.status(appError.statusCode).json({
+      success: false,
+      error: {
+        code: appError.code,
+        message: appError.message,
+        details: appError.details,
+      },
+    });
   }
 };
 

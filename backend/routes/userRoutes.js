@@ -69,7 +69,11 @@ const uploadAvatar = (req, res, next) => {
       if (err.code === "LIMIT_FILE_SIZE") {
         return res.status(400).json({
           success: false,
-          error: { code: "BAD_REQUEST", message: "Avatar file size must not exceed 2MB", details: [] },
+          error: {
+            code: "BAD_REQUEST",
+            message: "Avatar file size must not exceed 2MB",
+            details: [],
+          },
         });
       }
       return res.status(400).json({
