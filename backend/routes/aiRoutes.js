@@ -73,23 +73,12 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
       return sendProcessing(aiVideo);
     }
 
-    // Return a valid completed Cloudinary cache immediately.
+    // Return a completed video only when its Cloudinary or local source is available.
     if (aiVideo?.status === "completed" && aiVideo.videoUrl) {
-      let parsedUrl;
-
-      try {
-        parsedUrl = new URL(aiVideo.videoUrl);
-      } catch {
-        parsedUrl = null;
-      }
-
-      if (
-        parsedUrl &&
-        parsedUrl.protocol === "https:" &&
-        parsedUrl.hostname.endsWith("res.cloudinary.com")
-      ) {
+      const cachedVideoUrl = await getCachedVideoUrl(aiVideo);
+      if (cachedVideoUrl) {
         return res.json({
-          videoUrl: aiVideo.videoUrl,
+          videoUrl: cachedVideoUrl,
           transcriptName: aiVideo.transcriptName,
           jobId: aiVideo.jobId,
           meta: aiVideo.meta,
@@ -97,29 +86,6 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
         });
       }
 
-      // Verify a local video only when a URL exists.
-      if (aiVideo.videoUrl.trim()) {
-        const filename = aiVideo.videoUrl.split("/").pop();
-
-        try {
-          const check = await fetch(
-            `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`,
-            { method: "HEAD" },
-          );
-
-          if (check.ok) {
-            return res.json({
-              videoUrl: aiVideo.videoUrl,
-              transcriptName: aiVideo.transcriptName,
-              jobId: aiVideo.jobId,
-              meta: aiVideo.meta,
-              cached: true,
-            });
-          }
-        } catch (error) {
-          console.warn("Cached video verification failed:", error.message);
-        }
-      }
     }
 
     const titles = await getCourseAndLessonTitles(courseId, lessonId);
@@ -173,21 +139,10 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
         }
 
         if (aiVideo.status === "completed" && aiVideo.videoUrl) {
-          let parsedUrl;
-
-          try {
-            parsedUrl = new URL(aiVideo.videoUrl);
-          } catch {
-            parsedUrl = null;
-          }
-
-          if (
-            parsedUrl &&
-            parsedUrl.protocol === "https:" &&
-            parsedUrl.hostname.endsWith("res.cloudinary.com")
-          ) {
+          const cachedVideoUrl = await getCachedVideoUrl(aiVideo);
+          if (cachedVideoUrl) {
             return res.json({
-              videoUrl: aiVideo.videoUrl,
+              videoUrl: cachedVideoUrl,
               transcriptName: aiVideo.transcriptName,
               jobId: aiVideo.jobId,
               meta: aiVideo.meta,
@@ -195,7 +150,6 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
             });
           }
 
-          return sendProcessing(aiVideo, "An existing video record was found");
         }
 
         const claimed = await claimExistingVideo(aiVideo);
@@ -327,11 +281,15 @@ router.get("/status/:jobId", protect, async (req, res) => {
     }
 
     if (videoJob.status === "completed" && videoJob.videoUrl) {
+      const isCloudVideo = isCloudinaryUrl(videoJob.videoUrl);
       return res.json({
         status: "ready",
-        cloudinary_url: videoJob.videoUrl,
+        ...(isCloudVideo
+          ? { cloudinary_url: videoJob.videoUrl }
+          : { local_video_url: getLocalVideoUrl(videoJob) }),
         transcriptName: videoJob.transcriptName,
         jobId: jobId, // return same ID to frontend
+        transcript_name: videoJob.transcriptName || null,
         meta: videoJob.meta,
       });
     }
@@ -361,22 +319,23 @@ router.get("/status/:jobId", protect, async (req, res) => {
     }
 
     if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
-      try {
-        await videoJob.update({
-          videoUrl: data.cloudinary_url || data.local_video_url,
-          status: "completed",
-          meta: data.meta,
-          transcriptName: data.transcript_name || data.text_file || videoJob.transcriptName,
-        });
-        console.log(`☁️ AIVideo DB updated for DB ID: ${jobId}`);
-      } catch (dbErr) {
-        console.error("⚠️ Failed to update AIVideo ready result:", dbErr.message);
+      const filename = data.local_video_url?.split(/[\\/]/).pop();
+      if (!data.cloudinary_url && !/^[\w.-]+\.mp4$/i.test(filename || "")) {
+        throw new Error("AI service returned an invalid local video filename");
+      }
+
+      await videoJob.update({
+        videoUrl: data.cloudinary_url || filename,
+        status: "completed",
+        meta: data.meta,
+        transcriptName: data.transcript_name || data.text_file || videoJob.transcriptName,
+      });
+
+      if (!data.cloudinary_url) {
+        data.local_video_url = getLocalVideoUrl(videoJob);
       }
     } else if (data.status === "failed") {
-      await AIVideo.update(
-        { status: "failed", error: "Failed in AI service" },
-        { where: { id: jobId } },
-      );
+      await videoJob.update({ status: "failed", error: "Failed in AI service" });
     }
 
     data.jobId = jobId; // ensure frontend gets our DB id, not python id

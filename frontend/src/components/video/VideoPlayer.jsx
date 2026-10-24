@@ -1,3 +1,4 @@
+import { apiFetch } from "../../lib/api";
 import SpeedMenu from "./SpeedMenu";
 import CaptionsGlyph from "./CaptionsGlyph";
 import GenerationFailure from "./GenerationFailure";
@@ -59,11 +60,15 @@ aiVideoUrl,
   const [controls, setControls] = useState(true);
   const [rate, setRate] = useState(1);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [authenticatedSource, setAuthenticatedSource] = useState(null);
+  const [authenticatedFetchAttempt, setAuthenticatedFetchAttempt] = useState(0);
   useEffect(()=>{localStorage.setItem(CAPTION_PREFERENCES_KEY,JSON.stringify(captionPreferences))},[captionPreferences]);
   const captionFont={default:"inherit",sans:"Arial, Helvetica, sans-serif",serif:"Georgia, 'Times New Roman', serif",mono:"Consolas, 'Courier New', monospace"}[captionPreferences.fontFamily]||"inherit";
   const captionStyle={"--lw-caption-scale":captionPreferences.fontSize/100,"--lw-caption-font":captionFont,"--lw-caption-color":captionPreferences.textColor,"--lw-caption-background-opacity":captionPreferences.backgroundOpacity/100};
   const timer = useRef(null);
   const source = selectedCelebrity ? aiVideoUrl : null;
+  const requiresAuthenticatedFetch = source?.startsWith("/api/ai/video/") ?? false;
+  const videoSource = requiresAuthenticatedFetch ? authenticatedSource : source;
   const generating = !!isAIVideoLoading && !source;
   const failed = !!source && media.source === source && media.failed;
   const buffering = !!source && media.source === source && media.buffering && !failed;
@@ -88,8 +93,58 @@ aiVideoUrl,
     }));
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
+    if (!requiresAuthenticatedFetch) {
+      setAuthenticatedSource(null);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+    let objectUrl;
+    setAuthenticatedSource(null);
+    setMedia((previous) => ({
+      ...(previous.source === source
+        ? previous
+        : { source, buffering: false, failed: false, buffered: 0 }),
+      buffering: true,
+      failed: false,
+    }));
+
+    apiFetch(source, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Video request failed with status ${response.status}`);
+        }
+        return response.blob();
+      })
+      .then((videoBlob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(videoBlob);
+        setAuthenticatedSource(objectUrl);
+      })
+      .catch((error) => {
+        if (error.name === "AbortError") return;
+        console.error("Failed to load AI video:", error);
+        if (active) {
+          setMedia((previous) => ({
+            ...(previous.source === source
+              ? previous
+              : { source, buffering: false, failed: false, buffered: 0 }),
+            buffering: false,
+            failed: true,
+          }));
+        }
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [source, requiresAuthenticatedFetch, authenticatedFetchAttempt]);
+  useEffect(() => {
     const video = videoRef?.current;
-    if (!video || !source) return undefined;
+    if (!video || !source || (requiresAuthenticatedFetch && !videoSource)) return undefined;
     let active = true;
     if (isPlaying && !playbackBlocked && !generating) {
       video.play()?.catch((error) => {
@@ -101,7 +156,16 @@ aiVideoUrl,
     return () => {
       active = false;
     };
-  }, [isPlaying, source, videoRef, onPlaybackChange, playbackBlocked, generating]);
+  }, [
+    isPlaying,
+    source,
+    videoSource,
+    videoRef,
+    onPlaybackChange,
+    playbackBlocked,
+    generating,
+    requiresAuthenticatedFetch,
+  ]);
   const seekTo = (seconds) => {
     const video = videoRef.current;
     if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
@@ -144,7 +208,7 @@ aiVideoUrl,
     >
       <video
         ref={videoRef}
-        src={source || undefined}
+        src={videoSource || undefined}
         preload="metadata"
         playsInline
         onClick={togglePlay}
@@ -203,7 +267,11 @@ aiVideoUrl,
             className="lw-player-retry"
             onClick={() => {
               updateMedia({ failed: false, buffering: true });
-              videoRef.current?.load();
+              if (requiresAuthenticatedFetch) {
+                setAuthenticatedFetchAttempt((attempt) => attempt + 1);
+              } else {
+                videoRef.current?.load();
+              }
             }}
           >
             {t("learning.workspace.retry")}
