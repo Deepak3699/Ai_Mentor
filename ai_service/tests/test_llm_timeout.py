@@ -9,6 +9,7 @@ import pytest
 from fastapi import HTTPException
 from groq import APITimeoutError
 import httpx
+import requests
 
 import api
 from config import LLM_TIMEOUT_SECONDS
@@ -342,7 +343,7 @@ def test_slow_gemini_provider_aborts_with_timeout(slow_upstream_server):
     test_client = genai.Client(api_key="test-key")
     start = time.time()
 
-    with pytest.raises(httpx.TimeoutException):
+    with pytest.raises((httpx.TimeoutException, requests.exceptions.Timeout)):
         test_client.models.generate_content(
             model="gemini-2.5-flash",
             contents="hello",

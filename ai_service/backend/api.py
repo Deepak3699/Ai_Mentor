@@ -269,6 +269,20 @@ UNTRUSTED_INPUT_INSTRUCTION = (
 )
 
 
+def validate_lesson_script(value: object) -> str:
+    """Normalize and validate generated lesson narration before saving."""
+    if not isinstance(value, str):
+        raise ValueError("Generated lesson must be text.")
+
+    script = " ".join(value.split())
+    if not script:
+        raise ValueError("Generated lesson is empty.")
+    if len(script) > 10000:
+        raise ValueError("Generated lesson exceeds the maximum length.")
+
+    return script
+
+
 def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
     system_instruction = f"""
     {UNTRUSTED_INPUT_INSTRUCTION}
@@ -295,8 +309,9 @@ def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
     try:
         log_event("RUN", "Trying Gemini for lesson script")
         response = _generate_gemini_content(system_instruction, user_data)
+        script = validate_lesson_script(getattr(response, "text", None))
         log_event("OK", "Gemini lesson script generated")
-        return response.text.strip().replace("\n", " "), "gemini", GEMINI_MODEL
+        return script, "gemini", GEMINI_MODEL
     except Exception as gemini_error:
         gemini_failure = short_error(gemini_error)
         log_event(
@@ -313,6 +328,14 @@ def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
             max_tokens=300,
             timeout=LLM_TIMEOUT_SECONDS,
         )
+
+        choices = getattr(groq_response, "choices", None)
+        if not choices:
+            raise ValueError("Generated lesson response is missing choices.")
+
+        message = getattr(choices[0], "message", None)
+        content = getattr(message, "content", None)
+        script = validate_lesson_script(content)
     except Exception as groq_error:
         raise ProviderGenerationError(
             "LLM generation failed: primary provider (Gemini) failed: "
@@ -321,11 +344,7 @@ def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
         ) from groq_error
 
     log_event("OK", "Groq fallback lesson script generated")
-    return (
-        groq_response.choices[0].message.content.strip().replace("\n", " "),
-        "groq",
-        "llama-3.3-70b-versatile",
-    )
+    return script, "groq", "llama-3.3-70b-versatile"
 
 # --------------------------
 # Helpers

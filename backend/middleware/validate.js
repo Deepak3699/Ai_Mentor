@@ -1,4 +1,5 @@
 import { sendServerError } from "../utils/apiError.js";
+import fs from "fs";
 
 const validate = (schema) => (req, res, next) => {
   if (!schema) {
@@ -12,6 +13,9 @@ const validate = (schema) => (req, res, next) => {
   try {
     const validationResult = schema.safeParse(req.body);
     if (!validationResult.success) {
+      if (req.file?.path) {
+        fs.unlink(req.file.path, () => {});
+      }
       const issues = validationResult.error.issues;
 
       // Log field paths and codes only, never the request body (may contain secrets)
@@ -36,6 +40,9 @@ const validate = (schema) => (req, res, next) => {
     }
     next();
   } catch (error) {
+    if (req.file?.path) {
+      fs.unlink(req.file.path, () => {});
+    }
     return sendServerError(req, res, error, "VALIDATE_MIDDLEWARE");
   }
 };
