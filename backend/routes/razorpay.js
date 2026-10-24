@@ -5,6 +5,7 @@ import { Transaction } from "sequelize";
 
 import User from "../models/User.js";
 import Payment from "../models/Payment.js";
+import Course from "../models/Course.js";
 import { sequelize } from "../config/db.js";
 import { createNotification } from "../controllers/notificationController.js";
 import { protect } from "../middleware/authMiddleware.js";
@@ -44,14 +45,7 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
   try {
     const { course, idempotencyKey } = req.body;
 
-    if (
-      !course ||
-      !course.id ||
-      course.priceValue == null ||
-      course.priceValue === "" ||
-      !Number.isFinite(Number(course.priceValue)) ||
-      Number(course.priceValue) <= 0
-    ) {
+    if (!course || !course.id) {
       return res.status(400).json({
         error: "Invalid course data",
       });
@@ -60,6 +54,32 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
     if (!idempotencyKey) {
       return res.status(400).json({
         error: "idempotencyKey is required",
+      });
+    }
+
+    // Look up authoritative Course model from the database — never trust client-supplied price or title
+    const dbCourse = await Course.findByPk(course.id);
+    if (!dbCourse || dbCourse.status === "deleted") {
+      return res.status(404).json({
+        error: "Course not found",
+      });
+    }
+
+    if (dbCourse.status !== "published") {
+      return res.status(403).json({
+        error: "This course is not currently available.",
+      });
+    }
+
+    const rawPrice = dbCourse.priceValue;
+    const priceValue =
+      typeof rawPrice === "number" || (typeof rawPrice === "string" && rawPrice.trim() !== "")
+        ? Number(rawPrice)
+        : NaN;
+
+    if (!Number.isFinite(priceValue) || priceValue <= 0) {
+      return res.status(400).json({
+        error: "Invalid course data",
       });
     }
 
@@ -78,21 +98,26 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
       return res.status(200).json(existing.cachedResponse);
     }
 
-    const amount = Math.round(Number(course.priceValue) * 100);
+    const amount = Math.round(priceValue * 100);
+    const courseTitle = dbCourse.title?.trim() || "Course";
 
     const options = {
       amount,
       currency: "INR",
-      receipt: `receipt_order_${course.id}_${Date.now()}`,
+      receipt: `receipt_order_${dbCourse.id}_${Date.now()}`,
+      notes: {
+        courseId: dbCourse.id.toString(),
+        courseTitle,
+      },
     };
 
-    log.info({ courseTitle: course.title, userId }, "Initiating Razorpay payment");
+    log.info({ courseTitle, userId }, "Initiating Razorpay payment");
 
     // Persist the payment before contacting Razorpay.
     const payment = await Payment.create({
       userId,
-      courseId: course.id,
-      courseTitle: course.title || "Course",
+      courseId: dbCourse.id,
+      courseTitle,
       amount,
       currency: "INR",
       status: "initiated",
@@ -144,8 +169,7 @@ router.post("/verify", protect, async (req, res) => {
   const orderIdForLog = req.body?.razorpay_order_id || "unknown";
 
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, courseId, courseTitle } =
-      req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, courseId } = req.body;
 
     // Always take the user ID from the authenticated token.
     const userId = req.user.id;
@@ -242,7 +266,7 @@ router.post("/verify", protect, async (req, res) => {
 
       // Use the database record as the source of truth.
       enrolledCourseId = Number(payment.courseId ?? courseId);
-      enrolledCourseTitle = payment.courseTitle ?? courseTitle ?? "Course";
+      enrolledCourseTitle = payment.courseTitle?.trim() || "Course";
 
       // Confirm the user exists before updating payment status.
       user = await User.findByPk(userId, { transaction });

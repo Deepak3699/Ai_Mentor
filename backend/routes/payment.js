@@ -2,6 +2,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import { protect } from "../middleware/authMiddleware.js";
 import Payment from "../models/Payment.js";
+import Course from "../models/Course.js";
 import { paymentGatewayServices } from "../services/paymentGatewayServices.js";
 import buildLogger from "../utils/logger.js";
 
@@ -27,19 +28,33 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
     const userId = req.user.id; //  from JWT token — never trust req.body for userId
 
     // Validate inputs
-    if (
-      !course ||
-      !course.id ||
-      !course.title ||
-      !course.priceValue ||
-      Number(course.priceValue) <= 0
-    ) {
+    if (!course || !course.id) {
       return res.status(400).json({ error: "Invalid course data" });
     }
 
     // Idempotency key must be generated once client-side and reused on retry
     if (!idempotencyKey) {
       return res.status(400).json({ error: "idempotencyKey is required" });
+    }
+
+    // Look up authoritative Course model from the database — never trust client-supplied price or title
+    const dbCourse = await Course.findByPk(course.id);
+    if (!dbCourse || dbCourse.status === "deleted") {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    if (dbCourse.status !== "published") {
+      return res.status(403).json({ error: "This course is not currently available." });
+    }
+
+    const rawPrice = dbCourse.priceValue;
+    const priceValue =
+      typeof rawPrice === "number" || (typeof rawPrice === "string" && rawPrice.trim() !== "")
+        ? Number(rawPrice)
+        : NaN;
+
+    if (!Number.isFinite(priceValue) || priceValue <= 0) {
+      return res.status(400).json({ error: "Invalid course data" });
     }
 
     // ─────────────────────────────────────────────────
@@ -56,12 +71,13 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
     // ─────────────────────────────────────────────────
     // STEP 2: SAVE payment record FIRST (status: initiated)
     // ─────────────────────────────────────────────────
-    const amount = Math.round(Number(course.priceValue) * 100); // ₹ → paise
+    const amount = Math.round(priceValue * 100); // ₹ → paise
+    const courseTitle = dbCourse.title?.trim() || "Course";
 
     const payment = await Payment.create({
       userId,
-      courseId: course.id,
-      courseTitle: course.title,
+      courseId: dbCourse.id,
+      courseTitle,
       amount,
       currency: "inr",
       status: "initiated",
@@ -73,7 +89,7 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
     // ─────────────────────────────────────────────────
     // STEP 3: CREATE Stripe session
     // ─────────────────────────────────────────────────
-    const successUrl = `${process.env.FRONTEND_URL}/success?courseId=${course.id}&title=${encodeURIComponent(course.title)}`;
+    const successUrl = `${process.env.FRONTEND_URL}/success?courseId=${dbCourse.id}&title=${encodeURIComponent(courseTitle)}`;
 
     const session = await paymentGatewayServices.createStripeCheckoutSession({
       payment_method_types: ["card"],
@@ -82,16 +98,16 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
         {
           price_data: {
             currency: "inr",
-            product_data: { name: course.title },
+            product_data: { name: courseTitle },
             unit_amount: amount,
           },
           quantity: 1,
         },
       ],
       metadata: {
-        courseId: course.id.toString(),
-        courseTitle: course.title,
-        userId: userId.toString(), //  from JWT — secure
+        courseId: dbCourse.id.toString(),
+        courseTitle,
+        userId: userId.toString(), // 🔒 from JWT — secure
         paymentId: payment.id,
         idempotencyKey,
       },
