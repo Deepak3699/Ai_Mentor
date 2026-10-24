@@ -5,6 +5,7 @@ import Preference from "../models/Preference.js";
 import { detectIntent } from "../services/intentService.js";
 import { buildUserContext } from "../services/contextBuilder.js";
 import { askGemini } from "../services/geminiChatService.js";
+import { normalizeHistory } from "../services/chatHistory.js";
 import { detectNavigation } from "../services/navigationService.js";
 
 // const ai = new GoogleGenAI({
@@ -49,6 +50,15 @@ export const chatWithAssistant = async (req, res) => {
     if (!message || !message.trim()) {
       return res.status(400).json({
         message: "Message is required",
+      });
+    }
+
+    // Optional earlier turns: [{ role: "user" | "model", text }]. Validated before any lookup.
+    const { error: historyError } = normalizeHistory(req.body.history);
+
+    if (historyError) {
+      return res.status(400).json({
+        message: historyError,
       });
     }
 
@@ -215,7 +225,7 @@ export const chatWithAssistant = async (req, res) => {
 
     const context = buildUserContext(user, preferences);
 
-    const geminiReply = await askGemini(context, message);
+    const geminiReply = await askGemini(context, message, req.body.history);
 
     // Check if Gemini returned a route
     let route = null;
