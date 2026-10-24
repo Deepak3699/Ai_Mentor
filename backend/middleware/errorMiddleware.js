@@ -1,6 +1,6 @@
 import { toErrorPayload } from "../utils/error.js";
 
-function errorHandler(err, req, res, next) {
+function errorHandler(err, req, res, _next) {
   if (err?.type === "entity.too.large") {
     return res.status(413).json({
       success: false,

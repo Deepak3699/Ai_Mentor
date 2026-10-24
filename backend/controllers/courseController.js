@@ -386,7 +386,7 @@ const deleteCourse = async (req, res, next) => {
 const updateLessonVideo = async (_req, _res, next) => {
   return forwardError(
     next,
-    res,
+    _res,
     new AppError(
       "Not Implemented",
       501,
@@ -400,7 +400,7 @@ const updateLessonVideo = async (_req, _res, next) => {
 const addSubtopics = async (_req, _res, next) => {
   return forwardError(
     next,
-    res,
+    _res,
     new AppError("Not Implemented", 501, "NOT_IMPLEMENTED", [], "addSubtopics not implemented"),
   );
 };

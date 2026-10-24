@@ -8,7 +8,6 @@ import AdminNotification from "../models/AdminNotification.js";
 import { sequelize } from "../config/db.js";
 import {
   AppError,
-  BadRequestError,
   ConflictError,
   ForbiddenError,
   NotFoundError,
