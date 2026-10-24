@@ -602,6 +602,20 @@ Includes:
 
 ---
 
+## Stripe Webhook Verification
+
+Configure the Stripe endpoint as `POST /api/stripe/webhook` and set
+`STRIPE_WEBHOOK_SECRET` to that endpoint's signing secret. For local forwarding,
+use the secret printed by `stripe listen --forward-to localhost:5000/api/stripe/webhook`.
+
+The webhook router must remain before `express.json()` in `server.js` so Stripe
+can verify the original request bytes. Stripe's SDK allows a signed timestamp
+up to 300 seconds old using Unix time, independent of the server's timezone.
+Keep the server clock synchronized. Do not disable timestamp verification to
+accept older requests; Stripe retries deliveries with a fresh signature.
+
+---
+
 ## CORS Protection
 
 Backend only allows configured frontend origins.
