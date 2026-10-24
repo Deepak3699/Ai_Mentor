@@ -23,6 +23,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import certificateRoutes from "./routes/certificateRoutes.js";
 import paymentRoutes from "./routes/payment.js";
 import razorpayRoutes from "./routes/razorpay.js";
+import webhookRoutes from "./routes/webhook.js";
 import preferenceRoutes from "./routes/preferenceRoutes.js";
 import contactUsRoutes from "./routes/contactus.js";
 import reportRoutes from "./routes/reportRoutes.js";
@@ -94,6 +95,10 @@ app.use(
   }),
 );
 
+// ================= STRIPE WEBHOOK (MUST BE BEFORE express.json) =================
+app.use("/api/stripe", webhookRoutes);
+app.use("/api/payment", webhookRoutes);
+
 // ================= MIDDLEWARE =================
 app.use(express.json({ limit: "100kb" }));
 
@@ -156,9 +161,14 @@ app.use((err, req, res, _next) => {
 
   console.error("🔥 Global Error:", err);
 
-  res.status(err.status || 500).json({
+  const status = err.status || 500;
+  const isProd = process.env.NODE_ENV === "production";
+  const message =
+    status === 500 && isProd ? "Internal Server Error" : err.message || "Internal Server Error";
+
+  res.status(status).json({
     success: false,
-    message: err.message || "Internal Server Error",
+    message,
   });
 });
 

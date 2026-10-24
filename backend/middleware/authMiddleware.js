@@ -1,60 +1,113 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
-const protect = async (req, res, next) => {
-  let token;
+class AuthError extends Error {
+  constructor(status, message, classification) {
+    super(message);
+    this.status = status;
+    this.classification = classification;
+  }
+}
 
-  // 1️⃣ Check Authorization header
-  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-    try {
-      token = req.headers.authorization.split(" ")[1];
+const logAuthFailure = (scope, classification) => {
+  console.error(JSON.stringify({ event: "auth_failure", scope, classification }));
+};
 
-      // 2️⃣ Ensure JWT secret exists
-      if (!process.env.JWT_SECRET) {
-        return res.status(500).json({ message: "JWT secret not configured" });
-      }
+const classifyJwtError = (error) => {
+  if (error?.name === "TokenExpiredError") return "token_expired";
+  return "token_invalid";
+};
 
-      // 3️⃣ Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+// Shared by protect and optionalProtect.
+// Expects a header that already starts with "Bearer ".
+const authenticate = async (authHeader) => {
+  if (!process.env.JWT_SECRET) {
+    throw new AuthError(503, "Authentication temporarily unavailable", "auth_config_missing");
+  }
 
-      // 4️⃣ Fetch user using Sequelize findByPk (not MongoDB findById)
-      const user = await User.findByPk(decoded.id, {
-        attributes: { exclude: ["password"] },
-      });
+  const token = authHeader.split(" ")[1];
 
-      if (!user) {
-        return res.status(401).json({ message: "User not found" });
-      }
+  let decoded;
+  try {
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
+  } catch (error) {
+    throw new AuthError(401, "Not authorized, token failed", classifyJwtError(error));
+  }
 
-      if (user.isBlocked) {
-        return res.status(403).json({ message: "Account suspended" });
-      }
-      if (user.passwordChangedAt) {
-        const passwordChangedAt = Math.floor(user.passwordChangedAt.getTime() / 1000);
-        if (passwordChangedAt > decoded.iat) {
-          return res.status(401).json({ message: "Token revoked, Please Log in again" });
-        }
-      }
+  const user = await User.findByPk(decoded.id, {
+    attributes: { exclude: ["password"] },
+  });
 
-      req.user = user;
-      return next();
-    } catch (error) {
-      console.error("AUTH ERROR:", error.message);
-      return res.status(401).json({ message: "Not authorized, token failed" });
+  if (!user) {
+    throw new AuthError(401, "User not found", "user_not_found");
+  }
+
+  if (user.isBlocked) {
+    throw new AuthError(403, "Account suspended", "user_blocked");
+  }
+
+  if (user.passwordChangedAt) {
+    const changedAt = Math.floor(user.passwordChangedAt.getTime() / 1000);
+    if (changedAt > decoded.iat) {
+      throw new AuthError(401, "Token revoked, Please Log in again", "token_revoked");
     }
   }
 
-  // 5️⃣ No token provided
-  return res.status(401).json({ message: "Not authorized, no token" });
+  return user;
 };
 
-export { protect };
+const respondWithAuthError = (res, error, scope) => {
+  if (error instanceof AuthError) {
+    logAuthFailure(scope, error.classification);
+    return res.status(error.status).json({ message: error.message });
+  }
+
+  logAuthFailure(scope, "auth_internal_error");
+  return res.status(401).json({ message: "Not authorized, token failed" });
+};
+
+const protect = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Not authorized, no token" });
+  }
+
+  try {
+    req.user = await authenticate(authHeader);
+    return next();
+  } catch (error) {
+    return respondWithAuthError(res, error, "protect");
+  }
+};
+
+const optionalProtect = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return next();
+  }
+
+  if (!authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Not authorized, token failed" });
+  }
+
+  try {
+    req.user = await authenticate(authHeader);
+    return next();
+  } catch (error) {
+    return respondWithAuthError(res, error, "optionalProtect");
+  }
+};
 
 const admin = (req, res, next) => {
   if (req.user && req.user.role === "admin") {
     return next();
   }
-  return res.status(403).json({ message: "Not authorized, admin access required" });
+
+  return res.status(403).json({
+    message: "Not authorized, admin access required",
+  });
 };
 
-export { admin };
+export { protect, optionalProtect, admin };
