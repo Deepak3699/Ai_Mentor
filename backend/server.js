@@ -22,6 +22,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import certificateRoutes from "./routes/certificateRoutes.js";
 import paymentRoutes from "./routes/payment.js";
+import webhookRoutes from "./routes/webhook.js";
 import razorpayRoutes from "./routes/razorpay.js";
 import webhookRoutes from "./routes/webhook.js";
 import preferenceRoutes from "./routes/preferenceRoutes.js";
@@ -100,6 +101,9 @@ app.use("/api/stripe", webhookRoutes);
 app.use("/api/payment", webhookRoutes);
 
 // ================= MIDDLEWARE =================
+// Stripe verifies the exact bytes sent by the provider. Mount its raw-body
+// route before the JSON parser used by the rest of the API.
+app.use("/api/stripe", webhookRoutes);
 app.use(express.json({ limit: "100kb" }));
 
 // ================= STATIC FILES =================
