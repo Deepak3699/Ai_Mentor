@@ -3,6 +3,7 @@ import axios from "axios";
 import { ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LoadingSpinner from "./common/LoadingSpinner";
+import { getErrorMessage } from "../lib/errorHandling.js";
 
 export const WIZARD_STEPS = [
   {
@@ -254,7 +255,7 @@ export default function Preferences({ mode = "modal", onSuccess }) {
 
       if (onSuccess) onSuccess();
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to save preferences");
+      setError(getErrorMessage(err, "Failed to save preferences"));
     } finally {
       setIsSaving(false);
     }

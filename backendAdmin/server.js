@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import healthRoutes from "./routes/healthRoutes.js";
 
-import { connectDB } from "./config/db.js";
+import { connectDB, sequelize } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import { securityHeaders } from "./config/securityHeaders.js";
 import requestContext from "./middleware/requestContext.js";
@@ -13,6 +13,8 @@ import requestContext from "./middleware/requestContext.js";
 dotenv.config();
 
 const app = express();
+const shutdownController = new AbortController();
+app.locals.shutdownSignal = shutdownController.signal;
 
 const allowedOrigins = [
   process.env.FRONTEND_ADMIN_URL || "http://localhost:5174",
@@ -83,6 +85,14 @@ const startServer = async () => {
     server.listen(PORT, () => {
       console.log(`[READY] Admin backend: http://localhost:${PORT}`);
     });
+
+    const shutdown = () => {
+      if (shutdownController.signal.aborted) return;
+      shutdownController.abort();
+      server.close(() => sequelize.close());
+    };
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
   } catch (error) {
     console.error("[FAILED] Admin backend startup failed:", error.message);
     process.exit(1);

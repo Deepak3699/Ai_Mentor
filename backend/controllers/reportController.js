@@ -26,7 +26,10 @@ const truncate = (text, max) => (text.length > max ? `${text.slice(0, max - 3)}.
 // saved, so the client can safely retry without creating a duplicate report.
 export const createReport = async (req, res) => {
   if (!req.user || !req.user.id) {
-    return res.status(401).json({ message: "User not authenticated" });
+    return res.status(401).json({
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "User not authenticated", details: [] },
+    });
   }
 
   const { reportType, subType, description, courseName, email, phone } = req.body;
@@ -91,6 +94,9 @@ export const createReport = async (req, res) => {
     return res.status(201).json(report);
   } catch (err) {
     console.error("Course report submission failed, nothing was saved:", err);
-    return res.status(500).json({ message: "Failed to submit report" });
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
   }
 };
