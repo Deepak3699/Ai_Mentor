@@ -92,6 +92,7 @@ test("course discussions require enrollment", async () => {
       message: "You must be enrolled in this course to view its community discussions",
       details: [],
     },
+    requiresEnrollment: true,
   });
 });
 

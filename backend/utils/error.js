@@ -69,6 +69,7 @@ const toErrorPayload = (err, fallbackMessage = "Internal Server Error") => {
       message: isOperational && error.message ? error.message : fallbackMessage,
       details,
     },
+    ...(error.requiresEnrollment === true ? { requiresEnrollment: true } : {}),
   };
 };
 

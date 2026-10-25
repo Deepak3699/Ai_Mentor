@@ -78,11 +78,13 @@ const getCourseDiscussions = async (req, res, next) => {
     );
 
     if (!isEnrolled) {
-      return forwardError(
-        next,
-        res,
-        new ForbiddenError("You must be enrolled in this course to view its community discussions"),
+      const enrollmentError = new ForbiddenError(
+        "You must be enrolled in this course to view its community discussions",
       );
+
+      enrollmentError.requiresEnrollment = true;
+
+      return forwardError(next, res, enrollmentError);
     }
 
     // Pagination parameters
