@@ -60,7 +60,7 @@ async def test_gemini_metadata():
 
     with patch("api.gemini_client.models.generate_content", return_value=mock_gemini_response), \
          patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, \
-         patch("api.create_avatar_video", ) as mock_avatar, \
+         patch("api.create_avatar_video") as mock_avatar, \
          patch("api.requests.get") as mock_get, \
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_process) as mock_exec, \
          patch("api.os.path.exists", return_value=True), \

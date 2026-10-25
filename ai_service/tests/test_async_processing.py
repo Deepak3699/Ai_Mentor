@@ -6,19 +6,33 @@ from pathlib import Path
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-# Ensure dummy env vars are set for config validation before importing api module
-os.environ.setdefault("GEMINI_API_KEY", "dummy_gemini_key")
-os.environ.setdefault("GROQ_API_KEY", "dummy_groq_key")
-os.environ.setdefault("CLOUDINARY_CLOUD_NAME", "dummy_cloud")
-os.environ.setdefault("CLOUDINARY_API_KEY", "dummy_key")
-os.environ.setdefault("CLOUDINARY_API_SECRET", "dummy_secret")
+# Preserve environment state while importing api with dummy configuration.
+_dummy_env = {
+    "GEMINI_API_KEY": "dummy_gemini_key",
+    "GROQ_API_KEY": "dummy_groq_key",
+    "CLOUDINARY_CLOUD_NAME": "dummy_cloud",
+    "CLOUDINARY_API_KEY": "dummy_key",
+    "CLOUDINARY_API_SECRET": "dummy_secret",
+}
+_original_env = {key: os.environ.get(key) for key in _dummy_env}
+
+for key, value in _dummy_env.items():
+    os.environ.setdefault(key, value)
+
+try:
+    import api
+finally:
+    for key, value in _original_env.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
 
 # Add backend directory to sys.path
 backend_dir = Path(__file__).resolve().parent.parent / "backend"
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-import api
 from api import LessonRequest, process_lesson, job_status
 
 
