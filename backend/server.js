@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB, sequelize } from "./config/db.js";
+import { createGracefulShutdown } from "./gracefulShutdown.js";
 
 // ================= ROUTES =================
 import authRoutes from "./routes/auth.js";
@@ -173,86 +174,31 @@ app.use((err, req, res, _next) => {
 });
 
 // ================= SERVER START =================
+// ================= SERVER START =================
 const PORT = process.env.PORT || 5000;
-
-// Maximum time allowed for graceful shutdown
 const SHUTDOWN_TIMEOUT = 10_000;
 
 let server;
-let isShuttingDown = false;
 
-// ================= GRACEFUL SHUTDOWN =================
-const shutdown = async (signal) => {
-  if (isShuttingDown) {
-    console.log("⚠️ Shutdown already in progress.");
-    return;
-  }
+const shutdown = createGracefulShutdown({
+  getServer: () => server,
+  database: sequelize,
+  timeoutMs: SHUTDOWN_TIMEOUT,
+});
 
-  isShuttingDown = true;
-
-  console.log(`\n🛑 ${signal} received. Starting graceful shutdown...`);
-
-  // Force exit if shutdown takes too long
-  const forceShutdownTimer = setTimeout(() => {
-    console.error(
-      `❌ Graceful shutdown timed out after ${
-        SHUTDOWN_TIMEOUT / 1000
-      } seconds. Forcing exit.`
-    );
-
-    process.exit(1);
-  }, SHUTDOWN_TIMEOUT);
-
-  // Do not keep the process alive because of this timer
-  forceShutdownTimer.unref();
-
-  try {
-    // Stop accepting new connections.
-    // Existing requests are allowed to finish.
-    if (server) {
-      await new Promise((resolve, reject) => {
-        server.close((error) => {
-          if (error) {
-            reject(error);
-          } else {
-            console.log("✅ HTTP server closed.");
-            resolve();
-          }
-        });
-      });
-    }
-
-    // Close Sequelize database connections.
-    if (sequelize) {
-      await sequelize.close();
-      console.log("✅ Sequelize database connection closed.");
-    }
-
-    clearTimeout(forceShutdownTimer);
-
-    console.log("✅ Graceful shutdown completed.");
-    process.exit(0);
-  } catch (error) {
-    clearTimeout(forceShutdownTimer);
-
-    console.error("❌ Error during graceful shutdown:", error);
-    process.exit(1);
-  }
-};
-
-// ================= SIGNAL HANDLERS =================
 process.on("SIGTERM", () => {
-  shutdown("SIGTERM");
+  void shutdown("SIGTERM");
 });
 
 process.on("SIGINT", () => {
-  shutdown("SIGINT");
+  void shutdown("SIGINT");
 });
 
 const startServer = async () => {
   try {
     console.log("[STARTING] Backend startup");
     console.log("[CHECK] Connecting to database...");
+
     await connectDB();
     console.log("[OK] Database connected");
 
@@ -267,22 +213,30 @@ const startServer = async () => {
         : "[OK] Database schema synchronized",
     );
 
-    // Retain the HTTP server instance for graceful shutdown.
-    server = app.listen(PORT, () => {
-    const server = http.createServer(app);
+    // Create exactly one HTTP server.
+    server = http.createServer(app);
 
     server.requestTimeout = 120_000;
     server.headersTimeout = 65_000;
     server.keepAliveTimeout = 60_000;
 
+    server.on("error", () => {
+      console.error("[FAILED] Backend HTTP server error.");
+      process.exitCode = 1;
+    });
+
     server.listen(PORT, () => {
       console.log(`[READY] Backend: http://localhost:${PORT}`);
-      console.log(`[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`);
-      console.log("[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.");
+      console.log(
+        `[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`,
+      );
+      console.log(
+        "[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.",
+      );
     });
-  } catch (error) {
-    console.error("[FAILED] Backend startup failed:", error);
-    process.exit(1);
+  } catch {
+    console.error("[FAILED] Backend startup failed.");
+    process.exitCode = 1;
   }
 };
 

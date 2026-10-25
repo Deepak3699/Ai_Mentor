@@ -1,6 +1,7 @@
 // backendAdmin/server.js
 import express from "express";
 import http from "node:http";
+import { createGracefulShutdown } from "../backend/gracefulShutdown.js";
 import dotenv from "dotenv";
 import cors from "cors";
 import healthRoutes from "./routes/healthRoutes.js";
@@ -70,94 +71,52 @@ const PORT = process.env.PORT || 5001;
 const SHUTDOWN_TIMEOUT = 10_000;
 
 let server;
-let isShuttingDown = false;
 
-// ================= GRACEFUL SHUTDOWN =================
-const shutdown = async (signal) => {
-  if (isShuttingDown) {
-    console.log("⚠️ Shutdown already in progress.");
-    return;
-  }
+const shutdown = createGracefulShutdown({
+  getServer: () => server,
+  database: sequelize,
+  timeoutMs: SHUTDOWN_TIMEOUT,
+});
 
-  isShuttingDown = true;
-
-  console.log(
-    `\n🛑 ${signal} received. Starting graceful shutdown...`,
-  );
-
-  const forceShutdownTimer = setTimeout(() => {
-    console.error(
-      `❌ Graceful shutdown timed out after ${
-        SHUTDOWN_TIMEOUT / 1000
-      } seconds. Forcing exit.`,
-    );
-
-    process.exit(1);
-  }, SHUTDOWN_TIMEOUT);
-
-  forceShutdownTimer.unref();
-
-  try {
-    // Stop accepting new connections.
-    // Existing requests are allowed to finish.
-    if (server) {
-      await new Promise((resolve, reject) => {
-        server.close((error) => {
-          if (error) {
-            reject(error);
-          } else {
-            console.log("✅ HTTP server closed.");
-            resolve();
-          }
-        });
-      });
-    }
-
-    // Close Sequelize database connections.
-    if (sequelize) {
-      await sequelize.close();
-      console.log("✅ Sequelize database connection closed.");
-    }
-
-    clearTimeout(forceShutdownTimer);
-
-    console.log("✅ Graceful shutdown completed.");
-    process.exit(0);
-  } catch (error) {
-    clearTimeout(forceShutdownTimer);
-
-    console.error("❌ Error during graceful shutdown:", error);
-    process.exit(1);
-  }
-};
-
-// ================= SIGNAL HANDLERS =================
 process.on("SIGTERM", () => {
-  shutdown("SIGTERM");
+  void shutdown("SIGTERM");
 });
 
 process.on("SIGINT", () => {
-  shutdown("SIGINT");
+  void shutdown("SIGINT");
 });
 
 const startServer = async () => {
   try {
     console.log("[STARTING] Admin backend startup");
     console.log("[CHECK] Connecting to admin database...");
+
     await connectDB();
+
     console.log("[OK] Admin database connected");
-    const server = http.createServer(app);
+
+    // Create exactly one HTTP server and keep its reference
+    // so graceful shutdown can close the correct instance.
+    server = http.createServer(app);
 
     server.requestTimeout = 120_000;
     server.headersTimeout = 65_000;
     server.keepAliveTimeout = 60_000;
 
+    server.on("error", () => {
+      console.error("[FAILED] Admin backend HTTP server error.");
+      process.exitCode = 1;
+    });
+
     server.listen(PORT, () => {
       console.log(`[READY] Admin backend: http://localhost:${PORT}`);
+      console.log(
+        "[INFO] Keep this terminal open. Press Ctrl+C to stop the admin backend.",
+      );
     });
-  } catch (error) {
-    console.error("[FAILED] Admin backend startup failed:", error.message);
-    process.exit(1);
+  } catch {
+    console.error("[FAILED] Admin backend startup failed.");
+    process.exitCode = 1;
   }
 };
 
