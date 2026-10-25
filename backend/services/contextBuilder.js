@@ -1,7 +1,5 @@
 export const buildUserContext = (user, preferences) => {
-  const courses = Array.isArray(user?.purchasedCourses)
-    ? user.purchasedCourses
-    : [];
+  const courses = Array.isArray(user?.purchasedCourses) ? user.purchasedCourses : [];
 
   const studentName = user?.firstName || user?.name || "Student";
 
@@ -20,9 +18,7 @@ export const buildUserContext = (user, preferences) => {
     return { id: lesson, title: null };
   };
 
-  const enrolledCourses = courses
-    .map((course) => course?.courseTitle)
-    .filter(Boolean);
+  const enrolledCourses = courses.map((course) => course?.courseTitle).filter(Boolean);
 
   let completedLessons = 0;
   let activeCourseContext = "None identified";
@@ -31,29 +27,29 @@ export const buildUserContext = (user, preferences) => {
   const courseProgress = courses.map((course) => {
     const courseTitle = course?.courseTitle || "Untitled course";
     const progress = course?.progress || {};
-    const completed = Array.isArray(progress.completedLessons)
-      ? progress.completedLessons
-      : [];
+    const completed = Array.isArray(progress.completedLessons) ? progress.completedLessons : [];
 
     completedLessons += completed.length;
 
-    const completedDetails = completed.map((lesson) => {
-      const details = getLessonDetails(lesson);
+    const completedDetails = completed
+      .map((lesson) => {
+        const details = getLessonDetails(lesson);
 
-      if (details.title && details.id != null) {
-        return `${details.title} (ID: ${details.id})`;
-      }
+        if (details.title && details.id != null) {
+          return `${details.title} (ID: ${details.id})`;
+        }
 
-      if (details.title) {
-        return details.title;
-      }
+        if (details.title) {
+          return details.title;
+        }
 
-      if (details.id != null) {
-        return `Lesson ID: ${details.id}`;
-      }
+        if (details.id != null) {
+          return `Lesson ID: ${details.id}`;
+        }
 
-      return null;
-    }).filter(Boolean);
+        return null;
+      })
+      .filter(Boolean);
 
     const currentLesson = getLessonDetails(progress.currentLesson);
 
@@ -61,9 +57,7 @@ export const buildUserContext = (user, preferences) => {
       hasActiveCourse = true;
 
       const lessonDescription = currentLesson.title
-        ? `${currentLesson.title}${
-            currentLesson.id != null ? ` (ID: ${currentLesson.id})` : ""
-          }`
+        ? `${currentLesson.title}${currentLesson.id != null ? ` (ID: ${currentLesson.id})` : ""}`
         : currentLesson.id != null
           ? `Lesson ID: ${currentLesson.id}`
           : "Current lesson details unavailable";
@@ -75,9 +69,7 @@ export const buildUserContext = (user, preferences) => {
       progress.currentLesson == null
         ? "Not specified"
         : currentLesson.title
-          ? `${currentLesson.title}${
-              currentLesson.id != null ? ` (ID: ${currentLesson.id})` : ""
-            }`
+          ? `${currentLesson.title}${currentLesson.id != null ? ` (ID: ${currentLesson.id})` : ""}`
           : currentLesson.id != null
             ? `Lesson ID: ${currentLesson.id}`
             : "Details unavailable";

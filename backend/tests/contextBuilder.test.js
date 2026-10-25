@@ -7,18 +7,12 @@ test("uses firstName, then name, then Student as fallback", () => {
 
   assert.match(
     buildUserContext({ firstName: "Sam", name: "Samruddhi" }, preferences),
-    /Name:\nSam/
+    /Name:\nSam/,
   );
 
-  assert.match(
-    buildUserContext({ name: "Samruddhi" }, preferences),
-    /Name:\nSamruddhi/
-  );
+  assert.match(buildUserContext({ name: "Samruddhi" }, preferences), /Name:\nSamruddhi/);
 
-  assert.match(
-    buildUserContext({}, preferences),
-    /Name:\nStudent/
-  );
+  assert.match(buildUserContext({}, preferences), /Name:\nStudent/);
 });
 
 test("includes the active course and current lesson details", () => {
@@ -38,7 +32,7 @@ test("includes the active course and current lesson details", () => {
         },
       ],
     },
-    {}
+    {},
   );
 
   assert.match(context, /Active Course and Current Lesson:/);
@@ -68,7 +62,7 @@ test("includes course-specific progress and total completed lessons", () => {
         },
       ],
     },
-    {}
+    {},
   );
 
   assert.match(context, /JavaScript/);
@@ -87,7 +81,7 @@ test("handles missing courses and incomplete progress safely", () => {
         { courseTitle: "Python", progress: { completedLessons: null } },
       ],
     },
-    {}
+    {},
   );
 
   assert.match(context, /Active Course and Current Lesson:\nNone identified/);
