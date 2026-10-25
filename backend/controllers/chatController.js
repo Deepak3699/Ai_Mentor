@@ -7,6 +7,7 @@ import { detectIntent } from "../services/intentService.js";
 import { buildUserContext } from "../services/contextBuilder.js";
 import { askGemini } from "../services/geminiChatService.js";
 import { detectNavigation } from "../services/navigationService.js";
+import { APP_ROUTES } from "../services/routeMap.js";
 
 // const ai = new GoogleGenAI({
 //   apiKey: process.env.GEMINI_API_KEY,
@@ -232,14 +233,17 @@ export const chatWithAssistant = async (req, res, next) => {
     // Check if Gemini returned a route
     let route = null;
 
-    const routeMatch = geminiReply.match(/ROUTE:(.+)/i);
+    const routeMatch = geminiReply.match(/ROUTE:([^\r\n]*)/i);
 
     if (routeMatch) {
-      route = routeMatch[1].trim();
+      const requestedRoute = routeMatch[1].trim();
+      if (Object.values(APP_ROUTES).includes(requestedRoute)) {
+        route = requestedRoute;
+      }
     }
 
     // Remove ROUTE from visible message
-    const cleanedReply = geminiReply.replace(/ROUTE:.*/i, "").trim();
+    const cleanedReply = geminiReply.replace(/ROUTE:[^\r\n]*/gi, "").trim();
 
     return res.json({
       reply: cleanedReply,
