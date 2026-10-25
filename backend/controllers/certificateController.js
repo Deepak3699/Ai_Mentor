@@ -1,5 +1,12 @@
 import Course from "../models/Course.js";
 import { generateCertificatePDF } from "../templates/certificateTemplate.js";
+import {
+  AppError,
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+  forwardError,
+} from "../utils/error.js";
 
 const normalizeName = (name = "") => {
   return name
@@ -28,10 +35,10 @@ const isValidSimilarName = (originalName, enteredName) => {
   return similarity >= 0.7;
 };
 
-export const getCertificates = async (req, res) => {
+export const getCertificates = async (req, res, next) => {
   try {
     const user = req.user;
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return forwardError(next, res, new NotFoundError("User not found"));
 
     const purchasedCourses = user.purchasedCourses || [];
     let stats = {
@@ -107,31 +114,44 @@ export const getCertificates = async (req, res) => {
     res.json({ stats, courses: coursesData });
   } catch (err) {
     console.error("Error fetching certificates:", err);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        err?.message || "Certificate lookup failed",
+      ),
+    );
   }
 };
 
-export const generateCertificate = async (req, res) => {
+export const generateCertificate = async (req, res, next) => {
   try {
     const { courseId, enteredName } = req.query;
-    if (!courseId) return res.status(400).json({ message: "courseId is required" });
+    if (!courseId) return forwardError(next, res, new BadRequestError("courseId is required"));
 
     const user = req.user;
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return forwardError(next, res, new NotFoundError("User not found"));
 
     const originalName = user.name || "";
     // Validate entered name
     if (enteredName && !isValidSimilarName(originalName, enteredName)) {
-      return res
-        .status(400)
-        .json({ message: "Entered name is too different from your account name." });
+      return forwardError(
+        next,
+        res,
+        new BadRequestError("Entered name is too different from your account name."),
+      );
     }
     const finalName = enteredName?.trim() || originalName;
 
     const purchasedCourses = user.purchasedCourses || [];
     const pCourse = purchasedCourses.find((c) => Number(c.courseId) === Number(courseId));
 
-    if (!pCourse) return res.status(404).json({ message: "Course not found for this user" });
+    if (!pCourse)
+      return forwardError(next, res, new NotFoundError("Course not found for this user"));
 
     const dbCourse = await Course.findByPk(courseId);
 
@@ -172,9 +192,11 @@ export const generateCertificate = async (req, res) => {
     const isCompleted = totalLessons > 0 && completedLessons >= totalLessons;
 
     if (!isCompleted) {
-      return res.status(403).json({
-        message: "You must complete the course before generating a certificate",
-      });
+      return forwardError(
+        next,
+        res,
+        new ForbiddenError("You must complete the course before generating a certificate"),
+      );
     }
 
     const courseTitle = pCourse.courseTitle || dbCourse?.title || "Unknown Course";
@@ -194,6 +216,16 @@ export const generateCertificate = async (req, res) => {
     res.send(Buffer.from(pdfBytes));
   } catch (err) {
     console.error("Error generating certificate pdf:", err);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        err?.message || "Certificate generation failed",
+      ),
+    );
   }
 };

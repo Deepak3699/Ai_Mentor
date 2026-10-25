@@ -3,6 +3,7 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 export function createGracefulShutdown({
   getServer,
   database,
+  beforeClose,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   logger = console,
   exit = (code) => process.exit(code),
@@ -35,6 +36,7 @@ export function createGracefulShutdown({
       });
 
       const closeResources = async () => {
+        beforeClose?.();
         const server = getServer();
 
         if (server?.listening) {

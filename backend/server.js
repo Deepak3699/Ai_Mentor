@@ -136,60 +136,24 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/assistant", assistantRoutes);
 app.use("/api/calendar", CalendarTaskRoutes);
 
+import { errorHandler, notFoundMiddleware } from "./middleware/errorMiddleware.js";
 // ================= 404 HANDLER =================
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Route not found: ${req.originalUrl}`,
-  });
-});
-
+app.use(notFoundMiddleware);
 // ================= GLOBAL ERROR HANDLER =================
-app.use((err, req, res, _next) => {
-  if (err.type === "entity.too.large") {
-    return res.status(413).json({
-      success: false,
-      message: "Payload Too Large",
-    });
-  }
+app.use(errorHandler);
 
-  if (err.type === "entity.parse.failed") {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid JSON",
-    });
-  }
-
-  console.error("🔥 Global Error:", err);
-
-  const status = err.status || 500;
-  const isProd = process.env.NODE_ENV === "production";
-  const message =
-    status === 500 && isProd ? "Internal Server Error" : err.message || "Internal Server Error";
-
-  res.status(status).json({
-    success: false,
-    message,
-  });
-});
-
-// ================= SERVER START =================
 // ================= SERVER START =================
 const PORT = process.env.PORT || 5000;
 const SHUTDOWN_TIMEOUT = 10_000;
-
 let server;
-
 const shutdown = createGracefulShutdown({
   getServer: () => server,
   database: sequelize,
   timeoutMs: SHUTDOWN_TIMEOUT,
 });
-
 process.on("SIGTERM", () => {
   void shutdown("SIGTERM");
 });
-
 process.on("SIGINT", () => {
   void shutdown("SIGINT");
 });
@@ -198,7 +162,6 @@ const startServer = async () => {
   try {
     console.log("[STARTING] Backend startup");
     console.log("[CHECK] Connecting to database...");
-
     await connectDB();
     console.log("[OK] Database connected");
 
@@ -213,13 +176,11 @@ const startServer = async () => {
         : "[OK] Database schema synchronized",
     );
 
-    // Create exactly one HTTP server.
     server = http.createServer(app);
 
     server.requestTimeout = 120_000;
     server.headersTimeout = 65_000;
     server.keepAliveTimeout = 60_000;
-
     server.on("error", () => {
       console.error("[FAILED] Backend HTTP server error.");
       process.exitCode = 1;

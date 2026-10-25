@@ -1037,3 +1037,153 @@ body,
   );
   pointer-events: none;
 }
+
+/* AI Generated Lessons promo banner (Issue #183) */
+.ai-lesson-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 20px;
+  min-height: 76px;
+  padding: 12px 120px 12px 18px;
+  border: 1px solid #dfe6fb;
+  border-radius: 16px;
+  background: linear-gradient(100deg, #f4f1ff 0%, #eaf0ff 55%, #dfe7ff 100%);
+}
+
+.ai-lesson-banner__info {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.ai-lesson-banner__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: #e4e0fb;
+  color: #f5a524;
+}
+
+.ai-lesson-banner__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ai-lesson-banner__text {
+  min-width: 0;
+}
+
+.ai-lesson-banner__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-lesson-banner__title-row h2 {
+  margin: 0;
+  color: #1f2a56;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ai-lesson-banner__badge {
+  border-radius: 6px;
+  padding: 1px 7px;
+  background: #2f6df6;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.ai-lesson-banner__text p {
+  margin: 2px 0 0;
+  color: #5b6590;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.ai-lesson-banner__button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #8fa8f5;
+  border-radius: 999px;
+  padding: 8px 22px;
+  background: rgba(255, 255, 255, 0.6);
+  color: #2756d6;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.ai-lesson-banner__button:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(47, 109, 246, 0.2);
+}
+
+.ai-lesson-banner__button:focus-visible {
+  outline: 2px solid #2f6df6;
+  outline-offset: 2px;
+}
+
+.ai-lesson-banner__button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ai-lesson-banner__robot {
+  position: absolute;
+  right: -6px;
+  bottom: 0;
+  width: 86px;
+  height: auto;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 10px rgba(47, 109, 246, 0.25));
+}
+
+.dark .ai-lesson-banner {
+  border-color: #2b3566;
+  background: linear-gradient(100deg, #1d1f45 0%, #1c2650 55%, #1a2a5c 100%);
+}
+
+.dark .ai-lesson-banner__icon {
+  background: #2c2f63;
+}
+
+.dark .ai-lesson-banner__title-row h2 {
+  color: #eef2ff;
+}
+
+.dark .ai-lesson-banner__text p {
+  color: #aab4de;
+}
+
+.dark .ai-lesson-banner__button {
+  border-color: #5c78d6;
+  background: rgba(255, 255, 255, 0.06);
+  color: #b9ccff;
+}
+
+@media (max-width: 640px) {
+  .ai-lesson-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 14px 16px;
+  }
+
+  .ai-lesson-banner__robot {
+    display: none;
+  }
+}

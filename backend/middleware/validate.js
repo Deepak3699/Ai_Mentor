@@ -1,10 +1,27 @@
 import fs from "fs";
 
+import { AppError, ValidationError } from "../utils/error.js";
+
 const validate = (schema) => (req, res, next) => {
   if (!schema) {
     console.error("❌ Validation Error: No schema provided to validate middleware");
-    return res.status(500).json({ message: "Internal Server Error: No schema provided" });
+    const error = new AppError(
+      "Internal Server Error: No schema provided",
+      500,
+      "INTERNAL_SERVER_ERROR",
+      [],
+      "No schema provided to validate middleware",
+    );
+    return res.status(error.statusCode).json({
+      success: false,
+      error: {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      },
+    });
   }
+
   try {
     const validationResult = schema.safeParse(req.body);
     if (!validationResult.success) {
@@ -17,27 +34,45 @@ const validate = (schema) => (req, res, next) => {
         `❌ Validation Failed for ${req.method} ${req.originalUrl || req.url}. Fields: ${errorPaths}`,
       );
 
-      return res.status(400).json({
-        message: "Validation failed",
-        errors: issues.map((err) => ({
-          path: err.path.join("."),
-          message: err.message,
-        })),
+      const details = issues.map((err) => ({
+        path: err.path.join("."),
+        message: err.message,
+      }));
+
+      const error = new ValidationError(details, "Validation failed");
+      return res.status(error.statusCode).json({
+        success: false,
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+        },
       });
     }
-    next();
+    return next();
   } catch (error) {
     if (req.file?.path) {
       fs.unlink(req.file.path, () => {});
     }
-    console.error("❌ Validation Middleware Internal Error:", error.message || error);
-    const response = {
-      message: "Internal Server Error during validation",
-    };
-    if (process.env.NODE_ENV !== "production") {
-      response.details = error.message || "Unknown error";
-    }
-    return res.status(500).json(response);
+
+    console.error("❌ Validation Middleware Internal Error:", error);
+
+    const appError = new AppError(
+      "Internal Server Error during validation",
+      500,
+      "INTERNAL_SERVER_ERROR",
+      process.env.NODE_ENV !== "production" ? [error?.message || "Unknown validation error"] : [],
+      error?.message || "Unknown validation error",
+    );
+
+    return res.status(appError.statusCode).json({
+      success: false,
+      error: {
+        code: appError.code,
+        message: appError.message,
+        details: appError.details,
+      },
+    });
   }
 };
 

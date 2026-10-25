@@ -306,3 +306,33 @@ test("shutdown without a listening server still closes the database", async () =
 
   assert.deepEqual(events, ["database", "exit:0"]);
 });
+
+test("beforeClose runs once before HTTP and database shutdown", async () => {
+  const events = [];
+  const { timers } = createFakeTimers();
+  const shutdown = createGracefulShutdown({
+    getServer: () => ({
+      listening: true,
+      close(callback) {
+        events.push("server");
+        callback();
+      },
+    }),
+    database: {
+      async close() {
+        events.push("database");
+      },
+    },
+    beforeClose() {
+      events.push("abort");
+    },
+    logger: createLogger(),
+    timers,
+    exit: (code) => events.push(`exit:${code}`),
+  });
+  const first = shutdown("SIGTERM");
+  const second = shutdown("SIGINT");
+  assert.strictEqual(first, second);
+  await first;
+  assert.deepEqual(events, ["abort", "server", "database", "exit:0"]);
+});
