@@ -1,8 +1,9 @@
 import Preference from "../models/Preference.js";
+import { AppError, BadRequestError, NotFoundError, forwardError } from "../utils/error.js";
 
 // @desc Get user preferences
 // @route GET /api/preferences
-export const getPreferences = async (req, res) => {
+export const getPreferences = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const preferences = await Preference.findOne({ where: { user_id: userId } });
@@ -14,27 +15,37 @@ export const getPreferences = async (req, res) => {
     res.status(200).json(preferences);
   } catch (error) {
     console.error("GET PREFERENCES ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Preference lookup failed",
+      ),
+    );
   }
 };
 
 // @desc Create user preferences
 // @route POST /api/preferences
-export const createPreferences = async (req, res) => {
+export const createPreferences = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
     // Check if preferences already exist for this user
     const existing = await Preference.findOne({ where: { user_id: userId } });
     if (existing) {
-      return res.status(400).json({ message: "Preferences already exist" });
+      return forwardError(next, res, new BadRequestError("Preferences already exist"));
     }
 
     const { explanation_type, learning_style, teaching_pace, example_type, focus_area } = req.body;
 
     // Validate required fields
     if (!explanation_type || !learning_style || !teaching_pace || !example_type || !focus_area) {
-      return res.status(400).json({ message: "All required fields must be provided" });
+      return forwardError(next, res, new BadRequestError("All required fields must be provided"));
     }
 
     const preferences = await Preference.create({
@@ -49,26 +60,36 @@ export const createPreferences = async (req, res) => {
     res.status(201).json(preferences);
   } catch (error) {
     console.error("CREATE PREFERENCES ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Preference creation failed",
+      ),
+    );
   }
 };
 
 // @desc Update user preferences
 // @route PUT /api/preferences
-export const updatePreferences = async (req, res) => {
+export const updatePreferences = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const preferences = await Preference.findOne({ where: { user_id: userId } });
 
     if (!preferences) {
-      return res.status(404).json({ message: "Preferences not found" });
+      return forwardError(next, res, new NotFoundError("Preferences not found"));
     }
 
     const { explanation_type, learning_style, teaching_pace, example_type, focus_area } = req.body;
 
     // Validate required fields
     if (!explanation_type || !learning_style || !teaching_pace || !example_type || !focus_area) {
-      return res.status(400).json({ message: "All required fields must be provided" });
+      return forwardError(next, res, new BadRequestError("All required fields must be provided"));
     }
 
     preferences.explanation_type = explanation_type;
@@ -82,6 +103,16 @@ export const updatePreferences = async (req, res) => {
     res.status(200).json(preferences);
   } catch (error) {
     console.error("UPDATE PREFERENCES ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Preference update failed",
+      ),
+    );
   }
 };

@@ -14,6 +14,8 @@ const { default: contactRoutes } = await import("../routes/contactus.js");
 let server;
 let baseUrl;
 
+const { errorHandler, notFoundMiddleware } = await import("../middleware/errorMiddleware.js");
+
 const originalCreate = ContactMessage.create;
 const originalFindByPk = User.findByPk;
 const originalConsoleError = console.error;
@@ -42,6 +44,8 @@ before(async () => {
   const app = express();
   app.use(express.json());
   app.use("/api/contactus", contactRoutes);
+  app.use(notFoundMiddleware);
+  app.use(errorHandler);
 
   server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, resolve));
@@ -142,8 +146,14 @@ test("missing email returns 400", async () => {
   const data = await res.json();
 
   assert.equal(res.status, 400);
-  assert.equal(data.success, false);
-  assert.equal(data.message, "Email is required");
+  assert.deepEqual(data, {
+    success: false,
+    error: {
+      code: "BAD_REQUEST",
+      message: "Email is required",
+      details: [],
+    },
+  });
 });
 
 test("short subject and message are rejected before persistence", async () => {
@@ -155,12 +165,10 @@ test("short subject and message are rejected before persistence", async () => {
   let res = await post({ ...validBody, subject: "Hi" });
 
   assert.equal(res.status, 400);
-  assert.equal((await res.json()).message, "Subject must be at least 3 characters");
-
-  res = await post({ ...validBody, message: "Short" });
-
+  assert.equal((await res.json()).error.message, "Subject must be at least 3 characters");
+  res = await post({ email: "user@example.com", subject: "Help", message: "short" });
   assert.equal(res.status, 400);
-  assert.equal((await res.json()).message, "Message must be at least 10 characters");
+  assert.equal((await res.json()).error.message, "Message must be at least 10 characters");
   assert.equal(creates, 0);
 });
 
@@ -195,14 +203,25 @@ test("persistence failure returns a safe 500 response", async () => {
     throw new Error("database unavailable");
   };
 
+  const original = console.error;
   console.error = () => {};
 
-  const res = await post(validBody);
-  const data = await res.json();
+  try {
+    const res = await post(validBody);
+    const data = await res.json();
 
-  assert.equal(res.status, 500);
-  assert.equal(data.success, false);
-  assert.equal(data.message, "Server error while sending message");
+    assert.equal(res.status, 500);
+    assert.deepEqual(data, {
+      success: false,
+      error: {
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Internal Server Error",
+        details: [],
+      },
+    });
+  } finally {
+    console.error = original;
+  }
 });
 test("Sequelize validation errors are converted to a safe 400 response", async () => {
   ContactMessage.create = async () => {
@@ -212,13 +231,50 @@ test("Sequelize validation errors are converted to a safe 400 response", async (
     throw error;
   };
 
+  const original = console.error;
   console.error = () => {};
+  try {
+    const res = await post({
+      email: "invalid",
+      subject: "Help",
+      message: "A sufficiently long message",
+    });
+    assert.equal(res.status, 400);
+    assert.deepEqual(await res.json(), {
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Request validation failed",
+        details: [{ message: "Please enter a valid email address", path: "email" }],
+      },
+    });
+  } finally {
+    console.error = original;
+  }
+});
 
-  const res = await post(validBody);
-
-  assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), {
-    success: false,
-    message: "Please enter a valid email address",
-  });
+test("contact route hides unexpected persistence failures", async () => {
+  ContactMessage.create = async () => {
+    throw new Error("database unavailable");
+  };
+  const original = console.error;
+  console.error = () => {};
+  try {
+    const res = await post({
+      email: "user@example.com",
+      subject: "Help",
+      message: "A sufficiently long message",
+    });
+    assert.equal(res.status, 500);
+    assert.deepEqual(await res.json(), {
+      success: false,
+      error: {
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Internal Server Error",
+        details: [],
+      },
+    });
+  } finally {
+    console.error = original;
+  }
 });

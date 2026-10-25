@@ -2,6 +2,7 @@
 import express from "express";
 import ContactMessage from "../models/Contactmessage.js";
 import { optionalProtect } from "../middleware/authMiddleware.js";
+import { BadRequestError, ValidationError } from "../utils/error.js";
 
 const router = express.Router();
 
@@ -18,35 +19,24 @@ Body:
   message: "My message here..."
 }
 */
-router.post("/", optionalProtect, async (req, res) => {
+router.post("/", optionalProtect, async (req, res, next) => {
   try {
     let { email, subject, message } = req.body;
 
-    // Clean values
     email = email?.trim();
     subject = subject?.trim();
     message = message?.trim();
 
-    // Manual validation
     if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required",
-      });
+      throw new BadRequestError("Email is required");
     }
 
     if (!subject || subject.length < 3) {
-      return res.status(400).json({
-        success: false,
-        message: "Subject must be at least 3 characters",
-      });
+      throw new BadRequestError("Subject must be at least 3 characters");
     }
 
     if (!message || message.length < 10) {
-      return res.status(400).json({
-        success: false,
-        message: "Message must be at least 10 characters",
-      });
+      throw new BadRequestError("Message must be at least 10 characters");
     }
 
     // Save message in DB - userId derived securely from auth token, not body
@@ -63,20 +53,25 @@ router.post("/", optionalProtect, async (req, res) => {
       data: savedMessage,
     });
   } catch (error) {
-    // Sequelize validation errors
     if (error?.name === "SequelizeValidationError") {
       logContactFailure("validation_error");
-      return res.status(400).json({
+      const details = (error.errors || []).map((issue) => ({
+        path: issue.path || "email",
+        message: issue.message,
+      }));
+      const validationError = new ValidationError(details, "Request validation failed");
+      return res.status(validationError.statusCode).json({
         success: false,
-        message: error.errors?.[0]?.message ?? "Invalid contact message",
+        error: {
+          code: validationError.code,
+          message: validationError.message,
+          details: validationError.details,
+        },
       });
     }
 
     logContactFailure("persistence_error");
-    return res.status(500).json({
-      success: false,
-      message: "Server error while sending message",
-    });
+    return next(error);
   }
 });
 

@@ -48,13 +48,15 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
 
     if (!targetCourseId) {
       return res.status(400).json({
-        error: "Invalid course data",
+        success: false,
+        error: { code: "BAD_REQUEST", message: "Invalid course data", details: [] },
       });
     }
 
     if (!idempotencyKey) {
       return res.status(400).json({
-        error: "idempotencyKey is required",
+        success: false,
+        error: { code: "BAD_REQUEST", message: "idempotencyKey is required", details: [] },
       });
     }
 
@@ -64,14 +66,16 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
     const courseRecord = await Course.findByPk(targetCourseId);
     if (!courseRecord || courseRecord.status !== "published") {
       return res.status(404).json({
-        error: "Course not found or unavailable",
+        success: false,
+        error: { code: "NOT_FOUND", message: "Course not found or unavailable", details: [] },
       });
     }
 
     const priceValue = Number(courseRecord.priceValue);
     if (!Number.isFinite(priceValue) || priceValue <= 0) {
       return res.status(400).json({
-        error: "Invalid course price",
+        success: false,
+        error: { code: "BAD_REQUEST", message: "Invalid course price", details: [] },
       });
     }
 
@@ -85,7 +89,8 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
     if (existing) {
       if (existing.userId !== userId) {
         return res.status(403).json({
-          error: "Unauthorized idempotency key",
+          success: false,
+          error: { code: "FORBIDDEN", message: "Unauthorized idempotency key", details: [] },
         });
       }
       if (existing.cachedResponse && Object.keys(existing.cachedResponse).length > 0) {
@@ -151,7 +156,8 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
     log.error({ err: error }, "Razorpay order creation error");
 
     return res.status(500).json({
-      error: "Razorpay order creation failed",
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
     });
   }
 });
@@ -179,7 +185,7 @@ router.post("/verify", protect, async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        error: "Missing required parameters",
+        error: { code: "BAD_REQUEST", message: "Missing required parameters", details: [] },
       });
     }
 
@@ -188,7 +194,11 @@ router.post("/verify", protect, async (req, res) => {
 
       return res.status(500).json({
         success: false,
-        error: "Payment verification failed",
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Payment verification failed",
+          details: [],
+        },
       });
     }
 
@@ -207,7 +217,7 @@ router.post("/verify", protect, async (req, res) => {
     if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
       return res.status(400).json({
         success: false,
-        error: "Invalid signature",
+        error: { code: "BAD_REQUEST", message: "Invalid signature", details: [] },
       });
     }
 
@@ -234,7 +244,7 @@ router.post("/verify", protect, async (req, res) => {
 
         return res.status(404).json({
           success: false,
-          error: "Payment not found",
+          error: { code: "NOT_FOUND", message: "Payment not found", details: [] },
         });
       }
 
@@ -244,7 +254,11 @@ router.post("/verify", protect, async (req, res) => {
 
         return res.status(400).json({
           success: false,
-          error: "Course does not match the paid order",
+          error: {
+            code: "BAD_REQUEST",
+            message: "Course does not match the paid order",
+            details: [],
+          },
         });
       }
 
@@ -273,7 +287,11 @@ router.post("/verify", protect, async (req, res) => {
             await transaction.rollback();
             return res.status(400).json({
               success: false,
-              error: "Gateway payment details mismatch",
+              error: {
+                code: "BAD_REQUEST",
+                message: "Gateway payment details mismatch",
+                details: [],
+              },
             });
           }
         } catch (fetchErr) {
@@ -281,7 +299,11 @@ router.post("/verify", protect, async (req, res) => {
           await transaction.rollback();
           return res.status(500).json({
             success: false,
-            error: "Payment verification failed with gateway",
+            error: {
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Payment verification failed with gateway",
+              details: [],
+            },
           });
         }
       }
@@ -298,7 +320,7 @@ router.post("/verify", protect, async (req, res) => {
 
         return res.status(404).json({
           success: false,
-          error: "User not found",
+          error: { code: "NOT_FOUND", message: "User not found", details: [] },
         });
       }
 
@@ -377,7 +399,7 @@ router.post("/verify", protect, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      error: "Payment verification failed",
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
     });
   }
 });
