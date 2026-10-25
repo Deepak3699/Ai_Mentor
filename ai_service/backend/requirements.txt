@@ -1,12 +1,12 @@
-fastapi
-uvicorn
-python-dotenv
-google-genai
-groq
-edge-tts #Added
-requests
-cloudinary
-pytest
-pytest-asyncio
-cachetools
-mutagen
+fastapi>=0.115.0,<1.0.0
+uvicorn>=0.30.0,<1.0.0
+python-dotenv>=1.0.1,<2.0.0
+google-genai>=0.1.1,<1.0.0
+groq>=0.9.0,<1.0.0
+edge-tts>=7.3.1,<8.0.0
+requests>=2.32.0,<3.0.0
+cloudinary>=1.40.0,<2.0.0
+pytest>=8.2.0,<9.0.0
+pytest-asyncio>=0.23.0,<1.0.0
+cachetools>=5.3.0,<6.0.0
+mutagen>=1.47.0,<2.0.0

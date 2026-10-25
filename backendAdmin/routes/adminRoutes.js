@@ -45,11 +45,12 @@ import {
   deleteReport,
 } from "../controllers/courseReportsController.js";
 import { protectAdmin, superAdminOnly } from "../middleware/adminAuthMiddleware.js";
+import { adminLoginLimiter } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 
 // Public routes
-router.post("/login", loginAdmin);
+router.post("/login", adminLoginLimiter, loginAdmin);
 
 // Protected routes
 router.post("/register", protectAdmin, superAdminOnly, registerAdmin);

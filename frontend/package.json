@@ -7,13 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test test/*.test.js",
+    "test": "node --test test/*.test.js && vitest run",
     "test:vitest": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
     "@radix-ui/react-switch": "^1.2.6",
-    "@stripe/stripe-js": "^9.0.0",
+    "@stripe/stripe-js": "^10.1.0",
     "@tailwindcss/vite": "^4.1.18",
     "axios": "^1.13.1",
     "clsx": "^2.1.1",
