@@ -74,7 +74,14 @@ test("avatar upload rejects files larger than 2MB", async () => {
 
   assert.equal(res.status, 400);
   const data = await res.json();
-  assert.match(data.message, /2MB/i);
+  assert.deepEqual(data, {
+    success: false,
+    error: {
+      code: "BAD_REQUEST",
+      message: "Avatar file size must not exceed 2MB",
+      details: [],
+    },
+  });
 });
 
 test("avatar upload rejects disallowed mime types and SVG/HTML", async () => {
@@ -101,7 +108,14 @@ test("avatar upload rejects disallowed mime types and SVG/HTML", async () => {
 
   assert.equal(res.status, 400);
   const data = await res.json();
-  assert.match(data.message, /Only JPEG, PNG, and WebP images are allowed/i);
+  assert.deepEqual(data, {
+    success: false,
+    error: {
+      code: "BAD_REQUEST",
+      message: "Only JPEG, PNG, and WebP images are allowed",
+      details: [],
+    },
+  });
 });
 
 test("avatar upload accepts valid image and saves with safe random name", async () => {

@@ -10,6 +10,7 @@ import SocialLogin from "../components/auth/SocialLogin";
 import toast from "react-hot-toast";
 import { z } from "zod";
 import API_BASE_URL from "../lib/api";
+import { getErrorMessage, getFieldErrors } from "../lib/errorHandling.js";
 
 const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(50, "First name too long"),
@@ -110,10 +111,16 @@ const SignUpPage = () => {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(data.message || "Something went wrong");
+        throw {
+          response: { status: response.status, data },
+          message: getErrorMessage(
+            { response: { status: response.status, data } },
+            "Something went wrong",
+          ),
+        };
       }
 
       login(data);
@@ -123,10 +130,11 @@ const SignUpPage = () => {
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
-      } else if (error.name === "TypeError" && error.message.includes("fetch")) {
-        toast.error("Cannot connect to server. Please check if the backend server is running.");
       } else {
-        toast.error(error.message || "Sign up failed");
+        const fieldErrors = getFieldErrors(error);
+        toast.error(
+          fieldErrors.email || fieldErrors.password || getErrorMessage(error, "Sign up failed"),
+        );
       }
     } finally {
       setLoading(false);
