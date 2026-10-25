@@ -9,6 +9,7 @@
     "dev": "nodemon server.js",
     "seed:superadmin": "node scripts/seedSuperAdmin.js",
     "lint": "eslint .",
+    "test:postgres-rollback": "node --test tests/syllabusTransaction.integration.test.js",
     "test": "node --test"
   },
   "dependencies": {

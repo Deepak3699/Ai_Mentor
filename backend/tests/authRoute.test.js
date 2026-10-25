@@ -9,6 +9,7 @@ const { default: express } = await import("express");
 const { default: User } = await import("../models/User.js");
 const { default: Notification } = await import("../models/Notification.js");
 const { default: authRoutes } = await import("../routes/auth.js");
+const { errorHandler } = await import("../middleware/errorMiddleware.js");
 
 // In-memory mock database for auth tests
 const MOCK_USERS = [
@@ -76,6 +77,7 @@ before(async () => {
   const app = express();
   app.use(express.json());
   app.use("/api/auth", authRoutes);
+  app.use(errorHandler);
 
   server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, resolve));
@@ -112,7 +114,7 @@ test("registering a new user with valid details returns 201 and JWT token", asyn
   assert.ok(data.token, "JWT token should be returned");
 });
 
-test("registering with an already existing email returns 400", async () => {
+test("registering with an already existing email returns 409", async () => {
   const res = await post("/api/auth/register", {
     firstName: "Test",
     lastName: "User",
@@ -121,9 +123,10 @@ test("registering with an already existing email returns 400", async () => {
     password: "Password123!",
   });
 
-  assert.equal(res.status, 400);
+  assert.equal(res.status, 409);
   const data = await res.json();
-  assert.equal(data.message, "User already exists");
+  assert.equal(data.error.message, "User already exists");
+  assert.equal(data.error.code, "CONFLICT");
 });
 
 test("login with wrong password returns 401", async () => {
@@ -134,7 +137,8 @@ test("login with wrong password returns 401", async () => {
 
   assert.equal(res.status, 401);
   const data = await res.json();
-  assert.equal(data.message, "Invalid email or password");
+  assert.equal(data.error.message, "Invalid email or password");
+  assert.equal(data.error.code, "UNAUTHORIZED");
 });
 
 test("login with valid credentials returns 200 and token", async () => {
@@ -157,5 +161,6 @@ test("login for a blocked user returns 403 Account suspended", async () => {
 
   assert.equal(res.status, 403);
   const data = await res.json();
-  assert.equal(data.message, "Account suspended");
+  assert.equal(data.error.message, "Account suspended");
+  assert.equal(data.error.code, "FORBIDDEN");
 });
