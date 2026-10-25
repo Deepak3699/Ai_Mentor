@@ -214,3 +214,13 @@ test("the abort signal is handed to the wait between polls", async () => {
   assert.equal(seen[0][1] instanceof AbortSignal, true);
   assert.equal(seen[0][1].aborted, false);
 });
+
+test("classifies browser Failed to fetch errors as connectivity failures", () => {
+  const failure = classifyGenerationError(new Error("Failed to fetch"));
+  assert.equal(failure.type, "connectivity");
+  assert.equal(
+    failure.message,
+    "We couldn't connect to the AI service. Check your connection and try again.",
+  );
+  assert.equal(failure.retryable, true);
+});

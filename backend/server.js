@@ -135,42 +135,11 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/assistant", assistantRoutes);
 app.use("/api/calendar", CalendarTaskRoutes);
 
+import { errorHandler, notFoundMiddleware } from "./middleware/errorMiddleware.js";
 // ================= 404 HANDLER =================
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Route not found: ${req.originalUrl}`,
-  });
-});
-
+app.use(notFoundMiddleware);
 // ================= GLOBAL ERROR HANDLER =================
-app.use((err, req, res, _next) => {
-  if (err.type === "entity.too.large") {
-    return res.status(413).json({
-      success: false,
-      message: "Payload Too Large",
-    });
-  }
-
-  if (err.type === "entity.parse.failed") {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid JSON",
-    });
-  }
-
-  console.error("🔥 Global Error:", err);
-
-  const status = err.status || 500;
-  const isProd = process.env.NODE_ENV === "production";
-  const message =
-    status === 500 && isProd ? "Internal Server Error" : err.message || "Internal Server Error";
-
-  res.status(status).json({
-    success: false,
-    message,
-  });
-});
+app.use(errorHandler);
 
 // ================= SERVER START =================
 const PORT = process.env.PORT || 5000;

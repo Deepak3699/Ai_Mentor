@@ -24,6 +24,7 @@ import ReportModal from "../components/common/ReportModal";
 import toast from "react-hot-toast";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
+import CourseCard from "../components/common/CourseCard";
 
 const BLUE_BUTTON =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-[#3867D6] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-[#315BC0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3867D6] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
@@ -71,7 +72,7 @@ const FilterChoice = ({ active, children, onClick }) => (
   </button>
 );
 
-const CourseCard = ({ course, enrolled, progress, onAction, actionLabel }) => {
+const ExploreCourseCard = ({ course, enrolled, progress, onAction, actionLabel }) => {
   const completedLessons = progress?.completedLessons?.length || 0;
   const lessonCount = Number.parseInt(course?.lessons, 10) || 0;
   const hasStarted = completedLessons > 0 || progress?.currentLesson != null;
@@ -766,7 +767,13 @@ const CoursesPage = () => {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,320px),420px))] gap-5">
+            <div
+              className={
+                activeTab === "my-courses"
+                  ? "grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4"
+                  : "grid grid-cols-[repeat(auto-fill,minmax(min(100%,320px),420px))] gap-5"
+              }
+            >
               {displayedCourses.map((course) => {
                 const enrolled =
                   activeTab === "my-courses" ||
@@ -778,8 +785,10 @@ const CoursesPage = () => {
                 const started =
                   purchased?.progress?.completedLessons?.length > 0 ||
                   purchased?.progress?.currentLesson != null;
-                return (
-                  <CourseCard
+                return activeTab === "my-courses" ? (
+                  <CourseCard key={course.id} course={course} progress={purchased?.progress} />
+                ) : (
+                  <ExploreCourseCard
                     key={course.id}
                     course={course}
                     enrolled={enrolled}

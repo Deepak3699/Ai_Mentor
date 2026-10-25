@@ -17,6 +17,7 @@ import {
 import API_BASE_URL from "../lib/api";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
+import { getErrorMessage } from "../lib/errorHandling.js";
 
 const WatchedVideos = () => {
   const { t } = useTranslation();
@@ -55,8 +56,12 @@ const WatchedVideos = () => {
         setMetrics(data.metrics);
         setCourses(data.courses || []);
       } else {
-        console.error("Error fetching watched videos:", data.message);
-        setError("Failed to load watched videos.");
+        const normalizedMessage = getErrorMessage(
+          { response: { data, status: response.status } },
+          "Failed to load watched videos.",
+        );
+        console.error("Error fetching watched videos:", normalizedMessage);
+        setError(normalizedMessage);
       }
     } catch (err) {
       console.error("Error fetching watched videos:", err);

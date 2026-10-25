@@ -239,6 +239,121 @@ Notes:
 
 ---
 
+## 🚨 API Error Response Schema
+
+The backend now uses a single public error envelope for API failures. All application and validation errors are returned in this shape:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": []
+  }
+}
+```
+
+### Fields
+
+- `success`: Always `false` for failed responses.
+- `error.code`: Stable machine-readable code such as `VALIDATION_ERROR`, `UNAUTHORIZED`, `NOT_FOUND`, or `INTERNAL_SERVER_ERROR`.
+- `error.message`: Public-safe error summary intended for clients and UI display.
+- `error.details`: Always an array. Validation details, field metadata, or other structured notes are placed here when available; otherwise it is `[]`.
+
+### Implemented error classes and status mappings
+
+The shared error utility in `backend/utils/error.js` defines the project-wide custom errors:
+
+| Error class         |      HTTP status | Stable code             | Typical use                                 |
+| ------------------- | ---------------: | ----------------------- | ------------------------------------------- |
+| `AppError`          | `500` by default | `INTERNAL_SERVER_ERROR` | Generic unexpected failures                 |
+| `UnauthorizedError` |            `401` | `UNAUTHORIZED`          | Missing/invalid auth or expired credentials |
+| `BadRequestError`   |            `400` | `BAD_REQUEST`           | Invalid request data or bad inputs          |
+| `ForbiddenError`    |            `403` | `FORBIDDEN`             | Permission denied                           |
+| `ConflictError`     |            `409` | `CONFLICT`              | Duplicate or state-conflict conditions      |
+| `NotFoundError`     |            `404` | `NOT_FOUND`             | Missing resource                            |
+| `ValidationError`   |            `400` | `VALIDATION_ERROR`      | Validation failures with structured details |
+
+Additional parser and payload-level errors are handled by the global middleware:
+
+| Condition            | HTTP status | Code                    |
+| -------------------- | ----------: | ----------------------- |
+| Malformed JSON       |       `400` | `INVALID_JSON`          |
+| Oversized payload    |       `413` | `PAYLOAD_TOO_LARGE`     |
+| Unmatched route      |       `404` | `ROUTE_NOT_FOUND`       |
+| Unexpected exception |       `500` | `INTERNAL_SERVER_ERROR` |
+
+### Controller usage
+
+Controllers should raise custom application errors instead of returning ad hoc JSON objects. The project convention is:
+
+```js
+import { BadRequestError, forwardError } from "../utils/error.js";
+
+export const updateUserProfile = async (req, res, next) => {
+  try {
+    const { name } = req.body;
+
+    if (!name) {
+      return forwardError(next, res, new BadRequestError("Name is required"));
+    }
+
+    // ... business logic ...
+    return res.status(200).json({ success: true, data: updatedUser });
+  } catch (error) {
+    return next(error);
+  }
+};
+```
+
+This pattern keeps the controller logic simple while the shared error utilities produce the standardized error payload.
+
+### Global error handling behavior
+
+The global middleware in `backend/middleware/errorMiddleware.js` handles all thrown and forwarded application errors:
+
+- `entity.too.large` → `413` with `PAYLOAD_TOO_LARGE`
+- `entity.parse.failed` → `400` with `INVALID_JSON`
+- `AppError` and subclasses → use their status code and error code
+- Unknown exceptions → respond with `500` and the generic public message `Internal Server Error`
+
+The `toErrorPayload()` helper ensures the response is shaped as:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "...",
+    "message": "...",
+    "details": []
+  }
+}
+```
+
+Server-side diagnostics are still written to the console with the original error metadata, stack trace, and internal message for debugging, but the HTTP response remains public-safe and never exposes stack traces, database internals, tokens, or secrets.
+
+### Validation details and public safety
+
+Validation and business-rule failures can include structured details arrays, for example when a request is rejected for multiple invalid fields. The response still stays public-safe because the API only exposes the validated message, stable code, and details that are already considered safe to return.
+
+Unexpected exceptions are not leaked to clients. Instead, the generic public message is returned and the detailed error is logged on the server.
+
+### Not found and unmatched routes
+
+Two different 404 cases are intentionally distinguished:
+
+- `NotFoundError` in a controller: resource missing (`NOT_FOUND`)
+- Unmatched route middleware: route not defined (`ROUTE_NOT_FOUND`)
+
+This ensures API clients can tell whether a resource is absent versus a route is simply not implemented.
+
+### Third-party or external integrations
+
+The main backend does not expose provider-specific webhook payloads or third-party stack traces in client responses. External AI-service failures are handled internally with sanitized public messages, while the detailed provider failure is preserved only in server logs.
+
+---
+
 ## 🤖 AI Video Caching
 
 The AI route (`/api/ai/generate-video`) implements a **cache-first** strategy:

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import API_BASE_URL from "../../lib/api";
 import toast from "react-hot-toast";
+import { getErrorMessage } from "../../lib/errorHandling.js";
 import { Star, Trash2, Edit3, Send, X, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 
 /* ── label for each star ── */
@@ -237,15 +238,23 @@ export default function CourseFeedback({
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ rating: draftRating, review: draftReview }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Failed");
-      toast.success(json.message || "Review submitted!");
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw {
+          response: { status: res.status, data: json },
+          message: getErrorMessage(
+            { response: { status: res.status, data: json } },
+            "Failed to submit review",
+          ),
+        };
+      }
+      toast.success(json?.message || "Review submitted!");
       setShowForm(false);
       await Promise.all([fetchFeedback(), fetchMyFeedback()]);
       window.dispatchEvent(new CustomEvent("courseFeedbackUpdated", { detail: { courseId } }));
       if (onSubmitSuccess) onSubmitSuccess();
     } catch (err) {
-      toast.error(err.message || "Failed to submit");
+      toast.error(getErrorMessage(err, "Failed to submit"));
     } finally {
       setSubmitting(false);
     }
@@ -257,8 +266,16 @@ export default function CourseFeedback({
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message);
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw {
+          response: { status: res.status, data: json },
+          message: getErrorMessage(
+            { response: { status: res.status, data: json } },
+            "Failed to delete review",
+          ),
+        };
+      }
       toast.success("Review deleted");
       setMyFeedback(null);
       setDraftRating(0);
@@ -268,7 +285,7 @@ export default function CourseFeedback({
       window.dispatchEvent(new CustomEvent("courseFeedbackUpdated", { detail: { courseId } }));
       if (onDeleteSuccess) onDeleteSuccess();
     } catch (err) {
-      toast.error(err.message || "Failed to delete");
+      toast.error(getErrorMessage(err, "Failed to delete"));
     }
   };
 
