@@ -47,9 +47,7 @@ const loginAdmin = async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return res
-      .status(400)
-      .json({ message: "Email and password are required" });
+    return res.status(400).json({ message: "Email and password are required" });
   }
 
   try {
@@ -57,7 +55,9 @@ const loginAdmin = async (req, res) => {
 
     if (admin && (await admin.matchPassword(password))) {
       if (admin.status === "on-hold") {
-        return res.status(403).json({ message: "Your account has been suspended. Please contact a superadmin." });
+        return res
+          .status(403)
+          .json({ message: "Your account has been suspended. Please contact a superadmin." });
       }
       res.json({
         id: admin.id,
@@ -141,7 +141,7 @@ const getAllEnrollments = async (req, res) => {
 
     // 👉 Create course price map
     const coursePriceMap = {};
-    courses.forEach(course => {
+    courses.forEach((course) => {
       coursePriceMap[course.id] = course.priceValue || 0;
     });
 
@@ -154,11 +154,11 @@ const getAllEnrollments = async (req, res) => {
       const now = new Date();
       const activeThresholdDays = 7;
 
-      users.forEach(user => {
+      users.forEach((user) => {
         const purchased = user.purchasedCourses || [];
 
         if (purchased.length > 0) {
-          purchased.forEach(course => {
+          purchased.forEach((course) => {
             totalEnrollments++;
 
             // 💰 Revenue
@@ -167,8 +167,7 @@ const getAllEnrollments = async (req, res) => {
             // ⚡ Active Users (lastWatched within 7 days)
             if (course.progress?.lastWatched) {
               const lastWatched = new Date(course.progress.lastWatched);
-              const diffDays =
-                (now - lastWatched) / (1000 * 60 * 60 * 24);
+              const diffDays = (now - lastWatched) / (1000 * 60 * 60 * 24);
 
               if (diffDays <= activeThresholdDays) {
                 activeUsersSet.add(user.id);
@@ -197,10 +196,10 @@ const getAllEnrollments = async (req, res) => {
 
       let enrollments = [];
 
-      users.forEach(user => {
+      users.forEach((user) => {
         const purchased = user.purchasedCourses || [];
 
-        purchased.forEach(course => {
+        purchased.forEach((course) => {
           enrollments.push({
             userName: user.name,
             email: user.email,
@@ -212,9 +211,7 @@ const getAllEnrollments = async (req, res) => {
       });
 
       // 👉 Sort by latest purchase
-      enrollments.sort(
-        (a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate)
-      );
+      enrollments.sort((a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate));
 
       const total = enrollments.length;
 
@@ -238,10 +235,10 @@ const getAllEnrollments = async (req, res) => {
 
       let enrollments = [];
 
-      users.forEach(user => {
+      users.forEach((user) => {
         const purchased = user.purchasedCourses || [];
 
-        purchased.forEach(course => {
+        purchased.forEach((course) => {
           enrollments.push({
             userName: user.name,
             email: user.email,
@@ -253,9 +250,7 @@ const getAllEnrollments = async (req, res) => {
       });
 
       // 🔥 Sort latest first
-      enrollments.sort(
-        (a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate)
-      );
+      enrollments.sort((a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate));
 
       return res.status(200).json({
         success: true,
@@ -263,7 +258,7 @@ const getAllEnrollments = async (req, res) => {
         data: enrollments.slice(0, limit),
       });
     }
-    //recent ends 
+    //recent ends
 
     //top courses start
     if (type === "top-courses") {
@@ -272,10 +267,10 @@ const getAllEnrollments = async (req, res) => {
       const courseCountMap = {};
 
       // Step 1 & 2: Count frequency
-      users.forEach(user => {
+      users.forEach((user) => {
         const purchased = user.purchasedCourses || [];
 
-        purchased.forEach(course => {
+        purchased.forEach((course) => {
           if (!courseCountMap[course.courseId]) {
             courseCountMap[course.courseId] = 0;
           }
@@ -284,15 +279,15 @@ const getAllEnrollments = async (req, res) => {
       });
 
       // Step 3: Convert to array
-      let result = Object.keys(courseCountMap).map(courseId => ({
+      let result = Object.keys(courseCountMap).map((courseId) => ({
         courseId: Number(courseId),
         totalPurchases: courseCountMap[courseId],
       }));
 
       // Step 4: Add course title
-      result = result.map(item => ({
+      result = result.map((item) => ({
         ...item,
-        courseTitle: courses.find(c => c.id === item.courseId)?.title || "Unknown",
+        courseTitle: courses.find((c) => c.id === item.courseId)?.title || "Unknown",
       }));
 
       // Step 5: Sort
@@ -330,7 +325,7 @@ const getAllEnrollments = async (req, res) => {
 
       let totalSpent = 0;
 
-      const enrollments = purchased.map(course => {
+      const enrollments = purchased.map((course) => {
         const amount = coursePriceMap[course.courseId] || 0;
         totalSpent += amount;
 
@@ -371,7 +366,7 @@ const getAllEnrollments = async (req, res) => {
         });
       }
 
-      const course = courses.find(c => c.id == courseId);
+      const course = courses.find((c) => c.id == courseId);
 
       if (!course) {
         return res.status(404).json({
@@ -388,10 +383,10 @@ const getAllEnrollments = async (req, res) => {
 
       let usersList = [];
 
-      users.forEach(user => {
+      users.forEach((user) => {
         const purchased = user.purchasedCourses || [];
 
-        purchased.forEach(c => {
+        purchased.forEach((c) => {
           if (c.courseId == courseId) {
             totalEnrollments++;
 
@@ -404,8 +399,7 @@ const getAllEnrollments = async (req, res) => {
 
             if (c.progress?.lastWatched) {
               const lastWatched = new Date(c.progress.lastWatched);
-              const diffDays =
-                (now - lastWatched) / (1000 * 60 * 60 * 24);
+              const diffDays = (now - lastWatched) / (1000 * 60 * 60 * 24);
 
               if (diffDays <= activeThresholdDays) {
                 activeUsersSet.add(user.id);
@@ -436,7 +430,6 @@ const getAllEnrollments = async (req, res) => {
       success: false,
       message: "Invalid type parameter",
     });
-
   } catch (error) {
     console.error("ENROLLMENTS ERROR:", error.message);
     res.status(500).json({
@@ -450,7 +443,9 @@ const getAllPayments = async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
-    const search = String(req.query.search || "").trim().toLowerCase();
+    const search = String(req.query.search || "")
+      .trim()
+      .toLowerCase();
 
     const users = await User.findAll({
       attributes: ["id", "name", "email", "purchasedCourses"],
@@ -472,9 +467,7 @@ const getAllPayments = async (req, res) => {
     let payments = [];
 
     users.forEach((user) => {
-      const purchased = Array.isArray(user.purchasedCourses)
-        ? user.purchasedCourses
-        : [];
+      const purchased = Array.isArray(user.purchasedCourses) ? user.purchasedCourses : [];
 
       purchased.forEach((item, index) => {
         if (!item || typeof item !== "object") {
@@ -499,8 +492,7 @@ const getAllPayments = async (req, res) => {
           userName: user.name,
           email: user.email,
           courseId,
-          courseTitle:
-            item.courseTitle || courseInfo.title || `Course ${item.courseId}`,
+          courseTitle: item.courseTitle || courseInfo.title || `Course ${item.courseId}`,
           amount,
           currency: item.currency || courseInfo.currency || "INR",
           status: item.paymentStatus || "paid",
@@ -513,12 +505,7 @@ const getAllPayments = async (req, res) => {
 
     if (search) {
       payments = payments.filter((payment) => {
-        const text = [
-          payment.userName,
-          payment.email,
-          payment.courseTitle,
-          payment.transactionId,
-        ]
+        const text = [payment.userName, payment.email, payment.courseTitle, payment.transactionId]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
@@ -527,15 +514,10 @@ const getAllPayments = async (req, res) => {
       });
     }
 
-    payments.sort(
-      (a, b) => new Date(b.purchaseDate || 0) - new Date(a.purchaseDate || 0)
-    );
+    payments.sort((a, b) => new Date(b.purchaseDate || 0) - new Date(a.purchaseDate || 0));
 
     const total = payments.length;
-    const totalAmount = payments.reduce(
-      (sum, payment) => sum + Number(payment.amount || 0),
-      0
-    );
+    const totalAmount = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 
     const start = (page - 1) * limit;
     const data = payments.slice(start, start + limit);
@@ -568,21 +550,21 @@ const getAllCourses = async (req, res) => {
       success: true,
       data: courses,
     });
-  } catch (error) { 
+  } catch (error) {
     console.error("GET COURSES ERROR:", error.message);
     res.status(500).json({
       success: false,
       message: "Server Error",
     });
   }
-}
+};
 
 const getAllUsers = async (req, res) => {
   try {
     const users = await User.findAll({
       attributes: ["id", "name", "email", "purchasedCourses", "createdAt"],
     });
-    res.status(200).json({ 
+    res.status(200).json({
       success: true,
       data: users,
     });
@@ -593,7 +575,7 @@ const getAllUsers = async (req, res) => {
       message: "Server Error",
     });
   }
-}
+};
 
 export {
   registerAdmin,

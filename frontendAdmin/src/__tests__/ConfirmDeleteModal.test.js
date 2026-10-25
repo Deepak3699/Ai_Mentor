@@ -50,9 +50,7 @@ describe("course deletion confirmation", () => {
     fireEvent.change(screen.getByPlaceholderText("Type DELETE here"), {
       target: { value: "DELETE" },
     });
-    expect(screen.getByRole("button", { name: /Wait 3s/i }).disabled).toBe(
-      true,
-    );
+    expect(screen.getByRole("button", { name: /Wait 3s/i }).disabled).toBe(true);
 
     for (let second = 0; second < 3; second += 1) {
       await act(async () => {
