@@ -148,6 +148,15 @@ test("course post creation rejects users who are not enrolled", async () => {
     res,
   );
   assert.equal(state.statusCode, 403);
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "FORBIDDEN",
+      message: "You must be enrolled in this course to create posts in its community",
+      details: [],
+    },
+    requiresEnrollment: true,
+  });
 });
 
 test("global post creation assigns ownership and initializes reactions", async () => {

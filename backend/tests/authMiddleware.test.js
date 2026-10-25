@@ -90,7 +90,7 @@ test("protect rejects a malformed or invalid token", async () => {
 test("protect returns a generic 500 when auth configuration is missing", async () => {
   delete process.env.JWT_SECRET;
   const { result } = await invoke(protect, { authorization: "Bearer any-token" });
-  assert.equal(result.statusCode, 500);
+  assert.equal(result.statusCode, 503);
   assert.deepEqual(result.body, {
     success: false,
     error: {
@@ -221,7 +221,7 @@ test("optionalProtect returns a generic 500 when auth configuration is missing",
   const { result } = await quietErrors(() =>
     invoke(optionalProtect, { authorization: "Bearer any-token" }),
   );
-  assert.equal(result.statusCode, 500);
+  assert.equal(result.statusCode, 503);
   assert.deepEqual(result.body, {
     success: false,
     error: {

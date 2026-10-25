@@ -207,13 +207,24 @@ const createCommunityPost = async (req, res, next) => {
       const isEnrolled = purchasedCourses.some((c) => c.id === courseId || c.courseId === courseId);
 
       if (!isEnrolled) {
-        return forwardError(
-          next,
-          res,
-          new ForbiddenError(
-            "You must be enrolled in this course to create posts in its community",
-          ),
+        const enrollmentError = new ForbiddenError(
+          "You must be enrolled in this course to create posts in its community",
         );
+        enrollmentError.requiresEnrollment = true;
+
+        if (typeof next === "function") {
+          return forwardError(next, res, enrollmentError);
+        }
+
+        return res.status(enrollmentError.statusCode).json({
+          success: false,
+          error: {
+            code: enrollmentError.code,
+            message: enrollmentError.message,
+            details: [],
+          },
+          requiresEnrollment: true,
+        });
       }
     }
 

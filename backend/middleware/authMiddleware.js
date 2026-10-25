@@ -49,7 +49,7 @@ const sendError = (res, status, code, message, details = []) => {
 const authenticate = async (authHeader) => {
   if (!process.env.JWT_SECRET) {
     throw new AuthError(
-      500,
+      503,
       "Authentication temporarily unavailable",
       "auth_config_missing",
       "INTERNAL_SERVER_ERROR",
