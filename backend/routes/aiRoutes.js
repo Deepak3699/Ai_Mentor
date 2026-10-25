@@ -27,7 +27,10 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
     const { courseId, lessonId, celebrity, voice_id, speech_rate, speech_pitch } = req.body;
 
     if (!hasCourseAccess(req.user, courseId)) {
-      return res.status(403).json({ message: "Course not purchased" });
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+      });
     }
 
     const key = {
@@ -125,7 +128,10 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
     const titles = await getCourseAndLessonTitles(courseId, lessonId);
 
     if (!titles) {
-      return res.status(404).json({ message: "Invalid course or lesson" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Invalid course or lesson", details: [] },
+      });
     }
 
     const { courseTitle, lessonTitle } = titles;
@@ -145,7 +151,12 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
         }
 
         return res.status(409).json({
-          message: "Video generation state changed. Please retry.",
+          success: false,
+          error: {
+            code: "CONFLICT",
+            message: "Video generation state changed. Please retry.",
+            details: [],
+          },
         });
       }
     } else {
@@ -206,7 +217,12 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
           }
 
           return res.status(409).json({
-            message: "Video generation state changed. Please retry.",
+            success: false,
+            error: {
+              code: "CONFLICT",
+              message: "Video generation state changed. Please retry.",
+              details: [],
+            },
           });
         }
       }
@@ -251,7 +267,10 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
     }
   } catch (error) {
     console.error("AI GENERATE ERROR:", error);
-    return res.status(500).json({ message: "Failed to generate AI video" });
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
   }
 });
 
@@ -267,11 +286,17 @@ router.get("/transcript/:filename", protect, async (req, res) => {
     });
 
     if (!cachedVideo) {
-      return res.status(404).json({ error: "Transcript not found" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Transcript not found", details: [] },
+      });
     }
 
     if (!hasCourseAccess(req.user, cachedVideo.courseId)) {
-      return res.status(403).json({ message: "Course not purchased" });
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+      });
     }
 
     if (cachedVideo.transcript) {
@@ -285,7 +310,10 @@ router.get("/transcript/:filename", protect, async (req, res) => {
     const response = await fetch(pythonTranscriptUrl);
 
     if (!response.ok) {
-      return res.status(404).json({ error: "Transcript not found" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Transcript not found", details: [] },
+      });
     }
 
     const data = await response.json();
@@ -302,7 +330,10 @@ router.get("/transcript/:filename", protect, async (req, res) => {
     if (process.env.NODE_ENV !== "test") {
       console.error("[AI] Transcript Proxy Error:", error.message);
     }
-    res.status(500).json({ error: "Failed to load transcript" });
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
   }
 });
 
@@ -314,12 +345,26 @@ router.get("/status/:jobId", protect, async (req, res) => {
     const videoJob = await AIVideo.findOne({ where: { id: jobId } });
 
     if (!videoJob) {
-      return res.status(404).json({ status: "not_found" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Video job not found", details: [] },
+      });
     }
 
     // Enforce course entitlement before returning video status or URLs
     if (!hasCourseAccess(req.user, videoJob.courseId)) {
-      return res.status(403).json({ message: "Course not purchased" });
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+      });
+    }
+
+    // Enforce course entitlement before returning video status or URLs
+    if (!hasCourseAccess(req.user, videoJob.courseId)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+      });
     }
 
     if (videoJob.status === "failed") {
@@ -386,7 +431,10 @@ router.get("/status/:jobId", protect, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error("❌ Status Proxy Error:", error.message);
-    res.status(500).json({ status: "error" });
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
   }
 });
 
@@ -399,18 +447,27 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
     const numericCourseId = Number(courseId);
 
     if (!Number.isInteger(numericCourseId)) {
-      return res.status(404).json({ error: "Video not found" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Video not found", details: [] },
+      });
     }
 
     // 🔐 The user must be enrolled in the course named in the URL (or admin)
     if (!hasCourseAccess(req.user, numericCourseId)) {
-      return res.status(403).json({ error: "Course not purchased" });
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+      });
     }
 
     // 🎯 The AI service names each video "<jobId>.mp4". Only serve a file that
     // belongs to an AIVideo record of *this* course; anything else is a 404.
     if (!filename.endsWith(".mp4")) {
-      return res.status(404).json({ error: "Video not found" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Video not found", details: [] },
+      });
     }
 
     // The frontend sends <aiVideo.id>.mp4
@@ -420,7 +477,10 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
     });
 
     if (!video || !video.jobId) {
-      return res.status(404).json({ error: "Video not found" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Video not found", details: [] },
+      });
     }
 
     // Python service expects &lt;pythonJobId&gt;.mp4
@@ -437,7 +497,8 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
 
     if (!response.ok) {
       return res.status(404).json({
-        error: "Video not found in AI service",
+        success: false,
+        error: { code: "NOT_FOUND", message: "Video not found in AI service", details: [] },
       });
     }
 
@@ -456,15 +517,21 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
 
     if (!response.body) {
       return res.status(502).json({
-        error: "Empty video response from AI service",
+        success: false,
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Empty video response from AI service",
+          details: [],
+        },
       });
     }
     const { Readable } = await import("node:stream");
     Readable.fromWeb(response.body).pipe(res);
   } catch (error) {
     console.error("❌ Proxy Error:", error.message);
-    res.status(500).json({
-      error: "Failed to load video via proxy",
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
     });
   }
 });
@@ -485,7 +552,12 @@ router.post("/explain-code", protect, validate(explainCodeSchema), async (req, r
       console.error("AI code explanation failed:", errorText);
 
       return res.status(502).json({
-        message: "AI code explanation service failed",
+        success: false,
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "AI code explanation service failed",
+          details: [],
+        },
       });
     }
 
@@ -495,7 +567,8 @@ router.post("/explain-code", protect, validate(explainCodeSchema), async (req, r
     console.error("AI code explanation error:", error);
 
     return res.status(500).json({
-      message: "Unable to explain or debug code right now",
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
     });
   }
 });
@@ -510,7 +583,10 @@ router.get("/voices", protect, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error("❌ Voices Proxy Error:", error.message);
-    res.status(500).json({ error: "Failed to fetch voices" });
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
   }
 });
 

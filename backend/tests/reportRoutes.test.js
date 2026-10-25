@@ -230,9 +230,12 @@ test("moderator roles are valid values of the User.role enum", () => {
 // ---------------------------------------------------------------------------
 test("rejects a request without a token and writes nothing", async () => {
   const res = await postReport(validBody(), { token: null });
+  const body = await res.json();
 
   assert.equal(res.status, 401);
-  assert.equal((await res.json()).message, "Not authorized, no token");
+  assert.equal(body.success, false);
+  assert.equal(body.error.code, "UNAUTHORIZED");
+  assert.equal(body.error.message, "Not authorized, no token");
   assert.equal(transactions.length, 0);
   assertNothingPersisted();
 });
@@ -249,9 +252,12 @@ test("rejects a token for a user that no longer exists", async () => {
   const res = await postReport(validBody(), {
     token: tokenFor("99999999-9999-9999-9999-999999999999"),
   });
+  const body = await res.json();
 
   assert.equal(res.status, 401);
-  assert.equal((await res.json()).message, "User not found");
+  assert.equal(body.success, false);
+  assert.equal(body.error.code, "UNAUTHORIZED");
+  assert.equal(body.error.message, "User not found");
   assertNothingPersisted();
 });
 
@@ -287,7 +293,9 @@ test("controller refuses a request that has no authenticated user", async () => 
   await createReport({ body: validBody() }, res);
 
   assert.equal(status, 401);
-  assert.equal(body.message, "User not authenticated");
+  assert.equal(body.success, false);
+  assert.equal(body.error.code, "UNAUTHORIZED");
+  assert.equal(body.error.message, "User not authenticated");
   assert.equal(transactions.length, 0);
   assertNothingPersisted();
 });
@@ -317,10 +325,12 @@ for (const [label, body, field] of invalidBodies) {
     const payload = await res.json();
 
     assert.equal(res.status, 400);
-    assert.equal(payload.message, "Validation failed");
+    assert.equal(payload.success, false);
+    assert.equal(payload.error.code, "VALIDATION_ERROR");
+    assert.equal(payload.error.message, "Validation failed");
     assert.ok(
-      payload.errors.some((issue) => issue.path === field),
-      `expected an error for "${field}", got ${JSON.stringify(payload.errors)}`,
+      payload.error.details.some((issue) => issue.path === field),
+      `expected an error for "${field}", got ${JSON.stringify(payload.error.details)}`,
     );
     assert.equal(transactions.length, 0);
     assertNothingPersisted();
@@ -436,7 +446,9 @@ test("runs every write in one committed transaction", async () => {
 const assertRolledBack = async (res) => {
   const body = await res.json();
   assert.equal(res.status, 500);
-  assert.equal(body.message, "Failed to submit report");
+  assert.equal(body.success, false);
+  assert.equal(body.error.code, "INTERNAL_SERVER_ERROR");
+  assert.equal(body.error.message, "Internal Server Error");
   assert.ok(!JSON.stringify(body).includes("injected"), "internal error text must not leak");
   assert.equal(transactions.length, 1);
   assert.equal(transactions[0].state, "rolled_back");

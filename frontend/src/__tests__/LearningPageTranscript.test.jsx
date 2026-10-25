@@ -11,6 +11,7 @@ vi.mock("react-i18next", () => ({
 vi.mock("react-router-dom", () => ({
   useNavigate: () => vi.fn(),
   useParams: () => ({ id: "1" }),
+  useLocation: () => ({ pathname: "/learning/1", search: "", state: null }),
 }));
 
 vi.mock("react-hot-toast", () => ({

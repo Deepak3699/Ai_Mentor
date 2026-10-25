@@ -89,7 +89,14 @@ test("chat rejects empty messages before loading user data", async () => {
   const { state, res } = response();
   await chatWithAssistant({ user: { id: "u" }, body: { message: "   " } }, res);
   assert.equal(state.statusCode, 400);
-  assert.deepEqual(state.body, { message: "Message is required" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "BAD_REQUEST",
+      message: "Message is required",
+      details: [],
+    },
+  });
   assert.equal(lookups, 0);
 });
 
@@ -97,7 +104,14 @@ test("chat returns 404 when the authenticated user no longer exists", async () =
   const { state, res } = response();
   await chatWithAssistant({ user: { id: "missing" }, body: { message: "Open settings" } }, res);
   assert.equal(state.statusCode, 404);
-  assert.deepEqual(state.body, { message: "User not found" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "NOT_FOUND",
+      message: "User not found",
+      details: [],
+    },
+  });
 });
 
 test("chat navigation intent returns a route without external AI", async () => {
