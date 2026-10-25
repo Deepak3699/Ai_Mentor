@@ -62,9 +62,7 @@ test("normal shutdown closes HTTP server and database", async () => {
   await shutdown("SIGTERM");
 
   assert.deepEqual(events, ["server", "database", "exit:0"]);
-  assert.ok(logger.messages.some(({ message }) =>
-    message.includes("completed"),
-  ));
+  assert.ok(logger.messages.some(({ message }) => message.includes("completed")));
   assert.equal(state.cleared, true);
 });
 
@@ -166,9 +164,7 @@ test("timeout fallback exits with status 1", async () => {
   await shutdownPromise;
 
   assert.deepEqual(events, [1]);
-  assert.ok(logger.messages.some(({ message }) =>
-    message.includes("timed out"),
-  ));
+  assert.ok(logger.messages.some(({ message }) => message.includes("timed out")));
 });
 
 test("HTTP close failure exits with status 1", async () => {
@@ -200,14 +196,10 @@ test("HTTP close failure exits with status 1", async () => {
   await shutdown("SIGTERM");
 
   assert.deepEqual(events, ["exit:1"]);
-  assert.ok(logger.messages.some(({ message }) =>
-    message.includes("failed"),
-  ));
+  assert.ok(logger.messages.some(({ message }) => message.includes("failed")));
 
   assert.ok(
-    logger.messages.every(({ message }) =>
-      !message.includes("simulated HTTP close failure"),
-    ),
+    logger.messages.every(({ message }) => !message.includes("simulated HTTP close failure")),
   );
 });
 
@@ -240,14 +232,10 @@ test("database close failure exits with status 1", async () => {
   await shutdown("SIGTERM");
 
   assert.deepEqual(events, [1]);
-  assert.ok(logger.messages.some(({ message }) =>
-    message.includes("failed"),
-  ));
+  assert.ok(logger.messages.some(({ message }) => message.includes("failed")));
 
   assert.ok(
-    logger.messages.every(({ message }) =>
-      !message.includes("simulated database close failure"),
-    ),
+    logger.messages.every(({ message }) => !message.includes("simulated database close failure")),
   );
 });
 
@@ -294,9 +282,7 @@ test("repeated shutdown signals do not close resources twice", async () => {
   assert.equal(closeCount, 1);
   assert.equal(databaseCloseCount, 1);
   assert.deepEqual(exitCodes, [0]);
-  assert.ok(logger.messages.some(({ message }) =>
-    message.includes("already in progress"),
-  ));
+  assert.ok(logger.messages.some(({ message }) => message.includes("already in progress")));
 });
 
 test("shutdown without a listening server still closes the database", async () => {

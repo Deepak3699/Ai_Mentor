@@ -110,9 +110,7 @@ const startServer = async () => {
 
     server.listen(PORT, () => {
       console.log(`[READY] Admin backend: http://localhost:${PORT}`);
-      console.log(
-        "[INFO] Keep this terminal open. Press Ctrl+C to stop the admin backend.",
-      );
+      console.log("[INFO] Keep this terminal open. Press Ctrl+C to stop the admin backend.");
     });
   } catch {
     console.error("[FAILED] Admin backend startup failed.");

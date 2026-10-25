@@ -227,12 +227,8 @@ const startServer = async () => {
 
     server.listen(PORT, () => {
       console.log(`[READY] Backend: http://localhost:${PORT}`);
-      console.log(
-        `[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`,
-      );
-      console.log(
-        "[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.",
-      );
+      console.log(`[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`);
+      console.log("[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.");
     });
   } catch {
     console.error("[FAILED] Backend startup failed.");
