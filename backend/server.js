@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB, sequelize } from "./config/db.js";
+import { createGracefulShutdown } from "./gracefulShutdown.js";
 
 // ================= ROUTES =================
 import authRoutes from "./routes/auth.js";
@@ -143,6 +144,19 @@ app.use(errorHandler);
 
 // ================= SERVER START =================
 const PORT = process.env.PORT || 5000;
+const SHUTDOWN_TIMEOUT = 10_000;
+let server;
+const shutdown = createGracefulShutdown({
+  getServer: () => server,
+  database: sequelize,
+  timeoutMs: SHUTDOWN_TIMEOUT,
+});
+process.on("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
+process.on("SIGINT", () => {
+  void shutdown("SIGINT");
+});
 
 const startServer = async () => {
   try {
@@ -162,20 +176,24 @@ const startServer = async () => {
         : "[OK] Database schema synchronized",
     );
 
-    const server = http.createServer(app);
+    server = http.createServer(app);
 
     server.requestTimeout = 120_000;
     server.headersTimeout = 65_000;
     server.keepAliveTimeout = 60_000;
+    server.on("error", () => {
+      console.error("[FAILED] Backend HTTP server error.");
+      process.exitCode = 1;
+    });
 
     server.listen(PORT, () => {
       console.log(`[READY] Backend: http://localhost:${PORT}`);
       console.log(`[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`);
       console.log("[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.");
     });
-  } catch (error) {
-    console.error("[FAILED] Backend startup failed:", error);
-    process.exit(1);
+  } catch {
+    console.error("[FAILED] Backend startup failed.");
+    process.exitCode = 1;
   }
 };
 
