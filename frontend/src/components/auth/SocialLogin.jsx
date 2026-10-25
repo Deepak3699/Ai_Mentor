@@ -6,6 +6,7 @@ import { auth, googleProvider, signInWithPopup } from "../../firebase"; // Adjus
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
 import { useState } from "react";
+import { getErrorMessage } from "../../lib/errorHandling.js";
 
 const getGoogleAuthErrorMessage = (errorCode) => {
   switch (errorCode) {
@@ -46,9 +47,15 @@ const SocialLogin = () => {
         body: JSON.stringify({ idToken }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(data.message || "Google login failed");
+        throw {
+          response: { status: res.status, data },
+          message: getErrorMessage(
+            { response: { status: res.status, data } },
+            "Google login failed",
+          ),
+        };
       }
 
       // Use existing AuthContext login
