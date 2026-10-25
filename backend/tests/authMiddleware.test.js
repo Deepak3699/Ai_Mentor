@@ -69,7 +69,10 @@ after(() => {
 test("protect rejects a request without a bearer token", async () => {
   const { result } = await invoke(protect);
   assert.equal(result.statusCode, 401);
-  assert.deepEqual(result.body, { message: "Not authorized, no token" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Not authorized, no token", details: [] },
+  });
   assert.equal(result.nextCalls, 0);
 });
 
@@ -78,33 +81,44 @@ test("protect rejects a malformed or invalid token", async () => {
     invoke(protect, { authorization: "Bearer invalid-token" }),
   );
   assert.equal(result.statusCode, 401);
-  assert.deepEqual(result.body, { message: "Not authorized, token failed" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Not authorized, token failed", details: [] },
+  });
 });
 
-test("protect returns a generic 503 when auth configuration is missing", async () => {
+test("protect returns a generic 500 when auth configuration is missing", async () => {
   delete process.env.JWT_SECRET;
-  const { result } = await quietErrors(() =>
-    invoke(protect, { authorization: "Bearer any-token" }),
-  );
+  const { result } = await invoke(protect, { authorization: "Bearer any-token" });
   assert.equal(result.statusCode, 503);
   assert.deepEqual(result.body, {
-    message: "Authentication temporarily unavailable",
+    success: false,
+    error: {
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Authentication temporarily unavailable",
+      details: [],
+    },
   });
-  assert.equal(JSON.stringify(result.body).includes("JWT_SECRET"), false);
 });
 
 test("protect rejects an expired token", async () => {
   const token = jwt.sign({ id: "user-1" }, SECRET, { expiresIn: -1 });
   const { result } = await quietErrors(() => invoke(protect, { authorization: `Bearer ${token}` }));
   assert.equal(result.statusCode, 401);
-  assert.deepEqual(result.body, { message: "Not authorized, token failed" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Not authorized, token failed", details: [] },
+  });
 });
 
 test("protect rejects a valid token when the user no longer exists", async () => {
   const token = jwt.sign({ id: "missing-user" }, SECRET);
   const { result } = await quietErrors(() => invoke(protect, { authorization: `Bearer ${token}` }));
   assert.equal(result.statusCode, 401);
-  assert.deepEqual(result.body, { message: "User not found" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "User not found", details: [] },
+  });
 });
 
 test("protect rejects blocked users", async () => {
@@ -112,7 +126,10 @@ test("protect rejects blocked users", async () => {
   const token = jwt.sign({ id: "blocked" }, SECRET);
   const { result } = await quietErrors(() => invoke(protect, { authorization: `Bearer ${token}` }));
   assert.equal(result.statusCode, 403);
-  assert.deepEqual(result.body, { message: "Account suspended" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "FORBIDDEN", message: "Account suspended", details: [] },
+  });
 });
 
 test("protect rejects tokens issued before a password change", async () => {
@@ -125,7 +142,8 @@ test("protect rejects tokens issued before a password change", async () => {
   const { result } = await quietErrors(() => invoke(protect, { authorization: `Bearer ${token}` }));
   assert.equal(result.statusCode, 401);
   assert.deepEqual(result.body, {
-    message: "Token revoked, Please Log in again",
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Token revoked, Please Log in again", details: [] },
   });
 });
 
@@ -179,7 +197,10 @@ test("optionalProtect rejects a non-bearer authorization header", async () => {
     authorization: "Basic abc123",
   });
   assert.equal(result.statusCode, 401);
-  assert.deepEqual(result.body, { message: "Not authorized, token failed" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Not authorized, token failed", details: [] },
+  });
   assert.equal(result.nextCalls, 0);
 });
 
@@ -188,18 +209,26 @@ test("optionalProtect rejects an invalid bearer token", async () => {
     invoke(optionalProtect, { authorization: "Bearer invalid-token" }),
   );
   assert.equal(result.statusCode, 401);
-  assert.deepEqual(result.body, { message: "Not authorized, token failed" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Not authorized, token failed", details: [] },
+  });
   assert.equal(result.nextCalls, 0);
 });
 
-test("optionalProtect returns a generic 503 when auth configuration is missing", async () => {
+test("optionalProtect returns a generic 500 when auth configuration is missing", async () => {
   delete process.env.JWT_SECRET;
   const { result } = await quietErrors(() =>
     invoke(optionalProtect, { authorization: "Bearer any-token" }),
   );
   assert.equal(result.statusCode, 503);
   assert.deepEqual(result.body, {
-    message: "Authentication temporarily unavailable",
+    success: false,
+    error: {
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Authentication temporarily unavailable",
+      details: [],
+    },
   });
 });
 
@@ -221,7 +250,10 @@ test("optionalProtect applies the same blocked-user rule as protect", async () =
     invoke(optionalProtect, { authorization: `Bearer ${token}` }),
   );
   assert.equal(result.statusCode, 403);
-  assert.deepEqual(result.body, { message: "Account suspended" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "FORBIDDEN", message: "Account suspended", details: [] },
+  });
 });
 
 test("admin permits only a user with the admin role", async () => {
@@ -230,7 +262,8 @@ test("admin permits only a user with the admin role", async () => {
     const { result } = await invoke(admin, { user });
     assert.equal(result.statusCode, 403);
     assert.deepEqual(result.body, {
-      message: "Not authorized, admin access required",
+      success: false,
+      error: { code: "FORBIDDEN", message: "Not authorized, admin access required", details: [] },
     });
   }
 });

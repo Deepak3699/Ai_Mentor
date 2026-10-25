@@ -63,7 +63,8 @@ test("validation failure does not log plaintext passwords or full request bodies
 
     assert.equal(res.status, 400);
     const body = await res.json();
-    assert.equal(body.message, "Validation failed");
+    assert.equal(body.success, false);
+    assert.equal(body.error.message, "Validation failed");
 
     // Check captured logs: secret password MUST NOT be logged
     const joinedLogs = loggedErrors.join("\n");
