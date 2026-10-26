@@ -320,7 +320,9 @@
     "status_ongoing": "進行中",
     "status_upcoming": "予定",
     "delete_task_confirm": "このタスクを削除してもよろしいですか？",
-    "task_exists_error": "この日付のタスクは既に存在します。"
+    "task_exists_error": "この日付のタスクは既に存在します。",
+    "hours_unit": "時間",
+    "this_week": "今週"
   },
   "discussions": {
     "title": "ディスカッション",

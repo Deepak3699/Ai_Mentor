@@ -320,7 +320,9 @@
     "status_ongoing": "Em andamento",
     "status_upcoming": "Próximo",
     "delete_task_confirm": "Tem certeza que deseja excluir esta tarefa?",
-    "task_exists_error": "Já existe uma tarefa para esta data."
+    "task_exists_error": "Já existe uma tarefa para esta data.",
+    "hours_unit": "h",
+    "this_week": "esta semana"
   },
   "discussions": {
     "title": "Discussões",

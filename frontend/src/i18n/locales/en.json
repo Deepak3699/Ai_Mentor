@@ -322,7 +322,9 @@
     "status_ongoing": "Ongoing",
     "status_upcoming": "Upcoming",
     "delete_task_confirm": "Are you sure you want to delete this task?",
-    "task_exists_error": "Task already exists for this date."
+    "task_exists_error": "Task already exists for this date.",
+    "hours_unit": "hrs",
+    "this_week": "this week"
   },
   "discussions": {
     "title": "Discussions",

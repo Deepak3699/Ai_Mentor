@@ -320,7 +320,9 @@
     "status_ongoing": "进行中",
     "status_upcoming": "即将到来",
     "delete_task_confirm": "您确定要删除此任务吗？",
-    "task_exists_error": "该日期的任务已存在。"
+    "task_exists_error": "该日期的任务已存在。",
+    "hours_unit": "小时",
+    "this_week": "本周"
   },
   "discussions": {
     "title": "讨论",

@@ -320,7 +320,9 @@
     "status_ongoing": "В процессе",
     "status_upcoming": "Предстоит",
     "delete_task_confirm": "Вы уверены, что хотите удалить эту задачу?",
-    "task_exists_error": "Задача на эту дату уже существует."
+    "task_exists_error": "Задача на эту дату уже существует.",
+    "hours_unit": "ч",
+    "this_week": "на этой неделе"
   },
   "discussions": {
     "title": "Обсуждения",

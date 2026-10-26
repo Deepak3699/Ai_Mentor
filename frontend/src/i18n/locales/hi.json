@@ -320,7 +320,9 @@
     "status_ongoing": "चल रहा है",
     "status_upcoming": "आगामी",
     "delete_task_confirm": "क्या आप वाकई इस कार्य को हटाना चाहते हैं?",
-    "task_exists_error": "इस तारीख के लिए कार्य पहले से मौजूद है।"
+    "task_exists_error": "इस तारीख के लिए कार्य पहले से मौजूद है।",
+    "hours_unit": "घंटे",
+    "this_week": "इस सप्ताह"
   },
   "discussions": {
     "title": "चर्चा",

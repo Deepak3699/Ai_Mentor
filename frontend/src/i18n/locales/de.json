@@ -320,7 +320,9 @@
     "status_ongoing": "Laufend",
     "status_upcoming": "Bevorstehend",
     "delete_task_confirm": "Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?",
-    "task_exists_error": "Aufgabe für dieses Datum existiert bereits."
+    "task_exists_error": "Aufgabe für dieses Datum existiert bereits.",
+    "hours_unit": "Std.",
+    "this_week": "diese Woche"
   },
   "discussions": {
     "title": "Diskussionen",
