@@ -963,17 +963,14 @@ def generate_lesson(
     ).strip().replace(" ", "_")
     topic_clean = topic_clean[:81]
     
-           if force:
+     if force:
             base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
-        else:
+     else:
             timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
             base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
 
         job_status[base_filename] = {"status": "processing"}
-        background_tasks.add_task(process_lesson, data, base_filename)
-    if not force and cache_key in generation_cache:
-        base_filename = generation_cache[cache_key]
-        existing_status = job_status.get(
+        background_tasks.add_task(process_lesson, data, base_filename)      
             base_filename,
             {"status": "processing"}
         )
