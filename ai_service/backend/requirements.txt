@@ -8,3 +8,6 @@ mutagen==1.48.1
 python-dotenv==1.2.4
 requests==2.34.2
 uvicorn==0.54.0
+   pytest
+   pytest-asyncio
+   httpx
