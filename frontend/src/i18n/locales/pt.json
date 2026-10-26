@@ -331,7 +331,9 @@
       "streak_description": "Aprendiz consistente",
       "certificate_title": "Primeiro certificado",
       "empty": "Conclua um curso ou estude por 3 dias seguidos para conquistar sua primeira conquista."
-    }
+    },
+    "hours_unit": "h",
+    "this_week": "esta semana"
   },
   "discussions": {
     "title": "Discussões",
