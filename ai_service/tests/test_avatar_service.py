@@ -187,3 +187,60 @@ def test_upload_audio_extracts_basename_from_windows_and_posix_paths(
     assert result == "https://media.test/audio.mp3"
     uploaded_filename = captured["files"]["audio"][0]
     assert uploaded_filename == expected_filename
+
+
+def test_awaitable_str_deleted():
+    """Verify AwaitableStr hack has been deleted entirely."""
+    assert not hasattr(avatar_service, "AwaitableStr")
+
+
+def test_create_avatar_video_is_coroutine_function_with_accurate_type_hints():
+    """Verify create_avatar_video is an async def coroutine function with accurate type hints."""
+    import inspect
+    from typing import get_type_hints
+
+    assert inspect.iscoroutinefunction(avatar_service.create_avatar_video)
+    hints = get_type_hints(avatar_service.create_avatar_video)
+    assert hints.get("audio_path") is str
+    assert hints.get("return") is str
+
+
+def test_create_avatar_video_returns_coroutine_not_str():
+    """Test asserting the coroutine is returned to be awaited, not an immediate str."""
+    import inspect
+
+    coro = avatar_service.create_avatar_video("voice.mp3")
+    assert inspect.iscoroutine(coro)
+    assert not isinstance(coro, str)
+    coro.close()
+
+
+@pytest.mark.asyncio
+async def test_create_avatar_video_awaited_in_running_event_loop_without_asyncio_run(monkeypatch):
+    """Verify create_avatar_video awaits successfully without invoking asyncio.run or blocking thread pools."""
+    monkeypatch.setattr(avatar_service, "DID_API_KEY", "user:pass")
+    monkeypatch.setattr(avatar_service, "DID_SOURCE_URL", "https://media.test/source.jpg")
+    monkeypatch.setattr(avatar_service, "upload_audio", lambda path: "https://media.test/audio.mp3")
+
+    def fail_if_asyncio_run(*args, **kwargs):
+        raise AssertionError("asyncio.run() must not be executed while an event loop is running")
+
+    monkeypatch.setattr(asyncio, "run", fail_if_asyncio_run)
+    monkeypatch.setattr(avatar_service.asyncio, "run", fail_if_asyncio_run)
+
+    monkeypatch.setattr(
+        avatar_service.requests,
+        "post",
+        lambda *args, **kwargs: FakeResponse(201, {"id": "talk-123"}),
+    )
+
+    async def fake_poll(talk_id: str) -> str:
+        assert talk_id == "talk-123"
+        return "https://media.test/avatar_result.mp4"
+
+    monkeypatch.setattr(avatar_service, "_poll_for_video", fake_poll)
+
+    result = await avatar_service.create_avatar_video("voice.mp3")
+    assert result == "https://media.test/avatar_result.mp4"
+    assert type(result) is str
+

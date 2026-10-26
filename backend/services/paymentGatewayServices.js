@@ -31,6 +31,12 @@ export const paymentGatewayServices = {
   createRazorpayOrder(options) {
     return getRazorpay().orders.create(options);
   },
+  fetchRazorpayPayment(paymentId) {
+    return getRazorpay().payments.fetch(paymentId);
+  },
+  fetchRazorpayOrder(orderId) {
+    return getRazorpay().orders.fetch(orderId);
+  },
   constructStripeWebhookEvent(payload, signature, secret) {
     return getStripe().webhooks.constructEvent(payload, signature, secret);
   },
