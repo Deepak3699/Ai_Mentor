@@ -23,6 +23,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import certificateRoutes from "./routes/certificateRoutes.js";
 import paymentRoutes from "./routes/payment.js";
 import razorpayRoutes from "./routes/razorpay.js";
+import webhookRoutes from "./routes/webhook.js";
 import preferenceRoutes from "./routes/preferenceRoutes.js";
 import contactUsRoutes from "./routes/contactus.js";
 import reportRoutes from "./routes/reportRoutes.js";
@@ -94,6 +95,10 @@ app.use(
   }),
 );
 
+// ================= STRIPE WEBHOOK (MUST BE BEFORE express.json) =================
+app.use("/api/stripe", webhookRoutes);
+app.use("/api/payment", webhookRoutes);
+
 // ================= MIDDLEWARE =================
 app.use(express.json({ limit: "100kb" }));
 
@@ -130,37 +135,11 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/assistant", assistantRoutes);
 app.use("/api/calendar", CalendarTaskRoutes);
 
+import { errorHandler, notFoundMiddleware } from "./middleware/errorMiddleware.js";
 // ================= 404 HANDLER =================
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Route not found: ${req.originalUrl}`,
-  });
-});
-
+app.use(notFoundMiddleware);
 // ================= GLOBAL ERROR HANDLER =================
-app.use((err, req, res, _next) => {
-  if (err.type === "entity.too.large") {
-    return res.status(413).json({
-      success: false,
-      message: "Payload Too Large",
-    });
-  }
-
-  if (err.type === "entity.parse.failed") {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid JSON",
-    });
-  }
-
-  console.error("🔥 Global Error:", err);
-
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || "Internal Server Error",
-  });
-});
+app.use(errorHandler);
 
 // ================= SERVER START =================
 const PORT = process.env.PORT || 5000;

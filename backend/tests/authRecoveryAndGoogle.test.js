@@ -121,7 +121,14 @@ test("forgot password clears reset fields when email delivery fails", async () =
   const { state, res } = response();
   await quietErrors(() => forgotPassword({ body: { email: user.email } }, res));
   assert.equal(state.statusCode, 500);
-  assert.deepEqual(state.body, { message: "Email could not be sent" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Internal Server Error",
+      details: [],
+    },
+  });
   assert.equal(user.resetPasswordToken, null);
   assert.equal(user.resetPasswordExpires, null);
   assert.equal(saves, 2);
@@ -131,7 +138,14 @@ test("reset password rejects an invalid or expired token", async () => {
   const { state, res } = response();
   await resetPassword({ params: { token: "invalid" }, body: { password: "NewPass1!" } }, res);
   assert.equal(state.statusCode, 400);
-  assert.deepEqual(state.body, { message: "Invalid or expired token" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "BAD_REQUEST",
+      message: "Invalid or expired token",
+      details: [],
+    },
+  });
 });
 
 test("reset password updates credentials, clears reset fields, and timestamps the change", async () => {
@@ -170,13 +184,27 @@ test("Google login rejects invalid tokens and unverified email", async () => {
   let outcome = response();
   await quietErrors(() => googleLogin({ body: { idToken: "bad" } }, outcome.res));
   assert.equal(outcome.state.statusCode, 401);
-  assert.deepEqual(outcome.state.body, { message: "Invalid Google token" });
+  assert.deepEqual(outcome.state.body, {
+    success: false,
+    error: {
+      code: "UNAUTHORIZED",
+      message: "Invalid Google token",
+      details: [],
+    },
+  });
 
   authServices.verifyGoogleIdToken = async () => ({ email_verified: false });
   outcome = response();
   await googleLogin({ body: { idToken: "valid" } }, outcome.res);
   assert.equal(outcome.state.statusCode, 401);
-  assert.deepEqual(outcome.state.body, { message: "Google email not verified" });
+  assert.deepEqual(outcome.state.body, {
+    success: false,
+    error: {
+      code: "UNAUTHORIZED",
+      message: "Google email not verified",
+      details: [],
+    },
+  });
 });
 
 test("Google login rejects a blocked existing user", async () => {
@@ -190,7 +218,14 @@ test("Google login rejects a blocked existing user", async () => {
   const { state, res } = response();
   await googleLogin({ body: { idToken: "valid" } }, res);
   assert.equal(state.statusCode, 403);
-  assert.deepEqual(state.body, { message: "Account suspended" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "FORBIDDEN",
+      message: "Account suspended",
+      details: [],
+    },
+  });
 });
 
 test("Google login creates a new user and rehosts the avatar through the isolated service", async () => {
