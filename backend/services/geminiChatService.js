@@ -21,6 +21,38 @@ const getAIClient = () => {
   return aiClient;
 };
 
+const BLOCKED_FINISH_REASONS = new Set([
+  "SAFETY",
+  "RECITATION",
+  "BLOCKLIST",
+  "PROHIBITED_CONTENT",
+]);
+
+const MODERATION_REPLY =
+  "I can help you explore this topic in a safe, educational way. Please try rephrasing your question.";
+
+const EMPTY_RESPONSE_REPLY =
+  "The AI Assistant couldn't generate a response. Please try again.";
+
+export const getGeminiReply = (response) => {
+  const finishReasons = (response?.candidates ?? [])
+    .map((candidate) => candidate?.finishReason)
+    .filter(Boolean);
+
+  if (finishReasons.some((reason) => BLOCKED_FINISH_REASONS.has(reason))) {
+    return MODERATION_REPLY;
+  }
+
+  try {
+    const text = response?.text;
+    return typeof text === "string" && text.trim()
+      ? text
+      : EMPTY_RESPONSE_REPLY;
+  } catch {
+    return EMPTY_RESPONSE_REPLY;
+  }
+};
+
 export const askGemini = async (context, message) => {
   // Check for missing or placeholder API key
   const apiKey = process.env.GEMINI_API_KEY;
@@ -69,7 +101,7 @@ Rules:
       contents: message,
     });
 
-    return response.text;
+    return getGeminiReply(response);
   } catch (error) {
     console.error("Gemini API error:", error);
 

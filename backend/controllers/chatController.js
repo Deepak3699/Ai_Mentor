@@ -51,6 +51,22 @@ export const getChatContext = async (req, res, next) => {
   }
 };
 
+export const parseGeminiReply = (geminiReply) => {
+  const reply = typeof geminiReply === "string" ? geminiReply : "";
+  const routeMatch = reply.match(/ROUTE:([^\r\n]*)/i);
+  const route = routeMatch ? routeMatch[1].trim() : null;
+  const cleanedReply = reply.replace(/ROUTE:[^\r\n]*/gi, "").trim();
+
+  return {
+    reply:
+      cleanedReply ||
+      (route
+        ? "I can take you to that page."
+        : "I couldn't generate a response. Please try asking in a different way."),
+    route,
+  };
+};
+
 export const chatWithAssistant = async (req, res, next) => {
   try {
     const { message } = req.body;
@@ -230,23 +246,15 @@ export const chatWithAssistant = async (req, res, next) => {
 
     const geminiReply = await askGemini(context, message);
 
-    // Check if Gemini returned a route
-    let route = null;
-
-    const routeMatch = geminiReply.match(/ROUTE:([^\r\n]*)/i);
-
-    if (routeMatch) {
-      const requestedRoute = routeMatch[1].trim();
-      if (Object.values(APP_ROUTES).includes(requestedRoute)) {
-        route = requestedRoute;
-      }
-    }
-
-    // Remove ROUTE from visible message
-    const cleanedReply = geminiReply.replace(/ROUTE:[^\r\n]*/gi, "").trim();
+    const parsedReply = parseGeminiReply(geminiReply);
+    const requestedRoute = parsedReply.route;
+    const route =
+      requestedRoute && Object.values(APP_ROUTES).includes(requestedRoute)
+        ? requestedRoute
+        : null;
 
     return res.json({
-      reply: cleanedReply,
+      ...parsedReply,
       route,
     });
   } catch (error) {
