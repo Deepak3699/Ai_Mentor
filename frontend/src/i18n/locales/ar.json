@@ -331,7 +331,9 @@
       "streak_description": "متعلم مستمر",
       "certificate_title": "الشهادة الأولى",
       "empty": "أكمل دورة أو تعلّم لمدة 3 أيام متتالية لتحصل على إنجازك الأول."
-    }
+    },
+    "hours_unit": "ساعة",
+    "this_week": "هذا الأسبوع"
   },
   "discussions": {
     "title": "النقاشات",

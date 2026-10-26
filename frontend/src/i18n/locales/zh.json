@@ -331,7 +331,9 @@
       "streak_description": "坚持学习",
       "certificate_title": "首张证书",
       "empty": "完成一门课程或连续学习3天，即可获得你的第一个成就。"
-    }
+    },
+    "hours_unit": "小时",
+    "this_week": "本周"
   },
   "discussions": {
     "title": "讨论",

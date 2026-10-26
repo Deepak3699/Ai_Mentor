@@ -331,7 +331,9 @@
       "streak_description": "継続して学習",
       "certificate_title": "初めての修了証",
       "empty": "最初の実績を獲得するには、コースを修了するか、3日連続で学習してください。"
-    }
+    },
+    "hours_unit": "時間",
+    "this_week": "今週"
   },
   "discussions": {
     "title": "ディスカッション",
