@@ -6,7 +6,8 @@ process.env.NODE_ENV = "test";
 const { default: User } = await import("../models/User.js");
 const { default: Preference } = await import("../models/Preference.js");
 const { default: Course } = await import("../models/Course.js");
-const { getChatContext, chatWithAssistant, parseGeminiReply } = await import("../controllers/chatController.js");
+const { getChatContext, chatWithAssistant, parseGeminiReply } =
+  await import("../controllers/chatController.js");
 const { getCertificates, generateCertificate } =
   await import("../controllers/certificateController.js");
 
@@ -270,7 +271,6 @@ test("completed course generation returns a downloadable PDF", async () => {
   assert.ok(Buffer.isBuffer(state.sent));
   assert.equal(state.sent.subarray(0, 5).toString("ascii"), "%PDF-");
 });
-
 
 test("route-only Gemini replies include a visible fallback and preserve the route", () => {
   assert.deepEqual(parseGeminiReply("ROUTE:/settings"), {

@@ -21,18 +21,12 @@ const getAIClient = () => {
   return aiClient;
 };
 
-const BLOCKED_FINISH_REASONS = new Set([
-  "SAFETY",
-  "RECITATION",
-  "BLOCKLIST",
-  "PROHIBITED_CONTENT",
-]);
+const BLOCKED_FINISH_REASONS = new Set(["SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT"]);
 
 const MODERATION_REPLY =
   "I can help you explore this topic in a safe, educational way. Please try rephrasing your question.";
 
-const EMPTY_RESPONSE_REPLY =
-  "The AI Assistant couldn't generate a response. Please try again.";
+const EMPTY_RESPONSE_REPLY = "The AI Assistant couldn't generate a response. Please try again.";
 
 export const getGeminiReply = (response) => {
   const finishReasons = (response?.candidates ?? [])
@@ -45,9 +39,7 @@ export const getGeminiReply = (response) => {
 
   try {
     const text = response?.text;
-    return typeof text === "string" && text.trim()
-      ? text
-      : EMPTY_RESPONSE_REPLY;
+    return typeof text === "string" && text.trim() ? text : EMPTY_RESPONSE_REPLY;
   } catch {
     return EMPTY_RESPONSE_REPLY;
   }

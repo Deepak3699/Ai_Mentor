@@ -249,9 +249,7 @@ export const chatWithAssistant = async (req, res, next) => {
     const parsedReply = parseGeminiReply(geminiReply);
     const requestedRoute = parsedReply.route;
     const route =
-      requestedRoute && Object.values(APP_ROUTES).includes(requestedRoute)
-        ? requestedRoute
-        : null;
+      requestedRoute && Object.values(APP_ROUTES).includes(requestedRoute) ? requestedRoute : null;
 
     return res.json({
       ...parsedReply,

@@ -14,7 +14,6 @@ test("Gemini service returns an offline message when its key is absent", async (
   );
 });
 
-
 test("Gemini safety blocks return a safe educational message without reading response text", () => {
   const response = {
     candidates: [{ finishReason: "SAFETY" }],
