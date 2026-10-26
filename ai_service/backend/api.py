@@ -962,17 +962,11 @@ def generate_lesson(
         r'[^\w\s-]', '', data.topic
     ).strip().replace(" ", "_")
     topic_clean = topic_clean[:81]
-    
-     if force:
-            base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
-     else:
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-            base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
-
-        job_status[base_filename] = {"status": "processing"}
-        background_tasks.add_task(process_lesson, data, base_filename)      
+       if not force and cache_key in generation_cache:
+        base_filename = generation_cache[cache_key]
+        existing_status = job_status.get(
             base_filename,
-            {"status": "processing"}
+            {"status": "processing"},
         )
 
         return {
@@ -984,8 +978,14 @@ def generate_lesson(
             "cached": True,
         }
 
-    topic_clean = re.sub(
-        r'[^\w\s-]', '', data.topic
+    if force:
+        base_filename = f"{topic_clean}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')}_{uuid.uuid4().hex[:8]}"
+    else:
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
+
+    job_status[base_filename] = {"status": "processing"}
+    background_tasks.add_task(process_lesson, data, base_filename)
     ).strip().replace(" ", "_")[:81]
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
