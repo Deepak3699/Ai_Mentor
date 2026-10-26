@@ -211,8 +211,31 @@ jobs:
   lint-backend-admin:
     name: Lint backendAdmin
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: backend_admin_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d backend_admin_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v7
+
+      - name: Configure PostgreSQL rollback test
+        shell: bash
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: backend_admin_test
+        run: |
+          printf 'TEST_DATABASE_URL=postgresql://%s:%s@localhost:5432/%s\n' \
+            "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v7
         with:
@@ -231,6 +254,10 @@ jobs:
       - name: Run tests
         working-directory: backendAdmin
         run: npm test
+
+      - name: Run PostgreSQL rollback integration test
+        working-directory: backendAdmin
+        run: npm run test:postgres-rollback
 
   # ─────────────────────────────────────────────────────────────
   # AI SERVICE (Python + FastAPI, port 8000)

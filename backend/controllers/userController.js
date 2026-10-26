@@ -12,6 +12,15 @@ import { createNotification } from "./notificationController.js";
 import { Course } from "../models/modelAssociations.js";
 import Payment from "../models/Payment.js";
 import { sequelize } from "../config/db.js";
+import {
+  AppError,
+  BadRequestError,
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  UnauthorizedError,
+  forwardError,
+} from "../utils/error.js";
 
 // Generate JWT Token
 const generateToken = (id) => {
@@ -25,14 +34,14 @@ const generateToken = (id) => {
 };
 
 // @desc Register user
-const registerUser = async (req, res) => {
+const registerUser = async (req, res, next) => {
   try {
     const { firstName, lastName, email, password } = req.body;
     const name = `${firstName} ${lastName}`.trim();
 
     const userExists = await User.findOne({ where: { email } });
     if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
+      return forwardError(next, res, new ConflictError("User already exists"));
     }
 
     const user = await User.create({
@@ -59,21 +68,31 @@ const registerUser = async (req, res) => {
     });
   } catch (error) {
     console.error("REGISTER ERROR:", error.message);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // Centralized logic moved to userUtils.js
 
 // @desc Login user
-const loginUser = async (req, res) => {
+const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
     const user = await User.findOne({ where: { email } });
 
     if (!user || !(await user.matchPassword(password))) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      return forwardError(next, res, new UnauthorizedError("Invalid credentials"));
     }
 
     // ✅ Run completeness check on every login
@@ -98,33 +117,43 @@ const loginUser = async (req, res) => {
     });
   } catch (error) {
     console.error("LOGIN ERROR:", error.message);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc Change Password
-const changePassword = async (req, res) => {
+const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
 
     const user = await User.findByPk(req.user.id);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return forwardError(next, res, new NotFoundError("User not found"));
     }
 
     if (!user.password) {
-      return res.status(400).json({ message: "Password is not set for this account" });
+      return forwardError(next, res, new BadRequestError("Password is not set for this account"));
     }
 
     const isMatch = await user.matchPassword(currentPassword);
 
     if (!isMatch) {
-      return res.status(400).json({ message: "Current password incorrect" });
+      return forwardError(next, res, new BadRequestError("Current password incorrect"));
     }
 
     user.password = newPassword;
@@ -135,19 +164,29 @@ const changePassword = async (req, res) => {
     res.json({ message: "Password updated successfully" });
   } catch (error) {
     console.error("CHANGE PASSWORD ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc Get profile
-const getUserProfile = async (req, res) => {
+const getUserProfile = async (req, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
 
     const user = await User.findByPk(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return forwardError(next, res, new NotFoundError("User not found"));
 
     res.json({
       id: user.id,
@@ -166,30 +205,40 @@ const getUserProfile = async (req, res) => {
     });
   } catch (error) {
     console.error("PROFILE ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc Enroll in a free course (paid courses require a completed payment)
-const purchaseCourse = async (req, res) => {
+const purchaseCourse = async (req, res, next) => {
   try {
-    if (!req.user) return res.status(401).json({ message: "Not authorized" });
+    if (!req.user) return forwardError(next, res, new UnauthorizedError("Not authorized"));
 
     const { courseId } = req.body;
     const normalizedCourseId = Number(courseId);
 
     if (!courseId || !Number.isInteger(normalizedCourseId)) {
-      return res.status(400).json({ message: "Course ID is required" });
+      return forwardError(next, res, new BadRequestError("Course ID is required"));
     }
 
     // Load the authoritative course record — never trust client-supplied data.
     const course = await Course.findByPk(normalizedCourseId);
     if (!course || course.status === "deleted") {
-      return res.status(404).json({ message: "Course not found" });
+      return forwardError(next, res, new NotFoundError("Course not found"));
     }
 
     if (course.status !== "published") {
-      return res.status(403).json({ message: "This course is not currently available." });
+      return forwardError(next, res, new ForbiddenError("This course is not currently available."));
     }
 
     const isPaid = Number(course.priceValue || 0) > 0;
@@ -209,7 +258,7 @@ const purchaseCourse = async (req, res) => {
 
       if (!user) {
         await transaction.rollback();
-        return res.status(404).json({ message: "User not found" });
+        return forwardError(next, res, new NotFoundError("User not found"));
       }
 
       purchasedCourses = user.purchasedCourses || [];
@@ -221,7 +270,7 @@ const purchaseCourse = async (req, res) => {
 
       if (alreadyPurchased) {
         await transaction.rollback();
-        return res.status(400).json({ message: "Already enrolled" });
+        return forwardError(next, res, new ConflictError("Already enrolled"));
       }
 
       // Paid courses may only be enrolled once a payment has completed successfully.
@@ -233,9 +282,13 @@ const purchaseCourse = async (req, res) => {
 
         if (!completedPayment) {
           await transaction.rollback();
-          return res.status(403).json({
-            message: "Payment required. Please complete payment before enrolling in this course.",
-          });
+          return forwardError(
+            next,
+            res,
+            new ForbiddenError(
+              "Payment required. Please complete payment before enrolling in this course.",
+            ),
+          );
         }
       }
 
@@ -284,17 +337,27 @@ const purchaseCourse = async (req, res) => {
     });
   } catch (error) {
     console.error("PURCHASE ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc Update progress
-const updateCourseProgress = async (req, res) => {
+const updateCourseProgress = async (req, res, next) => {
   try {
-    if (!req.user) return res.status(401).json({ message: "Not authorized" });
+    if (!req.user) return forwardError(next, res, new UnauthorizedError("Not authorized"));
 
     const user = await User.findByPk(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return forwardError(next, res, new NotFoundError("User not found"));
 
     const { courseId, lessonData, currentLesson, completedLesson } = req.body;
 
@@ -350,16 +413,26 @@ const updateCourseProgress = async (req, res) => {
     });
   } catch (error) {
     console.error("PROGRESS ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
-const getWatchedVideos = async (req, res) => {
+const getWatchedVideos = async (req, res, next) => {
   try {
     const user = await User.findByPk(req.user.id);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return forwardError(next, res, new NotFoundError("User not found"));
     }
 
     const courses = user.purchasedCourses || [];
@@ -442,33 +515,53 @@ const getWatchedVideos = async (req, res) => {
     });
   } catch (error) {
     console.error("Failed to fetch watched videos:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
-const getUserSettings = async (req, res) => {
+const getUserSettings = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
     const user = await User.findByPk(userId);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return forwardError(next, res, new NotFoundError("User not found"));
     }
 
     res.json(user.settings);
   } catch (error) {
     console.error("Failed to fetch settings:", error);
-    res.status(500).json({ message: "Failed to fetch settings" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to fetch settings",
+      ),
+    );
   }
 };
 
-const updateUserSettings = async (req, res) => {
+const updateUserSettings = async (req, res, next) => {
   try {
     const user = await User.findByPk(req.user.id);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return forwardError(next, res, new NotFoundError("User not found"));
     }
 
     const { notifications, security, appearance } = req.body;
@@ -492,18 +585,28 @@ const updateUserSettings = async (req, res) => {
     });
   } catch (error) {
     console.error("Failed to update settings:", error);
-    res.status(500).json({ message: "Failed to update settings" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to update settings",
+      ),
+    );
   }
 };
 
-const removeProfileAvatar = async (req, res) => {
+const removeProfileAvatar = async (req, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
     const user = await User.findByPk(req.user.id);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return forwardError(next, res, new NotFoundError("User not found"));
     }
 
     const previousAvatar = user.avatar_url;
@@ -512,7 +615,7 @@ const removeProfileAvatar = async (req, res) => {
       const uploadRoot = path.resolve("uploads");
       const avatarPath = path.resolve(uploadRoot, filename);
       if (path.dirname(avatarPath) !== uploadRoot) {
-        return res.status(400).json({ message: "Invalid avatar path" });
+        return forwardError(next, res, new BadRequestError("Invalid avatar path"));
       }
       try {
         await fs.promises.unlink(avatarPath);
@@ -539,19 +642,29 @@ const removeProfileAvatar = async (req, res) => {
     });
   } catch (error) {
     console.error("REMOVE PROFILE AVATAR ERROR:", error);
-    return res.status(500).json({ message: "Failed to remove profile photo" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to remove profile photo",
+      ),
+    );
   }
 };
 
-const updateUserProfile = async (req, res) => {
+const updateUserProfile = async (req, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
 
     const user = await User.findByPk(req.user.id);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return forwardError(next, res, new NotFoundError("User not found"));
     }
 
     // Avatar Upload Handling
@@ -574,9 +687,7 @@ const updateUserProfile = async (req, res) => {
         if (req.file?.path) {
           fs.unlink(req.file.path, () => {});
         }
-        return res.status(400).json({
-          message: "Email already in use",
-        });
+        return forwardError(next, res, new ConflictError("Email already in use"));
       }
       user.email = req.body.email.trim().toLowerCase();
     }
@@ -603,17 +714,27 @@ const updateUserProfile = async (req, res) => {
       fs.unlink(req.file.path, () => {});
     }
     console.error("UPDATE PROFILE ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // DEV / ADMIN ONLY
-const removePurchasedCourse = async (req, res) => {
+const removePurchasedCourse = async (req, res, next) => {
   try {
     const { courseId } = req.body;
 
     const user = await User.findByPk(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return forwardError(next, res, new NotFoundError("User not found"));
 
     user.purchasedCourses = user.purchasedCourses.filter(
       (c) => Number(c.courseId) !== Number(courseId),
@@ -624,12 +745,22 @@ const removePurchasedCourse = async (req, res) => {
     res.json({ message: "Course removed successfully" });
   } catch (error) {
     console.error("REMOVE COURSE ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // Delete User Account
-const deleteAccount = async (req, res) => {
+const deleteAccount = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
@@ -663,16 +794,26 @@ const deleteAccount = async (req, res) => {
     });
   } catch (error) {
     console.error("Delete Account Error", error);
-    res.status(500).json({ message: "Failed to delete account" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to delete account",
+      ),
+    );
   }
 };
 // Complete first-time user profile onboarding
 // Google users: firstName, lastName, password (required), bio, avatar
 // Email users: bio, avatar
-const completeProfile = async (req, res) => {
+const completeProfile = async (req, res, next) => {
   try {
     const user = await User.findByPk(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return forwardError(next, res, new NotFoundError("User not found"));
 
     // Prevent re-completion for already completed profiles
     if (user.isProfileComplete) {
@@ -711,7 +852,7 @@ const completeProfile = async (req, res) => {
     if (bio && bio.trim().length > 0) {
       user.bio = bio;
     } else if (!user.bio || user.bio.trim().length === 0) {
-      return res.status(400).json({ message: "Bio is required" });
+      return forwardError(next, res, new BadRequestError("Bio is required"));
     }
 
     // Avatar upload via Cloudinary (required if not already set)
@@ -719,9 +860,7 @@ const completeProfile = async (req, res) => {
     if (req.file) {
       user.avatar_url = `/uploads/${req.file.filename}`;
     } else if (!user.avatar_url) {
-      return res.status(400).json({
-        message: "Profile photo is required",
-      });
+      return forwardError(next, res, new BadRequestError("Profile photo is required"));
     }
 
     user.isProfileComplete = true; // Temporary flag to trigger save check
@@ -736,10 +875,15 @@ const completeProfile = async (req, res) => {
       if (!user.avatar_url) missingFields.push("Profile Photo");
       if (user.googleId && !user.password) missingFields.push("Password");
 
-      return res.status(400).json({
-        message: `Profile is still incomplete. Missing: ${missingFields.join(", ")}`,
-        missingFields,
-      });
+      return forwardError(
+        next,
+        res,
+        new BadRequestError(
+          `Profile is still incomplete. Missing: ${missingFields.join(", ")}`,
+          null,
+          [{ field: "profile", message: `Missing: ${missingFields.join(", ")}` }],
+        ),
+      );
     }
 
     res.json({
@@ -759,12 +903,17 @@ const completeProfile = async (req, res) => {
     });
   } catch (error) {
     console.error("COMPLETE PROFILE ERROR:", error);
-
-    res.status(500).json({
-      success: false,
-      message: error.message,
-      error: error,
-    });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
