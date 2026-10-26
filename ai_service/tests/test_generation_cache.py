@@ -39,7 +39,10 @@ def make_request(**overrides):
         "gender": "male",
         "speech_rate": "+0%",
         "speech_pitch": "+0Hz",
-        "preferences": {"style": "concise", "captions": True},
+        "preferences": {
+            "explanation_type": "concise",
+            "focus_area": "asyncio",
+        },
     }
     values.update(overrides)
     return api.LessonRequest(**values)
@@ -60,10 +63,20 @@ def test_identical_requests_reuse_cached_job():
 
 def test_nested_preferences_are_canonicalized_for_cache_key():
     first = generate(
-        make_request(preferences={"style": "concise", "captions": True})
+        make_request(
+            preferences={
+                "explanation_type": "concise",
+                "focus_area": "asyncio",
+            }
+        )
     )
     second = generate(
-        make_request(preferences={"captions": True, "style": "concise"})
+        make_request(
+            preferences={
+                "focus_area": "asyncio",
+                "explanation_type": "concise",
+            }
+        )
     )
 
     assert second["cached"] is True
@@ -77,7 +90,12 @@ def test_nested_preferences_are_canonicalized_for_cache_key():
         {"gender": "female"},
         {"speech_rate": "+15%"},
         {"speech_pitch": "+5Hz"},
-        {"preferences": {"style": "detailed", "captions": True}},
+        {
+            "preferences": {
+                "explanation_type": "detailed",
+                "focus_area": "asyncio",
+            }
+        },
     ],
 )
 def test_output_affecting_options_create_distinct_jobs(change):
@@ -140,81 +158,31 @@ def test_force_regeneration_does_not_replace_normal_cache_entry():
     assert cached["jobId"] == normal["jobId"]
 
 
-def generate_with_tasks(req, force=False):
-    tasks = BackgroundTasks()
-    result = api.generate_lesson(req, tasks, force=force)
-    return result, tasks
+def test_long_topic_truncates_base_filename_and_cache():
+    long_topic = "A" * 200
+    req = make_request(topic=long_topic)
 
+    # First request: generates a new job and filename
+    result = generate(req)
+    assert result["cached"] is False
 
-@pytest.fixture(autouse=True)
-def clear_active_jobs():
-    api.active_jobs.clear()
-    yield
-    api.active_jobs.clear()
+    job_id = result["jobId"]
+    assert job_id.startswith("A" * 81 + "_")
+    assert not job_id.startswith("A" * 82)
+    assert len(job_id) == 113
+    assert result["filename"] == f"{job_id}.mp4"
 
+    # Cached request: reuses the truncated base_filename
+    cached_result = generate(req)
+    assert cached_result["cached"] is True
+    assert cached_result["jobId"] == job_id
+    assert cached_result["filename"] == f"{job_id}.mp4"
 
-def test_same_request_returns_cached_job():
-    first, _ = generate_with_tasks(make_request())
-    second, _ = generate_with_tasks(make_request())
+    # Forced regeneration: also produces truncated filename
+    forced_result = api.generate_lesson(req, BackgroundTasks(), force=True)
+    assert forced_result["cached"] is False
+    assert forced_result["jobId"] != job_id
+    assert forced_result["jobId"].startswith("A" * 81 + "_")
+    assert not forced_result["jobId"].startswith("A" * 82)
+    assert len(forced_result["jobId"]) == 113
 
-    assert first["cached"] is False
-    assert second["cached"] is True
-    assert second["jobId"] == first["jobId"]
-    assert second["filename"] == first["filename"]
-
-
-def test_cache_hit_does_not_queue_new_task():
-    _, first_tasks = generate_with_tasks(make_request())
-    _, second_tasks = generate_with_tasks(make_request())
-
-    assert len(first_tasks.tasks) == 1
-    assert len(second_tasks.tasks) == 0
-    assert len(api.job_status) == 1
-
-
-def test_different_topic_gets_new_job():
-    first, _ = generate_with_tasks(make_request())
-    second, _ = generate_with_tasks(make_request(topic="Another topic"))
-
-    assert second["cached"] is False
-    assert second["jobId"] != first["jobId"]
-
-
-def test_different_preferences_get_new_job():
-    first, _ = generate_with_tasks(make_request())
-    second, _ = generate_with_tasks(
-        make_request(preferences={"style": "detailed", "captions": False})
-    )
-
-    assert second["cached"] is False
-    assert second["jobId"] != first["jobId"]
-
-
-def test_force_bypasses_cache_and_keeps_original_cache_entry():
-    first, _ = generate_with_tasks(make_request())
-    forced, forced_tasks = generate_with_tasks(make_request(), force=True)
-
-    assert forced["cached"] is False
-    assert forced["jobId"] != first["jobId"]
-    assert len(forced_tasks.tasks) == 1
-
-    # A later normal request still hits the original cached job.
-    again, _ = generate_with_tasks(make_request())
-    assert again["cached"] is True
-    assert again["jobId"] == first["jobId"]
-
-
-def test_cached_response_reflects_current_job_status():
-    first, _ = generate_with_tasks(make_request())
-    api.job_status[first["jobId"]]["status"] = "completed"
-
-    second, _ = generate_with_tasks(make_request())
-
-    assert second["cached"] is True
-    assert second["status"] == "Completed"
-
-
-def test_job_id_is_sanitized_from_topic():
-    result, _ = generate_with_tasks(make_request(topic="Hello, World! #1"))
-
-    assert result["jobId"].startswith("Hello_World_1_")

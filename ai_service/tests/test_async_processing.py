@@ -147,7 +147,7 @@ def test_did_video_is_normalized_before_delivery():
 
     with patch.object(api.gemini_client.models, "generate_content", return_value=mock_gemini_resp), \
          patch("api.generate_tts", new_callable=AsyncMock), \
-         patch("api.create_avatar_video", return_value="https://example.test/avatar.mp4"), \
+         patch("api.create_avatar_video", return_value="https://example.test/avatar.mp4") as mock_avatar, \
          patch("api.requests.get", return_value=mock_response), \
          patch("os.path.exists", return_value=True), \
          patch("os.remove"), \
@@ -157,6 +157,7 @@ def test_did_video_is_normalized_before_delivery():
          patch("api.probe_video_metadata", return_value={"width": 1280, "height": 720}):
         asyncio.run(process_lesson(req, base_filename))
 
+    mock_avatar.assert_awaited_once()
     mock_exec.assert_called_once()
     args = mock_exec.call_args.args
     assert args[0] == "ffmpeg"
@@ -164,3 +165,8 @@ def test_did_video_is_normalized_before_delivery():
     assert "0:a?" in args
     assert "-filter_complex" in args
     assert job_status[base_filename]["meta"]["renderer"] == "did"
+
+
+def test_create_avatar_video_is_coroutine_function():
+    """Verify that create_avatar_video is defined as an async coroutine function in api."""
+    assert inspect.iscoroutinefunction(api.create_avatar_video)

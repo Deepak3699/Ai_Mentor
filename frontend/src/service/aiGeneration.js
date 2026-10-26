@@ -21,7 +21,10 @@ export const createAbortError = () => {
 export const classifyGenerationError = (error) => {
   if (error instanceof AIGenerationError) return error;
   if (isAbortError(error)) return error;
-  if (error instanceof TypeError || /network|fetch failed|offline/i.test(error?.message || "")) {
+  if (
+    error instanceof TypeError ||
+    /network|fetch failed|failed to fetch|offline/i.test(error?.message || "")
+  ) {
     return new AIGenerationError(
       "connectivity",
       "We couldn't connect to the AI service. Check your connection and try again.",
