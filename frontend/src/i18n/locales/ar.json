@@ -275,6 +275,14 @@
     "progress_lessons": "التقدم",
     "welcome_back_user": "مرحباً بعودتك، {{name}}!",
     "analytics_subtitle": "إليك تقدمك في التعلم والمهام القادمة",
+    "units": {
+      "day_one": "يوم",
+      "day_other": "{{count}} أيام",
+      "course_one": "دورة",
+      "course_other": "{{count}} دورات",
+      "certificate_one": "شهادة",
+      "certificate_other": "{{count}} شهادات"
+    },
     "enrolled_courses": "الدورات المسجلة",
     "attendance_rate": "معدل الحضور",
     "current_streak_label": "سلسلة النشاط الحالية",
