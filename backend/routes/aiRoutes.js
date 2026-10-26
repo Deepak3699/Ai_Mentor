@@ -3,6 +3,7 @@ import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
 import { generateVideoSchema, explainCodeSchema } from "../schemas/aiSchema.js";
+import { aiVideoLimiter } from "../middleware/rateLimiter.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
 import { getVideoQueue } from "../queues/videoQueue.js";
@@ -20,7 +21,7 @@ const hasCourseAccess = (user, courseId) => {
   );
 };
 
-router.post("/generate-video", protect, validate(generateVideoSchema), async (req, res) => {
+router.post("/generate-video", protect, aiVideoLimiter, validate(generateVideoSchema), async (req, res) => {
   let aiVideo;
 
   try {
