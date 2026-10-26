@@ -77,3 +77,7 @@ ai_service/.venv/
 
 # Update plan
 update.md
+
+.venv2/
+.venv/
+pytest_out.txt
