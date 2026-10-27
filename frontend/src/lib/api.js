@@ -1,4 +1,5 @@
 import axios from "axios";
+import { normalizeApiError } from "./errorHandling.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 export const SESSION_EXPIRED_EVENT = "auth:session-expired";
@@ -33,7 +34,14 @@ export const apiFetch = async (url, options = {}) => {
   if (typeof options.body === "string" && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  const response = await window.fetch(target, { ...options, headers });
+
+  let response;
+  try {
+    response = await window.fetch(target, { ...options, headers });
+  } catch (error) {
+    throw normalizeApiError(error);
+  }
+
   if (response.status === 401) {
     handleUnauthorized(target, headers.get("Authorization"));
   }

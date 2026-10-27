@@ -1,44 +1,97 @@
+
 import buildLogger from "../utils/logger.js";
+import fs from "fs";
+import { AppError, ValidationError } from "../utils/error.js";
 
-// Use structured logger and redact sensitive fields before logging.
-// prodRedactPaths lists keys (passwords, tokens) to redact from request bodies on validation failures.
-
-const prodRedactPaths = [
+export const prodRedactPaths = [
   "*.newPassword",
   "*.password",
   "*.currentPassword",
   "*.oldPassword",
   "*.idToken",
 ];
+
 const log = buildLogger("VALIDATE", prodRedactPaths);
 
 const validate = (schema) => (req, res, next) => {
   if (!schema) {
-    log.error("Validation Error: No schema provided to validate middleware");
-    return res.status(500).json({ message: "Internal Server Error: No schema provided" });
+    log.error("No schema provided to validate middleware");
+
+    const error = new AppError(
+      "Internal Server Error: No schema provided",
+      500,
+      "INTERNAL_SERVER_ERROR",
+      [],
+      "No schema provided to validate middleware",
+    );
+
+    return res.status(error.statusCode).json({
+      success: false,
+      error: {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      },
+    });
   }
+
   try {
     const validationResult = schema.safeParse(req.body);
-    if (!validationResult.success) {
-      const issues = validationResult.error.issues;
-      log.error({ req_body: req.body, issues }, "Validation Failed :");
 
-      return res.status(400).json({
-        message: "Validation failed",
-        errors: issues.map((err) => ({
-          path: err.path.join("."),
-          message: err.message,
-        })),
+    if (!validationResult.success) {
+      if (req.file?.path) {
+        fs.unlink(req.file.path, () => {});
+      }
+
+      const details = validationResult.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      }));
+
+      log.error({ issues: details }, "Validation failed");
+
+      const error = new ValidationError(
+        details,
+        "Validation failed",
+      );
+
+      return res.status(error.statusCode).json({
+        success: false,
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+        },
       });
     }
-    next();
+
+    return next();
   } catch (error) {
-    log.error({ err: error }, "Validation Middleware Internal Error ");
-    return res.status(500).json({
-      message: "Internal Server Error during validation",
-      details: error.message || "Unknown error",
+    if (req.file?.path) {
+      fs.unlink(req.file.path, () => {});
+    }
+
+    log.error({ err: error }, "Validation middleware internal error");
+
+    const appError = new AppError(
+      "Internal Server Error during validation",
+      500,
+      "INTERNAL_SERVER_ERROR",
+      process.env.NODE_ENV !== "production"
+        ? [error?.message || "Unknown validation error"]
+        : [],
+      error?.message || "Unknown validation error",
+    );
+
+    return res.status(appError.statusCode).json({
+      success: false,
+      error: {
+        code: appError.code,
+        message: appError.message,
+        details: appError.details,
+      },
     });
   }
 };
-export { prodRedactPaths };
+
 export default validate;

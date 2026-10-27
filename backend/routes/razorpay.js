@@ -5,6 +5,7 @@ import { Transaction } from "sequelize";
 
 import User from "../models/User.js";
 import Payment from "../models/Payment.js";
+import Course from "../models/Course.js";
 import { sequelize } from "../config/db.js";
 import { createNotification } from "../controllers/notificationController.js";
 import { protect } from "../middleware/authMiddleware.js";
@@ -42,59 +43,81 @@ const paymentLimiter = rateLimit({
 
 router.post("/create-order", protect, paymentLimiter, async (req, res) => {
   try {
-    const { course, idempotencyKey } = req.body;
+    const { course, courseId: bodyCourseId, idempotencyKey } = req.body;
+    const targetCourseId = bodyCourseId || course?.id;
 
-    if (
-      !course ||
-      !course.id ||
-      course.priceValue == null ||
-      course.priceValue === "" ||
-      !Number.isFinite(Number(course.priceValue)) ||
-      Number(course.priceValue) <= 0
-    ) {
+    if (!targetCourseId) {
       return res.status(400).json({
-        error: "Invalid course data",
+        success: false,
+        error: { code: "BAD_REQUEST", message: "Invalid course data", details: [] },
       });
     }
 
     if (!idempotencyKey) {
       return res.status(400).json({
-        error: "idempotencyKey is required",
+        success: false,
+        error: { code: "BAD_REQUEST", message: "idempotencyKey is required", details: [] },
       });
     }
 
     const userId = req.user.id;
 
-    log.info({ idempotencyKey }, "Idempotency key received");
-
-    // Look up an existing key for this authenticated user.
-    const existing = await Payment.findOne({
-      where: { idempotencyKey, userId },
-    });
-
-    if (existing?.cachedResponse && Object.keys(existing.cachedResponse).length > 0) {
-      log.info({ idempotencyKey }, "Returning cached Razorpay response");
-
-      return res.status(200).json(existing.cachedResponse);
+    // Load course from database — NEVER trust client price or metadata
+    const courseRecord = await Course.findByPk(targetCourseId);
+    if (!courseRecord || courseRecord.status !== "published") {
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Course not found or unavailable", details: [] },
+      });
     }
 
-    const amount = Math.round(Number(course.priceValue) * 100);
+    const priceValue = Number(courseRecord.priceValue);
+    if (!Number.isFinite(priceValue) || priceValue <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "BAD_REQUEST", message: "Invalid course price", details: [] },
+      });
+    }
+
+    log.info({ idempotencyKey }, "Idempotency key received");
+
+    // Look up existing key and enforce user ownership.
+    const existing = await Payment.findOne({
+      where: { idempotencyKey },
+    });
+
+    if (existing) {
+      if (existing.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          error: { code: "FORBIDDEN", message: "Unauthorized idempotency key", details: [] },
+        });
+      }
+      if (existing.cachedResponse && Object.keys(existing.cachedResponse).length > 0) {
+        log.info({ idempotencyKey }, "Returning cached Razorpay response");
+        return res.status(200).json(existing.cachedResponse);
+      }
+    }
+
+    const amount = Math.round(priceValue * 100);
+    const currency = (courseRecord.currency || "INR").toUpperCase();
+    const courseTitle = courseRecord.title || "Course";
 
     const options = {
       amount,
-      currency: "INR",
-      receipt: `receipt_order_${course.id}_${Date.now()}`,
+      currency,
+      receipt: `receipt_order_${courseRecord.id}_${Date.now()}`,
     };
 
-    log.info({ courseTitle: course.title, userId }, "Initiating Razorpay payment");
+    log.info({ courseTitle, userId }, "Initiating Razorpay payment");
 
     // Persist the payment before contacting Razorpay.
     const payment = await Payment.create({
       userId,
-      courseId: course.id,
-      courseTitle: course.title || "Course",
+      courseId: courseRecord.id,
+      courseTitle,
       amount,
-      currency: "INR",
+      currency,
       status: "initiated",
       gateway: "razorpay",
       idempotencyKey,
@@ -133,7 +156,8 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
     log.error({ err: error }, "Razorpay order creation error");
 
     return res.status(500).json({
-      error: "Razorpay order creation failed",
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
     });
   }
 });
@@ -161,7 +185,7 @@ router.post("/verify", protect, async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        error: "Missing required parameters",
+        error: { code: "BAD_REQUEST", message: "Missing required parameters", details: [] },
       });
     }
 
@@ -170,7 +194,11 @@ router.post("/verify", protect, async (req, res) => {
 
       return res.status(500).json({
         success: false,
-        error: "Payment verification failed",
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Payment verification failed",
+          details: [],
+        },
       });
     }
 
@@ -189,7 +217,7 @@ router.post("/verify", protect, async (req, res) => {
     if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
       return res.status(400).json({
         success: false,
-        error: "Invalid signature",
+        error: { code: "BAD_REQUEST", message: "Invalid signature", details: [] },
       });
     }
 
@@ -216,7 +244,7 @@ router.post("/verify", protect, async (req, res) => {
 
         return res.status(404).json({
           success: false,
-          error: "Payment not found",
+          error: { code: "NOT_FOUND", message: "Payment not found", details: [] },
         });
       }
 
@@ -226,7 +254,11 @@ router.post("/verify", protect, async (req, res) => {
 
         return res.status(400).json({
           success: false,
-          error: "Course does not match the paid order",
+          error: {
+            code: "BAD_REQUEST",
+            message: "Course does not match the paid order",
+            details: [],
+          },
         });
       }
 
@@ -238,6 +270,42 @@ router.post("/verify", protect, async (req, res) => {
           success: true,
           message: "Payment already verified",
         });
+      }
+
+      // Gateway verification: verify captured/paid status, amount, and currency with Razorpay
+      if (paymentGatewayServices.fetchRazorpayPayment && process.env.NODE_ENV !== "test") {
+        try {
+          const rzpPayment = await paymentGatewayServices.fetchRazorpayPayment(razorpay_payment_id);
+          if (
+            !rzpPayment ||
+            (rzpPayment.status !== "captured" && rzpPayment.status !== "authorized") ||
+            (payment.amount != null && Number(rzpPayment.amount) !== Number(payment.amount)) ||
+            (payment.currency &&
+              rzpPayment.currency?.toUpperCase() !== payment.currency?.toUpperCase()) ||
+            (rzpPayment.order_id && rzpPayment.order_id !== razorpay_order_id)
+          ) {
+            await transaction.rollback();
+            return res.status(400).json({
+              success: false,
+              error: {
+                code: "BAD_REQUEST",
+                message: "Gateway payment details mismatch",
+                details: [],
+              },
+            });
+          }
+        } catch (fetchErr) {
+          log.error({ err: fetchErr }, "Failed to verify payment with Razorpay gateway API");
+          await transaction.rollback();
+          return res.status(500).json({
+            success: false,
+            error: {
+              code: "INTERNAL_SERVER_ERROR",
+              message: "Payment verification failed with gateway",
+              details: [],
+            },
+          });
+        }
       }
 
       // Use the database record as the source of truth.
@@ -252,7 +320,7 @@ router.post("/verify", protect, async (req, res) => {
 
         return res.status(404).json({
           success: false,
-          error: "User not found",
+          error: { code: "NOT_FOUND", message: "User not found", details: [] },
         });
       }
 
@@ -331,7 +399,7 @@ router.post("/verify", protect, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      error: "Payment verification failed",
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
     });
   }
 });
