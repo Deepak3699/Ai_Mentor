@@ -116,14 +116,20 @@ const request = (path, { userId = "user-1", method = "GET", body } = {}) =>
 test("payment status returns 404 when the payment does not exist", async () => {
   const res = await request("/api/payment/status/missing");
   assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { error: "Payment not found" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Payment not found", details: [] },
+  });
 });
 
 test("payment status prevents one user from viewing another user's payment", async () => {
   Payment.findByPk = async () => ({ id: "payment-1", userId: "owner" });
   const res = await request("/api/payment/status/payment-1", { userId: "attacker" });
   assert.equal(res.status, 403);
-  assert.deepEqual(await res.json(), { error: "Unauthorized" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "FORBIDDEN", message: "Unauthorized", details: [] },
+  });
 });
 
 test("payment status returns only the expected fields to the owner", async () => {
@@ -153,14 +159,20 @@ test("Stripe checkout rejects invalid course data, missing idempotency keys, and
     body: { course: {}, idempotencyKey: "key" },
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { error: "Invalid course data" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Invalid course data", details: [] },
+  });
 
   res = await request("/api/payment/create-checkout-session", {
     method: "POST",
     body: { course: { id: 1, title: "Course", priceValue: 100 } },
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { error: "idempotencyKey is required" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "idempotencyKey is required", details: [] },
+  });
 
   Course.findByPk = async () => null;
   res = await request("/api/payment/create-checkout-session", {
@@ -168,7 +180,10 @@ test("Stripe checkout rejects invalid course data, missing idempotency keys, and
     body: { course: { id: 999 }, idempotencyKey: "key" },
   });
   assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { error: "Course not found or unavailable" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Course not found or unavailable", details: [] },
+  });
 
   Course.findByPk = async () => ({ id: 1, status: "disabled", priceValue: 100 });
   res = await request("/api/payment/create-checkout-session", {
@@ -176,7 +191,10 @@ test("Stripe checkout rejects invalid course data, missing idempotency keys, and
     body: { course: { id: 1 }, idempotencyKey: "key" },
   });
   assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { error: "Course not found or unavailable" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Course not found or unavailable", details: [] },
+  });
 
   Course.findByPk = async () => ({ id: 1, status: "published", priceValue: 0 });
   res = await request("/api/payment/create-checkout-session", {
@@ -184,7 +202,10 @@ test("Stripe checkout rejects invalid course data, missing idempotency keys, and
     body: { course: { id: 1 }, idempotencyKey: "key" },
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { error: "Invalid course price" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Invalid course price", details: [] },
+  });
 });
 
 test("Stripe checkout returns a non-expired cached idempotent response for matching user, rejects other users", async () => {
@@ -220,7 +241,10 @@ test("Stripe checkout returns a non-expired cached idempotent response for match
     body: { course: { id: 1, title: "Course", priceValue: 100 }, idempotencyKey: "stable-key" },
   });
   assert.equal(res.status, 403);
-  assert.deepEqual(await res.json(), { error: "Unauthorized idempotency key" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "FORBIDDEN", message: "Unauthorized idempotency key", details: [] },
+  });
 });
 
 test("Razorpay order rejects invalid course data, missing idempotency keys, and unpublished courses", async () => {
@@ -229,14 +253,20 @@ test("Razorpay order rejects invalid course data, missing idempotency keys, and 
     body: { course: {}, idempotencyKey: "key" },
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { error: "Invalid course data" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Invalid course data", details: [] },
+  });
 
   res = await request("/api/razorpay/create-order", {
     method: "POST",
     body: { course: { id: 1, priceValue: 100 } },
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { error: "idempotencyKey is required" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "idempotencyKey is required", details: [] },
+  });
 
   Course.findByPk = async () => null;
   res = await request("/api/razorpay/create-order", {
@@ -244,7 +274,10 @@ test("Razorpay order rejects invalid course data, missing idempotency keys, and 
     body: { course: { id: 999 }, idempotencyKey: "key" },
   });
   assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { error: "Course not found or unavailable" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Course not found or unavailable", details: [] },
+  });
 
   Course.findByPk = async () => ({ id: 1, status: "disabled", priceValue: 100 });
   res = await request("/api/razorpay/create-order", {
@@ -252,7 +285,10 @@ test("Razorpay order rejects invalid course data, missing idempotency keys, and 
     body: { course: { id: 1 }, idempotencyKey: "key" },
   });
   assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { error: "Course not found or unavailable" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Course not found or unavailable", details: [] },
+  });
 
   Course.findByPk = async () => ({ id: 1, status: "published", priceValue: 0 });
   res = await request("/api/razorpay/create-order", {
@@ -260,7 +296,10 @@ test("Razorpay order rejects invalid course data, missing idempotency keys, and 
     body: { course: { id: 1 }, idempotencyKey: "key" },
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { error: "Invalid course price" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Invalid course price", details: [] },
+  });
 });
 
 test("Razorpay order returns a cached idempotent response for matching user, rejects other users", async () => {
@@ -291,13 +330,19 @@ test("Razorpay order returns a cached idempotent response for matching user, rej
     body: { course: { id: 1, title: "Course", priceValue: 100 }, idempotencyKey: "stable-key" },
   });
   assert.equal(res.status, 403);
-  assert.deepEqual(await res.json(), { error: "Unauthorized idempotency key" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "FORBIDDEN", message: "Unauthorized idempotency key", details: [] },
+  });
 });
 
 test("Razorpay verification rejects missing parameters and invalid signatures before any transaction", async () => {
   let res = await request("/api/razorpay/verify", { method: "POST", body: {} });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { success: false, error: "Missing required parameters" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Missing required parameters", details: [] },
+  });
 
   res = await request("/api/razorpay/verify", {
     method: "POST",
@@ -310,7 +355,10 @@ test("Razorpay verification rejects missing parameters and invalid signatures be
     },
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { success: false, error: "Invalid signature" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Invalid signature", details: [] },
+  });
 });
 
 test("Stripe checkout creates and updates a payment using the authenticated user", async () => {
@@ -369,7 +417,10 @@ test("Stripe gateway failure returns 500 after payment creation", async () => {
       body: { course: { id: 7, title: "Course", priceValue: 100 }, idempotencyKey: "stripe-fail" },
     });
     assert.equal(res.status, 500);
-    assert.deepEqual(await res.json(), { error: "Stripe session failed" });
+    assert.deepEqual(await res.json(), {
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
     assert.equal(created, 1);
   } finally {
     console.error = originalError;
@@ -477,7 +528,10 @@ test("Razorpay verification requires a payment owned by the authenticated user",
     },
   });
   assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { success: false, error: "Payment not found" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Payment not found", details: [] },
+  });
   assert.deepEqual(paymentQuery.where, { razorpayOrderId: orderId, userId: "owner-1" });
   assert.equal(transaction.finished, "rollback");
 });
@@ -627,7 +681,10 @@ test("Razorpay verification rolls back when the authenticated user is missing", 
     },
   });
   assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { success: false, error: "User not found" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "User not found", details: [] },
+  });
   assert.equal(transaction.finished, "rollback");
   assert.equal(userLookupCalls, 2);
 });
@@ -672,7 +729,7 @@ test("Razorpay verification rolls back and returns 500 on database failure", asy
     assert.equal(res.status, 500);
     assert.deepEqual(await res.json(), {
       success: false,
-      error: "Payment verification failed",
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
     });
     assert.equal(transaction.finished, "rollback");
   } finally {
@@ -774,7 +831,10 @@ test("Razorpay verify rejects another user's payment and changes nothing", async
   const state = setupVerify(payment);
   const res = await verifyRequest({ userId: "attacker" });
   assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { success: false, error: "Payment not found" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Payment not found", details: [] },
+  });
   assert.equal(state.findOneOptions.where.userId, "attacker");
   assert.equal(state.transaction.finished, "rollback");
   assert.deepEqual(payment.updates, []);
@@ -789,7 +849,7 @@ test("Razorpay verify rejects a course that differs from the paid course", async
   assert.equal(res.status, 400);
   assert.deepEqual(await res.json(), {
     success: false,
-    error: "Course does not match the paid order",
+    error: { code: "BAD_REQUEST", message: "Course does not match the paid order", details: [] },
   });
   assert.equal(state.transaction.finished, "rollback");
   assert.deepEqual(payment.updates, []);

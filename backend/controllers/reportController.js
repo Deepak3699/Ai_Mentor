@@ -27,7 +27,14 @@ const truncate = (text, max) => (text.length > max ? `${text.slice(0, max - 3)}.
 // saved, so the client can safely retry without creating a duplicate report.
 export const createReport = async (req, res) => {
   if (!req.user || !req.user.id) {
-    return sendApiError(req, res, 401, "User not authenticated");
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: "UNAUTHORIZED",
+        message: "User not authenticated",
+        details: [],
+      },
+    });
   }
 
   const { reportType, subType, description, courseName, email, phone } = req.body;

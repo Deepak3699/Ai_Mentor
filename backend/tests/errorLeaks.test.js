@@ -182,10 +182,10 @@ describe("unexpected errors are sanitized", () => {
     });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.message, "Validation failed");
+    assert.equal(res.body.error.message, "Validation failed");
     assert.equal(res.body.requestId, res.headers.get("x-request-id"));
-    assert.ok(Array.isArray(res.body.errors));
-    assert.equal(res.body.errors[0].path, "title");
+    assert.ok(Array.isArray(res.body.error.details));
+    assert.equal(res.body.error.details[0].path, "title");
     assert.ok(!res.text.includes("Internal server"));
   });
 
@@ -376,7 +376,7 @@ describe("intentional 4xx responses are preserved", () => {
     mock.method(Course, "findByPk", async () => null);
     const res = await call("POST", "/api/courses/999/generate-syllabus");
     assert.equal(res.status, 404);
-    assert.equal(res.body.message, "Course not found");
+    assert.equal(res.body.error.message, "Course not found");
   });
 
   test("disallowed CORS origin -> 403 keeps its message and carries a request id", async () => {

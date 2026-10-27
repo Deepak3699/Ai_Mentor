@@ -105,7 +105,10 @@ test("transcript endpoint forbids non-enrolled user", async () => {
   const res = await req("/api/ai/transcript/transcript-100.json", 2);
   assert.equal(res.status, 403);
   const data = await res.json();
-  assert.equal(data.message, "Course not purchased");
+  assert.deepEqual(data, {
+    success: false,
+    error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+  });
 });
 
 test("transcript endpoint permits enrolled user and admin", async () => {
@@ -122,7 +125,10 @@ test("status endpoint forbids non-enrolled user", async () => {
   const res = await req("/api/ai/status/video-100", 2);
   assert.equal(res.status, 403);
   const data = await res.json();
-  assert.equal(data.message, "Course not purchased");
+  assert.deepEqual(data, {
+    success: false,
+    error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+  });
 });
 
 test("status endpoint permits enrolled user and returns ready status", async () => {

@@ -7,11 +7,19 @@ import { createNotification } from "./notificationController.js";
 import AdminNotification from "../models/AdminNotification.js";
 import { sequelize } from "../config/db.js";
 import { sendServerError } from "../utils/apiError.js";
+import {
+  AppError,
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  UnauthorizedError,
+  forwardError,
+} from "../utils/error.js";
 
 // @desc    Get course community stats (list of courses with post counts)
 // @route   GET /api/community/courses
 // @access  Private
-const getCourseCommunityStats = async (req, res) => {
+const getCourseCommunityStats = async (req, res, next) => {
   try {
     const posts = await CommunityPost.findAll({
       where: { type: "course" },
@@ -41,14 +49,24 @@ const getCourseCommunityStats = async (req, res) => {
     res.json(Object.values(courseMap));
   } catch (error) {
     console.error("GET COURSE COMMUNITY STATS ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Get discussions for a specific course community
 // @route   GET /api/community/course/:courseId
 // @access  Private
-const getCourseDiscussions = async (req, res) => {
+const getCourseDiscussions = async (req, res, next) => {
   try {
     const { courseId } = req.params;
     const { sort, page, limit } = req.query;
@@ -61,10 +79,13 @@ const getCourseDiscussions = async (req, res) => {
     );
 
     if (!isEnrolled) {
-      return res.status(403).json({
-        message: "You must be enrolled in this course to view its community discussions",
-        requiresEnrollment: true,
-      });
+      const enrollmentError = new ForbiddenError(
+        "You must be enrolled in this course to view its community discussions",
+      );
+
+      enrollmentError.requiresEnrollment = true;
+
+      return forwardError(next, res, enrollmentError);
     }
 
     // Pagination parameters
@@ -98,14 +119,24 @@ const getCourseDiscussions = async (req, res) => {
     res.json(posts);
   } catch (error) {
     console.error("GET COURSE DISCUSSIONS ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Get global discussions
 // @route   GET /api/community/global
 // @access  Private
-const getGlobalDiscussions = async (req, res) => {
+const getGlobalDiscussions = async (req, res, next) => {
   try {
     const { category, sort, page, limit } = req.query;
 
@@ -147,17 +178,27 @@ const getGlobalDiscussions = async (req, res) => {
     res.json(posts);
   } catch (error) {
     console.error("GET GLOBAL DISCUSSIONS ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Create a community post (course or global)
 // @route   POST /api/community
 // @access  Private
-const createCommunityPost = async (req, res) => {
+const createCommunityPost = async (req, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
 
     const { type, courseId, courseName, category, content } = req.body;
@@ -169,8 +210,23 @@ const createCommunityPost = async (req, res) => {
       const isEnrolled = purchasedCourses.some((c) => c.id === courseId || c.courseId === courseId);
 
       if (!isEnrolled) {
-        return res.status(403).json({
-          message: "You must be enrolled in this course to create posts in its community",
+        const enrollmentError = new ForbiddenError(
+          "You must be enrolled in this course to create posts in its community",
+        );
+        enrollmentError.requiresEnrollment = true;
+
+        if (typeof next === "function") {
+          return forwardError(next, res, enrollmentError);
+        }
+
+        return res.status(enrollmentError.statusCode).json({
+          success: false,
+          error: {
+            code: enrollmentError.code,
+            message: enrollmentError.message,
+            details: [],
+          },
+          requiresEnrollment: true,
         });
       }
     }
@@ -200,23 +256,33 @@ const createCommunityPost = async (req, res) => {
     res.status(201).json(populated);
   } catch (error) {
     console.error("CREATE COMMUNITY POST ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Edit a community post
 // @route   PUT /api/community/:id
 // @access  Private
-const editCommunityPost = async (req, res) => {
+const editCommunityPost = async (req, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
 
     const { content } = req.body;
 
     const post = await CommunityPost.findByPk(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post) return forwardError(next, res, new NotFoundError("Post not found"));
     // Check enrollment for course posts
     if (post.type === "course") {
       const user = await User.findByPk(req.user.id);
@@ -228,14 +294,18 @@ const editCommunityPost = async (req, res) => {
       );
 
       if (!isEnrolled) {
-        return res.status(403).json({
-          message: "You must be enrolled in this course to interact with its community posts",
-        });
+        return forwardError(
+          next,
+          res,
+          new ForbiddenError(
+            "You must be enrolled in this course to interact with its community posts",
+          ),
+        );
       }
     }
 
     if (post.userId !== req.user.id) {
-      return res.status(403).json({ message: "You can only edit your own posts" });
+      return forwardError(next, res, new ForbiddenError("You can only edit your own posts"));
     }
 
     post.content = content.trim();
@@ -254,21 +324,31 @@ const editCommunityPost = async (req, res) => {
     res.json(updated);
   } catch (error) {
     console.error("EDIT COMMUNITY POST ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Delete a community post
 // @route   DELETE /api/community/:id
 // @access  Private
-const deleteCommunityPost = async (req, res) => {
+const deleteCommunityPost = async (req, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
 
     const post = await CommunityPost.findByPk(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post) return forwardError(next, res, new NotFoundError("Post not found"));
     // Check enrollment for course posts
     if (post.type === "course") {
       const user = await User.findByPk(req.user.id);
@@ -280,14 +360,18 @@ const deleteCommunityPost = async (req, res) => {
       );
 
       if (!isEnrolled) {
-        return res.status(403).json({
-          message: "You must be enrolled in this course to interact with its community posts",
-        });
+        return forwardError(
+          next,
+          res,
+          new ForbiddenError(
+            "You must be enrolled in this course to interact with its community posts",
+          ),
+        );
       }
     }
 
     if (post.userId !== req.user.id) {
-      return res.status(403).json({ message: "You can only delete your own posts" });
+      return forwardError(next, res, new ForbiddenError("You can only delete your own posts"));
     }
 
     // Remove related report rows first to satisfy Reports.postId FK constraint.
@@ -302,21 +386,31 @@ const deleteCommunityPost = async (req, res) => {
     res.json({ message: "Post deleted successfully" });
   } catch (error) {
     console.error("DELETE COMMUNITY POST ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Like / unlike a community post
 // @route   PUT /api/community/:id/like
 // @access  Private
-const likeCommunityPost = async (req, res) => {
+const likeCommunityPost = async (req, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
 
     const post = await CommunityPost.findByPk(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post) return forwardError(next, res, new NotFoundError("Post not found"));
 
     const userId = req.user.id;
     let likes = [...(post.likes || [])];
@@ -348,21 +442,31 @@ const likeCommunityPost = async (req, res) => {
     res.json(updated);
   } catch (error) {
     console.error("LIKE COMMUNITY POST ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Dislike / un-dislike a community post
 // @route   PUT /api/community/:id/dislike
 // @access  Private
-const dislikeCommunityPost = async (req, res) => {
+const dislikeCommunityPost = async (req, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
 
     const post = await CommunityPost.findByPk(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post) return forwardError(next, res, new NotFoundError("Post not found"));
 
     const userId = req.user.id;
     let dislikes = [...(post.dislikes || [])];
@@ -394,23 +498,33 @@ const dislikeCommunityPost = async (req, res) => {
     res.json(updated);
   } catch (error) {
     console.error("DISLIKE COMMUNITY POST ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Reply to a community post
 // @route   POST /api/community/:id/reply
 // @access  Private
-const replyCommunityPost = async (req, res) => {
+const replyCommunityPost = async (req, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
 
     const { text } = req.body;
 
     const post = await CommunityPost.findByPk(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post) return forwardError(next, res, new NotFoundError("Post not found"));
 
     // Check enrollment for course posts
     if (post.type === "course") {
@@ -421,9 +535,11 @@ const replyCommunityPost = async (req, res) => {
       );
 
       if (!isEnrolled) {
-        return res
-          .status(403)
-          .json({ message: "You must be enrolled in this course to comment in its discussion" });
+        return forwardError(
+          next,
+          res,
+          new ForbiddenError("You must be enrolled in this course to comment in its discussion"),
+        );
       }
     }
 
@@ -468,14 +584,24 @@ const replyCommunityPost = async (req, res) => {
     res.json(updated);
   } catch (error) {
     console.error("REPLY COMMUNITY POST ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Get all course-type posts for the listing view (recent discussions across all courses)
 // @route   GET /api/community/course-posts
 // @access  Private
-const getAllCoursePosts = async (req, res) => {
+const getAllCoursePosts = async (req, res, next) => {
   try {
     const { sort, page, limit } = req.query;
 
@@ -512,38 +638,48 @@ const getAllCoursePosts = async (req, res) => {
     res.json(posts);
   } catch (error) {
     console.error("GET ALL COURSE POSTS ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Report a post or reply
 // @route   POST /api/community/:id/report
 // @access  Private
-const reportContent = async (req, res) => {
+const reportContent = async (req, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
 
     const { replyId, reason, description } = req.body;
 
     const post = await CommunityPost.findByPk(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post) return forwardError(next, res, new NotFoundError("Post not found"));
 
     // Prevent users from reporting their own content
     if (replyId) {
       const reply = (post.replies || []).find((r) => String(r.id) === String(replyId));
       if (!reply) {
-        return res.status(404).json({ message: "Reply not found" });
+        return forwardError(next, res, new NotFoundError("Reply not found"));
       }
       // Check if user is trying to report their own reply
       if (reply.userId === req.user.id) {
-        return res.status(403).json({ message: "You cannot report your own reply" });
+        return forwardError(next, res, new ForbiddenError("You cannot report your own reply"));
       }
     } else {
       // Check if user is trying to report their own post
       if (post.userId === req.user.id) {
-        return res.status(403).json({ message: "You cannot report your own post" });
+        return forwardError(next, res, new ForbiddenError("You cannot report your own post"));
       }
     }
 
@@ -557,7 +693,7 @@ const reportContent = async (req, res) => {
     });
 
     if (existing) {
-      return res.status(409).json({ message: "You have already reported this content" });
+      return forwardError(next, res, new ConflictError("You have already reported this content"));
     }
 
     const report = await Report.create({
@@ -608,14 +744,24 @@ const reportContent = async (req, res) => {
     res.status(201).json({ message: "Report submitted successfully", report });
   } catch (error) {
     console.error("REPORT CONTENT ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Get all pending reports (admin only)
 // @route   GET /api/community/reports
 // @access  Private/Admin
-const getReports = async (_req, res) => {
+const getReports = async (_req, res, next) => {
   try {
     const reports = await Report.findAll({
       where: { status: "pending" },
@@ -634,14 +780,24 @@ const getReports = async (_req, res) => {
     res.json(reports);
   } catch (error) {
     console.error("GET REPORTS ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Moderate a report (hide, delete, or dismiss)
 // @route   PUT /api/community/reports/:reportId
 // @access  Private/Admin
-const moderateReport = async (req, res) => {
+const moderateReport = async (req, res, next) => {
   try {
     const { action } = req.body;
 
@@ -775,27 +931,27 @@ const moderateReport = async (req, res) => {
 // @desc    Edit a reply
 // @route   PUT /api/community/:id/reply/:replyId
 // @access  Private
-const editReply = async (req, res) => {
+const editReply = async (req, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
 
     const { text } = req.body;
 
     const post = await CommunityPost.findByPk(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post) return forwardError(next, res, new NotFoundError("Post not found"));
 
     const replies = [...(post.replies || [])];
     const replyIndex = replies.findIndex((r) => r.id === req.params.replyId);
 
     if (replyIndex === -1) {
-      return res.status(404).json({ message: "Reply not found" });
+      return forwardError(next, res, new NotFoundError("Reply not found"));
     }
 
     // Check if user owns the reply
     if (replies[replyIndex].userId !== req.user.id) {
-      return res.status(403).json({ message: "You can only edit your own replies" });
+      return forwardError(next, res, new ForbiddenError("You can only edit your own replies"));
     }
 
     // Update the reply
@@ -823,32 +979,42 @@ const editReply = async (req, res) => {
     res.json(updated);
   } catch (error) {
     console.error("EDIT REPLY ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Delete a reply
 // @route   DELETE /api/community/:id/reply/:replyId
 // @access  Private
-const deleteReply = async (req, res) => {
+const deleteReply = async (req, res, next) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: "Not authorized" });
+      return forwardError(next, res, new UnauthorizedError("Not authorized"));
     }
 
     const post = await CommunityPost.findByPk(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post) return forwardError(next, res, new NotFoundError("Post not found"));
 
     const replies = [...(post.replies || [])];
     const replyIndex = replies.findIndex((r) => r.id === req.params.replyId);
 
     if (replyIndex === -1) {
-      return res.status(404).json({ message: "Reply not found" });
+      return forwardError(next, res, new NotFoundError("Reply not found"));
     }
 
     // Check if user owns the reply
     if (replies[replyIndex].userId !== req.user.id) {
-      return res.status(403).json({ message: "You can only delete your own replies" });
+      return forwardError(next, res, new ForbiddenError("You can only delete your own replies"));
     }
 
     // Remove the reply
@@ -871,26 +1037,36 @@ const deleteReply = async (req, res) => {
     res.json(updated);
   } catch (error) {
     console.error("DELETE REPLY ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
 // @desc    Unhide a post or reply (admin only)
 // @route   PUT /api/community/:id/unhide
 // @access  Private/Admin
-const unhideContent = async (req, res) => {
+const unhideContent = async (req, res, next) => {
   try {
     const { replyId } = req.body || {};
 
     const post = await CommunityPost.findByPk(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
+    if (!post) return forwardError(next, res, new NotFoundError("Post not found"));
 
     if (replyId) {
       const replies = [...(post.replies || [])];
       const replyIndex = replies.findIndex((r) => String(r.id) === String(replyId));
 
       if (replyIndex === -1) {
-        return res.status(404).json({ message: "Reply not found" });
+        return forwardError(next, res, new NotFoundError("Reply not found"));
       }
 
       replies[replyIndex] = {
@@ -923,7 +1099,17 @@ const unhideContent = async (req, res) => {
     });
   } catch (error) {
     console.error("UNHIDE CONTENT ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Server error",
+      ),
+    );
   }
 };
 
