@@ -234,7 +234,18 @@
     "status_ongoing": "Em andamento",
     "status_upcoming": "Próximo",
     "delete_task_confirm": "Tem certeza que deseja excluir esta tarefa?",
-    "task_exists_error": "Já existe uma tarefa para esta data."
+    "task_exists_error": "Já existe uma tarefa para esta data.",
+    "achievements": {
+      "title": "Conquistas",
+      "view_all": "Ver todas",
+      "course_title": "Curso concluído: {{title}}",
+      "course_description": "Você concluiu o curso",
+      "streak_title_one": "Sequência de {{count}} dia",
+      "streak_title_other": "Sequência de {{count}} dias",
+      "streak_description": "Aprendiz consistente",
+      "certificate_title": "Primeiro certificado",
+      "empty": "Conclua um curso ou estude por 3 dias seguidos para conquistar sua primeira conquista."
+    }
   },
   "discussions": {
     "title": "Discussões",

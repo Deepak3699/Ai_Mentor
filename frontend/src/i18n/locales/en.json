@@ -238,6 +238,17 @@
     "status_completed": "Completed",
     "status_ongoing": "Ongoing",
     "status_upcoming": "Upcoming",
+    "achievements": {
+      "title": "Achievements",
+      "view_all": "View All",
+      "course_title": "Completed {{title}}",
+      "course_description": "You finished the course",
+      "streak_title_one": "{{count}} Day Streak",
+      "streak_title_other": "{{count}} Day Streaks",
+      "streak_description": "Consistent learner",
+      "certificate_title": "First Certificate",
+      "empty": "Finish a course or study 3 days in a row to earn your first achievement."
+    },
     "delete_task_confirm": "Are you sure you want to delete this task?",
     "task_exists_error": "Task already exists for this date."
   },

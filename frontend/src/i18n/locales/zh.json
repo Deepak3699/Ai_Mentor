@@ -234,7 +234,18 @@
     "status_ongoing": "进行中",
     "status_upcoming": "即将到来",
     "delete_task_confirm": "您确定要删除此任务吗？",
-    "task_exists_error": "该日期的任务已存在。"
+    "task_exists_error": "该日期的任务已存在。",
+    "achievements": {
+      "title": "成就",
+      "view_all": "查看全部",
+      "course_title": "已完成：{{title}}",
+      "course_description": "你已完成此课程",
+      "streak_title_one": "连续学习 {{count}} 天",
+      "streak_title_other": "连续学习 {{count}} 天",
+      "streak_description": "坚持学习",
+      "certificate_title": "首张证书",
+      "empty": "完成一门课程或连续学习3天，即可获得你的第一个成就。"
+    }
   },
   "discussions": {
     "title": "讨论",

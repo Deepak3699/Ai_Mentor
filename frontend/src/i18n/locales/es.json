@@ -234,7 +234,18 @@
     "status_ongoing": "En curso",
     "status_upcoming": "Próximo",
     "delete_task_confirm": "¿Estás seguro de que deseas eliminar esta tarea?",
-    "task_exists_error": "La tarea ya existe para esta fecha."
+    "task_exists_error": "La tarea ya existe para esta fecha.",
+    "achievements": {
+      "title": "Logros",
+      "view_all": "Ver todos",
+      "course_title": "Curso completado: {{title}}",
+      "course_description": "Has terminado el curso",
+      "streak_title_one": "Racha de {{count}} día",
+      "streak_title_other": "Racha de {{count}} días",
+      "streak_description": "Aprendiz constante",
+      "certificate_title": "Primer certificado",
+      "empty": "Completa un curso o estudia 3 días seguidos para conseguir tu primer logro."
+    }
   },
   "discussions": {
     "title": "Discusiones",

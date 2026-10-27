@@ -234,7 +234,18 @@
     "status_ongoing": "En cours",
     "status_upcoming": "À venir",
     "delete_task_confirm": "Êtes-vous sûr de vouloir supprimer cette tâche ?",
-    "task_exists_error": "La tâche existe déjà pour cette date."
+    "task_exists_error": "La tâche existe déjà pour cette date.",
+    "achievements": {
+      "title": "Réussites",
+      "view_all": "Tout voir",
+      "course_title": "Cours terminé : {{title}}",
+      "course_description": "Vous avez terminé le cours",
+      "streak_title_one": "Série de {{count}} jour",
+      "streak_title_other": "Série de {{count}} jours",
+      "streak_description": "Apprentissage régulier",
+      "certificate_title": "Premier certificat",
+      "empty": "Terminez un cours ou étudiez 3 jours de suite pour obtenir votre première réussite."
+    }
   },
   "discussions": {
     "title": "Discussions",

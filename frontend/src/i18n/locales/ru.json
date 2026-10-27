@@ -234,7 +234,18 @@
     "status_ongoing": "В процессе",
     "status_upcoming": "Предстоит",
     "delete_task_confirm": "Вы уверены, что хотите удалить эту задачу?",
-    "task_exists_error": "Задача на эту дату уже существует."
+    "task_exists_error": "Задача на эту дату уже существует.",
+    "achievements": {
+      "title": "Достижения",
+      "view_all": "Посмотреть все",
+      "course_title": "Курс завершён: {{title}}",
+      "course_description": "Вы завершили курс",
+      "streak_title_one": "Серия: {{count}} день",
+      "streak_title_other": "Серия: {{count}} дней",
+      "streak_description": "Постоянный ученик",
+      "certificate_title": "Первый сертификат",
+      "empty": "Завершите курс или занимайтесь 3 дня подряд, чтобы получить первое достижение."
+    }
   },
   "discussions": {
     "title": "Обсуждения",

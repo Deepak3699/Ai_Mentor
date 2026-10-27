@@ -234,7 +234,18 @@
     "status_ongoing": "جاري",
     "status_upcoming": "قادم",
     "delete_task_confirm": "هل أنت متأكد أنك تريد حذف هذه المهمة؟",
-    "task_exists_error": "المهمة موجودة بالفعل لهذا التاريخ."
+    "task_exists_error": "المهمة موجودة بالفعل لهذا التاريخ.",
+    "achievements": {
+      "title": "الإنجازات",
+      "view_all": "عرض الكل",
+      "course_title": "أكملت {{title}}",
+      "course_description": "لقد أنهيت الدورة",
+      "streak_title_one": "سلسلة لمدة {{count}} يوم",
+      "streak_title_other": "سلسلة لمدة {{count}} أيام",
+      "streak_description": "متعلم مستمر",
+      "certificate_title": "الشهادة الأولى",
+      "empty": "أكمل دورة أو تعلّم لمدة 3 أيام متتالية لتحصل على إنجازك الأول."
+    }
   },
   "discussions": {
     "title": "النقاشات",
