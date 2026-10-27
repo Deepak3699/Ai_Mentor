@@ -143,8 +143,13 @@ describe("syllabus provider errors", () => {
       json: async () => ({ error: "401 invalid api key REDACTED_API_KEY for model xyz" }),
     }));
     const res = await call("POST", path);
-    expectStable500(res, STABLE_SYLLABUS);
-    expectLogged(res, "REDACTED_API_KEY"); // provider text exists in logs only
+    expectSyllabusFailure(res, {
+      status: 502,
+      code: "INVALID_PROVIDER_RESPONSE",
+      retryable: false,
+    });
+
+    assert.ok(!loggedText().includes("REDACTED_API_KEY"));
   });
 
   test("provider responds with a failure status", async () => {

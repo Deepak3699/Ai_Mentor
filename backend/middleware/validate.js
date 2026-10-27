@@ -1,4 +1,3 @@
-
 import { sendServerError } from "../utils/apiError.js";
 import fs from "fs";
 
@@ -58,13 +57,7 @@ const validate = (schema) => (req, res, next) => {
       fs.unlink(req.file.path, () => {});
     }
 
-    return sendServerError(
-      req,
-      res,
-      error,
-      "VALIDATE_MIDDLEWARE",
-      next,
-    );
+    return sendServerError(req, res, error, "VALIDATE_MIDDLEWARE", next);
   }
 };
 

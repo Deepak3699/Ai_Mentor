@@ -1,8 +1,5 @@
 import { toErrorPayload } from "../utils/error.js";
-import {
-  GENERIC_500_MESSAGE,
-  logServerError,
-} from "../utils/apiError.js";
+import { GENERIC_500_MESSAGE, logServerError } from "../utils/apiError.js";
 
 function errorHandler(err, req, res, next) {
   const requestId = req.id;

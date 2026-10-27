@@ -43,13 +43,13 @@ export const markAsRead = async (req, res, next) => {
       where: { id: req.params.id, userId: req.user.id },
     });
 
-   if (!notification) {
-     return res.status(404).json({
-       success: false,
-       message: "Notification not found",
-       requestId: req.id,
-     });
-   }
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+        requestId: req.id,
+      });
+    }
 
     notification.unread = false;
     await notification.save();
