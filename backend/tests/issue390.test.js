@@ -95,12 +95,14 @@ test("open-ended learning recommendations use Gemini with learner context", asyn
 
   const state = await askAssistant(
     "Try building a small project, then explore beginner machine learning projects.",
-    "Can you recommend beginner React projects?"
+    "Can you recommend beginner React projects?",
   );
 
   assert.equal(state.statusCode, 200);
-  assert.equal(state.body.reply,
-    "Try building a small project, then explore beginner machine learning projects.");
+  assert.equal(
+    state.body.reply,
+    "Try building a small project, then explore beginner machine learning projects.",
+  );
   assert.equal(requests.length, 1);
   assert.equal(requests[0].contents, "Can you recommend beginner React projects?");
   assert.match(requests[0].config.systemInstruction, /Machine learning/);
