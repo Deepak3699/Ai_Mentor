@@ -1,10 +1,22 @@
-import fs from "fs";
 
+import buildLogger from "../utils/logger.js";
+import fs from "fs";
 import { AppError, ValidationError } from "../utils/error.js";
+
+export const prodRedactPaths = [
+  "*.newPassword",
+  "*.password",
+  "*.currentPassword",
+  "*.oldPassword",
+  "*.idToken",
+];
+
+const log = buildLogger("VALIDATE", prodRedactPaths);
 
 const validate = (schema) => (req, res, next) => {
   if (!schema) {
-    console.error("❌ Validation Error: No schema provided to validate middleware");
+    log.error("No schema provided to validate middleware");
+
     const error = new AppError(
       "Internal Server Error: No schema provided",
       500,
@@ -12,6 +24,7 @@ const validate = (schema) => (req, res, next) => {
       [],
       "No schema provided to validate middleware",
     );
+
     return res.status(error.statusCode).json({
       success: false,
       error: {
@@ -24,22 +37,24 @@ const validate = (schema) => (req, res, next) => {
 
   try {
     const validationResult = schema.safeParse(req.body);
+
     if (!validationResult.success) {
       if (req.file?.path) {
         fs.unlink(req.file.path, () => {});
       }
-      const issues = validationResult.error.issues;
-      const errorPaths = issues.map((err) => err.path.join(".")).join(", ");
-      console.error(
-        `❌ Validation Failed for ${req.method} ${req.originalUrl || req.url}. Fields: ${errorPaths}`,
-      );
 
-      const details = issues.map((err) => ({
-        path: err.path.join("."),
-        message: err.message,
+      const details = validationResult.error.issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
       }));
 
-      const error = new ValidationError(details, "Validation failed");
+      log.error({ issues: details }, "Validation failed");
+
+      const error = new ValidationError(
+        details,
+        "Validation failed",
+      );
+
       return res.status(error.statusCode).json({
         success: false,
         error: {
@@ -49,19 +64,22 @@ const validate = (schema) => (req, res, next) => {
         },
       });
     }
+
     return next();
   } catch (error) {
     if (req.file?.path) {
       fs.unlink(req.file.path, () => {});
     }
 
-    console.error("❌ Validation Middleware Internal Error:", error);
+    log.error({ err: error }, "Validation middleware internal error");
 
     const appError = new AppError(
       "Internal Server Error during validation",
       500,
       "INTERNAL_SERVER_ERROR",
-      process.env.NODE_ENV !== "production" ? [error?.message || "Unknown validation error"] : [],
+      process.env.NODE_ENV !== "production"
+        ? [error?.message || "Unknown validation error"]
+        : [],
       error?.message || "Unknown validation error",
     );
 
