@@ -11,6 +11,14 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const router = express.Router();
+const configuredInferenceTimeoutMs = Number(process.env.AI_INFERENCE_TIMEOUT_MS);
+// 130 seconds covers the Python service's two 60-second provider attempts.
+const AI_INFERENCE_TIMEOUT_MS =
+  Number.isSafeInteger(configuredInferenceTimeoutMs) &&
+  configuredInferenceTimeoutMs >= 1000 &&
+  configuredInferenceTimeoutMs <= 600000
+    ? configuredInferenceTimeoutMs
+    : 130000;
 
 const hasCourseAccess = (user, courseId) => {
   if (!user) return false;
@@ -544,12 +552,22 @@ router.post("/explain-code", protect, validate(explainCodeSchema), async (req, r
         "Content-Type": "application/json",
       },
       body: JSON.stringify(req.body),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(AI_INFERENCE_TIMEOUT_MS),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI code explanation failed:", errorText);
+      if (response.status === 504) {
+        return res.status(504).json({
+          success: false,
+          error: {
+            code: "GATEWAY_TIMEOUT",
+            message: "AI inference timed out. Please retry the request.",
+            details: [],
+          },
+        });
+      }
+
+      console.error("AI code explanation failed with status:", response.status);
 
       return res.status(502).json({
         success: false,
@@ -565,6 +583,17 @@ router.post("/explain-code", protect, validate(explainCodeSchema), async (req, r
     return res.json(data);
   } catch (error) {
     console.error("AI code explanation error:", error);
+
+    if (error.name === "TimeoutError" || error.name === "AbortError") {
+      return res.status(504).json({
+        success: false,
+        error: {
+          code: "GATEWAY_TIMEOUT",
+          message: "AI inference timed out. Please retry the request.",
+          details: [],
+        },
+      });
+    }
 
     return res.status(500).json({
       success: false,
