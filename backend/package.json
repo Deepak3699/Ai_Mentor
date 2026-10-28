@@ -13,7 +13,7 @@
     "test": "node -e \"process.env.NODE_ENV='test'; import('node:child_process').then(({spawnSync}) => { const r = spawnSync(process.execPath, ['--test'], { stdio: 'inherit', env: process.env }); process.exit(r.status ?? 1); })\""
   },
   "dependencies": {
-    "@google/genai": "^2.7.0",
+    "@google/genai": "^2.31.0",
     "@google/generative-ai": "^0.24.1",
     "assert": "^2.1.0",
     "bcrypt": "^6.0.0",
@@ -23,7 +23,7 @@
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.5.2",
+    "express-rate-limit": "^8.7.1",
     "firebase-admin": "^13.10.0",
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.2",
