@@ -8,3 +8,4 @@ mutagen==1.48.1
 python-dotenv==1.2.4
 requests==2.34.2
 uvicorn==0.54.0
+httpx==0.28.1
