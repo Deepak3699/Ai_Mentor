@@ -2,7 +2,6 @@ cachetools==7.2.1
 cloudinary==1.46.3
 edge-tts==7.3.1
 fastapi==0.143.1
-groq==1.7.0
 mutagen==1.48.1
 python-dotenv==1.2.4
 requests==2.34.2
