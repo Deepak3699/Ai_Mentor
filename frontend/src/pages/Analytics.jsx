@@ -227,7 +227,10 @@ const Analytics = () => {
   );
 
   // Calculate total study time
-  const totalStudyTime = studySessions.reduce((acc, session) => acc + (session.duration || 0), 0);
+  const totalStudyTime = studySessions.reduce(
+    (acc, session) => acc + (session.hours || session.duration || 0),
+    0,
+  );
   const averageProgress =
     myCourses.length > 0
       ? Math.round(myCourses.reduce((acc, c) => acc + c.progress, 0) / myCourses.length)
@@ -346,7 +349,7 @@ const Analytics = () => {
               {t("analytics.total_study_time_label")}
             </div>
             <div className="text-xl font-bold text-[#ff6d34]">
-              {Math.round(totalStudyTime / 60)} {t("analytics.hours_unit", { defaultValue: "hrs" })}
+              {Math.round(totalStudyTime)} {t("analytics.hours_unit", { defaultValue: "hrs" })}
             </div>
             <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">
               {t("analytics.this_month")}
