@@ -20,6 +20,39 @@ const hasCourseAccess = (user, courseId) => {
   );
 };
 
+const isCloudinaryUrl = (value) => {
+  try {
+    const parsedUrl = new URL(value);
+    return (
+      parsedUrl.protocol === "https:" &&
+      (parsedUrl.hostname === "res.cloudinary.com" ||
+        parsedUrl.hostname.endsWith(".res.cloudinary.com"))
+    );
+  } catch {
+    return false;
+  }
+};
+
+const getLocalVideoUrl = (video) => `/api/ai/video/${video.courseId}/${video.id}.mp4`;
+
+const getCachedVideoUrl = async (video) => {
+  if (isCloudinaryUrl(video.videoUrl)) return video.videoUrl;
+
+  const filename = video.videoUrl?.split(/[\\/]/).pop();
+  if (!/^[\w.-]+\.mp4$/i.test(filename || "")) return null;
+
+  try {
+    const response = await fetch(
+      `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`,
+      { method: "HEAD" },
+    );
+    return response.ok ? getLocalVideoUrl(video) : null;
+  } catch (error) {
+    console.warn("Cached video verification failed:", error.message);
+    return null;
+  }
+};
+
 router.post("/generate-video", protect, validate(generateVideoSchema), async (req, res) => {
   let aiVideo;
 
@@ -309,12 +342,6 @@ router.get("/status/:jobId", protect, async (req, res) => {
     }
 
     const data = await response.json();
-
-    // Persist ready results by the database record ID. The Python job ID is only
-    // used for polling the AI service and must never be used as the DB identity.
-    if (data.status === "ready" && data.local_video_url) {
-      data.local_video_url = `/api/ai/video/${videoJob.courseId}/${jobId}.mp4`;
-    }
 
     if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
       const filename = data.local_video_url?.split(/[\\/]/).pop();
