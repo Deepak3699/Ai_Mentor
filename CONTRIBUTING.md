@@ -1,6 +1,6 @@
 # Contributing to AI Mentor
 
-New to the project? Start here.
+New to the project? Start with the [first-time contributor checklist](./README.md#first-time-contributor-checklist), then follow the workflow below.
 
 ---
 
