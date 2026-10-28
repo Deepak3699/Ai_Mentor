@@ -85,7 +85,6 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
           cached: true,
         });
       }
-
     }
 
     const titles = await getCourseAndLessonTitles(courseId, lessonId);
@@ -149,7 +148,6 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
               cached: true,
             });
           }
-
         }
 
         const claimed = await claimExistingVideo(aiVideo);
