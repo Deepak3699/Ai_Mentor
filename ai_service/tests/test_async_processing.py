@@ -1,6 +1,7 @@
 import os
 import sys
 import asyncio
+import inspect
 from pathlib import Path
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -24,7 +25,7 @@ from api import LessonRequest, process_lesson, job_status
 
 def test_process_lesson_is_async():
     """Verify that process_lesson is defined as an async coroutine function."""
-    assert asyncio.iscoroutinefunction(process_lesson)
+    assert inspect.iscoroutinefunction(process_lesson)
 
 
 
@@ -90,6 +91,14 @@ def test_ffmpeg_execution_async_and_success():
         assert "-y" in args
         assert "-stream_loop" in args
         assert "-shortest" in args
+        assert "-filter_complex" in args
+        assert "libx264" in args
+        assert "-c:v" in args
+        assert "copy" not in args
+        video_filter = args[args.index("-filter_complex") + 1]
+        assert "scale=1280:720:force_original_aspect_ratio=increase" in video_filter
+        assert "scale=1280:720:force_original_aspect_ratio=decrease" in video_filter
+        assert "gblur=sigma=28" in video_filter
 
         # Verify job status is ready
         assert job_status[base_filename]["status"] == "ready"
@@ -123,3 +132,41 @@ def test_ffmpeg_execution_failure():
 
         # Verify job status is set to failed on FFmpeg non-zero exit code
         assert job_status[base_filename]["status"] == "failed"
+
+def test_did_video_is_normalized_before_delivery():
+    req = LessonRequest(course="Python", topic="Context", celebrity="Modi")
+    base_filename = "test_did_normalized_123"
+    mock_gemini_resp = MagicMock()
+    mock_gemini_resp.text = "A short generated lesson script for avatar normalization."
+    mock_response = MagicMock()
+    mock_response.content = b"avatar-video"
+    mock_response.raise_for_status.return_value = None
+    mock_proc = AsyncMock()
+    mock_proc.returncode = 0
+    mock_proc.communicate.return_value = (b"", b"")
+
+    with patch.object(api.gemini_client.models, "generate_content", return_value=mock_gemini_resp), \
+         patch("api.generate_tts", new_callable=AsyncMock), \
+         patch("api.create_avatar_video", return_value="https://example.test/avatar.mp4") as mock_avatar, \
+         patch("api.requests.get", return_value=mock_response), \
+         patch("os.path.exists", return_value=True), \
+         patch("os.remove"), \
+         patch("builtins.open", MagicMock()), \
+         patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec, \
+         patch("cloudinary.uploader.upload", return_value={"secure_url": "http://cloudinary.com/test.mp4"}), \
+         patch("api.probe_video_metadata", return_value={"width": 1280, "height": 720}):
+        asyncio.run(process_lesson(req, base_filename))
+
+    mock_avatar.assert_awaited_once()
+    mock_exec.assert_called_once()
+    args = mock_exec.call_args.args
+    assert args[0] == "ffmpeg"
+    assert "-stream_loop" not in args
+    assert "0:a?" in args
+    assert "-filter_complex" in args
+    assert job_status[base_filename]["meta"]["renderer"] == "did"
+
+
+def test_create_avatar_video_is_coroutine_function():
+    """Verify that create_avatar_video is defined as an async coroutine function in api."""
+    assert inspect.iscoroutinefunction(api.create_avatar_video)

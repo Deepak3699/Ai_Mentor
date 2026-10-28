@@ -1,7 +1,8 @@
-import { apiFetch as fetch } from "../lib/api";
+import { apiFetch } from "../lib/api";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import ContinueLearningCard from "../components/dashboard/ContinueLearningCard";
 import {
   ArrowRight,
   Award,
@@ -19,10 +20,16 @@ import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import CourseCardMeta from "../components/common/CourseCardMeta";
 import LearningActivityCard from "../components/dashboard/LearningActivityCard";
+import MeetAiMentorCard from "../components/dashboard/MeetAiMentorCard";
+import TodaysLearningPlan from "../components/dashboard/TodaysLearningPlan";
+import RecentActivityCard from "../components/dashboard/RecentActivityCard";
+import QuickActions from "../components/dashboard/QuickActions";
 import DashboardHero from "../components/DashboardHero";
+import AILessonBanner from "../components/AILessonBanner";
 import UpcomingLiveSession from "../components/UpcomingLiveSession";
 import RecommendedForYou from "../components/RecommendedForYou";
 import { Helmet } from "react-helmet-async";
+import toast from "react-hot-toast";
 
 const BLUE_BUTTON =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-[#3867D6] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-[#315BC0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3867D6] focus-visible:ring-offset-2";
@@ -32,6 +39,7 @@ const artworkFor = (title = "") => {
     "React Fundamentals": "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png",
     "Python For AI": "/AI_Tutor_New_UI/Dashboard/python_for_ai.png",
     "AI Ethics & Bias": "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png",
+    "React.js Masterclass": "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png",
     PostgreSQL: "/AI_Tutor_New_UI/Dashboard/postgresql.png",
     "MongoDB Fundamentals": "/AI_Tutor_New_UI/Dashboard/MongoDB.png",
     "Machine Learning Fundamentals": "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png",
@@ -42,8 +50,8 @@ const artworkFor = (title = "") => {
   return artwork[title] || "/AI_Tutor_New_UI/Dashboard/logo.png";
 };
 
-const parseLessonCount = (course) =>
-  Number(course?.lessonsCount) || Number.parseInt(String(course?.lessons || "0"), 10) || 0;
+import { parseLessonCount, selectEligibleAICourse } from "../utils/courseEligibility";
+
 const purchasedId = (entry) => entry?.id ?? entry?.courseId ?? entry?.course?.id;
 const matchesCourse = (entry, id) => String(purchasedId(entry)) === String(id);
 
@@ -52,7 +60,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [certificateData, setCertificateData] = useState(null);
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [statsCardsData, setStatsCardsData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [coursesLoadFailed, setCoursesLoadFailed] = useState(false);
   const [learningStreak] = useState(() => {
     const stored = Number.parseInt(localStorage.getItem("streak") || "0", 10);
     return Number.isFinite(stored) ? Math.max(0, stored) : 0;
@@ -69,18 +80,43 @@ const Dashboard = () => {
       try {
         const token = localStorage.getItem("token");
         const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
-        const [coursesResult, certificateResult] = await Promise.allSettled([
-          fetch("/api/courses", { headers }),
-          fetch("/api/certificate/list", { headers }),
-        ]);
+        const [coursesResult, certificateResult, analyticsResult, statsResult] =
+          await Promise.allSettled([
+            apiFetch("/api/courses", { headers }),
+            apiFetch("/api/certificate/list", { headers }),
+            apiFetch("/api/analytics", { headers }),
+            apiFetch("/api/courses/stats/cards", { headers }),
+          ]);
+
         if (coursesResult.status === "fulfilled" && coursesResult.value.ok) {
           setCourses(await coursesResult.value.json());
+        } else {
+          setCoursesLoadFailed(true);
         }
+
         if (certificateResult.status === "fulfilled" && certificateResult.value.ok) {
           setCertificateData(await certificateResult.value.json());
         }
+
+        if (analyticsResult.status === "fulfilled" && analyticsResult.value.ok) {
+          setAnalyticsData(await analyticsResult.value.json());
+        }
+
+        // Real backend shape of /api/courses/stats/cards is:
+        // { totalCourses, completedCourses, hoursLearned, certificates }
+        // The course list must not depend on the stats request: if stats fail,
+        // courses and the AI lesson banner still operate correctly.
+        if (statsResult.status === "fulfilled" && statsResult.value.ok) {
+          try {
+            const stats = await statsResult.value.json();
+            setStatsCardsData(stats);
+          } catch (statsError) {
+            console.error("Error parsing dashboard stats:", statsError);
+          }
+        }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
+        setCoursesLoadFailed(true);
       } finally {
         setLoading(false);
       }
@@ -117,12 +153,77 @@ const Dashboard = () => {
   );
   const continueCourse = inProgress[0] || enrolledCourses[0];
   const certificateCount =
-    certificateData?.stats?.certificatesEarned ?? user?.analytics?.certificates ?? 0;
-  const totalHours = user?.analytics?.totalHours;
-  const weeklyActivity = Array.isArray(user?.analytics?.weeklyActivity)
-    ? user.analytics.weeklyActivity
-    : [];
-  const weeklySummary = user?.analytics?.weeklySummary || null;
+    certificateData?.stats?.certificatesEarned ??
+    statsCardsData?.certificates ??
+    user?.analytics?.certificates ??
+    0;
+  const totalHours =
+    analyticsData?.totalHours ?? statsCardsData?.hoursLearned ?? user?.analytics?.totalHours;
+
+  const weeklyActivity = useMemo(() => {
+    if (
+      Array.isArray(user?.analytics?.weeklyActivity) &&
+      user.analytics.weeklyActivity.length > 0
+    ) {
+      return user.analytics.weeklyActivity;
+    }
+
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const dayHoursMap = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
+
+    const sessions = Array.isArray(analyticsData?.studySessions)
+      ? analyticsData.studySessions
+      : Array.isArray(user?.analytics?.studySessions)
+        ? user.analytics.studySessions
+        : [];
+
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    sessions.forEach((s) => {
+      const sessionDate = new Date(s.date);
+      if (sessionDate >= startOfWeek) {
+        const dName = sessionDate.toLocaleDateString("en-US", { weekday: "short" });
+        if (dayHoursMap[dName] != null) {
+          dayHoursMap[dName] += Number(s.hours || s.duration || 0);
+        }
+      }
+    });
+
+    if (Object.values(dayHoursMap).every((v) => v === 0) && user?.purchasedCourses?.length) {
+      user.purchasedCourses.forEach((c) => {
+        if (c.progress?.lastWatched) {
+          const watchedDate = new Date(c.progress.lastWatched);
+          if (watchedDate >= startOfWeek) {
+            const dName = watchedDate.toLocaleDateString("en-US", { weekday: "short" });
+            if (dayHoursMap[dName] != null) {
+              const compCount = c.progress.completedLessons?.length || 1;
+              dayHoursMap[dName] += parseFloat((compCount * 0.5).toFixed(1));
+            }
+          }
+        }
+      });
+    }
+
+    return days.map((d) => ({
+      day: d,
+      hours: parseFloat((dayHoursMap[d] || 0).toFixed(1)),
+    }));
+  }, [user?.analytics, analyticsData, user?.purchasedCourses]);
+
+  const weeklySummary = useMemo(() => {
+    if (user?.analytics?.weeklySummary) return user.analytics.weeklySummary;
+    const totalWeeklyHours = weeklyActivity.reduce((sum, d) => sum + Number(d.hours || 0), 0);
+    return {
+      hours: totalWeeklyHours,
+      changePercent: totalWeeklyHours > 0 ? 15 : null,
+    };
+  }, [user?.analytics?.weeklySummary, weeklyActivity]);
+
   const upcomingSessions = Array.isArray(user?.upcomingSessions) ? user.upcomingSessions : [];
 
   const handleContinue = () => {
@@ -130,11 +231,77 @@ const Dashboard = () => {
     else navigate("/courses", { state: { activeTab: "explore" } });
   };
 
+  // AI lesson generation banner action (Issue #183)
+  const handleGenerateAILesson = async () => {
+    if (loading) {
+      toast("Courses are still loading. Please try again in a moment.");
+      return;
+    }
+
+    // 1. Select from locally resolved enrolled courses
+    let targetCourse = selectEligibleAICourse(enrolledCourses);
+
+    // If enrolled courses are present but none have eligible lessons:
+    if (!targetCourse && enrolledCourses.length > 0) {
+      toast.error("No eligible lessons available in your enrolled courses.");
+      return;
+    }
+
+    // 2. If no enrolled courses found from user.purchasedCourses, query my-courses API
+    if (!targetCourse && enrolledCourses.length === 0) {
+      try {
+        const response = await apiFetch("/api/courses/my-courses");
+        if (!response || !response.ok) {
+          throw new Error(`My courses API failed: ${response?.status}`);
+        }
+        const myEnrolled = await response.json();
+        if (Array.isArray(myEnrolled) && myEnrolled.length > 0) {
+          const mapped = myEnrolled.map((course) => {
+            const purchase = user?.purchasedCourses?.find((entry) =>
+              matchesCourse(entry, course.id),
+            );
+            const total = parseLessonCount(course);
+            const completed = purchase?.progress?.completedLessons?.length || 0;
+            return {
+              ...course,
+              total,
+              completed,
+            };
+          });
+          targetCourse = selectEligibleAICourse(mapped);
+          if (!targetCourse) {
+            toast.error("No eligible lessons available in your enrolled courses.");
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching enrolled courses:", error);
+        toast.error("Couldn't load your courses. Please try again.");
+        return;
+      }
+    }
+
+    if (targetCourse?.id) {
+      navigate(`/learning/${targetCourse.id}`, { state: { openAIVoiceover: true } });
+      return;
+    }
+
+    // 3. User has no enrolled courses: guide to explore
+    if (courses.length > 0) {
+      toast("Enroll in a course to try AI lessons.");
+      navigate("/courses", { state: { activeTab: "explore" } });
+    } else if (coursesLoadFailed) {
+      toast.error("Couldn't load courses. Please try again.");
+    } else {
+      toast.error("No courses are available right now. Check back soon!");
+    }
+  };
+
   const enrollAndPreview = async (course) => {
     if (!user) return navigate("/login");
     try {
       if (Number(course.priceValue || 0) === 0) {
-        await fetch("/api/users/purchase-course", {
+        await apiFetch("/api/users/purchase-course", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -200,64 +367,43 @@ const Dashboard = () => {
           ))}
         </section>
 
-        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-6">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-[#3867D6]">
-                <Sparkles className="h-4 w-4" /> Next step
-              </span>
-              <h2 className="mt-2 text-xl font-extrabold text-main">Continue learning</h2>
-            </div>
-            <Link to="/courses" className="text-sm font-bold text-[#3867D6] hover:underline">
-              View my courses
-            </Link>
-          </div>
-          {continueCourse ? (
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-              <img
-                src={artworkFor(continueCourse.title)}
-                alt={continueCourse.title}
-                className="h-24 w-full rounded-xl object-cover sm:w-36"
-              />
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate text-lg font-extrabold text-main">
-                  {continueCourse.title}
-                </h3>
-                <p className="mt-1 text-sm text-muted">
-                  {continueCourse.completed > 0
-                    ? `${continueCourse.completed} of ${continueCourse.total || "?"} lessons completed`
-                    : "Ready for the first lesson"}
-                </p>
-                <div className="mt-4 h-2 overflow-hidden rounded-full bg-border">
-                  <div
-                    className="h-full rounded-full bg-[#3867D6] transition-[width] duration-500"
-                    style={{ width: `${continueCourse.progress}%` }}
-                  />
-                </div>
-              </div>
-              <button type="button" onClick={handleContinue} className={BLUE_BUTTON}>
-                {continueCourse.completed > 0 ? "Continue" : "Start learning"}{" "}
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-border px-6 py-10 text-center">
-              <GraduationCap className="mx-auto h-8 w-8 text-[#3867D6]" />
-              <h3 className="mt-3 font-extrabold text-main">Choose the next skill to learn</h3>
-              <p className="mt-1 text-sm text-muted">
-                Explore the course catalog to begin a learning path.
-              </p>
-              <button type="button" onClick={handleContinue} className={`${BLUE_BUTTON} mt-5`}>
-                Explore courses
-              </button>
-            </div>
-          )}
-        </section>
+        {/* AI Generated Lessons promo (Issue #183) */}
+        <AILessonBanner onGenerate={handleGenerateAILesson} />
+
+        <ContinueLearningCard
+          course={continueCourse}
+          onContinue={handleContinue}
+          onExplore={() => navigate("/courses", { state: { activeTab: "explore" } })}
+          artworkFor={artworkFor}
+          buttonClass={BLUE_BUTTON}
+        />
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,0.85fr)]">
-          <LearningActivityCard data={weeklyActivity} summary={weeklySummary} />
-          <UpcomingLiveSession sessions={upcomingSessions} />
+          <div className="flex flex-col gap-6">
+            <LearningActivityCard data={weeklyActivity} summary={weeklySummary} />
+
+            <div className="grid flex-1 gap-6 md:grid-cols-2">
+              <TodaysLearningPlan
+                continueCourse={continueCourse}
+                weeklyActivity={weeklyActivity}
+                streak={learningStreak}
+              />
+              <MeetAiMentorCard continueCourse={continueCourse} />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-6">
+            <UpcomingLiveSession sessions={upcomingSessions} />
+            <QuickActions />
+          </div>
         </div>
+
+        <RecentActivityCard
+          purchasedCourses={user?.purchasedCourses || []}
+          enrolledCourses={enrolledCourses}
+          studySessions={analyticsData?.studySessions || []}
+          certificateData={certificateData}
+        />
 
         <section>
           <div className="mb-4 flex items-center justify-between">

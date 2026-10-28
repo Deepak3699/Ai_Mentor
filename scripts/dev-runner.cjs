@@ -1,5 +1,6 @@
 const { spawn } = require("node:child_process");
 const http = require("node:http");
+const { isAbsolute, resolve } = require("node:path");
 
 const npmCli = process.env.npm_execpath;
 if (!npmCli) {
@@ -9,13 +10,14 @@ if (!npmCli) {
 
 const mode = process.argv[2] || "all";
 const modeServices = {
-  all: ["userApi", "userWeb", "adminApi", "adminWeb"],
+  all: ["userApi", "userWeb", "adminApi", "adminWeb", "aiApi"],
   user: ["userApi", "userWeb"],
   admin: ["adminApi", "adminWeb"],
   backend: ["userApi"],
   frontend: ["userWeb"],
   "backend-admin": ["adminApi"],
   "frontend-admin": ["adminWeb"],
+  ai: ["aiApi"],
 };
 if (!modeServices[mode]) {
   console.error(`[FAILED] Unknown development mode: ${mode}`);
@@ -49,7 +51,6 @@ const services = {
     label: "WEB",
     folder: "frontend",
     url: "http://localhost:5173",
-    backend: "userApi",
     ready: "[READY] Frontend:",
     color: C.magenta,
   },
@@ -67,9 +68,18 @@ const services = {
     label: "WEB",
     folder: "frontendAdmin",
     url: "http://localhost:5174",
-    backend: "adminApi",
     ready: "[READY] Admin frontend:",
     color: C.yellow,
+  },
+  aiApi: {
+    group: "AI SERVICE",
+    label: "API",
+    folder: "ai_service/backend",
+    url: "http://127.0.0.1:8000",
+    health: "http://127.0.0.1:8000/",
+    ready: "Application startup complete.",
+    color: C.green,
+    command: "python",
   },
 };
 const selected = modeServices[mode];
@@ -130,10 +140,11 @@ function beginStartupCycle(key) {
   state[key].phases = {};
 }
 function title() {
-  if (mode === "all") return "AI MENTOR · ALL SERVICES";
-  if (mode === "user") return "AI MENTOR · USER APPLICATION";
-  if (mode === "admin") return "AI MENTOR · ADMIN APPLICATION";
-  return `AI MENTOR · ${services[selected[0]].group.replace(" APPLICATION", "")} ${services[selected[0]].label}`;
+  if (mode === "all") return "AI MENTOR | ALL SERVICES";
+  if (mode === "user") return "AI MENTOR | USER APPLICATION";
+  if (mode === "admin") return "AI MENTOR | ADMIN APPLICATION";
+  if (mode === "ai") return "AI MENTOR | AI SERVICE";
+  return `AI MENTOR | ${services[selected[0]].group.replace(" APPLICATION", "")} ${services[selected[0]].label}`;
 }
 function statusWord(status) {
   return {
@@ -165,13 +176,43 @@ function phaseSummary(key) {
   if (services[key].label !== "API" || state[key].status !== "ready") return null;
   const parts = [
     ["DB Connect", phaseDuration(key, "database")],
-    ["Schema", phaseDuration(key, "schema")],
+    [key === "aiApi" ? "Startup" : "Schema", phaseDuration(key, "schema")],
     ["Health", phaseDuration(key, "health")],
   ].filter(([, value]) => value);
   return parts.length
-    ? `${"".padEnd(22)}${parts.map(([label, value]) => `${label} ${value}`).join("  ·  ")}`
+    ? `${"".padEnd(22)}${parts.map(([label, value]) => `${label} ${value}`).join("  |  ")}`
     : null;
 }
+function aiPythonPath() {
+  const configured = process.env.AI_SERVICE_PYTHON;
+  const configuredPath = configured
+    ? isAbsolute(configured)
+      ? configured
+      : resolve(configured)
+    : null;
+  const localVenv = resolve("ai_service", ".venv", "Scripts", "python.exe");
+  const candidates = [configuredPath, localVenv, "python"].filter(Boolean);
+  return candidates.find(
+    (candidate) => candidate === "python" || require("node:fs").existsSync(candidate),
+  );
+}
+
+function commandFor(key) {
+  if (key !== "aiApi") return { executable: process.execPath, args: [npmCli, "run", "dev"] };
+  const python = aiPythonPath();
+  if (!python)
+    throw new Error(
+      "AI service Python environment not found. Run npm run setup:ai or set AI_SERVICE_PYTHON.",
+    );
+  return { executable: python, args: ["graceful_server.py"] };
+}
+
+function servicePrefix(key) {
+  if (services[key].group === "USER APPLICATION") return "USER";
+  if (services[key].group === "ADMIN APPLICATION") return "ADMIN";
+  return "AI";
+}
+
 function serviceUrl(key) {
   // Keep the full protocol so VS Code recognizes this as a clickable terminal URL.
   return services[key].url;
@@ -213,15 +254,23 @@ function serviceRow(key, statusColor) {
   const data = state[key];
   const mark = lattice(data.status).padEnd(10);
   const role = service.label.padEnd(4);
-  const status = statusWord(data.status).padEnd(11);
-  const detail = data.detail.padEnd(36);
-  return `  ${mark} ${service.color}${role}${C.reset} ${statusColor}${status}${C.reset}${detail}${C.dim}${timingLabel(key).padStart(20)}${C.reset}`;
+  const status = statusWord(data.status).padEnd(10);
+  const detail = data.detail.slice(0, 28).padEnd(28);
+  return `  ${mark} ${service.color}${role}${C.reset} ${statusColor}${status}${C.reset}${detail}${C.dim}${timingLabel(key).padStart(16)}${C.reset}`;
+}
+
+function countPhysicalLines(lines) {
+  const cols = process.stdout.columns || 80;
+  return lines.reduce((total, line) => {
+    const rawLen = stripAnsi(line).length;
+    return total + Math.max(1, Math.ceil(rawLen / cols));
+  }, 0);
 }
 
 function dashboardLines() {
   const lines = [
     `${C.bold}${title()}${C.reset}`,
-    `${C.gray}────────────────────────────────────────────────────────────────────${C.reset}`,
+    `${C.gray}────────────────────────────────────────────────────────────${C.reset}`,
   ];
   const groups = [...new Set(selected.map((key) => services[key].group))];
   for (const group of groups) {
@@ -243,18 +292,15 @@ function dashboardLines() {
     }
     if (group !== groups.at(-1)) lines.push("");
   }
-  lines.push(
-    `${C.gray}────────────────────────────────────────────────────────────────────${C.reset}`,
-  );
+  lines.push(`${C.gray}────────────────────────────────────────────────────────────${C.reset}`);
   const allReady = selected.every((key) => state[key].status === "ready");
   lines.push(...readyFooter(allReady));
   return lines;
 }
 function clearDashboard() {
   if (!interactive || renderedLines === 0) return;
-  process.stdout.write(`\x1b[${renderedLines}A`);
-  for (let i = 0; i < renderedLines; i += 1) process.stdout.write("\x1b[2K\x1b[1B");
-  process.stdout.write(`\x1b[${renderedLines}A`);
+  // Move to column 0, move up by the exact number of physical rendered lines, then clear down
+  process.stdout.write(`\x1b[0G\x1b[${renderedLines}A\x1b[J`);
   renderedLines = 0;
 }
 function render() {
@@ -262,7 +308,7 @@ function render() {
   clearDashboard();
   const lines = dashboardLines();
   process.stdout.write(`${lines.join("\n")}\n`);
-  renderedLines = lines.length;
+  renderedLines = countPhysicalLines(lines);
   frame += 1;
 }
 function log(key, text, target = process.stdout) {
@@ -279,7 +325,7 @@ function log(key, text, target = process.stdout) {
   if (clean.includes(services[key].ready)) return;
   clearDashboard();
   target.write(
-    `${services[key].color}[${services[key].group.startsWith("USER") ? "USER" : "ADMIN"}/${services[key].label}]${C.reset} ${clean}\n`,
+    `${services[key].color}[${servicePrefix(key)}/${services[key].label}]${C.reset} ${clean}\n`,
   );
   render();
 }
@@ -337,9 +383,12 @@ function spawnService(key) {
   beginStartupCycle(key);
   markPhase(key, "process", "start");
   setState(key, "starting", service.label === "API" ? "Launching backend" : "Launching Vite");
-  const child = spawn(process.execPath, [npmCli, "run", "dev"], {
+  const command = commandFor(key);
+  const serviceEnv =
+    key === "aiApi" ? { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" } : process.env;
+  const child = spawn(command.executable, command.args, {
     cwd: service.folder,
-    env: process.env,
+    env: serviceEnv,
     stdio: ["inherit", "pipe", "pipe"],
     windowsHide: false,
   });
@@ -362,6 +411,13 @@ function spawnService(key) {
       markPhase(key, "schema", "end");
       state[key].detail = "Database synchronized";
     }
+    if (
+      key === "aiApi" &&
+      /^INFO:\s+\d+\.\d+\.\d+\.\d+:\d+ - "(?:GET \/status\/|GET \/transcript\/|POST \/generate)/.test(
+        text,
+      )
+    )
+      return;
     if (text.includes(service.ready)) {
       if (state[key].status === "ready") return;
       if (service.label === "API") {
@@ -443,7 +499,7 @@ async function detectExistingServices() {
     externallyRunning.add(key);
     state[key].runStartedAt = null;
     state[key].elapsed = null;
-    setState(key, "ready", `${serviceUrl(key)} · already running`);
+    setState(key, "ready", `${serviceUrl(key)} | already running`);
 
     if (service.label === "API") {
       const dependent = key === "userApi" ? "userWeb" : "adminWeb";
@@ -459,7 +515,7 @@ function printExistingServiceNotice() {
   clearDashboard();
   for (const key of externallyRunning) {
     process.stdout.write(
-      `${services[key].color}[${services[key].group.startsWith("USER") ? "USER" : "ADMIN"}/${services[key].label}]${C.reset} ALREADY RUNNING · ${serviceUrl(key)} · Reusing existing process\n`,
+      `${services[key].color}[${servicePrefix(key)}/${services[key].label}]${C.reset} ALREADY RUNNING | ${serviceUrl(key)} | Reusing existing process\n`,
     );
   }
   render();
@@ -468,7 +524,7 @@ function printExistingServiceNotice() {
 async function main() {
   if (interactive) process.stdout.write("\x1b[?25l");
   render();
-  animation = setInterval(render, 90);
+  animation = setInterval(render, 300);
 
   await detectExistingServices();
   printExistingServiceNotice();

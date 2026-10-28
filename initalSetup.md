@@ -196,63 +196,56 @@ VITE_API_BASE_URL=http://localhost:5001
 
 ### 5.5 `ai_service/backend/.env`
 
-| Variable                | Where to get it                                              |
-| ----------------------- | ------------------------------------------------------------ |
-| `GEMINI_API_KEY`        | https://aistudio.google.com/app/apikey — free tier available |
-| `GROQ_API_KEY`          | https://console.groq.com/keys — free tier available          |
-| `CLOUDINARY_CLOUD_NAME` | Same as `backend/.env`                                       |
-| `CLOUDINARY_API_KEY`    | Same as `backend/.env`                                       |
-| `CLOUDINARY_API_SECRET` | Same as `backend/.env`                                       |
+| Variable                                                               | Requirement                | Behavior when missing                                               |
+| ---------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------- |
+| `GEMINI_API_KEY`                                                       | Required                   | `npm run setup` and `npm run setup:ai` stop with a clear error      |
+| `GROQ_API_KEY`                                                         | Optional                   | Groq fallback is disabled; Gemini remains available                 |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Optional as a complete set | Cloud delivery is disabled and the supported local fallback is used |
+| `DID_API_KEY`, `DID_SOURCE_URL`                                        | Optional                   | D-ID rendering is skipped and FFmpeg fallback is used               |
 
-> **All five are required.** `config.py` raises an error and the service will
-> not start if `GEMINI_API_KEY`, `GROQ_API_KEY` or any Cloudinary value is
-> missing. Gemini is the primary AI provider; Groq is the fallback.
-
----
+The setup commands report only variable names and `<configured>` markers. Secret values are never printed, and existing `.env` files are never overwritten.
 
 ## 6. Install dependencies
 
-From the repository root, run:
+From the repository root, run the complete setup:
 
 ```bash
 npm run setup
 ```
 
-The setup command installs dependencies for the root workspace, all four Node/React services, and the Python AI service. It does not create or modify `.env` files and does not print credential values.
+This installs all Node/React dependencies and creates or reuses the isolated AI environment at `ai_service/.venv`.
 
-If Python virtual-environment activation is needed for manual AI-service work, create and activate the environment using the instructions in `ai_service/README.md`.
+For AI-only setup:
 
----
+```bash
+npm run setup:ai
+```
+
+Both commands verify Python, FFmpeg, AI configuration, imports, and Redis/Memurai availability. They do not create credentials. A missing AI `.env` file or missing `GEMINI_API_KEY` stops setup with the exact remediation. Missing Redis/Memurai produces a warning because queued video generation cannot work without port `6379`.
 
 ## 7. Start the services
 
-Start the four Node/React services from the repository root:
+Start the complete local product from the repository root:
 
 ```bash
 npm run dev
 ```
 
-The runner starts the User API and Admin API, verifies backend health, then starts each matching WEB application. The terminal dashboard displays User and Admin sections, service startup times, database/schema/health phases, and clickable local URLs.
+The runner starts or reuses all five services and displays User, Admin, and AI sections in one terminal dashboard. AI logs use the `[AI/API]` prefix.
 
 Focused alternatives:
 
 ```bash
 npm run dev:user
 npm run dev:admin
+npm run dev:ai
 npm run dev:backend
 npm run dev:frontend
 npm run dev:backend-admin
 npm run dev:frontend-admin
 ```
 
-If a selected service is already healthy, it is reused instead of starting a duplicate process. `Ctrl+C` stops only services started by the current terminal.
-
-Start the AI service separately:
-
-```bash
-cd ai_service/backend
-python graceful_server.py
-```
+`npm run dev:ai` replaces the old long Python command. If a selected service is already healthy, it is reused instead of duplicated. `Ctrl+C` stops only services started by the current terminal.
 
 ## 8. Create your first admin account
 
@@ -319,7 +312,10 @@ Check each one. If a step fails, see the troubleshooting table below.
 | `❌ GROQ_API_KEY not found in .env`                                            | Groq key missing                                                    | Get a free key at https://console.groq.com/keys                                   |
 | `❌ Cloudinary credentials missing.`                                           | One of the three Cloudinary values is empty                         | All three must be set                                                             |
 | `ModuleNotFoundError: No module named 'config'`                                | Started uvicorn from `ai_service/` instead of `ai_service/backend/` | `cd ai_service/backend` first                                                     |
-| `FFmpeg not found`                                                             | FFmpeg not installed or not on PATH                                 | Install it and restart your terminal                                              |
+| `FFmpeg not found`                                                             | FFmpeg not installed or not on PATH                                 | Install it, restart the terminal, then run `npm run setup:ai`                     |
+| `Missing AI environment file`                                                  | `ai_service/backend/.env` does not exist                            | Copy `.env.example` to `.env`, configure Gemini, then rerun setup                 |
+| `GEMINI_API_KEY is not configured`                                             | Required Gemini key is empty or still a placeholder                 | Add a real key without sharing it, then rerun setup                               |
+| Redis warning or video jobs remain queued                                      | Redis/Memurai is not listening on port `6379`                       | Start Redis/Memurai, then restart `npm run dev`                                   |
 | A service is already running                                                   | The selected port already has a healthy service                     | The root runner reuses healthy User/Admin API and WEB services automatically      |
 | `Not allowed by CORS` in the browser console                                   | `FRONTEND_URL` does not match the browser address                   | In `backend/.env`, set `FRONTEND_URL=http://localhost:5173`                       |
 | Admin panel loads but every page is empty                                      | `VITE_API_BASE_URL` points to 5000                                  | Set it to `http://localhost:5001` in `frontendAdmin/.env` and restart Vite        |
@@ -338,10 +334,10 @@ Tick every box before you move on to real work.
 - [ ] `frontend/.env` created with the API URL and all six Firebase values
 - [ ] `backendAdmin/.env` created with the **same** database URL and JWT secret
 - [ ] `frontendAdmin/.env` created with `VITE_API_BASE_URL=http://localhost:5001`
-- [ ] `ai_service/backend/.env` created with Gemini, Groq and Cloudinary keys
+- [ ] `ai_service/backend/.env` created with required Gemini key; optional providers configured as needed
 - [ ] `npm run setup` completed from the repository root
-- [ ] Python venv created and `requirements.txt` installed
-- [ ] Four Node/React services started with `npm run dev`; AI service started separately
+- [ ] `npm run setup` or `npm run setup:ai` created/reused `ai_service/.venv` and installed requirements
+- [ ] All five services started or reused with `npm run dev`
 - [ ] http://localhost:5000/health/live reports `{"status":"alive"}`
 - [ ] http://localhost:5000/health/ready reports `{"status":"ready"}` when the database is available
 - [ ] http://localhost:5001/health/live reports `{"status":"alive"}`
