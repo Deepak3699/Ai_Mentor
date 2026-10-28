@@ -6,7 +6,8 @@ process.env.NODE_ENV = "test";
 const { default: User } = await import("../models/User.js");
 const { default: Preference } = await import("../models/Preference.js");
 const { default: Course } = await import("../models/Course.js");
-const { getChatContext, chatWithAssistant } = await import("../controllers/chatController.js");
+const { getChatContext, chatWithAssistant, parseGeminiReply } =
+  await import("../controllers/chatController.js");
 const { getCertificates, generateCertificate } =
   await import("../controllers/certificateController.js");
 
@@ -269,4 +270,22 @@ test("completed course generation returns a downloadable PDF", async () => {
   assert.equal(state.headers["Content-Disposition"], "attachment; filename=Certificate_1.pdf");
   assert.ok(Buffer.isBuffer(state.sent));
   assert.equal(state.sent.subarray(0, 5).toString("ascii"), "%PDF-");
+});
+
+test("route-only Gemini replies include a visible fallback and preserve the route", () => {
+  assert.deepEqual(parseGeminiReply("ROUTE:/settings"), {
+    reply: "I can take you to that page.",
+    route: "/settings",
+  });
+});
+
+test("Gemini replies retain visible text while extracting a route", () => {
+  assert.deepEqual(parseGeminiReply("Open your preferences. ROUTE:/preferences"), {
+    reply: "Open your preferences.",
+    route: "/preferences",
+  });
+});
+
+test("empty Gemini replies receive a non-empty fallback", () => {
+  assert.ok(parseGeminiReply("").reply.trim().length > 0);
 });
