@@ -68,7 +68,11 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
           error: { code: "FORBIDDEN", message: "Unauthorized idempotency key", details: [] },
         });
       }
-      if (existing.cachedResponse && existing.cacheExpiresAt > new Date()) {
+      const hasCachedPayload =
+        existing.cachedResponse && Object.keys(existing.cachedResponse).length > 0;
+      const isNotExpired =
+        !existing.cacheExpiresAt || new Date(existing.cacheExpiresAt) > new Date();
+      if (hasCachedPayload && isNotExpired && existing.status !== "failed") {
         log.info({ idempotencyKey }, "Returning cached response for key: {idempotencyKey}");
         return res.status(200).json(existing.cachedResponse);
       }
@@ -78,43 +82,69 @@ router.post("/create-checkout-session", protect, paymentLimiter, async (req, res
     const currency = (courseRecord.currency || "inr").toLowerCase();
     const courseTitle = courseRecord.title;
 
-    const payment = await Payment.create({
-      userId,
-      courseId: courseRecord.id,
-      courseTitle,
-      amount,
-      currency,
-      status: "initiated",
-      idempotencyKey,
-      gateway: "stripe",
-      cacheExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    });
+    const cacheExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    let payment;
+
+    // If a previous attempt failed, re-initialize it cleanly for retry
+    if (existing && typeof existing.update === "function") {
+      payment = existing;
+      await payment.update({
+        courseId: courseRecord.id,
+        courseTitle,
+        amount,
+        currency,
+        status: "initiated",
+        gateway: "stripe",
+        cachedResponse: {},
+        cacheExpiresAt,
+      });
+    } else {
+      payment = await Payment.create({
+        userId,
+        courseId: courseRecord.id,
+        courseTitle,
+        amount,
+        currency,
+        status: "initiated",
+        idempotencyKey,
+        gateway: "stripe",
+        cacheExpiresAt,
+      });
+    }
 
     const successUrl = `${process.env.FRONTEND_URL}/success?courseId=${courseRecord.id}&title=${encodeURIComponent(courseTitle)}`;
 
-    const session = await paymentGatewayServices.createStripeCheckoutSession({
-      payment_method_types: ["card"],
-      mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency,
-            product_data: { name: courseTitle },
-            unit_amount: amount,
+    // Wrap gateway call so failure guarantees status: "failed"
+    let session;
+    try {
+      session = await paymentGatewayServices.createStripeCheckoutSession({
+        payment_method_types: ["card"],
+        mode: "payment",
+        line_items: [
+          {
+            price_data: {
+              currency,
+              product_data: { name: courseTitle },
+              unit_amount: amount,
+            },
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        metadata: {
+          courseId: courseRecord.id.toString(),
+          courseTitle,
+          userId: userId.toString(),
+          paymentId: payment.id,
+          idempotencyKey,
         },
-      ],
-      metadata: {
-        courseId: courseRecord.id.toString(),
-        courseTitle,
-        userId: userId.toString(),
-        paymentId: payment.id,
-        idempotencyKey,
-      },
-      success_url: successUrl,
-      cancel_url: `${process.env.FRONTEND_URL}/courses`,
-    });
+        success_url: successUrl,
+        cancel_url: `${process.env.FRONTEND_URL}/courses`,
+      });
+    } catch (stripeErr) {
+      await payment.update({ status: "failed" });
+      log.error({ err: stripeErr }, "Stripe checkout session creation failed");
+      throw stripeErr;
+    }
 
     const cachedResponse = { url: session.url, paymentId: payment.id };
 
@@ -154,6 +184,15 @@ router.get("/status/:paymentId", protect, async (req, res) => {
       });
     }
 
+    if (
+      (payment.status === "initiated" || payment.status === "processing") &&
+      payment.cacheExpiresAt &&
+      new Date(payment.cacheExpiresAt) <= new Date() &&
+      typeof payment.update === "function"
+    ) {
+      await payment.update({ status: "failed" });
+      payment.status = "failed";
+    }
     return res.status(200).json({
       paymentId: payment.id,
       status: payment.status,
