@@ -99,7 +99,7 @@ if (connectionString) {
   );
 }
 
-export const connectDB = async () => {
+const connectDB = async () => {
   try {
     await sequelize.authenticate();
     console.log("✅ Database connected successfully.");
@@ -109,4 +109,14 @@ export const connectDB = async () => {
   }
 };
 
-export { sequelize };
+async function closeDB() {
+  try {
+    await sequelize.close();
+    console.log("🔒 Admin database connection closed successfully.");
+  } catch (error) {
+    console.error("❌ Error closing admin database connection:", error.message);
+    throw error;
+  }
+}
+
+export { sequelize, connectDB, closeDB };

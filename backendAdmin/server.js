@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import healthRoutes from "./routes/healthRoutes.js";
 
-import { connectDB, sequelize } from "./config/db.js";
+import { connectDB, closeDB, sequelize } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import { securityHeaders } from "./config/securityHeaders.js";
 import requestContext from "./middleware/requestContext.js";
@@ -69,6 +69,7 @@ app.use((err, req, res, _next) => {
 
 // ================= SERVER STARTUP =================
 const PORT = process.env.PORT || 5001;
+let server; // Keep reference to server globally for graceful shutdown handlers
 
 const startServer = async () => {
   try {
@@ -76,7 +77,8 @@ const startServer = async () => {
     console.log("[CHECK] Connecting to admin database...");
     await connectDB();
     console.log("[OK] Admin database connected");
-    const server = http.createServer(app);
+
+    server = http.createServer(app);
 
     server.requestTimeout = 120_000;
     server.headersTimeout = 65_000;
@@ -98,6 +100,55 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+
+// ================= GRACEFUL SHUTDOWN (Issue #127) =================
+let isShuttingDown = false;
+
+const gracefulShutdown = (signal) => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`\n[INFO] Received ${signal}. Starting graceful shutdown for admin server...`);
+
+  // Force exit fallback timer (10 seconds)
+  const forceExitTimeout = setTimeout(() => {
+    console.error("[ERROR] Forced shutdown: Could not close admin connections in time.");
+    process.exit(1);
+  }, 10_000);
+
+  if (!server) {
+    console.log("[INFO] Admin server instance not initialized. Closing DB directly.");
+    closeDB()
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
+    return;
+  }
+
+  // Stop accepting new connections
+  server.close(async (err) => {
+    if (err) {
+      console.error("[ERROR] Error closing admin HTTP server:", err);
+      clearTimeout(forceExitTimeout);
+      process.exit(1);
+    }
+
+    console.log("[OK] Admin HTTP server closed cleanly.");
+
+    try {
+      // Close database connection pool
+      await closeDB();
+      clearTimeout(forceExitTimeout);
+      console.log("[OK] Admin graceful shutdown completed successfully.");
+      process.exit(0);
+    } catch (dbErr) {
+      console.error("[ERROR] Error during admin database closure:", dbErr);
+      clearTimeout(forceExitTimeout);
+      process.exit(1);
+    }
+  });
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 if (process.env.NODE_ENV !== "test") {
   startServer();

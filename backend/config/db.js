@@ -122,5 +122,16 @@ async function connectDB() {
   }
 }
 
-export { sequelize, connectDB };
+// Added for Graceful Shutdown (Issue #127)
+async function closeDB() {
+  try {
+    await sequelize.close();
+    console.log("🔒 Database connection closed successfully.");
+  } catch (error) {
+    console.error("❌ Error closing database connection:", error.message);
+    throw error;
+  }
+}
+
+export { sequelize, connectDB, closeDB };
 export default connectDB;
