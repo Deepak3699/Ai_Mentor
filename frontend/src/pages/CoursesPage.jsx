@@ -4,12 +4,13 @@ import { Helmet } from "react-helmet-async";
 import {
   Star,
   X,
-  BookOpen,
   Search,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  BookOpen,
   SlidersHorizontal,
-} from "lucide-react"; 
+} from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import API_BASE_URL from "../lib/api";
@@ -1310,128 +1311,338 @@ const [courseSortBy, setCourseSortBy] = useState("latest");
 
 
           {/* ================= EXPLORE COURSES — Horizontal Scroll ================= */}
-          {activeTab === "explore" && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-main">Explore Courses</h2>
-                {/* Prev / Next Buttons */}
-                <div className="flex items-center gap-2 md:hidden">
-                  <button
-                    onClick={scrollLeft}
-                    className="p-2 rounded-full bg-card border border-border hover:bg-teal-500/10 hover:border-teal-500/50 dark:hover:bg-teal-500/20 dark:hover:border-teal-500/40 transition-all shadow-sm"
-                  >
-                    <ChevronLeft className="w-5 h-5 text-main" />
-                  </button>
-                  <button
-                    onClick={scrollRight}
-                    className="p-2 rounded-full bg-card border border-border hover:bg-teal-500/10 hover:border-teal-500/50 dark:hover:bg-teal-500/20 dark:hover:border-teal-500/40 transition-all shadow-sm"
-                  >
-                    <ChevronRight className="w-5 h-5 text-main" />
-                  </button>
-                </div>
-              </div>
+{activeTab === "explore" && (
+  <div>
+    {/* Explore Courses Header and Toolbar */}
+    <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+      <h2 className="text-xl font-bold text-main">
+        Explore Courses
+      </h2>
 
-              {/* Horizontal Scroll Row */}
+      <div className="flex items-center justify-between gap-2 sm:justify-end">
+        {/* Filters and Report Buttons */}
+        <div ref={filterRef} className="relative flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowFilters((open) => !open)}
+            aria-expanded={showFilters}
+            className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-main hover:bg-muted"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filters
+
+            {getActiveFilterCount() > 0 && (
+              <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
+                {getActiveFilterCount()}
+              </span>
+            )}
+
+            <ChevronDown className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowReportModal(true)}
+            aria-label="Report a problem"
+            className="rounded-lg border border-border bg-card p-2 text-main hover:bg-muted"
+          >
+            <AlertTriangle className="h-4 w-4" />
+          </button>
+
+          {/* Filter Dropdown */}
+          {showFilters && (
+            <>
+              {/* Dark overlay for mobile */}
               <div
-                ref={setScrollRef}
-                tabIndex="0"
-                className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x snap-mandatory focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2DD4BF] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 rounded-3xl"
-              >
-                {allFilteredExploreCourses.length === 0 && (
-                  <p className="text-slate-500">{t("courses.no_courses")}</p>
-                )}
+                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90] md:hidden"
+                onClick={() => setShowFilters(false)}
+              />
 
-                {allFilteredExploreCourses.map((course) => {
-                  const isEnrolled =
-                    myCourses.some((c) => courseIdMatches(c, course.id)) ||
-                    user?.purchasedCourses?.some((c) =>
-                      courseIdMatches(c, course.id),
-                    );
-                  return (
-                    <div
-                      key={course.id}
-                      className="
-      min-w-[220px] sm:min-w-[260px] md:min-w-[280px]
-    snap-start
-    bg-card rounded-3xl border border-border overflow-hidden shadow-sm
-    flex flex-col
-"
+              {/* Form panel */}
+              <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[26rem] md:absolute md:top-full md:left-auto md:right-0 md:translate-x-0 md:translate-y-0 md:mt-4 max-h-[85vh] overflow-y-auto bg-black/60 md:bg-black/40 backdrop-blur-3xl border border-teal-500/20 rounded-3xl shadow-[0_30px_60px_-15px_rgba(13,148,136,0.3)] p-6 z-[100] animate-in fade-in zoom-in-95 md:slide-in-from-top-6 duration-300">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    {getActiveFilterCount() > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFilters({
+                            category: [],
+                            level: [],
+                            price: [],
+                          })
+                        }
+                        className="text-[10px] font-black uppercase tracking-wider text-red-400 hover:text-red-300 transition-colors bg-red-400/10 hover:bg-red-400/20 px-3 py-1.5 rounded-full"
+                      >
+                        {t("courses.clear_all")}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setShowFilters(false)}
+                      aria-label="Close filters"
+                      className="md:hidden p-2 text-white bg-white/10 rounded-full hover:bg-white/20 transition-colors"
                     >
-                      <div className="relative h-32 sm:h-40">
-                        <img
-                          src={
-                            course.title === "React Fundamentals"
-                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
-                                      : course.title === "Python For AI"
-                                      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
-                                      : course.title === "AI Ethics & Bias"
-                                      ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
-                                      : course.title === "PostgreSQL"
-                                      ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
-                                      : course.title === "MongoDB Fundamentals"
-                                      ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-                                      : course.title === "Machine Learning Fundamentals" || course.title === "ML Fundamentals"
-                                      ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
-                                      : course.title === "Full Stack Web Development" || course.title === "Full Stack Web Dev"
-                                      ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
-                                      : "/AI_Tutor_New_UI/Dashboard/logo.png"
-                          }
-                          className="w-full h-full object-cover"
-                          alt={course.title}
-                          loading="lazy"
-                        />
-                        <div className="absolute bottom-3 right-3 bg-white text-black px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 shadow">
-                          <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-                          {course.rating}
-                        </div>
-                      </div>
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
 
-                      <div className="p-3 sm:p-4 flex flex-col flex-1 justify-between">
-                        {/* Top content (same as My Courses) */}
-                        <div className="space-y-2 min-h-[72px]">
-                          <h3 className="text-sm font-semibold text-main line-clamp-2">
-                            {course.title}
-                          </h3>
+                <div className="space-y-6">
+                  {/* Categories */}
+                  <div>
+                    <label className="block text-[10px] font-black text-teal-200/70 uppercase tracking-widest mb-4">
+                      {t("courses.category")}
+                    </label>
 
-                          <p className="text-xs text-muted">
-                            {course.lessons} lessons • {course.level}
-                          </p>
-                        </div>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFilters({ ...filters, category: [] })
+                        }
+                        className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
+                          filters.category.length === 0
+                            ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                            : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                        }`}
+                      >
+                        {t("courses.all_categories")}
+                      </button>
 
-                        {/* Bottom content */}
-                        <div className="mt-4 flex justify-between items-center">
-                          <span className="font-bold text-green-600">
-                            {course?.priceValue === 0
-                              ? "Free"
-                              : `₹${course?.priceValue || 0}`}
-                          </span>
-
+                      {availableCategories
+                        .filter((cat) => cat !== "All")
+                        .map((cat) => (
                           <button
-                            onClick={() => {
-                              if (!isEnrolled) {
-                                setSelectedCourse(course);
-                                setShowEnrollPopup(true);
-                              }
-                            }}
-                            disabled={isEnrolled}
-                            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
-                              isEnrolled
-                                ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 cursor-default"
-                                : "bg-[#2DD4BF] text-white hover:bg-teal-500"
+                            type="button"
+                            key={cat}
+                            onClick={() => toggleFilter("category", cat)}
+                            className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
+                              filters.category.includes(cat)
+                                ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                                : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
                             }`}
                           >
-                            {isEnrolled
-                              ? t("courses.enrolled_short")
-                              : t("common.enroll")}
+                            {cat}
                           </button>
-                        </div>
-                      </div>
+                        ))}
                     </div>
-                  );
-                })}
+                  </div>
+
+                  {/* Skill Level */}
+                  <div>
+                    <label className="block text-[10px] font-black text-teal-200/70 uppercase tracking-widest mb-4">
+                      {t("courses.skill_level")}
+                    </label>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFilters({ ...filters, level: [] })
+                        }
+                        className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
+                          filters.level.length === 0
+                            ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                            : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                        }`}
+                      >
+                        {t("courses.any_level")}
+                      </button>
+
+                      {availableLevels.map((lvl) => (
+                        <button
+                          type="button"
+                          key={lvl}
+                          onClick={() => toggleFilter("level", lvl)}
+                          className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
+                            filters.level.includes(lvl)
+                              ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                              : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                          }`}
+                        >
+                          {lvl}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Pricing */}
+                  <div>
+                    <label className="block text-[10px] font-black text-teal-200/70 uppercase tracking-widest mb-4">
+                      {t("courses.pricing")}
+                    </label>
+
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFilters({ ...filters, price: [] })
+                        }
+                        className={`flex-1 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
+                          filters.price.length === 0
+                            ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                            : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                        }`}
+                      >
+                        {t("courses.any_price")}
+                      </button>
+
+                      {availablePrices.map((p) => (
+                        <button
+                          type="button"
+                          key={p}
+                          onClick={() => toggleFilter("price", p)}
+                          className={`flex-1 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
+                            filters.price.includes(p)
+                              ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                              : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Apply Filters */}
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(false)}
+                  className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-teal-500/25 hover:scale-[1.02] transition-all"
+                >
+                  {t("courses.apply_filters")}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Prev / Next Buttons */}
+        <div className="flex items-center gap-2 md:hidden">
+          <button
+            type="button"
+            onClick={scrollLeft}
+            aria-label="Scroll courses left"
+            className="p-2 rounded-full bg-card border border-border hover:bg-teal-500/10 hover:border-teal-500/50 dark:hover:bg-teal-500/20 dark:hover:border-teal-500/40 transition-all shadow-sm"
+          >
+            <ChevronLeft className="w-5 h-5 text-main" />
+          </button>
+
+          <button
+            type="button"
+            onClick={scrollRight}
+            aria-label="Scroll courses right"
+            className="p-2 rounded-full bg-card border border-border hover:bg-teal-500/10 hover:border-teal-500/50 dark:hover:bg-teal-500/20 dark:hover:border-teal-500/40 transition-all shadow-sm"
+          >
+            <ChevronRight className="w-5 h-5 text-main" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* Horizontal Scroll Row */}
+    <div
+      ref={setScrollRef}
+      tabIndex="0"
+      className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x snap-mandatory focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2DD4BF] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 rounded-3xl"
+    >
+      {allFilteredExploreCourses.length === 0 && (
+        <p className="text-slate-500">{t("courses.no_courses")}</p>
+      )}
+
+      {allFilteredExploreCourses.map((course) => {
+        const isEnrolled =
+          myCourses.some((c) => courseIdMatches(c, course.id)) ||
+          user?.purchasedCourses?.some((c) =>
+            courseIdMatches(c, course.id)
+          );
+
+        return (
+          <div
+            key={course.id}
+            className="min-w-[220px] sm:min-w-[260px] md:min-w-[280px] snap-start bg-card rounded-3xl border border-border overflow-hidden shadow-sm flex flex-col"
+          >
+            <div className="relative h-32 sm:h-40">
+              <img
+                src={
+                  course.title === "React Fundamentals"
+                    ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
+                    : course.title === "Python For AI"
+                    ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
+                    : course.title === "AI Ethics & Bias"
+                    ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
+                    : course.title === "PostgreSQL"
+                    ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                    : course.title === "MongoDB Fundamentals"
+                    ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                    : course.title === "Machine Learning Fundamentals" ||
+                      course.title === "ML Fundamentals"
+                    ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
+                    : course.title === "Full Stack Web Development" ||
+                      course.title === "Full Stack Web Dev"
+                    ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
+                    : "/AI_Tutor_New_UI/Dashboard/logo.png"
+                }
+                className="w-full h-full object-cover"
+                alt={course.title}
+                loading="lazy"
+              />
+
+              <div className="absolute bottom-3 right-3 bg-white text-black px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 shadow">
+                <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                {course.rating}
               </div>
             </div>
-          )}
+
+            <div className="p-3 sm:p-4 flex flex-col flex-1 justify-between">
+              <div className="space-y-2 min-h-[72px]">
+                <h3 className="text-sm font-semibold text-main line-clamp-2">
+                  {course.title}
+                </h3>
+
+                <p className="text-xs text-muted">
+                  {course.lessons} lessons • {course.level}
+                </p>
+              </div>
+
+              <div className="mt-4 flex justify-between items-center">
+                <span className="font-bold text-green-600">
+                  {course?.priceValue === 0
+                    ? "Free"
+                    : `₹${course?.priceValue || 0}`}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isEnrolled) {
+                      setSelectedCourse(course);
+                      setShowEnrollPopup(true);
+                    }
+                  }}
+                  disabled={isEnrolled}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                    isEnrolled
+                      ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 cursor-default"
+                      : "bg-[#2DD4BF] text-white hover:bg-teal-500"
+                  }`}
+                >
+                  {isEnrolled
+                    ? t("courses.enrolled_short")
+                    : t("common.enroll")}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
+
         </div>
         <FloatingAssistant />
       </main>
