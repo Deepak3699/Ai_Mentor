@@ -20,7 +20,7 @@
   <p>
     <a href="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/ci.yml"><img src="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
     <a href="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/code-review.yml"><img src="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/code-review.yml/badge.svg" alt="Code Review" /></a>
-    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-20%20CI-339933?logo=node.js&logoColor=white" alt="Node.js 20 CI" /></a>
+    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-22%20CI-339933?logo=node.js&logoColor=white" alt="Node.js 22 CI" /></a>
     <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111" alt="React 19" /></a>
     <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%20CI-3776AB?logo=python&logoColor=white" alt="Python 3.11 CI" /></a>
     <a href="https://prettier.io/"><img src="https://img.shields.io/badge/code_style-Prettier-F7B93E?logo=prettier&logoColor=111" alt="Prettier" /></a>
@@ -155,7 +155,7 @@ Ai_Mentor/
 
 Install the following before setting up the repository:
 
-- Node.js 18 or newer. GitHub CI currently uses Node.js 20.
+- Node.js 22.13 or newer. Vite 7 and the frontend test toolchain do not support Node.js 18. GitHub CI uses Node.js 22.
 - npm
 - Python 3.10 or newer. GitHub CI currently uses Python 3.11.
 - PostgreSQL, or a hosted PostgreSQL provider such as Neon

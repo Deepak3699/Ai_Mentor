@@ -112,7 +112,7 @@ VITE_FIREBASE_APP_ID=your_app_id
 
 ### Prerequisites
 
-- Node.js v18+
+- Node.js v22.13+ (required by Vite 7 and the test toolchain)
 - npm or yarn
 - Backend server running on `http://localhost:5000` (see `../backend/README.md`)
 
