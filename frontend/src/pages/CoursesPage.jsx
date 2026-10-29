@@ -2,20 +2,14 @@ import { apiFetch as fetch } from "../lib/api";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import {
-  AlertTriangle,
-  ArrowRight,
-  BookOpen,
-  ChevronDown,
-  Clock3,
-  Filter,
-  GraduationCap,
-  LayoutGrid,
-  Play,
-  Search,
-  SlidersHorizontal,
-  Sparkles,
   Star,
   X,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  BookOpen,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -172,11 +166,11 @@ const CoursesPage = () => {
   const [myCourses, setMyCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({ category: [], level: [], price: [] });
-  const [showEnrollPopup, setShowEnrollPopup] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState(null);
-  const [isPurchasing, setIsPurchasing] = useState(false);
+  // My Courses toolbar state
+const [myCoursesSearch, setMyCoursesSearch] = useState("");
+const [courseStatusTab, setCourseStatusTab] = useState("all");
+const [courseSortBy, setCourseSortBy] = useState("latest");
+
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportText, setReportText] = useState("");
   const [subType, setSubType] = useState("");
@@ -417,8 +411,187 @@ const CoursesPage = () => {
   }
   if (loading) return <LoadingSpinner label="Loading courses" />;
 
-  const displayedCourses = activeTab === "my-courses" ? filteredMyCourses : filteredExploreCourses;
+  const filteredExploreCourses = exploreCourses
+    .filter((course) => !myCourses.some((c) => courseIdMatches(c, course.id)))
+    .filter((course) => {
+      if (searchQuery.trim() !== "") {
+        return course.title.toLowerCase().includes(searchQuery.toLowerCase());
+      }
 
+      const cat =
+        course.category === "Databases" ? "Database" : course.category;
+      const matchesCategory =
+        filters.category.length === 0 || filters.category.includes(cat);
+      const matchesLevel =
+        filters.level.length === 0 || filters.level.includes(course.level);
+
+      const isFree =
+        course.priceValue === 0 ||
+        course.price === "₹0" ||
+        course.price === "Free" ||
+        !course.price;
+      const type = isFree ? "Free" : "Paid";
+      const matchesPrice =
+        filters.price.length === 0 || filters.price.includes(type);
+
+      return matchesCategory && matchesLevel && matchesPrice;
+    });
+
+  // Same filters as filteredExploreCourses but WITHOUT the enrollment exclusion,
+  // so enrolled cards stay visible with the "Enrolled" button state.
+  const allFilteredExploreCourses = exploreCourses.filter((course) => {
+    if (searchQuery.trim() !== "") {
+      return course.title.toLowerCase().includes(searchQuery.toLowerCase());
+    }
+
+    const cat = course.category === "Databases" ? "Database" : course.category;
+    const matchesCategory =
+      filters.category.length === 0 || filters.category.includes(cat);
+    const matchesLevel =
+      filters.level.length === 0 || filters.level.includes(course.level);
+
+    const isFree =
+      course.priceValue === 0 ||
+      course.price === "₹0" ||
+      course.price === "Free" ||
+      !course.price;
+    const type = isFree ? "Free" : "Paid";
+    const matchesPrice =
+      filters.price.length === 0 || filters.price.includes(type);
+
+    return matchesCategory && matchesLevel && matchesPrice;
+  });
+
+   // Filter and sort My Courses
+  const filteredMyCourses = useMemo(() => {
+    const filtered = myCourses.filter((course) => {
+      // 1. Search by course title
+      const query = myCoursesSearch.trim().toLowerCase();
+
+      const matchesSearch =
+        !query ||
+        String(course.title || "").toLowerCase().includes(query);
+
+      // 2. Apply existing category filter
+      const category =
+        course.category === "Databases" ? "Database" : course.category;
+
+      const matchesCategory =
+        filters.category.length === 0 ||
+        filters.category.includes(category);
+
+      // 3. Apply existing level filter
+      const matchesLevel =
+        filters.level.length === 0 ||
+        filters.level.includes(course.level);
+
+      // 4. Apply existing price filter
+      const isFree =
+        course.priceValue === 0 ||
+        course.price === "₹0" ||
+        course.price === "Free" ||
+        !course.price;
+
+      const priceType = isFree ? "Free" : "Paid";
+
+      const matchesPrice =
+        filters.price.length === 0 ||
+        filters.price.includes(priceType);
+
+      // 5. Get the user's progress for this course
+      const purchasedEntry = user?.purchasedCourses?.find((entry) =>
+        courseIdMatches(entry, course.id),
+      );
+
+      const progress = purchasedEntry?.progress || course.progress || {};
+
+      const completedLessons = Array.isArray(progress.completedLessons)
+        ? progress.completedLessons
+        : [];
+
+      const hasStarted =
+        completedLessons.length > 0 ||
+        progress.currentLesson != null ||
+        Number(progress.progressPercentage || progress.progress || 0) > 0;
+
+      // Determine whether the course is completed
+      const totalLessons =
+        Number(course.lessonsCount) ||
+        Number(course.lessonCount) ||
+        (Array.isArray(course.lessons)
+          ? course.lessons.length
+          : Number(course.lessons) || 0);
+
+      const isCompleted =
+        progress.isCompleted === true ||
+        progress.completed === true ||
+        (totalLessons > 0 &&
+          completedLessons.length >= totalLessons);
+
+      // 6. Apply the selected status tab
+      const matchesStatus =
+        courseStatusTab === "all" ||
+        (courseStatusTab === "in-progress" &&
+          hasStarted &&
+          !isCompleted) ||
+        (courseStatusTab === "completed" && isCompleted) ||
+        (courseStatusTab === "not-started" &&
+          !hasStarted &&
+          !isCompleted);
+
+      return (
+        matchesSearch &&
+        matchesCategory &&
+        matchesLevel &&
+        matchesPrice &&
+        matchesStatus
+      );
+    });
+
+    // 7. Apply sorting
+    if (courseSortBy === "title") {
+      filtered.sort((a, b) =>
+        String(a.title || "").localeCompare(String(b.title || "")),
+      );
+    } else {
+      // Sort by date only when date information is available
+      const getCourseDate = (course) =>
+        course.enrolledAt ||
+        course.purchasedAt ||
+        course.createdAt ||
+        course.updatedAt ||
+        null;
+
+      if (filtered.every((course) => getCourseDate(course))) {
+        filtered.sort(
+          (a, b) =>
+            new Date(getCourseDate(b)).getTime() -
+            new Date(getCourseDate(a)).getTime(),
+        );
+      }
+      // Otherwise, retain the order returned by the API.
+    }
+
+    return filtered;
+  }, [
+    myCourses,
+    myCoursesSearch,
+    courseStatusTab,
+    courseSortBy,
+    filters,
+    user,
+  ]);
+
+  if (loading) {
+    return (
+      <main className="flex-1 p-4 md:p-6 lg:p-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-muted">{t("courses.loading")}</p>
+        </div>
+      </main>
+    );
+  }
   return (
     <>
       <Helmet>
@@ -505,313 +678,505 @@ const CoursesPage = () => {
               />
             </div>
 
-            <div ref={filterRef} className="relative flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowFilters((open) => !open)}
-                className={`relative inline-flex h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition ${showFilters || activeFilterCount ? "border-[#3867D6] bg-blue-500/10 text-[#3867D6]" : "border-border bg-card text-main hover:border-[#3867D6]/50"}`}
-                aria-expanded={showFilters}
-                aria-controls="course-filter-panel"
-              >
-                <SlidersHorizontal className="h-4 w-4" /> Filters
-                {activeFilterCount > 0 && (
-                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#3867D6] px-1 text-[10px] text-white">
-                    {activeFilterCount}
-                  </span>
-                )}
-                <ChevronDown className={`h-4 w-4 transition ${showFilters ? "rotate-180" : ""}`} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowReportModal(true)}
-                className="grid h-11 w-11 place-items-center rounded-xl border border-border bg-card text-muted transition hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-500"
-                aria-label="Report an issue"
-              >
-                <AlertTriangle className="h-4 w-4" />
-              </button>
+          
+{/* ================= MY COURSES ================= */}
+{activeTab === "my-courses" && (
+  <div className="space-y-5">
+    {/* My Courses Header and Toolbar */}
+    <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:flex-row lg:items-center lg:justify-between">
+      
+      {/* Title and Status Tabs */}
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+        <h2 className="shrink-0 text-xl font-bold text-slate-900 dark:text-white">
+          My Courses
+        </h2>
 
-              {showFilters && (
-                <>
-                  <button
-                    type="button"
-                    className="fixed inset-0 z-40 bg-black/45 backdrop-blur-sm lg:hidden ui-overlay-motion"
-                    onClick={() => setShowFilters(false)}
-                    aria-label="Close filters"
-                  />
-                  <aside
-                    id="course-filter-panel"
-                    className="fixed inset-x-3 bottom-3 z-50 max-h-[78dvh] overflow-y-auto rounded-2xl border border-border bg-card p-5 shadow-2xl lg:absolute lg:inset-auto lg:right-0 lg:top-[calc(100%+0.75rem)] lg:w-[430px]"
-                    aria-label="Course filters"
-                    data-motion-surface
-                  >
-                    <div className="mb-5 flex items-center justify-between">
-                      <div>
-                        <p className="text-base font-extrabold text-main">Filter courses</p>
-                        <p className="mt-1 text-xs text-muted">
-                          Narrow results without leaving the page.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowFilters(false)}
-                        className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-canvas-alt hover:text-main"
-                        aria-label="Close filters"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <div className="space-y-5">
-                      <div>
-                        <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.13em] text-muted">
-                          Category
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <FilterChoice
-                            active={filters.category.length === 0}
-                            onClick={() => setFilters((current) => ({ ...current, category: [] }))}
-                          >
-                            All
-                          </FilterChoice>
-                          {availableCategories.map((category) => (
-                            <FilterChoice
-                              key={category}
-                              active={filters.category.includes(category)}
-                              onClick={() => toggleFilter("category", category)}
-                            >
-                              {category}
-                            </FilterChoice>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.13em] text-muted">
-                          Level
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <FilterChoice
-                            active={filters.level.length === 0}
-                            onClick={() => setFilters((current) => ({ ...current, level: [] }))}
-                          >
-                            Any level
-                          </FilterChoice>
-                          {availableLevels.map((level) => (
-                            <FilterChoice
-                              key={level}
-                              active={filters.level.includes(level)}
-                              onClick={() => toggleFilter("level", level)}
-                            >
-                              {level}
-                            </FilterChoice>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.13em] text-muted">
-                          Pricing
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <FilterChoice
-                            active={filters.price.length === 0}
-                            onClick={() => setFilters((current) => ({ ...current, price: [] }))}
-                          >
-                            Any price
-                          </FilterChoice>
-                          {["Free", "Paid"].map((price) => (
-                            <FilterChoice
-                              key={price}
-                              active={filters.price.includes(price)}
-                              onClick={() => toggleFilter("price", price)}
-                            >
-                              {price}
-                            </FilterChoice>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-6 flex gap-3 border-t border-border pt-4">
-                      <button
-                        type="button"
-                        onClick={() => setFilters({ category: [], level: [], price: [] })}
-                        className="flex-1 rounded-xl border border-border px-4 py-2.5 text-sm font-bold text-main hover:bg-canvas-alt"
-                      >
-                        Reset
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowFilters(false)}
-                        className={`${BLUE_BUTTON} flex-1`}
-                      >
-                        Apply
-                      </button>
-                    </div>
-                  </aside>
-                </>
-              )}
+        <div
+          className="flex flex-wrap items-center gap-2"
+          role="group"
+          aria-label="Filter courses by status"
+        >
+          {[
+            { label: "All Courses", value: "all" },
+            { label: "In Progress", value: "in-progress" },
+            { label: "Completed", value: "completed" },
+            { label: "Not Started", value: "not-started" },
+          ].map((tab) => (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setCourseStatusTab(tab.value)}
+              aria-pressed={courseStatusTab === tab.value}
+              className={`rounded-full border px-3 py-2 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${
+                courseStatusTab === tab.value
+                  ? "border-blue-600 bg-blue-600 text-white shadow-sm"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Search and Sort */}
+      <div className="flex w-full flex-col gap-3 sm:flex-row lg:w-auto lg:shrink-0">
+        <div className="relative min-w-0 flex-1 sm:min-w-[200px] lg:w-56 lg:flex-none">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            aria-hidden="true"
+          />
+
+          <input
+            type="search"
+            value={myCoursesSearch}
+            onChange={(e) => setMyCoursesSearch(e.target.value)}
+            placeholder="Search courses..."
+            aria-label="Search My Courses"
+            className="w-full rounded-full border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-4 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:ring-blue-900"
+          />
+        </div>
+
+        <div className="relative shrink-0 sm:w-36">
+          <SlidersHorizontal
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-slate-300"
+            aria-hidden="true"
+          />
+
+          <select
+            value={courseSortBy}
+            onChange={(e) => setCourseSortBy(e.target.value)}
+            aria-label="Sort My Courses"
+            className="w-full cursor-pointer appearance-none rounded-full border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm font-medium text-slate-700 outline-none transition hover:border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:ring-blue-900"
+          >
+            <option value="latest">Latest</option>
+            <option value="title">Title A–Z</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {/* Existing My Courses Cards */}
+    <div className="grid grid-cols-2 gap-4 auto-rows-fr md:grid-cols-3 lg:grid-cols-4">
+      {myCourses.length === 0 && (
+        <p className="col-span-full text-slate-500">
+          {t("courses.not_enrolled")}
+        </p>
+      )}
+
+      {myCourses.length > 0 && filteredMyCourses.length === 0 && (
+        <p className="col-span-full text-slate-500">
+          {t("courses.no_match_filters")}
+        </p>
+      )}
+
+      {filteredMyCourses.map((course) => {
+        const purchasedEntry = user?.purchasedCourses?.find((c) =>
+          courseIdMatches(c, course.id),
+        );
+
+        const progress = purchasedEntry?.progress;
+
+        const hasStarted =
+          progress?.completedLessons?.length > 0 ||
+          progress?.currentLesson != null;
+
+        return (
+          <div
+            key={course.id}
+            className="flex h-full w-full flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-sm"
+          >
+            <div className="relative h-32 sm:h-40">
+              <img
+                src={
+                  course.title === "React Fundamentals"
+                    ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
+                    : course.title === "Python For AI"
+                    ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
+                    : course.title === "AI Ethics & Bias"
+                    ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
+                    : course.title === "PostgreSQL"
+                    ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                    : course.title === "MongoDB Fundamentals"
+                    ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                    : course.title === "Machine Learning Fundamentals" ||
+                      course.title === "ML Fundamentals"
+                    ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
+                    : course.title === "Full Stack Web Development" ||
+                      course.title === "Full Stack Web Dev"
+                    ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
+                    : "/AI_Tutor_New_UI/Dashboard/logo.png"
+                }
+                className="h-full w-full object-cover"
+                alt={course.title}
+                loading="lazy"
+              />
             </div>
-          </div>
-        </section>
 
-        <section className="mx-auto max-w-[1500px] px-4 py-8 sm:px-6 lg:px-8">
-          <div className="mb-6 flex items-end justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-extrabold text-main">
-                {activeTab === "my-courses" ? "Continue learning" : "Explore Courses"}
-              </h2>
-              <p className="mt-1 text-sm text-muted">
-                {activeTab === "my-courses"
-                  ? "Pick up where you left off."
-                  : "Discover courses that match your next goal."}
-              </p>
-            </div>
-            <span className="text-sm font-semibold text-muted">
-              {displayedCourses.length} result{displayedCourses.length === 1 ? "" : "s"}
-            </span>
-          </div>
+            <div className="flex flex-1 flex-col justify-between p-3 sm:p-4">
+              <div className="min-h-[72px] space-y-2">
+                <h3 className="line-clamp-2 text-sm font-semibold text-main">
+                  {course.title}
+                </h3>
 
-          {displayedCourses.length === 0 ? (
-            <div className="col-span-full flex w-full justify-center px-3 py-10 sm:px-6 sm:py-14">
-              <div className="flex w-full max-w-2xl flex-col items-center rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center shadow-sm sm:px-10 sm:py-10">
-                {myCourses.length === 0 && activeTab === "my-courses" ? (
-                  <>
-                    <svg
-                      viewBox="0 0 240 180"
-                      className="mb-5 h-36 w-48 sm:h-44 sm:w-56"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      role="img"
-                      aria-label="Books and graduation cap"
-                    >
-                      <path
-                        d="M48 132L120 153L192 132"
-                        stroke="#CBD5E1"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M58 92L109 78V132L58 145Z"
-                        fill="#60A5FA"
-                        stroke="#2563EB"
-                        strokeWidth="2"
-                      />
-                      <path
-                        d="M109 78L157 92V145L109 132Z"
-                        fill="#2563EB"
-                        stroke="#1D4ED8"
-                        strokeWidth="2"
-                      />
-                      <path
-                        d="M69 102L98 94M69 113L98 105M69 124L98 116"
-                        stroke="white"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M119 91L146 99M119 103L146 111M119 115L146 123"
-                        stroke="#DBEAFE"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
-                      <path d="M83 67L126 53L171 68L128 84Z" fill="#1E3A8A" />
-                      <path d="M128 84V95" stroke="#1E3A8A" strokeWidth="4" strokeLinecap="round" />
-                      <path d="M171 68V87" stroke="#F59E0B" strokeWidth="3" strokeLinecap="round" />
-                      <circle cx="171" cy="91" r="4" fill="#F59E0B" />
-                      <path d="M42 65L46 75L56 79L46 83L42 93L38 83L28 79L38 75Z" fill="#FBBF24" />
-                      <path
-                        d="M190 42L193 50L201 53L193 56L190 64L187 56L179 53L187 50Z"
-                        fill="#FBBF24"
-                      />
-                      <path
-                        d="M202 102L205 109L212 112L205 115L202 122L199 115L192 112L199 109Z"
-                        fill="#93C5FD"
-                      />
-                      <circle cx="63" cy="49" r="3" fill="#60A5FA" />
-                      <circle cx="182" cy="79" r="3" fill="#60A5FA" />
-                    </svg>
-                    <h3 className="text-xl font-bold text-slate-900 sm:text-2xl">
-                      You haven't enrolled in any courses yet.
-                    </h3>
-                    <p className="mt-3 max-w-lg text-sm leading-6 text-slate-500 sm:text-base">
-                      Explore our wide range of courses and start your learning journey today.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab("explore")}
-                      className="mt-6 inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                    >
-                      Browse Courses →
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-500/10 text-[#3867D6]">
-                      <Filter className="h-6 w-6" />
-                    </span>
-                    <h3 className="mt-5 text-lg font-extrabold text-main">
-                      No courses match these controls
-                    </h3>
-                    <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">
-                      Try clearing the search or resetting filters.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery("");
-                        setFilters({ category: [], level: [], price: [] });
-                      }}
-                      className={`${BLUE_BUTTON} mt-6`}
-                    >
-                      Clear controls
-                    </button>
-                  </>
-                )}
+                <p className="text-xs text-muted">
+                  {course.lessons} lessons • {course.level}
+                </p>
+              </div>
+
+              <div className="mt-4">
+                <button
+                  onClick={() => navigate(`/learning/${course.id}`)}
+                  className="w-full rounded-lg bg-[#2DD4BF] py-2 text-xs font-semibold text-white"
+                >
+                  {hasStarted
+                    ? t("common.continue_learning")
+                    : t("common.start_learning")}
+                </button>
               </div>
             </div>
-          ) : (
-            <div
-              className={
-                activeTab === "my-courses"
-                  ? "grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4"
-                  : "grid grid-cols-[repeat(auto-fill,minmax(min(100%,320px),420px))] gap-5"
-              }
-            >
-              {displayedCourses.map((course) => {
-                const enrolled =
-                  activeTab === "my-courses" ||
-                  myCourses.some((item) => courseIdMatches(item, course.id)) ||
-                  user?.purchasedCourses?.some((item) => courseIdMatches(item, course.id));
-                const purchased = user?.purchasedCourses?.find((item) =>
-                  courseIdMatches(item, course.id),
-                );
-                const started =
-                  purchased?.progress?.completedLessons?.length > 0 ||
-                  purchased?.progress?.currentLesson != null;
-                return activeTab === "my-courses" ? (
-                  <CourseCard key={course.id} course={course} progress={purchased?.progress} />
-                ) : (
-                  <ExploreCourseCard
-                    key={course.id}
-                    course={course}
-                    enrolled={enrolled}
-                    progress={purchased?.progress}
-                    actionLabel={
-                      enrolled
-                        ? started
-                          ? "Continue Learning"
-                          : "Start Learning"
-                        : "View enrollment"
-                    }
-                    onAction={() =>
-                      enrolled
-                        ? navigate(`/learning/${course.id}`)
-                        : (setSelectedCourse(course), setShowEnrollPopup(true))
-                    }
-                  />
-                );
-              })}
-            </div>
-          )}
-        </section>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
 
+
+          {/* ================= EXPLORE COURSES — Horizontal Scroll ================= */}
+{activeTab === "explore" && (
+  <div>
+    {/* Explore Courses Header and Toolbar */}
+    <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+      <h2 className="text-xl font-bold text-main">
+        Explore Courses
+      </h2>
+
+      <div className="flex items-center justify-between gap-2 sm:justify-end">
+        {/* Filters and Report Buttons */}
+        <div ref={filterRef} className="relative flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowFilters((open) => !open)}
+            aria-expanded={showFilters}
+            className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-main hover:bg-muted"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filters
+
+            {getActiveFilterCount() > 0 && (
+              <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
+                {getActiveFilterCount()}
+              </span>
+            )}
+
+            <ChevronDown className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowReportModal(true)}
+            aria-label="Report a problem"
+            className="rounded-lg border border-border bg-card p-2 text-main hover:bg-muted"
+          >
+            <AlertTriangle className="h-4 w-4" />
+          </button>
+
+          {/* Filter Dropdown */}
+          {showFilters && (
+            <>
+              {/* Dark overlay for mobile */}
+              <div
+                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[90] md:hidden"
+                onClick={() => setShowFilters(false)}
+              />
+
+              {/* Form panel */}
+              <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[26rem] md:absolute md:top-full md:left-auto md:right-0 md:translate-x-0 md:translate-y-0 md:mt-4 max-h-[85vh] overflow-y-auto bg-black/60 md:bg-black/40 backdrop-blur-3xl border border-teal-500/20 rounded-3xl shadow-[0_30px_60px_-15px_rgba(13,148,136,0.3)] p-6 z-[100] animate-in fade-in zoom-in-95 md:slide-in-from-top-6 duration-300">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    {getActiveFilterCount() > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFilters({
+                            category: [],
+                            level: [],
+                            price: [],
+                          })
+                        }
+                        className="text-[10px] font-black uppercase tracking-wider text-red-400 hover:text-red-300 transition-colors bg-red-400/10 hover:bg-red-400/20 px-3 py-1.5 rounded-full"
+                      >
+                        {t("courses.clear_all")}
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setShowFilters(false)}
+                      aria-label="Close filters"
+                      className="md:hidden p-2 text-white bg-white/10 rounded-full hover:bg-white/20 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Categories */}
+                  <div>
+                    <label className="block text-[10px] font-black text-teal-200/70 uppercase tracking-widest mb-4">
+                      {t("courses.category")}
+                    </label>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFilters({ ...filters, category: [] })
+                        }
+                        className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
+                          filters.category.length === 0
+                            ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                            : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                        }`}
+                      >
+                        {t("courses.all_categories")}
+                      </button>
+
+                      {availableCategories
+                        .filter((cat) => cat !== "All")
+                        .map((cat) => (
+                          <button
+                            type="button"
+                            key={cat}
+                            onClick={() => toggleFilter("category", cat)}
+                            className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
+                              filters.category.includes(cat)
+                                ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                                : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Skill Level */}
+                  <div>
+                    <label className="block text-[10px] font-black text-teal-200/70 uppercase tracking-widest mb-4">
+                      {t("courses.skill_level")}
+                    </label>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFilters({ ...filters, level: [] })
+                        }
+                        className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
+                          filters.level.length === 0
+                            ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                            : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                        }`}
+                      >
+                        {t("courses.any_level")}
+                      </button>
+
+                      {availableLevels.map((lvl) => (
+                        <button
+                          type="button"
+                          key={lvl}
+                          onClick={() => toggleFilter("level", lvl)}
+                          className={`px-4 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
+                            filters.level.includes(lvl)
+                              ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                              : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                          }`}
+                        >
+                          {lvl}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Pricing */}
+                  <div>
+                    <label className="block text-[10px] font-black text-teal-200/70 uppercase tracking-widest mb-4">
+                      {t("courses.pricing")}
+                    </label>
+
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFilters({ ...filters, price: [] })
+                        }
+                        className={`flex-1 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
+                          filters.price.length === 0
+                            ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                            : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                        }`}
+                      >
+                        {t("courses.any_price")}
+                      </button>
+
+                      {availablePrices.map((p) => (
+                        <button
+                          type="button"
+                          key={p}
+                          onClick={() => toggleFilter("price", p)}
+                          className={`flex-1 py-2 text-xs rounded-xl font-bold transition-all duration-300 ${
+                            filters.price.includes(p)
+                              ? "bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/25 scale-[1.03]"
+                              : "bg-teal-900/30 text-teal-100 hover:bg-teal-500/20 border border-teal-500/30"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Apply Filters */}
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(false)}
+                  className="w-full mt-6 py-3 px-4 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-teal-500/25 hover:scale-[1.02] transition-all"
+                >
+                  {t("courses.apply_filters")}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Prev / Next Buttons */}
+        <div className="flex items-center gap-2 md:hidden">
+          <button
+            type="button"
+            onClick={scrollLeft}
+            aria-label="Scroll courses left"
+            className="p-2 rounded-full bg-card border border-border hover:bg-teal-500/10 hover:border-teal-500/50 dark:hover:bg-teal-500/20 dark:hover:border-teal-500/40 transition-all shadow-sm"
+          >
+            <ChevronLeft className="w-5 h-5 text-main" />
+          </button>
+
+          <button
+            type="button"
+            onClick={scrollRight}
+            aria-label="Scroll courses right"
+            className="p-2 rounded-full bg-card border border-border hover:bg-teal-500/10 hover:border-teal-500/50 dark:hover:bg-teal-500/20 dark:hover:border-teal-500/40 transition-all shadow-sm"
+          >
+            <ChevronRight className="w-5 h-5 text-main" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* Horizontal Scroll Row */}
+    <div
+      ref={setScrollRef}
+      tabIndex="0"
+      className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x snap-mandatory focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2DD4BF] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 rounded-3xl"
+    >
+      {allFilteredExploreCourses.length === 0 && (
+        <p className="text-slate-500">{t("courses.no_courses")}</p>
+      )}
+
+      {allFilteredExploreCourses.map((course) => {
+        const isEnrolled =
+          myCourses.some((c) => courseIdMatches(c, course.id)) ||
+          user?.purchasedCourses?.some((c) =>
+            courseIdMatches(c, course.id)
+          );
+
+        return (
+          <div
+            key={course.id}
+            className="min-w-[220px] sm:min-w-[260px] md:min-w-[280px] snap-start bg-card rounded-3xl border border-border overflow-hidden shadow-sm flex flex-col"
+          >
+            <div className="relative h-32 sm:h-40">
+              <img
+                src={
+                  course.title === "React Fundamentals"
+                    ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
+                    : course.title === "Python For AI"
+                    ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
+                    : course.title === "AI Ethics & Bias"
+                    ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
+                    : course.title === "PostgreSQL"
+                    ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                    : course.title === "MongoDB Fundamentals"
+                    ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                    : course.title === "Machine Learning Fundamentals" ||
+                      course.title === "ML Fundamentals"
+                    ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
+                    : course.title === "Full Stack Web Development" ||
+                      course.title === "Full Stack Web Dev"
+                    ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
+                    : "/AI_Tutor_New_UI/Dashboard/logo.png"
+                }
+                className="w-full h-full object-cover"
+                alt={course.title}
+                loading="lazy"
+              />
+
+              <div className="absolute bottom-3 right-3 bg-white text-black px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 shadow">
+                <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                {course.rating}
+              </div>
+            </div>
+
+            <div className="p-3 sm:p-4 flex flex-col flex-1 justify-between">
+              <div className="space-y-2 min-h-[72px]">
+                <h3 className="text-sm font-semibold text-main line-clamp-2">
+                  {course.title}
+                </h3>
+
+                <p className="text-xs text-muted">
+                  {course.lessons} lessons • {course.level}
+                </p>
+              </div>
+
+              <div className="mt-4 flex justify-between items-center">
+                <span className="font-bold text-green-600">
+                  {course?.priceValue === 0
+                    ? "Free"
+                    : `₹${course?.priceValue || 0}`}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isEnrolled) {
+                      setSelectedCourse(course);
+                      setShowEnrollPopup(true);
+                    }
+                  }}
+                  disabled={isEnrolled}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                    isEnrolled
+                      ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 cursor-default"
+                      : "bg-[#2DD4BF] text-white hover:bg-teal-500"
+                  }`}
+                >
+                  {isEnrolled
+                    ? t("courses.enrolled_short")
+                    : t("common.enroll")}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
+
+        </div>
         <FloatingAssistant />
       </main>
 
