@@ -206,3 +206,17 @@ Lesson preferences are validated against the supported fields
 - Never commit `.env` files, provider keys, database credentials, or generated authentication tokens.
 - Do not print raw request objects, generated secrets, full credential values, or provider authorization headers.
 - Keep celebrity source selection restricted to validated files inside the configured input directory.
+
+## Python version
+
+The project supports Python 3.10 and newer. GitHub CI uses Python 3.11.
+
+## Installing dependencies
+
+From the repository root, run:
+
+Production:
+`python -m pip install -r ai_service/backend/requirements.txt`
+
+Development and tests:
+`python -m pip install -r ai_service/backend/requirements-dev.txt`

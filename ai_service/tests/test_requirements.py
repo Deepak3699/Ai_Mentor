@@ -1,13 +1,22 @@
 from pathlib import Path
 
+BACKEND_DIR = Path(__file__).resolve().parents[1] / "backend"
 
-def requirement_names():
-    path = Path(__file__).resolve().parents[1] / "backend" / "requirements.txt"
-    return {
-        line.split("#", 1)[0].strip().split("==", 1)[0].split(">=", 1)[0].lower()
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.split("#", 1)[0].strip()
-    }
+
+def read_lines(filename):
+    path = BACKEND_DIR / filename
+    return path.read_text(encoding="utf-8-sig").splitlines()
+
+
+def requirement_names(filename="requirements.txt"):
+    names = set()
+    for line in read_lines(filename):
+        line = line.split("#", 1)[0].strip()
+        if not line or line.startswith("-"):
+            continue
+        name = line.split("==", 1)[0].split(">=", 1)[0].split("[", 1)[0]
+        names.add(name.strip().lower())
+    return names
 
 
 def test_requirements_do_not_redeclare_standard_library_asyncio():
@@ -29,5 +38,16 @@ def test_api_direct_runtime_dependencies_are_declared():
     assert required <= requirement_names()
 
 
-def test_pytest_is_declared_for_the_existing_ai_test_suite():
-    assert "pytest" in requirement_names()
+def test_runtime_dependencies_are_pinned():
+    for line in read_lines("requirements.txt"):
+        line = line.split("#", 1)[0].strip()
+        if line:
+            assert "==" in line, f"{line} is not pinned with =="
+
+
+def test_pytest_is_not_a_runtime_dependency():
+    assert "pytest" not in requirement_names()
+
+
+def test_pytest_is_declared_in_dev_requirements():
+    assert "pytest" in requirement_names("requirements-dev.txt")
