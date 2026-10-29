@@ -1,18 +1,18 @@
 import { z } from "zod";
 
 export const addCourseSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  category: z.string().min(1, "Category is required"),
-  level: z.string().optional(),
+  title: z.string().trim().min(1, "Title is required"),
+  category: z.string().trim().min(1, "Category is required"),
+  level: z.string().trim().optional(),
   price: z.number().nonnegative().optional(),
   image: z.string().url().optional(),
-  description: z.string().optional(),
+  description: z.string().trim().optional(),
 });
 
 export const addModulesSchema = z.object({
   modules: z.array(
     z.object({
-      title: z.string().min(1, "Module title is required"),
+      title: z.string().trim().min(1, "Module title is required"),
       lessons: z.array(z.any()).optional(),
     }),
   ),
@@ -21,8 +21,8 @@ export const addModulesSchema = z.object({
 export const addLessonsSchema = z.object({
   lessons: z.array(
     z.object({
-      id: z.string().min(1, "Lesson ID is required"),
-      title: z.string().min(1, "Lesson title is required"),
+      id: z.string().trim().min(1, "Lesson ID is required"),
+      title: z.string().trim().min(1, "Lesson title is required"),
       videoUrl: z.string().url().optional(),
     }),
   ),
@@ -33,5 +33,5 @@ export const updateLessonVideoSchema = z.object({
 });
 
 export const addSubtopicsSchema = z.object({
-  subtopics: z.array(z.string().min(1)),
+  subtopics: z.array(z.string().trim().min(1)),
 });
