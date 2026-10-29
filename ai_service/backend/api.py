@@ -822,6 +822,11 @@ def explain_code(data: ExplainCodeRequest):
         response = gemini_client.models.generate_content(
             model="gemini-3.8-flash",
             contents=prompt,
+            config=types.GenerateContentConfig(
+                http_options=types.HttpOptions(
+                    timeout=LLM_TIMEOUT_SECONDS * 1000
+                ),
+            ),
         )
         result_text = response.text.strip()
 
@@ -833,14 +838,23 @@ def explain_code(data: ExplainCodeRequest):
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.2,
                 max_tokens=4000,
+                timeout=LLM_TIMEOUT_SECONDS,
             )
             result_text = groq_response.choices[0].message.content.strip()
 
         except Exception as groq_error:
             print(f"Groq failed ({short_error(groq_error)})")
+            timed_out = (
+                short_error(gemini_error) == "timeout"
+                or short_error(groq_error) == "timeout"
+            )
             raise HTTPException(
-                status_code=502,
-                detail="Both AI providers failed to analyze the code.",
+                status_code=504 if timed_out else 502,
+                detail=(
+                    "AI inference timed out. Please retry the request."
+                    if timed_out
+                    else "Both AI providers failed to analyze the code."
+                ),
             )
 
     try:
