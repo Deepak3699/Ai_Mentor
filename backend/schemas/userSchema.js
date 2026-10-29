@@ -20,8 +20,8 @@ const positiveIntId = (fieldName = "ID") =>
     .transform((value) => Number(value));
 
 export const updateProfileSchema = z.object({
-  firstName: z.string().min(1, "First name is required").optional(),
-  lastName: z.string().min(1, "Last name is required").optional(),
+  firstName: z.string().trim().min(1, "First name is required").optional(),
+  lastName: z.string().trim().min(1, "Last name is required").optional(),
   email: z.string().email("Invalid email format").optional(),
   bio: z
     .string()
@@ -55,7 +55,7 @@ export const courseProgressSchema = z.object({
   currentLesson: z
     .object({
       lessonId: positiveIntId("Lesson ID"),
-      moduleTitle: z.string().optional(),
+      moduleTitle: z.string().trim().optional(),
     })
     .optional(),
 
