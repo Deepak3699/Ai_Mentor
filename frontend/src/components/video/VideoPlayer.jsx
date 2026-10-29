@@ -17,9 +17,9 @@ import {
 import "../learning/learning-workspace.css";
 
 export default function VideoPlayer({
-    title,
+  title,
   moduleTitle,
-aiVideoUrl,
+  aiVideoUrl,
   selectedCelebrity,
   activeCaption,
   playerContainerRef,
@@ -53,15 +53,42 @@ aiVideoUrl,
     buffered: 0,
   });
   const CAPTION_PREFERENCES_KEY = "ai-mentor-caption-preferences";
-  const defaultCaptionPreferences={fontSize:100,fontFamily:"default",textColor:"#ffffff",backgroundOpacity:75};
-  const [captions,setCaptions]=useState(true);
-  const [captionPreferences,setCaptionPreferences]=useState(()=>{try{return {...defaultCaptionPreferences,...JSON.parse(localStorage.getItem(CAPTION_PREFERENCES_KEY)||"{}")} }catch{return defaultCaptionPreferences}});
+  const defaultCaptionPreferences = {
+    fontSize: 100,
+    fontFamily: "default",
+    textColor: "#ffffff",
+    backgroundOpacity: 75,
+  };
+  const [captions, setCaptions] = useState(true);
+  const [captionPreferences, setCaptionPreferences] = useState(() => {
+    try {
+      return {
+        ...defaultCaptionPreferences,
+        ...JSON.parse(localStorage.getItem(CAPTION_PREFERENCES_KEY) || "{}"),
+      };
+    } catch {
+      return defaultCaptionPreferences;
+    }
+  });
   const [controls, setControls] = useState(true);
   const [rate, setRate] = useState(1);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  useEffect(()=>{localStorage.setItem(CAPTION_PREFERENCES_KEY,JSON.stringify(captionPreferences))},[captionPreferences]);
-  const captionFont={default:"inherit",sans:"Arial, Helvetica, sans-serif",serif:"Georgia, 'Times New Roman', serif",mono:"Consolas, 'Courier New', monospace"}[captionPreferences.fontFamily]||"inherit";
-  const captionStyle={"--lw-caption-scale":captionPreferences.fontSize/100,"--lw-caption-font":captionFont,"--lw-caption-color":captionPreferences.textColor,"--lw-caption-background-opacity":captionPreferences.backgroundOpacity/100};
+  useEffect(() => {
+    localStorage.setItem(CAPTION_PREFERENCES_KEY, JSON.stringify(captionPreferences));
+  }, [captionPreferences]);
+  const captionFont =
+    {
+      default: "inherit",
+      sans: "Arial, Helvetica, sans-serif",
+      serif: "Georgia, 'Times New Roman', serif",
+      mono: "Consolas, 'Courier New', monospace",
+    }[captionPreferences.fontFamily] || "inherit";
+  const captionStyle = {
+    "--lw-caption-scale": captionPreferences.fontSize / 100,
+    "--lw-caption-font": captionFont,
+    "--lw-caption-color": captionPreferences.textColor,
+    "--lw-caption-background-opacity": captionPreferences.backgroundOpacity / 100,
+  };
   const timer = useRef(null);
   const source = selectedCelebrity ? aiVideoUrl : null;
   const generating = !!isAIVideoLoading && !source;
@@ -222,7 +249,9 @@ aiVideoUrl,
         </div>
       )}
       {activeCaption && captions && !generating && !failed && (
-        <div className="lw-player-caption" style={captionStyle}>{activeCaption}</div>
+        <div className="lw-player-caption" style={captionStyle}>
+          {activeCaption}
+        </div>
       )}
       {!!source && !failed && (
         <div
