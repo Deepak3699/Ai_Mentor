@@ -103,6 +103,13 @@ describe("unexpected errors are sanitized", () => {
     expectLogged(res, "SQLSTATE 42P01");
   });
 
+  test("export payments", async () => {
+    mock.method(User, "findAll", failingDb);
+    const res = await call("GET", "/api/admin/payments?page=1&limit=100");
+    expectStable500(res);
+    expectLogged(res, "SQLSTATE 42P01");
+  });
+
   test("update user status", async () => {
     mock.method(User, "findByPk", failingDb);
     const res = await call("PATCH", "/api/admin/users/5/status", { status: "active" });
