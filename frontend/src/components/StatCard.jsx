@@ -38,12 +38,8 @@ export default function StatCard({
           <div className="mt-0.5 flex items-baseline gap-1.5 flex-wrap">
             <span className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
               {value}
+              {unit ? ` ${unit}` : ""}
             </span>
-            {unit && (
-              <span className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 truncate">
-                {unit}
-              </span>
-            )}
           </div>
 
           {/* Progress Bar: accessible with role="progressbar" and aria attributes */}

@@ -333,7 +333,20 @@
       "empty": "Schließe einen Kurs ab oder lerne 3 Tage hintereinander, um deinen ersten Erfolg zu erzielen."
     },
     "hours_unit": "Std.",
-    "this_week": "diese Woche"
+    "this_week": "diese Woche",
+    "completion_breakdown": {
+      "title": "Abschlussübersicht",
+      "completed": "Abgeschlossen",
+      "completed_courses": "Abgeschlossene Kurse",
+      "in_progress": "In Bearbeitung",
+      "not_started": "Nicht begonnen",
+      "empty_state_message": "Schreiben Sie sich in einen Kurs ein, um Ihren Fortschritt zu sehen",
+      "aria_summary": "Kursabschluss: {{completed}} abgeschlossen, {{inProgress}} in Bearbeitung, {{notStarted}} nicht begonnen",
+      "table_caption": "Übersicht über den Kursabschluss",
+      "status_header": "Status",
+      "count_header": "Kurse",
+      "percentage_header": "Prozentsatz"
+    }
   },
   "discussions": {
     "title": "Diskussionen",

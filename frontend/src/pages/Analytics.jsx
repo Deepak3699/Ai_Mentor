@@ -32,6 +32,7 @@ import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import AchievementsCard from "../components/dashboard/AchievementsCard";
 import StatCard from "../components/StatCard";
+import CompletionBreakdownCard from "../components/CompletionBreakdownCard";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -271,8 +272,14 @@ const Analytics = () => {
 
     if (thisWeekSessions.length === 0 && lastWeekSessions.length === 0) return null;
 
-    const thisWeekHours = thisWeekSessions.reduce((acc, s) => acc + (s.hours || s.duration || 0), 0);
-    const lastWeekHours = lastWeekSessions.reduce((acc, s) => acc + (s.hours || s.duration || 0), 0);
+    const thisWeekHours = thisWeekSessions.reduce(
+      (acc, s) => acc + (s.hours || s.duration || 0),
+      0,
+    );
+    const lastWeekHours = lastWeekSessions.reduce(
+      (acc, s) => acc + (s.hours || s.duration || 0),
+      0,
+    );
     const diff = Number((thisWeekHours - lastWeekHours).toFixed(1));
 
     if (diff > 0) {
@@ -380,7 +387,6 @@ const Analytics = () => {
 
         {/* Quick Stats Row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-
           {/* 1. Average Progress */}
           <StatCard
             icon={Target}
@@ -440,6 +446,12 @@ const Analytics = () => {
             t={t}
           />
         </div>
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <CompletionBreakdownCard courses={myCourses} />
+        </div>
+
         {/* Tab Navigation */}
         <div className="flex gap-2 mb-6 border-b border-[#CCCCCC] dark:border-gray-700">
           <button
