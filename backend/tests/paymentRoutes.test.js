@@ -14,6 +14,7 @@ process.env.RAZORPAY_KEY_SECRET = "razorpay-test-secret";
 const { default: express } = await import("express");
 const { default: User } = await import("../models/User.js");
 const { default: Payment } = await import("../models/Payment.js");
+const { default: Course } = await import("../models/Course.js");
 const { default: Notification } = await import("../models/Notification.js");
 const { sequelize } = await import("../config/db.js");
 const { paymentGatewayServices } = await import("../services/paymentGatewayServices.js");
@@ -25,6 +26,7 @@ const originals = {
   paymentFindOne: Payment.findOne,
   paymentFindByPk: Payment.findByPk,
   paymentCreate: Payment.create,
+  courseFindByPk: Course.findByPk,
   createStripeCheckoutSession: paymentGatewayServices.createStripeCheckoutSession,
   createRazorpayOrder: paymentGatewayServices.createRazorpayOrder,
   notificationCreate: Notification.create,
@@ -46,16 +48,45 @@ before(async () => {
 
 beforeEach(() => {
   User.findByPk = async (id) => ({ id, isBlocked: false, passwordChangedAt: null });
+  Course.findByPk = async (id) => {
+    const numId = Number(id);
+    if (numId === 9) {
+      return {
+        id: 9,
+        title: "Razorpay Course",
+        priceValue: 250,
+        currency: "INR",
+        status: "published",
+      };
+    }
+    return {
+      id: numId,
+      title: "Secure Course",
+      priceValue: 499,
+      currency: "inr",
+      status: "published",
+    };
+  };
   Payment.findOne = async () => null;
   Payment.findByPk = async () => null;
-  Payment.create = async () => { throw new Error("unexpected Payment.create"); };
-  paymentGatewayServices.createStripeCheckoutSession = async () => { throw new Error("unexpected Stripe call"); };
-  paymentGatewayServices.createRazorpayOrder = async () => { throw new Error("unexpected Razorpay call"); };
+  Payment.create = async () => {
+    throw new Error("unexpected Payment.create");
+  };
+  paymentGatewayServices.createStripeCheckoutSession = async () => {
+    throw new Error("unexpected Stripe call");
+  };
+  paymentGatewayServices.createRazorpayOrder = async () => {
+    throw new Error("unexpected Razorpay call");
+  };
   Notification.create = async (data) => ({ id: "notification", ...data });
   sequelize.transaction = async () => ({
     finished: undefined,
-    async commit() { this.finished = "commit"; },
-    async rollback() { this.finished = "rollback"; },
+    async commit() {
+      this.finished = "commit";
+    },
+    async rollback() {
+      this.finished = "rollback";
+    },
   });
 });
 
@@ -64,6 +95,7 @@ after(async () => {
   Payment.findOne = originals.paymentFindOne;
   Payment.findByPk = originals.paymentFindByPk;
   Payment.create = originals.paymentCreate;
+  Course.findByPk = originals.courseFindByPk;
   paymentGatewayServices.createStripeCheckoutSession = originals.createStripeCheckoutSession;
   paymentGatewayServices.createRazorpayOrder = originals.createRazorpayOrder;
   Notification.create = originals.notificationCreate;
@@ -84,14 +116,20 @@ const request = (path, { userId = "user-1", method = "GET", body } = {}) =>
 test("payment status returns 404 when the payment does not exist", async () => {
   const res = await request("/api/payment/status/missing");
   assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { error: "Payment not found" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Payment not found", details: [] },
+  });
 });
 
 test("payment status prevents one user from viewing another user's payment", async () => {
   Payment.findByPk = async () => ({ id: "payment-1", userId: "owner" });
   const res = await request("/api/payment/status/payment-1", { userId: "attacker" });
   assert.equal(res.status, 403);
-  assert.deepEqual(await res.json(), { error: "Unauthorized" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "FORBIDDEN", message: "Unauthorized", details: [] },
+  });
 });
 
 test("payment status returns only the expected fields to the owner", async () => {
@@ -115,76 +153,196 @@ test("payment status returns only the expected fields to the owner", async () =>
   assert.equal("secretInternalField" in data, false);
 });
 
-test("Stripe checkout rejects invalid course data and missing idempotency keys", async () => {
+test("Stripe checkout rejects invalid course data, missing idempotency keys, and unpublished courses", async () => {
   let res = await request("/api/payment/create-checkout-session", {
     method: "POST",
-    body: { course: { id: 1, title: "Course", priceValue: 0 }, idempotencyKey: "key" },
+    body: { course: {}, idempotencyKey: "key" },
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { error: "Invalid course data" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Invalid course data", details: [] },
+  });
 
   res = await request("/api/payment/create-checkout-session", {
     method: "POST",
     body: { course: { id: 1, title: "Course", priceValue: 100 } },
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { error: "idempotencyKey is required" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "idempotencyKey is required", details: [] },
+  });
+
+  Course.findByPk = async () => null;
+  res = await request("/api/payment/create-checkout-session", {
+    method: "POST",
+    body: { course: { id: 999 }, idempotencyKey: "key" },
+  });
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Course not found or unavailable", details: [] },
+  });
+
+  Course.findByPk = async () => ({ id: 1, status: "disabled", priceValue: 100 });
+  res = await request("/api/payment/create-checkout-session", {
+    method: "POST",
+    body: { course: { id: 1 }, idempotencyKey: "key" },
+  });
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Course not found or unavailable", details: [] },
+  });
+
+  Course.findByPk = async () => ({ id: 1, status: "published", priceValue: 0 });
+  res = await request("/api/payment/create-checkout-session", {
+    method: "POST",
+    body: { course: { id: 1 }, idempotencyKey: "key" },
+  });
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Invalid course price", details: [] },
+  });
 });
 
-test("Stripe checkout returns a non-expired cached idempotent response without creating payment", async () => {
+test("Stripe checkout returns a non-expired cached idempotent response for matching user, rejects other users", async () => {
   let createCalls = 0;
   Payment.findOne = async ({ where }) => {
     assert.deepEqual(where, { idempotencyKey: "stable-key" });
     return {
+      userId: "user-1",
       cachedResponse: { url: "https://checkout.test/session", paymentId: "pay-1" },
       cacheExpiresAt: new Date(Date.now() + 60_000),
     };
   };
-  Payment.create = async () => { createCalls += 1; };
-  const res = await request("/api/payment/create-checkout-session", {
+  Payment.create = async () => {
+    createCalls += 1;
+  };
+  let res = await request("/api/payment/create-checkout-session", {
     method: "POST",
     body: { course: { id: 1, title: "Course", priceValue: 100 }, idempotencyKey: "stable-key" },
   });
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { url: "https://checkout.test/session", paymentId: "pay-1" });
   assert.equal(createCalls, 0);
+
+  // Cross-user idempotency key reuse is rejected
+  Payment.findOne = async () => ({
+    userId: "other-user",
+    cachedResponse: { url: "https://checkout.test/session", paymentId: "pay-1" },
+    cacheExpiresAt: new Date(Date.now() + 60_000),
+  });
+  res = await request("/api/payment/create-checkout-session", {
+    userId: "user-1",
+    method: "POST",
+    body: { course: { id: 1, title: "Course", priceValue: 100 }, idempotencyKey: "stable-key" },
+  });
+  assert.equal(res.status, 403);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "FORBIDDEN", message: "Unauthorized idempotency key", details: [] },
+  });
 });
 
-test("Razorpay order rejects invalid course data and missing idempotency keys", async () => {
+test("Razorpay order rejects invalid course data, missing idempotency keys, and unpublished courses", async () => {
   let res = await request("/api/razorpay/create-order", {
     method: "POST",
-    body: { course: { id: 1, priceValue: 0 }, idempotencyKey: "key" },
+    body: { course: {}, idempotencyKey: "key" },
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { error: "Invalid course data" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Invalid course data", details: [] },
+  });
 
   res = await request("/api/razorpay/create-order", {
     method: "POST",
     body: { course: { id: 1, priceValue: 100 } },
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { error: "idempotencyKey is required" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "idempotencyKey is required", details: [] },
+  });
+
+  Course.findByPk = async () => null;
+  res = await request("/api/razorpay/create-order", {
+    method: "POST",
+    body: { course: { id: 999 }, idempotencyKey: "key" },
+  });
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Course not found or unavailable", details: [] },
+  });
+
+  Course.findByPk = async () => ({ id: 1, status: "disabled", priceValue: 100 });
+  res = await request("/api/razorpay/create-order", {
+    method: "POST",
+    body: { course: { id: 1 }, idempotencyKey: "key" },
+  });
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Course not found or unavailable", details: [] },
+  });
+
+  Course.findByPk = async () => ({ id: 1, status: "published", priceValue: 0 });
+  res = await request("/api/razorpay/create-order", {
+    method: "POST",
+    body: { course: { id: 1 }, idempotencyKey: "key" },
+  });
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Invalid course price", details: [] },
+  });
 });
 
-test("Razorpay order returns a cached idempotent response without creating payment", async () => {
+test("Razorpay order returns a cached idempotent response for matching user, rejects other users", async () => {
   let createCalls = 0;
   Payment.findOne = async () => ({
+    userId: "user-1",
     cachedResponse: { orderId: "order-1", amount: 10000, currency: "INR", paymentId: "payment-1" },
   });
-  Payment.create = async () => { createCalls += 1; };
-  const res = await request("/api/razorpay/create-order", {
+  Payment.create = async () => {
+    createCalls += 1;
+  };
+  let res = await request("/api/razorpay/create-order", {
     method: "POST",
     body: { course: { id: 1, title: "Course", priceValue: 100 }, idempotencyKey: "stable-key" },
   });
   assert.equal(res.status, 200);
   assert.equal((await res.json()).orderId, "order-1");
   assert.equal(createCalls, 0);
+
+  // Cross-user idempotency key reuse is rejected
+  Payment.findOne = async () => ({
+    userId: "other-user",
+    cachedResponse: { orderId: "order-1", amount: 10000, currency: "INR", paymentId: "payment-1" },
+  });
+  res = await request("/api/razorpay/create-order", {
+    userId: "user-1",
+    method: "POST",
+    body: { course: { id: 1, title: "Course", priceValue: 100 }, idempotencyKey: "stable-key" },
+  });
+  assert.equal(res.status, 403);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "FORBIDDEN", message: "Unauthorized idempotency key", details: [] },
+  });
 });
 
 test("Razorpay verification rejects missing parameters and invalid signatures before any transaction", async () => {
   let res = await request("/api/razorpay/verify", { method: "POST", body: {} });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { success: false, error: "Missing required parameters" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Missing required parameters", details: [] },
+  });
 
   res = await request("/api/razorpay/verify", {
     method: "POST",
@@ -197,9 +355,11 @@ test("Razorpay verification rejects missing parameters and invalid signatures be
     },
   });
   assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), { success: false, error: "Invalid signature" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Invalid signature", details: [] },
+  });
 });
-
 
 test("Stripe checkout creates and updates a payment using the authenticated user", async () => {
   let createdData;
@@ -207,7 +367,12 @@ test("Stripe checkout creates and updates a payment using the authenticated user
   let stripeOptions;
   Payment.create = async (data) => {
     createdData = data;
-    return { id: "payment-1", async update(update) { updatedData = update; } };
+    return {
+      id: "payment-1",
+      async update(update) {
+        updatedData = update;
+      },
+    };
   };
   paymentGatewayServices.createStripeCheckoutSession = async (options) => {
     stripeOptions = options;
@@ -216,10 +381,16 @@ test("Stripe checkout creates and updates a payment using the authenticated user
   const res = await request("/api/payment/create-checkout-session", {
     userId: "owner-1",
     method: "POST",
-    body: { course: { id: 7, title: "Secure Course", priceValue: 499 }, idempotencyKey: "stripe-new" },
+    body: {
+      course: { id: 7, title: "Secure Course", priceValue: 499 },
+      idempotencyKey: "stripe-new",
+    },
   });
   assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { url: "https://checkout.test/session-1", paymentId: "payment-1" });
+  assert.deepEqual(await res.json(), {
+    url: "https://checkout.test/session-1",
+    paymentId: "payment-1",
+  });
   assert.equal(createdData.userId, "owner-1");
   assert.equal(createdData.amount, 49900);
   assert.equal(createdData.gateway, "stripe");
@@ -228,11 +399,23 @@ test("Stripe checkout creates and updates a payment using the authenticated user
   assert.equal(updatedData.status, "processing");
   assert.equal(updatedData.stripeSessionId, "session-1");
 });
-
-test("Stripe gateway failure returns 500 after payment creation", async () => {
+test("Stripe gateway failure returns 500 after payment creation and marks payment failed", async () => {
   let created = 0;
-  Payment.create = async () => { created += 1; return { id: "payment-1", async update() {} }; };
-  paymentGatewayServices.createStripeCheckoutSession = async () => { throw new Error("Stripe unavailable"); };
+  let update;
+  Payment.create = async () => {
+    created += 1;
+    return {
+      id: "payment-1",
+      status: "initiated",
+      async update(data) {
+        update = data;
+        this.status = data.status;
+      },
+    };
+  };
+  paymentGatewayServices.createStripeCheckoutSession = async () => {
+    throw new Error("Stripe unavailable");
+  };
   const originalError = console.error;
   console.error = () => {};
   try {
@@ -241,9 +424,110 @@ test("Stripe gateway failure returns 500 after payment creation", async () => {
       body: { course: { id: 7, title: "Course", priceValue: 100 }, idempotencyKey: "stripe-fail" },
     });
     assert.equal(res.status, 500);
-    assert.deepEqual(await res.json(), { error: "Stripe session failed" });
+    assert.deepEqual(await res.json(), {
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
     assert.equal(created, 1);
-  } finally { console.error = originalError; }
+    assert.deepEqual(update, { status: "failed" });
+  } finally {
+    console.error = originalError;
+  }
+});
+test("Stale payment reconciliation moves expired initiated or processing payments to failed", async () => {
+  let updateArgs;
+  Payment.update = async (values, options) => {
+    updateArgs = { values, options };
+    return [3];
+  };
+
+  const reconciledCount = await Payment.reconcileStalePayments({
+    timeoutMs: 15 * 60 * 1000,
+    now: new Date("2026-10-26T12:00:00.000Z"),
+  });
+
+  assert.equal(reconciledCount, 3);
+  assert.deepEqual(updateArgs.values, { status: "failed" });
+
+  // Verify GET /api/payment/status/:paymentId reconciles an expired non-terminal payment
+  let statusUpdated = null;
+  Payment.findByPk = async (id) => ({
+    id,
+    userId: "owner",
+    status: "initiated",
+    courseId: 7,
+    courseTitle: "Course",
+    amount: 49900,
+    currency: "inr",
+    gateway: "stripe",
+    createdAt: "2026-10-05T00:00:00.000Z",
+    cacheExpiresAt: new Date(Date.now() - 60_000),
+    async update(data) {
+      statusUpdated = data;
+      Object.assign(this, data);
+    },
+  });
+
+  const res = await request("/api/payment/status/payment-stale", { userId: "owner" });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.status, "failed");
+  assert.deepEqual(statusUpdated, { status: "failed" });
+});
+
+test("Regression: failed payment row with empty cachedResponse is not served as cached success and can be retried", async () => {
+  const failedRow = {
+    id: "pay-retry-1",
+    userId: "user-1",
+    courseId: 7,
+    courseTitle: "Course",
+    amount: 10000,
+    currency: "inr",
+    status: "failed",
+    gateway: "stripe",
+    cachedResponse: {},
+    cacheExpiresAt: new Date(Date.now() + 60_000),
+    transitions: [],
+    async update(data) {
+      if (data.status) {
+        this.transitions.push(data.status);
+      }
+      Object.assign(this, data);
+    },
+  };
+
+  Payment.findOne = async () => failedRow;
+  paymentGatewayServices.createStripeCheckoutSession = async () => ({
+    id: "sess-retry-1",
+    url: "https://checkout.test/sess-retry-1",
+  });
+
+  const res = await request("/api/payment/create-checkout-session", {
+    userId: "user-1",
+    method: "POST",
+    body: {
+      course: { id: 7, title: "Course", priceValue: 100 },
+      idempotencyKey: "retry-key-1",
+    },
+  });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), {
+    url: "https://checkout.test/sess-retry-1",
+    paymentId: "pay-retry-1",
+  });
+  assert.deepEqual(failedRow.transitions, ["initiated", "processing"]);
+  assert.equal(failedRow.status, "processing");
+});
+
+test("Payment state machine enforces valid lifecycle transitions across Stripe and Razorpay", () => {
+  assert.equal(Payment.canTransition("initiated", "processing"), true);
+  assert.equal(Payment.canTransition("initiated", "failed"), true);
+  assert.equal(Payment.canTransition("processing", "success"), true);
+  assert.equal(Payment.canTransition("processing", "failed"), true);
+  assert.equal(Payment.canTransition("failed", "initiated"), true);
+  assert.equal(Payment.canTransition("success", "failed"), false);
+  assert.equal(Payment.canTransition("success", "processing"), false);
 });
 
 test("Razorpay order creates, caches, and updates a payment", async () => {
@@ -252,7 +536,12 @@ test("Razorpay order creates, caches, and updates a payment", async () => {
   let gatewayOptions;
   Payment.create = async (data) => {
     createdData = data;
-    return { id: "payment-rzp", async update(update) { updatedData = update; } };
+    return {
+      id: "payment-rzp",
+      async update(update) {
+        updatedData = update;
+      },
+    };
   };
   paymentGatewayServices.createRazorpayOrder = async (options) => {
     gatewayOptions = options;
@@ -261,7 +550,10 @@ test("Razorpay order creates, caches, and updates a payment", async () => {
   const res = await request("/api/razorpay/create-order", {
     userId: "owner-rzp",
     method: "POST",
-    body: { course: { id: 9, title: "Razorpay Course", priceValue: 250 }, idempotencyKey: "rzp-new" },
+    body: {
+      course: { id: 9, title: "Razorpay Course", priceValue: 250 },
+      idempotencyKey: "rzp-new",
+    },
   });
   assert.equal(res.status, 200);
   const data = await res.json();
@@ -276,8 +568,15 @@ test("Razorpay order creates, caches, and updates a payment", async () => {
 
 test("Razorpay gateway failure marks the initiated payment failed", async () => {
   let update;
-  Payment.create = async () => ({ id: "payment-rzp", async update(data) { update = data; } });
-  paymentGatewayServices.createRazorpayOrder = async () => { throw new Error("Razorpay unavailable"); };
+  Payment.create = async () => ({
+    id: "payment-rzp",
+    async update(data) {
+      update = data;
+    },
+  });
+  paymentGatewayServices.createRazorpayOrder = async () => {
+    throw new Error("Razorpay unavailable");
+  };
   const originalError = console.error;
   const originalLog = console.log;
   console.error = () => {};
@@ -289,9 +588,11 @@ test("Razorpay gateway failure marks the initiated payment failed", async () => 
     });
     assert.equal(res.status, 500);
     assert.deepEqual(update, { status: "failed" });
-  } finally { console.error = originalError; console.log = originalLog; }
+  } finally {
+    console.error = originalError;
+    console.log = originalLog;
+  }
 });
-
 
 test("Razorpay verification requires a payment owned by the authenticated user", async () => {
   let transaction;
@@ -299,12 +600,19 @@ test("Razorpay verification requires a payment owned by the authenticated user",
   sequelize.transaction = async () => {
     transaction = {
       finished: undefined,
-      async commit() { this.finished = "commit"; },
-      async rollback() { this.finished = "rollback"; },
+      async commit() {
+        this.finished = "commit";
+      },
+      async rollback() {
+        this.finished = "rollback";
+      },
     };
     return transaction;
   };
-  Payment.findOne = async (options) => { paymentQuery = options; return null; };
+  Payment.findOne = async (options) => {
+    paymentQuery = options;
+    return null;
+  };
   const orderId = "order-owned";
   const paymentId = "payment-owned";
   const signature = crypto
@@ -323,7 +631,10 @@ test("Razorpay verification requires a payment owned by the authenticated user",
     },
   });
   assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { success: false, error: "Payment not found" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Payment not found", details: [] },
+  });
   assert.deepEqual(paymentQuery.where, { razorpayOrderId: orderId, userId: "owner-1" });
   assert.equal(transaction.finished, "rollback");
 });
@@ -332,18 +643,29 @@ test("Razorpay verification marks payment successful, enrolls once, and commits"
   let transaction;
   let paymentUpdate;
   let saves = 0;
-  const payment = { async update(data, options) { paymentUpdate = [data, options]; } };
+  const payment = {
+    async update(data, options) {
+      paymentUpdate = [data, options];
+    },
+  };
   const user = {
     id: "owner-1",
     purchasedCourses: [],
     changed() {},
-    async save(options) { saves += 1; assert.equal(options.transaction, transaction); },
+    async save(options) {
+      saves += 1;
+      assert.equal(options.transaction, transaction);
+    },
   };
   sequelize.transaction = async () => {
     transaction = {
       finished: undefined,
-      async commit() { this.finished = "commit"; },
-      async rollback() { this.finished = "rollback"; },
+      async commit() {
+        this.finished = "commit";
+      },
+      async rollback() {
+        this.finished = "rollback";
+      },
     };
     return transaction;
   };
@@ -376,7 +698,6 @@ test("Razorpay verification marks payment successful, enrolls once, and commits"
   assert.equal(saves, 1);
 });
 
-
 test("Razorpay verification does not duplicate an existing course enrollment", async () => {
   let transaction;
   let saves = 0;
@@ -384,8 +705,12 @@ test("Razorpay verification does not duplicate an existing course enrollment", a
   sequelize.transaction = async () => {
     transaction = {
       finished: undefined,
-      async commit() { this.finished = "commit"; },
-      async rollback() { this.finished = "rollback"; },
+      async commit() {
+        this.finished = "commit";
+      },
+      async rollback() {
+        this.finished = "rollback";
+      },
     };
     return transaction;
   };
@@ -393,8 +718,12 @@ test("Razorpay verification does not duplicate an existing course enrollment", a
   User.findByPk = async () => ({
     id: "owner-1",
     purchasedCourses: [{ courseId: 7, courseTitle: "Existing Course" }],
-    changed() { throw new Error("existing enrollment must not be changed"); },
-    async save() { saves += 1; },
+    changed() {
+      throw new Error("existing enrollment must not be changed");
+    },
+    async save() {
+      saves += 1;
+    },
   });
   const signature = crypto
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
@@ -421,8 +750,12 @@ test("Razorpay verification rolls back when the authenticated user is missing", 
   sequelize.transaction = async () => {
     transaction = {
       finished: undefined,
-      async commit() { this.finished = "commit"; },
-      async rollback() { this.finished = "rollback"; },
+      async commit() {
+        this.finished = "commit";
+      },
+      async rollback() {
+        this.finished = "rollback";
+      },
     };
     return transaction;
   };
@@ -451,7 +784,10 @@ test("Razorpay verification rolls back when the authenticated user is missing", 
     },
   });
   assert.equal(res.status, 404);
-  assert.deepEqual(await res.json(), { success: false, error: "User not found" });
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "User not found", details: [] },
+  });
   assert.equal(transaction.finished, "rollback");
   assert.equal(userLookupCalls, 2);
 });
@@ -461,12 +797,18 @@ test("Razorpay verification rolls back and returns 500 on database failure", asy
   sequelize.transaction = async () => {
     transaction = {
       finished: undefined,
-      async commit() { this.finished = "commit"; },
-      async rollback() { this.finished = "rollback"; },
+      async commit() {
+        this.finished = "commit";
+      },
+      async rollback() {
+        this.finished = "rollback";
+      },
     };
     return transaction;
   };
-  Payment.findOne = async () => { throw new Error("database unavailable"); };
+  Payment.findOne = async () => {
+    throw new Error("database unavailable");
+  };
   const signature = crypto
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
     .update("order-db-error|payment-db-error")
@@ -490,11 +832,157 @@ test("Razorpay verification rolls back and returns 500 on database failure", asy
     assert.equal(res.status, 500);
     assert.deepEqual(await res.json(), {
       success: false,
-      error: "Payment verification failed",
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
     });
     assert.equal(transaction.finished, "rollback");
   } finally {
     console.error = originalError;
     console.log = originalLog;
   }
+});
+// ---- Razorpay verify: ownership, course binding, replay and duplicate handling ----
+const verifySignature = (orderId, paymentId) =>
+  crypto
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
+
+// A stored payment owned by "owner-1" for course 7
+const makeStoredPayment = (overrides = {}) => ({
+  razorpayOrderId: "order-1",
+  userId: "owner-1",
+  courseId: 7,
+  courseTitle: "Stored Title",
+  status: "processing",
+  updates: [],
+  async update(data) {
+    this.updates.push(data);
+    Object.assign(this, data);
+  },
+  ...overrides,
+});
+
+const makeStoredUser = () => ({
+  id: "owner-1",
+  purchasedCourses: [],
+  saves: 0,
+  changed() {},
+  async save() {
+    this.saves += 1;
+  },
+});
+
+// Fakes the payment table: findOne only returns a row that matches the whole `where`
+const setupVerify = (payment) => {
+  const user = makeStoredUser();
+  const state = { transaction: null, findOneOptions: null, notifications: 0, user };
+  sequelize.transaction = async () => {
+    state.transaction = {
+      finished: undefined,
+      async commit() {
+        this.finished = "commit";
+      },
+      async rollback() {
+        this.finished = "rollback";
+      },
+    };
+    return state.transaction;
+  };
+  Payment.findOne = async (options) => {
+    state.findOneOptions = options;
+    const matches = Object.entries(options.where).every(([key, value]) => payment[key] === value);
+    return matches ? payment : null;
+  };
+  User.findByPk = async (id, options) =>
+    options?.transaction ? user : { id, isBlocked: false, passwordChangedAt: null };
+  Notification.create = async (data) => {
+    state.notifications += 1;
+    return { id: "notification", ...data };
+  };
+  return state;
+};
+
+const verifyRequest = ({ userId = "owner-1", ...overrides } = {}) =>
+  request("/api/razorpay/verify", {
+    userId,
+    method: "POST",
+    body: {
+      razorpay_order_id: "order-1",
+      razorpay_payment_id: "payment-1",
+      razorpay_signature: verifySignature("order-1", "payment-1"),
+      courseId: 7,
+      ...overrides,
+    },
+  });
+
+test("Razorpay verify enrolls the stored course and ignores the client-supplied title", async () => {
+  const payment = makeStoredPayment();
+  const state = setupVerify(payment);
+  const res = await verifyRequest({ courseTitle: "Client supplied title" });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { success: true, message: "Payment verified successfully" });
+  assert.equal(state.transaction.finished, "commit");
+  assert.equal(state.user.purchasedCourses.length, 1);
+  assert.equal(state.user.purchasedCourses[0].courseId, 7);
+  assert.equal(state.user.purchasedCourses[0].courseTitle, "Stored Title");
+  assert.equal(state.notifications, 1);
+  assert.equal(state.findOneOptions.lock, "UPDATE"); // row is locked for the transaction
+});
+
+test("Razorpay verify rejects another user's payment and changes nothing", async () => {
+  const payment = makeStoredPayment();
+  const state = setupVerify(payment);
+  const res = await verifyRequest({ userId: "attacker" });
+  assert.equal(res.status, 404);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "NOT_FOUND", message: "Payment not found", details: [] },
+  });
+  assert.equal(state.findOneOptions.where.userId, "attacker");
+  assert.equal(state.transaction.finished, "rollback");
+  assert.deepEqual(payment.updates, []);
+  assert.equal(state.user.purchasedCourses.length, 0);
+  assert.equal(state.notifications, 0);
+});
+
+test("Razorpay verify rejects a course that differs from the paid course", async () => {
+  const payment = makeStoredPayment();
+  const state = setupVerify(payment);
+  const res = await verifyRequest({ courseId: 8 });
+  assert.equal(res.status, 400);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: { code: "BAD_REQUEST", message: "Course does not match the paid order", details: [] },
+  });
+  assert.equal(state.transaction.finished, "rollback");
+  assert.deepEqual(payment.updates, []);
+  assert.equal(state.user.purchasedCourses.length, 0);
+  assert.equal(state.notifications, 0);
+});
+
+test("Razorpay verify replay: an already successful payment is not processed again", async () => {
+  const payment = makeStoredPayment({ status: "success" });
+  const state = setupVerify(payment);
+  const res = await verifyRequest();
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { success: true, message: "Payment already verified" });
+  assert.equal(state.transaction.finished, "rollback");
+  assert.deepEqual(payment.updates, []);
+  assert.equal(state.user.saves, 0);
+  assert.equal(state.notifications, 0);
+});
+
+test("Razorpay verify duplicate: verifying twice updates, enrolls and notifies once", async () => {
+  const payment = makeStoredPayment();
+  const state = setupVerify(payment);
+  const first = await verifyRequest();
+  const second = await verifyRequest();
+  assert.equal(first.status, 200);
+  assert.deepEqual(await first.json(), { success: true, message: "Payment verified successfully" });
+  assert.equal(second.status, 200);
+  assert.deepEqual(await second.json(), { success: true, message: "Payment already verified" });
+  assert.equal(payment.updates.length, 1);
+  assert.equal(state.user.purchasedCourses.length, 1);
+  assert.equal(state.user.saves, 1);
+  assert.equal(state.notifications, 1);
 });

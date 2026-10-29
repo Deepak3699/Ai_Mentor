@@ -10,16 +10,11 @@ import SocialLogin from "../components/auth/SocialLogin";
 import toast from "react-hot-toast";
 import { z } from "zod";
 import API_BASE_URL from "../lib/api";
+import { getErrorMessage, getFieldErrors } from "../lib/errorHandling.js";
 
 const signupSchema = z.object({
-  firstName: z
-    .string()
-    .min(1, "First name is required")
-    .max(50, "First name too long"),
-  lastName: z
-    .string()
-    .min(1, "Last name is required")
-    .max(50, "Last name too long"),
+  firstName: z.string().min(1, "First name is required").max(50, "First name too long"),
+  lastName: z.string().min(1, "Last name is required").max(50, "Last name too long"),
   email: z.string().email("Please enter a valid email address"),
   username: z
     .string()
@@ -31,10 +26,7 @@ const signupSchema = z.object({
     .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
     .regex(/[a-z]/, "Password must contain at least one lowercase letter")
     .regex(/[0-9]/, "Password must contain at least one number")
-    .regex(
-      /[!@#$%^&*(),.?":{}|<>]/,
-      "Password must contain at least one symbol",
-    ),
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one symbol"),
 });
 
 /* FormInput stays UI-only */
@@ -58,9 +50,7 @@ const FormInput = ({ label, type, placeholder, value, onChange }) => {
 
 /* Password Validation UI Helper */
 const ValidationItem = ({ label, met }) => (
-  <div
-    className={`flex items-center gap-1 ${met ? "text-green-500" : "text-gray-400"}`}
-  >
+  <div className={`flex items-center gap-1 ${met ? "text-green-500" : "text-gray-400"}`}>
     {met ? <Check size={10} /> : <X size={10} />}
     <span className="text-[10px]">{label}</span>
   </div>
@@ -121,10 +111,16 @@ const SignUpPage = () => {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(data.message || "Something went wrong");
+        throw {
+          response: { status: response.status, data },
+          message: getErrorMessage(
+            { response: { status: response.status, data } },
+            "Something went wrong",
+          ),
+        };
       }
 
       login(data);
@@ -134,10 +130,11 @@ const SignUpPage = () => {
     } catch (error) {
       if (error instanceof z.ZodError) {
         toast.error(error.errors[0].message);
-      } else if (error.name === "TypeError" && error.message.includes("fetch")) {
-        toast.error("Cannot connect to server. Please check if the backend server is running.");
       } else {
-        toast.error(error.message || "Sign up failed");
+        const fieldErrors = getFieldErrors(error);
+        toast.error(
+          fieldErrors.email || fieldErrors.password || getErrorMessage(error, "Sign up failed"),
+        );
       }
     } finally {
       setLoading(false);
@@ -164,9 +161,9 @@ const SignUpPage = () => {
     >
       <Helmet>
         <title>Sign Up | UptoSkills</title>
-        <meta 
-          name="description" 
-          content="Create your free UptoSkills account and start learning today." 
+        <meta
+          name="description"
+          content="Create your free UptoSkills account and start learning today."
         />
         <meta property="og:title" content="Sign Up | UptoSkills" />
         <meta property="og:type" content="website" />
@@ -232,18 +229,9 @@ const SignUpPage = () => {
 
           {/* 🔹 PASSWORD CHECKLIST UI */}
           <div className="mt-2 grid grid-cols-2 gap-1">
-            <ValidationItem
-              label="8+ Characters"
-              met={passwordRequirements.length}
-            />
-            <ValidationItem
-              label="Uppercase"
-              met={passwordRequirements.capital}
-            />
-            <ValidationItem
-              label="Lowercase"
-              met={passwordRequirements.lower}
-            />
+            <ValidationItem label="8+ Characters" met={passwordRequirements.length} />
+            <ValidationItem label="Uppercase" met={passwordRequirements.capital} />
+            <ValidationItem label="Lowercase" met={passwordRequirements.lower} />
             <ValidationItem label="Number" met={passwordRequirements.number} />
             <ValidationItem label="Symbol" met={passwordRequirements.symbol} />
           </div>

@@ -6,14 +6,14 @@ The AI Mentor frontend is a React and Vite based single page application respons
 
 The frontend communicates with the Node.js backend API and provides:
 
-* User authentication
-* Course browsing
-* AI generated lesson playback
-* Community discussions
-* Learning analytics
-* User profile management
-* Theme and language customization
-* Admin route placeholders in the learner frontend
+- User authentication
+- Course browsing
+- AI generated lesson playback
+- Community discussions
+- Learning analytics
+- User profile management
+- Theme and language customization
+- Guarded handoff to the separate Frontend Admin application
 
 The frontend is designed using a modular React architecture with reusable UI components, React Context-based state management, protected routing, and responsive Tailwind-based layouts.
 
@@ -129,11 +129,11 @@ The frontend application starts from `main.jsx`.
 
 Responsibilities:
 
-* Create React root
-* Attach application to DOM
-* Initialize providers
-* Initialize routing
-* Import global styles
+- Create React root
+- Attach application to DOM
+- Initialize providers
+- Initialize routing
+- Import global styles
 
 Flow:
 
@@ -160,11 +160,11 @@ Pages + Components
 
 Responsibilities:
 
-* Configure frontend routes
-* Handle protected routes
-* Guard admin handoff routes
-* Render layouts
-* Redirect unauthorized users
+- Configure frontend routes
+- Handle protected routes
+- Guard admin handoff routes
+- Render layouts
+- Redirect unauthorized users
 
 ---
 
@@ -174,10 +174,10 @@ The frontend uses React Router DOM.
 
 ## Route Types
 
-| Route Type       | Purpose                           |
-| ---------------- | --------------------------------- |
-| Public Routes    | Accessible without authentication |
-| Protected Routes | Require logged in user            |
+| Route Type           | Purpose                                                                |
+| -------------------- | ---------------------------------------------------------------------- |
+| Public Routes        | Accessible without authentication                                      |
+| Protected Routes     | Require logged in user                                                 |
 | Admin Handoff Routes | Require admin or superadmin privileges and redirect to `frontendAdmin` |
 
 ---
@@ -204,18 +204,19 @@ API Requests + UI Rendering
 
 # Main Routes
 
-| Route         | Description             |
-| ------------- | ----------------------- |
-| /login        | User login page         |
-| /signup       | User registration       |
-| /dashboard    | Main learning dashboard |
-| /courses      | Course catalog          |
-| /learning/:id | AI lesson player        |
-| /analytics    | User learning analytics |
-| /discussions  | Community discussions   |
-| /settings     | User settings           |
-| /admin        | Admin route placeholder |
-|               | in the learner frontend |
+| Route          | Description                                      |
+| -------------- | ------------------------------------------------ |
+| /login         | User login page                                  |
+| /signup        | User registration                                |
+| /dashboard     | Main learning dashboard                          |
+| /courses       | Course catalog                                   |
+| /learning/:id  | AI lesson player                                 |
+| /analytics     | User learning analytics                          |
+| /discussions   | Community discussions                            |
+| /settings      | User settings                                    |
+| /admin         | Guarded redirect to `frontendAdmin` dashboard    |
+| /admin/users   | Guarded redirect to `frontendAdmin` users page   |
+| /admin/courses | Guarded redirect to `frontendAdmin` courses page |
 
 ---
 
@@ -223,10 +224,10 @@ API Requests + UI Rendering
 
 The frontend supports:
 
-* Email/password authentication
-* Google OAuth authentication
-* JWT session persistence
-* Password reset workflows
+- Email/password authentication
+- Google OAuth authentication
+- JWT session persistence
+- Password reset workflows
 
 ---
 
@@ -458,10 +459,10 @@ Main contexts:
 
 Controls:
 
-* Dark mode
-* Light mode
-* Theme persistence
-* Theme toggling
+- Dark mode
+- Light mode
+- Theme persistence
+- Theme toggling
 
 The selected theme is stored locally for persistence.
 
@@ -471,15 +472,15 @@ The selected theme is stored locally for persistence.
 
 Controls:
 
-* Sidebar open state
-* Mobile sidebar visibility
-* Sidebar collapse behavior
+- Sidebar open state
+- Mobile sidebar visibility
+- Sidebar collapse behavior
 
 Used across:
 
-* Dashboard layout
-* Admin panel
-* Mobile responsive navigation
+- Dashboard layout
+- Admin panel
+- Mobile responsive navigation
 
 ---
 
@@ -515,18 +516,18 @@ UI Elements
 
 Main layout components:
 
-* Header
-* Sidebar
-* Mobile navigation
-* Dashboard wrappers
+- Header
+- Sidebar
+- Mobile navigation
+- Dashboard wrappers
 
 Responsibilities:
 
-* Navigation
-* Theme controls
-* User profile display
-* Notifications
-* Responsive layouts
+- Navigation
+- Theme controls
+- User profile display
+- Notifications
+- Responsive layouts
 
 ---
 
@@ -534,11 +535,11 @@ Responsibilities:
 
 The course module handles:
 
-* Course listing
-* Course previews
-* Lesson playback
-* Course purchasing
-* Learning progress
+- Course listing
+- Course previews
+- Lesson playback
+- Course purchasing
+- Learning progress
 
 ---
 
@@ -566,10 +567,10 @@ AI Video Playback
 
 Responsibilities:
 
-* Fetch all courses
-* Render course cards
-* Handle filtering/searching
-* Navigation to previews
+- Fetch all courses
+- Render course cards
+- Handle filtering/searching
+- Navigation to previews
 
 ---
 
@@ -577,11 +578,11 @@ Responsibilities:
 
 Displays:
 
-* Course information
-* Lesson overview
-* Pricing
-* Enrollment options
-* Instructor details
+- Course information
+- Lesson overview
+- Pricing
+- Enrollment options
+- Instructor details
 
 ---
 
@@ -591,11 +592,11 @@ The learning page is the core educational interface.
 
 Responsibilities:
 
-* Load lessons
-* Request AI videos
-* Display transcripts
-* Track watched videos
-* Save learning progress
+- Load lessons
+- Request AI videos
+- Display transcripts
+- Track watched videos
+- Save learning progress
 
 ---
 
@@ -626,11 +627,11 @@ Frontend Video Player
 
 Responsibilities:
 
-* Stream AI videos
-* Display playback controls
-* Handle loading states
-* Manage transcripts
-* Track watch history
+- Stream AI videos
+- Display playback controls
+- Handle loading states
+- Manage transcripts
+- Track watch history
 
 ---
 
@@ -638,15 +639,15 @@ Responsibilities:
 
 The frontend stores and displays:
 
-* Previously watched lessons
-* Video history
-* Recently viewed content
+- Previously watched lessons
+- Video history
+- Recently viewed content
 
 Features:
 
-* Resume learning
-* Continue watching
-* Playback tracking
+- Resume learning
+- Continue watching
+- Playback tracking
 
 ---
 
@@ -654,11 +655,11 @@ Features:
 
 The discussion module supports:
 
-* Course discussions
-* Global discussions
-* Replies
-* Likes/dislikes
-* Reporting
+- Course discussions
+- Global discussions
+- Replies
+- Likes/dislikes
+- Reporting
 
 ---
 
@@ -683,11 +684,11 @@ Backend Community APIs
 
 Users can:
 
-* Create posts
-* Reply to discussions
-* Like/dislike posts
-* Edit replies
-* Report inappropriate content
+- Create posts
+- Reply to discussions
+- Like/dislike posts
+- Edit replies
+- Report inappropriate content
 
 ---
 
@@ -714,10 +715,10 @@ Admin Dashboard Moderation
 
 The analytics module provides:
 
-* Learning progress
-* Course completion
-* Watch statistics
-* Engagement metrics
+- Learning progress
+- Course completion
+- Watch statistics
+- Engagement metrics
 
 ---
 
@@ -745,16 +746,16 @@ Interactive Dashboard UI
 
 Charts used include:
 
-* Line charts
-* Bar charts
-* Pie charts
-* Progress graphs
+- Line charts
+- Bar charts
+- Pie charts
+- Progress graphs
 
 Purpose:
 
-* Improve learning visualization
-* Display user progress
-* Show engagement statistics
+- Improve learning visualization
+- Display user progress
+- Show engagement statistics
 
 ---
 
@@ -762,11 +763,11 @@ Purpose:
 
 The settings page manages:
 
-* Profile editing
-* Notification preferences
-* Theme switching
-* Language settings
-* Password updates
+- Profile editing
+- Notification preferences
+- Theme switching
+- Language settings
+- Password updates
 
 ---
 
@@ -793,10 +794,10 @@ The frontend uses controlled React inputs.
 
 Advantages:
 
-* Real time validation
-* State synchronization
-* Dynamic updates
-* Better form control
+- Real time validation
+- State synchronization
+- Dynamic updates
+- Better form control
 
 ---
 
@@ -804,9 +805,9 @@ Advantages:
 
 The appearance module controls:
 
-* Dark mode
-* Theme persistence
-* Visual preferences
+- Dark mode
+- Theme persistence
+- Visual preferences
 
 Theme selection is preserved using local storage.
 
@@ -818,9 +819,9 @@ The frontend supports multilingual content using i18next.
 
 Responsibilities:
 
-* Dynamic translation loading
-* Language switching
-* Translation persistence
+- Dynamic translation loading
+- Language switching
+- Translation persistence
 
 ---
 
@@ -847,10 +848,10 @@ The frontend uses Tailwind CSS.
 
 Advantages:
 
-* Utility first design
-* Faster UI development
-* Responsive layouts
-* Consistent styling
+- Utility first design
+- Faster UI development
+- Responsive layouts
+- Consistent styling
 
 ---
 
@@ -858,16 +859,16 @@ Advantages:
 
 The UI supports:
 
-* Desktop devices
-* Tablets
-* Mobile devices
+- Desktop devices
+- Tablets
+- Mobile devices
 
 Responsive techniques:
 
-* Tailwind breakpoints
-* Flexible layouts
-* Adaptive navigation
-* Mobile sidebars
+- Tailwind breakpoints
+- Flexible layouts
+- Adaptive navigation
+- Mobile sidebars
 
 ---
 
@@ -880,6 +881,11 @@ The currently observed patterns are:
 - Shared `apiFetch` helper
 - Direct native `fetch()` calls
 - Direct Axios calls
+- GET requests
+- POST requests
+- PUT requests
+- DELETE requests
+- Authentication headers
 
 These patterns reflect the current implementation. No migration to a single centralized HTTP client is documented as part of this change.
 
@@ -961,6 +967,10 @@ apiFetch()      fetch()       Axios
                   v
            Backend REST APIs
 ```
+- Base URL configuration
+- Token attachment
+- Error interception
+- Centralized requests
 
 The frontend uses multiple HTTP request patterns, including `apiFetch()`, direct native `fetch()`, and direct Axios calls. The shared `apiFetch()` helper and the global Axios response interceptor both use `handleUnauthorized()` for eligible `401 Unauthorized` responses. Direct native `fetch()` calls do not automatically pass through either mechanism. URL construction, authentication headers, and other error handling depend on the individual request implementation.
 ---
@@ -969,11 +979,11 @@ The frontend uses multiple HTTP request patterns, including `apiFetch()`, direct
 
 The frontend handles:
 
-* API errors
-* Authentication errors
-* Validation failures
-* Loading states
-* Empty states
+- API errors
+- Authentication errors
+- Validation failures
+- Loading states
+- Empty states
 
 ---
 
@@ -983,10 +993,10 @@ The frontend uses React Hot Toast.
 
 Used for:
 
-* Success messages
-* Error alerts
-* Loading notifications
-* User feedback
+- Success messages
+- Error alerts
+- Loading notifications
+- User feedback
 
 ---
 
@@ -994,10 +1004,10 @@ Used for:
 
 Common loading systems:
 
-* Page loading
-* Button loading
-* API request loading
-* Skeleton screens
+- Page loading
+- Button loading
+- API request loading
+- Skeleton screens
 
 Purpose:
 
@@ -1030,10 +1040,10 @@ All required values must be configured according to the validation rules in `fro
 
 `vite.config.js` handles:
 
-* Development server
-* API proxying
-* Environment loading
-* Build optimization
+- Development server
+- API proxying
+- Environment loading
+- Build optimization
 
 ---
 
@@ -1059,8 +1069,8 @@ The proxy can help avoid browser cross-origin issues during local development, b
 
 Firebase is used only for:
 
-* Google OAuth login
-* Google account verification
+- Google OAuth login
+- Google account verification
 
 The frontend initializes Firebase inside:
 
@@ -1082,10 +1092,10 @@ npm run build
 
 Responsibilities:
 
-* Bundle optimization
-* Asset optimization
-* Code splitting
-* Production compilation
+- Bundle optimization
+- Asset optimization
+- Code splitting
+- Production compilation
 
 ---
 
@@ -1095,9 +1105,9 @@ Responsibilities:
 
 Used for:
 
-* Large pages
-* Heavy analytics components
-* Route optimization
+- Large pages
+- Heavy analytics components
+- Route optimization
 
 ---
 
@@ -1105,9 +1115,9 @@ Used for:
 
 The frontend uses:
 
-* useMemo
-* useCallback
-* Optimized rendering
+- useMemo
+- useCallback
+- Optimized rendering
 
 Purpose:
 
@@ -1119,10 +1129,10 @@ Reduce unnecessary re-renders.
 
 Techniques include:
 
-* Controlled component rendering
-* State separation
-* Component reuse
-* Efficient conditional rendering
+- Controlled component rendering
+- State separation
+- Component reuse
+- Efficient conditional rendering
 
 ---
 
@@ -1167,10 +1177,10 @@ The learner-facing `frontend` application provides protected admin handoff route
 
 Frontend validates:
 
-* Email formats
-* Required fields
-* Password constraints
-* Form data
+- Email formats
+- Required fields
+- Password constraints
+- Form data
 
 ---
 
@@ -1243,10 +1253,10 @@ http://localhost:5173
 
 Frontend can be deployed using:
 
-* Vercel
-* Netlify
-* Render
-* Firebase Hosting
+- Vercel
+- Netlify
+- Render
+- Firebase Hosting
 
 ---
 
@@ -1271,16 +1281,16 @@ Live Frontend Application
 
 Potential future upgrades:
 
-* Zustand or Redux
-* React Query
-* WebSockets
-* Real time chat
-* PWA support
-* Offline caching
-* Automated testing
-* Storybook integration
-* SSR support
-* Micro frontend architecture
+- Zustand or Redux
+- React Query
+- WebSockets
+- Real time chat
+- PWA support
+- Offline caching
+- Automated testing
+- Storybook integration
+- SSR support
+- Micro frontend architecture
 
 ---
 
@@ -1288,9 +1298,9 @@ Potential future upgrades:
 
 The AI Mentor frontend is a scalable and modular React application designed to provide:
 
-* AI powered learning
-* Interactive educational experiences
-* Community collaboration
-* Learning analytics
-* Secure authentication
-* Responsive user interfaces
+- AI powered learning
+- Interactive educational experiences
+- Community collaboration
+- Learning analytics
+- Secure authentication
+- Responsive user interfaces

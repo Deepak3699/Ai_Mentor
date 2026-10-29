@@ -9,8 +9,8 @@ process.env.RAZORPAY_KEY_SECRET = "dummy";
 const { default: app } = await import("../server.js");
 
 const LIMIT_KB = 100;
-const UNDER_LIMIT = 90 * 1024;  // 90 KB, just below
-const OVER_LIMIT = 110 * 1024;  // 110 KB, just above
+const UNDER_LIMIT = 90 * 1024; // 90 KB, just below
+const OVER_LIMIT = 110 * 1024; // 110 KB, just above
 
 const PATH = "/api/body-limit-test";
 
@@ -45,7 +45,7 @@ describe("Request body size limits", () => {
     const res = await postJson(OVER_LIMIT);
     assert.equal(res.status, 413);
     const body = await res.json();
-    assert.equal(body.message, "Payload Too Large");
+    assert.equal(body.error.message, "Payload Too Large");
   });
 
   test("should reject malformed JSON with 400 Invalid JSON", async () => {
@@ -56,6 +56,6 @@ describe("Request body size limits", () => {
     });
     assert.equal(res.status, 400);
     const body = await res.json();
-    assert.equal(body.message, "Invalid JSON");
+    assert.equal(body.error.message, "Invalid JSON");
   });
 });

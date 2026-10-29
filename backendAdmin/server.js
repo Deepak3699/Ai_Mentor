@@ -3,20 +3,18 @@ import express from "express";
 import http from "node:http";
 import dotenv from "dotenv";
 import cors from "cors";
-import path from "path";
-import { fileURLToPath } from "url";
 import healthRoutes from "./routes/healthRoutes.js";
 
-import { connectDB } from "./config/db.js";
+import { connectDB, sequelize } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import { securityHeaders } from "./config/securityHeaders.js";
+import requestContext from "./middleware/requestContext.js";
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
+const shutdownController = new AbortController();
+app.locals.shutdownSignal = shutdownController.signal;
 
 const allowedOrigins = [
   process.env.FRONTEND_ADMIN_URL || "http://localhost:5174",
@@ -26,6 +24,8 @@ const allowedOrigins = [
 ];
 
 app.use(securityHeaders());
+
+app.use(requestContext);
 
 app.use(
   cors({
@@ -54,15 +54,14 @@ app.use((req, res) => {
 });
 
 // ================= ERROR HANDLER =================
-app.use((err, req, res, next) => {
-  
-   if (err.type === "entity.too.large") {
-     return res.status(413).json({ message: "Payload Too Large" });
-   }
+app.use((err, req, res, _next) => {
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({ message: "Payload Too Large" });
+  }
 
-   if (err.type === "entity.parse.failed") {
-     return res.status(400).json({ message: "Invalid JSON" });
-   }
+  if (err.type === "entity.parse.failed") {
+    return res.status(400).json({ message: "Invalid JSON" });
+  }
 
   console.error("ERROR:", err);
   res.status(500).json({ message: "Internal Server Error" });
@@ -73,7 +72,10 @@ const PORT = process.env.PORT || 5001;
 
 const startServer = async () => {
   try {
+    console.log("[STARTING] Admin backend startup");
+    console.log("[CHECK] Connecting to admin database...");
     await connectDB();
+    console.log("[OK] Admin database connected");
     const server = http.createServer(app);
 
     server.requestTimeout = 120_000;
@@ -81,12 +83,18 @@ const startServer = async () => {
     server.keepAliveTimeout = 60_000;
 
     server.listen(PORT, () => {
-      console.log(
-        `✅ Backend Admin Server running on http://localhost:${PORT}`,
-      );
+      console.log(`[READY] Admin backend: http://localhost:${PORT}`);
     });
+
+    const shutdown = () => {
+      if (shutdownController.signal.aborted) return;
+      shutdownController.abort();
+      server.close(() => sequelize.close());
+    };
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
   } catch (error) {
-    console.error("❌ Failed to start server:", error.message);
+    console.error("[FAILED] Admin backend startup failed:", error.message);
     process.exit(1);
   }
 };
@@ -96,4 +104,3 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 export default app;
-

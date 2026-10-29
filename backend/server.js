@@ -16,12 +16,14 @@ import courseRoutes from "./routes/courseRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import sidebarRoutes from "./routes/sidebarRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
+import flashcardRoutes from "./routes/flashcardRoutes.js";
 import communityRoutes from "./routes/communityRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import certificateRoutes from "./routes/certificateRoutes.js";
 import paymentRoutes from "./routes/payment.js";
 import razorpayRoutes from "./routes/razorpay.js";
+import webhookRoutes from "./routes/webhook.js";
 import preferenceRoutes from "./routes/preferenceRoutes.js";
 import contactUsRoutes from "./routes/contactus.js";
 import reportRoutes from "./routes/reportRoutes.js";
@@ -90,8 +92,12 @@ app.use(
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
-  })
+  }),
 );
+
+// ================= STRIPE WEBHOOK (MUST BE BEFORE express.json) =================
+app.use("/api/stripe", webhookRoutes);
+app.use("/api/payment", webhookRoutes);
 
 // ================= MIDDLEWARE =================
 app.use(express.json({ limit: "100kb" }));
@@ -116,6 +122,7 @@ app.use("/api/payment/razorpay", razorpayRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/sidebar", sidebarRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/flashcards", flashcardRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/admin", adminRoutes);
@@ -128,44 +135,21 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/assistant", assistantRoutes);
 app.use("/api/calendar", CalendarTaskRoutes);
 
+import { errorHandler, notFoundMiddleware } from "./middleware/errorMiddleware.js";
 // ================= 404 HANDLER =================
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Route not found: ${req.originalUrl}`,
-  });
-});
-
+app.use(notFoundMiddleware);
 // ================= GLOBAL ERROR HANDLER =================
-app.use((err, req, res, next) => {
-  if (err.type === "entity.too.large") {
-    return res.status(413).json({
-      success: false,
-      message: "Payload Too Large",
-    });
-  }
-
-  if (err.type === "entity.parse.failed") {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid JSON",
-    });
-  }
-
-  console.error("🔥 Global Error:", err);
-
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || "Internal Server Error",
-  });
-});
+app.use(errorHandler);
 
 // ================= SERVER START =================
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   try {
+    console.log("[STARTING] Backend startup");
+    console.log("[CHECK] Connecting to database...");
     await connectDB();
+    console.log("[OK] Database connected");
 
     const isDevelopment = process.env.NODE_ENV !== "production";
     const syncOptions = isDevelopment ? { alter: true } : {};
@@ -174,8 +158,8 @@ const startServer = async () => {
 
     console.log(
       isDevelopment
-        ? "✅ Database models synced with schema auto-alter enabled (development)"
-        : "✅ Database models synced"
+        ? "[OK] Database schema synchronized (development auto-alter enabled)"
+        : "[OK] Database schema synchronized",
     );
 
     const server = http.createServer(app);
@@ -185,11 +169,12 @@ const startServer = async () => {
     server.keepAliveTimeout = 60_000;
 
     server.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log("✅ Allowed Origins:", allowedOrigins);
+      console.log(`[READY] Backend: http://localhost:${PORT}`);
+      console.log(`[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`);
+      console.log("[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.");
     });
   } catch (error) {
-    console.error("❌ Server failed:", error);
+    console.error("[FAILED] Backend startup failed:", error);
     process.exit(1);
   }
 };

@@ -4,9 +4,10 @@ import { useAuth } from "../context/AuthContext";
 import { Helmet } from "react-helmet-async";
 import AuthLayout from "../components/auth/AuthLayout.jsx";
 import SocialLogin from "../components/auth/SocialLogin";
-import axios from "axios"; // ✅ Yeh line add karna compulsory hai
+import axios from "axios";
 import toast from "react-hot-toast";
 import { z } from "zod";
+import { getErrorMessage, getFieldErrors } from "../lib/errorHandling.js";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -16,7 +17,9 @@ const loginSchema = z.object({
 const FormInput = ({ label, type, placeholder, value, onChange }) => {
   return (
     <div className="mb-3">
-      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">{label}</label>
+      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+        {label}
+      </label>
       <input
         type={type}
         className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm focus:ring-2 focus:ring-teal-500 outline-none dark:bg-slate-900 dark:border-gray-700 dark:text-white"
@@ -53,7 +56,7 @@ const LoginPage = () => {
       const validationResult = loginSchema.parse({ email, password });
       const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/auth/login`, {
         email: validationResult.email,
-        password: validationResult.password
+        password: validationResult.password,
       });
 
       if (response.data.token) {
@@ -61,35 +64,30 @@ const LoginPage = () => {
         toast.success("Logged in successfully!");
         // Redirect to onboarding if profile is incomplete, otherwise dashboard
         if (!response.data.isProfileComplete) {
-          navigate('/complete-profile');
+          navigate("/complete-profile");
         } else {
-          navigate('/dashboard');
+          navigate("/dashboard");
         }
       }
     } catch (err) {
       if (err instanceof z.ZodError) {
         toast.error(err.errors[0].message);
       } else {
+        const fieldErrors = getFieldErrors(err);
         const errorMessage =
-          err.response?.data?.message ||
-          (err.code === "ERR_NETWORK" || !err.response
-            ? "Cannot connect to server. Please check if the backend server is running."
-            : "Invalid Credentials!");
+          fieldErrors.email || fieldErrors.password || getErrorMessage(err, "Invalid Credentials!");
         toast.error(errorMessage);
       }
     }
   };
 
   return (
-    <AuthLayout
-      title="Welcome Back!"
-      subtitle="Access your AI Learning Journey."
-    >
+    <AuthLayout title="Welcome Back!" subtitle="Access your AI Learning Journey.">
       <Helmet>
         <title>Login | UptoSkills</title>
-        <meta 
-          name="description" 
-          content="Login to UptoSkills and continue your AI learning journey." 
+        <meta
+          name="description"
+          content="Login to UptoSkills and continue your AI learning journey."
         />
         <meta property="og:title" content="Login | UptoSkills" />
         <meta property="og:type" content="website" />
@@ -111,7 +109,6 @@ const LoginPage = () => {
           onChange={(e) => setEmail(e.target.value)}
         />
 
-
         <div className="mb-3">
           <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             Password
@@ -121,7 +118,7 @@ const LoginPage = () => {
               type={showPassword ? "text" : "password"}
               className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm focus:ring-2 focus:ring-teal-500 outline-none dark:bg-slate-900 dark:border-gray-700 dark:text-white"
               placeholder="••••••••"
-              value={password} 
+              value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
             <button

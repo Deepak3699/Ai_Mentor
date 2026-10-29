@@ -5,7 +5,8 @@ import jwt from "jsonwebtoken";
 process.env.NODE_ENV = "test";
 
 const { default: Admin } = await import("../models/Admin.js");
-const { anyAdmin, protectAdmin, superAdminOnly } = await import("../middleware/adminAuthMiddleware.js");
+const { anyAdmin, protectAdmin, superAdminOnly } =
+  await import("../middleware/adminAuthMiddleware.js");
 
 const SECRET = "admin-middleware-test-secret";
 const originalFindByPk = Admin.findByPk;
@@ -16,21 +17,38 @@ const invoke = async (middleware, { authorization, admin } = {}) => {
   if (authorization !== undefined) req.headers.authorization = authorization;
   const result = { statusCode: 200, body: undefined, nextCalls: 0 };
   const res = {
-    status(code) { result.statusCode = code; return this; },
-    json(body) { result.body = body; return this; },
+    status(code) {
+      result.statusCode = code;
+      return this;
+    },
+    json(body) {
+      result.body = body;
+      return this;
+    },
   };
-  await middleware(req, res, () => { result.nextCalls += 1; });
+  await middleware(req, res, () => {
+    result.nextCalls += 1;
+  });
   return { req, result };
 };
 
 const quietErrors = async (callback) => {
   const original = console.error;
   console.error = () => {};
-  try { return await callback(); } finally { console.error = original; }
+  try {
+    return await callback();
+  } finally {
+    console.error = original;
+  }
 };
 
-before(() => { process.env.JWT_SECRET = SECRET; });
-beforeEach(() => { Admin.findByPk = async () => null; process.env.JWT_SECRET = SECRET; });
+before(() => {
+  process.env.JWT_SECRET = SECRET;
+});
+beforeEach(() => {
+  Admin.findByPk = async () => null;
+  process.env.JWT_SECRET = SECRET;
+});
 after(() => {
   Admin.findByPk = originalFindByPk;
   if (originalSecret === undefined) delete process.env.JWT_SECRET;
@@ -40,18 +58,27 @@ after(() => {
 test("protectAdmin rejects missing and invalid tokens", async () => {
   let outcome = await invoke(protectAdmin);
   assert.equal(outcome.result.statusCode, 401);
-  assert.deepEqual(outcome.result.body, { message: "Not authorized, no token" });
+  assert.deepEqual(outcome.result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Not authorized, no token", details: [] },
+  });
 
   outcome = await quietErrors(() => invoke(protectAdmin, { authorization: "Bearer invalid" }));
   assert.equal(outcome.result.statusCode, 401);
-  assert.deepEqual(outcome.result.body, { message: "Not authorized, token failed" });
+  assert.deepEqual(outcome.result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Not authorized, token failed", details: [] },
+  });
 });
 
 test("protectAdmin rejects a valid token for a missing admin", async () => {
   const token = jwt.sign({ id: "missing" }, SECRET);
   const { result } = await invoke(protectAdmin, { authorization: `Bearer ${token}` });
   assert.equal(result.statusCode, 401);
-  assert.deepEqual(result.body, { message: "Admin not found" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "UNAUTHORIZED", message: "Admin not found", details: [] },
+  });
 });
 
 test("protectAdmin rejects an on-hold admin", async () => {
@@ -59,7 +86,10 @@ test("protectAdmin rejects an on-hold admin", async () => {
   const token = jwt.sign({ id: "held" }, SECRET);
   const { result } = await invoke(protectAdmin, { authorization: `Bearer ${token}` });
   assert.equal(result.statusCode, 403);
-  assert.deepEqual(result.body, { message: "Your account has been suspended" });
+  assert.deepEqual(result.body, {
+    success: false,
+    error: { code: "FORBIDDEN", message: "Your account has been suspended", details: [] },
+  });
 });
 
 test("protectAdmin attaches an active admin and calls next", async () => {
@@ -76,11 +106,17 @@ test("protectAdmin attaches an active admin and calls next", async () => {
 });
 
 test("superAdminOnly permits only the superAdmin role", async () => {
-  assert.equal((await invoke(superAdminOnly, { admin: { role: "superAdmin" } })).result.nextCalls, 1);
+  assert.equal(
+    (await invoke(superAdminOnly, { admin: { role: "superAdmin" } })).result.nextCalls,
+    1,
+  );
   for (const admin of [undefined, { role: "admin" }, { role: "superadmin" }]) {
     const { result } = await invoke(superAdminOnly, { admin });
     assert.equal(result.statusCode, 403);
-    assert.deepEqual(result.body, { message: "Access denied, superAdmin only" });
+    assert.deepEqual(result.body, {
+      success: false,
+      error: { code: "FORBIDDEN", message: "Access denied, superAdmin only", details: [] },
+    });
   }
 });
 
@@ -91,6 +127,9 @@ test("anyAdmin permits admin and superAdmin but rejects other roles", async () =
   for (const admin of [undefined, { role: "user" }, { role: "superadmin" }]) {
     const { result } = await invoke(anyAdmin, { admin });
     assert.equal(result.statusCode, 403);
-    assert.deepEqual(result.body, { message: "Access denied, admin access required" });
+    assert.deepEqual(result.body, {
+      success: false,
+      error: { code: "FORBIDDEN", message: "Access denied, admin access required", details: [] },
+    });
   }
 });
