@@ -4,9 +4,10 @@ import { useAuth } from "../context/AuthContext";
 import { Helmet } from "react-helmet-async";
 import AuthLayout from "../components/auth/AuthLayout.jsx";
 import SocialLogin from "../components/auth/SocialLogin";
-import axios from "axios"; // ✅ Yeh line add karna compulsory hai
+import axios from "axios";
 import toast from "react-hot-toast";
 import { z } from "zod";
+import { getErrorMessage, getFieldErrors } from "../lib/errorHandling.js";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -72,11 +73,9 @@ const LoginPage = () => {
       if (err instanceof z.ZodError) {
         toast.error(err.errors[0].message);
       } else {
+        const fieldErrors = getFieldErrors(err);
         const errorMessage =
-          err.response?.data?.message ||
-          (err.code === "ERR_NETWORK" || !err.response
-            ? "Cannot connect to server. Please check if the backend server is running."
-            : "Invalid Credentials!");
+          fieldErrors.email || fieldErrors.password || getErrorMessage(err, "Invalid Credentials!");
         toast.error(errorMessage);
       }
     }

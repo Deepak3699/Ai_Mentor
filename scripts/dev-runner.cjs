@@ -51,7 +51,6 @@ const services = {
     label: "WEB",
     folder: "frontend",
     url: "http://localhost:5173",
-    backend: "userApi",
     ready: "[READY] Frontend:",
     color: C.magenta,
   },
@@ -69,7 +68,6 @@ const services = {
     label: "WEB",
     folder: "frontendAdmin",
     url: "http://localhost:5174",
-    backend: "adminApi",
     ready: "[READY] Admin frontend:",
     color: C.yellow,
   },
@@ -256,15 +254,23 @@ function serviceRow(key, statusColor) {
   const data = state[key];
   const mark = lattice(data.status).padEnd(10);
   const role = service.label.padEnd(4);
-  const status = statusWord(data.status).padEnd(11);
-  const detail = data.detail.padEnd(36);
-  return `  ${mark} ${service.color}${role}${C.reset} ${statusColor}${status}${C.reset}${detail}${C.dim}${timingLabel(key).padStart(20)}${C.reset}`;
+  const status = statusWord(data.status).padEnd(10);
+  const detail = data.detail.slice(0, 28).padEnd(28);
+  return `  ${mark} ${service.color}${role}${C.reset} ${statusColor}${status}${C.reset}${detail}${C.dim}${timingLabel(key).padStart(16)}${C.reset}`;
+}
+
+function countPhysicalLines(lines) {
+  const cols = process.stdout.columns || 80;
+  return lines.reduce((total, line) => {
+    const rawLen = stripAnsi(line).length;
+    return total + Math.max(1, Math.ceil(rawLen / cols));
+  }, 0);
 }
 
 function dashboardLines() {
   const lines = [
     `${C.bold}${title()}${C.reset}`,
-    `${C.gray}────────────────────────────────────────────────────────────────────${C.reset}`,
+    `${C.gray}────────────────────────────────────────────────────────────${C.reset}`,
   ];
   const groups = [...new Set(selected.map((key) => services[key].group))];
   for (const group of groups) {
@@ -286,18 +292,15 @@ function dashboardLines() {
     }
     if (group !== groups.at(-1)) lines.push("");
   }
-  lines.push(
-    `${C.gray}────────────────────────────────────────────────────────────────────${C.reset}`,
-  );
+  lines.push(`${C.gray}────────────────────────────────────────────────────────────${C.reset}`);
   const allReady = selected.every((key) => state[key].status === "ready");
   lines.push(...readyFooter(allReady));
   return lines;
 }
 function clearDashboard() {
   if (!interactive || renderedLines === 0) return;
-  process.stdout.write(`\x1b[${renderedLines}A`);
-  for (let i = 0; i < renderedLines; i += 1) process.stdout.write("\x1b[2K\x1b[1B");
-  process.stdout.write(`\x1b[${renderedLines}A`);
+  // Move to column 0, move up by the exact number of physical rendered lines, then clear down
+  process.stdout.write(`\x1b[0G\x1b[${renderedLines}A\x1b[J`);
   renderedLines = 0;
 }
 function render() {
@@ -305,7 +308,7 @@ function render() {
   clearDashboard();
   const lines = dashboardLines();
   process.stdout.write(`${lines.join("\n")}\n`);
-  renderedLines = lines.length;
+  renderedLines = countPhysicalLines(lines);
   frame += 1;
 }
 function log(key, text, target = process.stdout) {
@@ -521,7 +524,7 @@ function printExistingServiceNotice() {
 async function main() {
   if (interactive) process.stdout.write("\x1b[?25l");
   render();
-  animation = setInterval(render, 90);
+  animation = setInterval(render, 300);
 
   await detectExistingServices();
   printExistingServiceNotice();

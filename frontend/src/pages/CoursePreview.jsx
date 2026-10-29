@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import API_BASE_URL from "../lib/api";
 import { Play, ChevronDown, ChevronUp, X } from "lucide-react";
 import toast from "react-hot-toast";
+import { getErrorMessage } from "../lib/errorHandling.js";
 import { loadRazorpayScript } from "../lib/loadRazorPay";
 import CourseFeedback from "../components/common/CourseFeedback";
 import LoadingSpinner from "../components/common/LoadingSpinner";
@@ -251,12 +252,18 @@ export default function CoursePreview() {
             courseTitle: selectedCourse.title,
           }),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => null);
         if (!res.ok) {
-          if (data.message === "Already enrolled") {
+          if (data?.error?.code === "CONFLICT" || data?.message === "Already enrolled") {
             toast.success("Already enrolled!");
           } else {
-            throw new Error(data.message || "Enrollment failed");
+            throw {
+              response: { status: res.status, data },
+              message: getErrorMessage(
+                { response: { status: res.status, data } },
+                "Enrollment failed",
+              ),
+            };
           }
         } else {
           toast.success("Course enrolled successfully!");
@@ -269,7 +276,7 @@ export default function CoursePreview() {
         navigate(`/learning/${selectedCourse.id}`);
       } catch (err) {
         console.error(err);
-        toast.error(err.message || "Enrollment failed");
+        toast.error(getErrorMessage(err, "Enrollment failed"));
       } finally {
         setIsPurchasing(false);
       }

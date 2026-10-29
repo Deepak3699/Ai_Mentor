@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { generateCourseSyllabus } from "./syllabusController.js";
 import {
   Admin,
   User,
@@ -9,17 +10,9 @@ import {
   Report,
   AdminNotification,
 } from "../models/index.js";
-import { logServerError, sendServerError } from "../utils/apiError.js";
+import { sendServerError } from "../utils/apiError.js";
 
 let notificationSeedPromise = null;
-
-// Stable client message for any AI/syllabus failure (details go to logs only)
-const syllabusUnavailable = (req, res) =>
-  res.status(500).json({
-    success: false,
-    message: "Syllabus generation is temporarily unavailable",
-    requestId: req.id,
-  });
 
 const ensureNotificationSeed = async () => {
   if (!notificationSeedPromise) {
@@ -31,9 +24,18 @@ const ensureNotificationSeed = async () => {
       }
 
       const [latestCourse, latestUser, latestAdmin] = await Promise.all([
-        Course.findOne({ attributes: ["title", "createdAt"], order: [["createdAt", "DESC"]] }),
-        User.findOne({ attributes: ["name", "createdAt"], order: [["createdAt", "DESC"]] }),
-        Admin.findOne({ attributes: ["name", "createdAt"], order: [["createdAt", "DESC"]] }),
+        Course.findOne({
+          attributes: ["title", "createdAt"],
+          order: [["createdAt", "DESC"]],
+        }),
+        User.findOne({
+          attributes: ["name", "createdAt"],
+          order: [["createdAt", "DESC"]],
+        }),
+        Admin.findOne({
+          attributes: ["name", "createdAt"],
+          order: [["createdAt", "DESC"]],
+        }),
       ]);
 
       const seedRows = [];
@@ -198,7 +200,9 @@ const deleteAdmin = async (req, res) => {
 // @route   POST /api/admin/logout
 // @access  Private
 const logoutAdmin = async (req, res) => {
-  res.json({ message: "Logged out successfully. Please remove your token on the client side." });
+  res.json({
+    message: "Logged out successfully. Please remove your token on the client side.",
+  });
 };
 
 // @desc    Get all Enrollments
@@ -711,81 +715,6 @@ const getCourseSyllabus = async (req, res) => {
   }
 };
 
-// @desc    Generate Course Syllabus with AI
-// @route   POST /api/admin/courses/:id/generate-syllabus
-// @access  Private
-const generateCourseSyllabusWithAI = async (req, res) => {
-  try {
-    const courseId = req.params.id;
-    const course = await Course.findByPk(courseId);
-
-    if (!course) {
-      return res.status(404).json({ message: "Course not found" });
-    }
-
-    // Call Python AI Service
-    // We assume backendAdmin can access AI service via process.env.BACKEND_URL or hardcode
-    // Let's use the Python AI server URL (it runs on 8000)
-    const aiUrl = `${process.env.AI_SERVICE_URL}/generate-syllabus`;
-    const aiResponse = await fetch(aiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        course_title: course.title,
-        category: course.category,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      logServerError(
-        req,
-        new Error(`AI service responded ${aiResponse.status}`),
-        "generateSyllabus.provider",
-      );
-      return syllabusUnavailable(req, res);
-    }
-
-    const data = await aiResponse.json();
-    if (data.error) {
-      logServerError(
-        req,
-        new Error(`AI service error: ${String(data.error)}`),
-        "generateSyllabus.provider",
-      );
-      return syllabusUnavailable(req, res);
-    }
-
-    // Insert into DB
-    let moduleOrder = 1;
-    for (const mod of data.modules) {
-      const newModule = await Module.create({
-        courseId: course.id,
-        title: mod.title,
-        order: moduleOrder++,
-      });
-
-      let lessonOrder = 1;
-      for (const les of mod.lessons) {
-        await Lesson.create({
-          moduleId: newModule.id,
-          title: les.title,
-          duration: les.duration || "5 mins",
-          type: les.type || "video",
-          order: lessonOrder++,
-        });
-      }
-    }
-
-    res.json({ message: "Syllabus generated successfully", data: data });
-  } catch (error) {
-    if (error.cause?.code === "ECONNREFUSED") {
-      logServerError(req, error, "generateSyllabus.aiUnreachable");
-      return syllabusUnavailable(req, res);
-    }
-    return sendServerError(req, res, error, "adminController.generateSyllabus");
-  }
-};
-
 export {
   Admin,
   registerAdmin,
@@ -805,5 +734,5 @@ export {
   clearAllNotifications,
   getAllReports,
   getCourseSyllabus,
-  generateCourseSyllabusWithAI,
+  generateCourseSyllabus,
 };

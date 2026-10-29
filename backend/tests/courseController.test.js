@@ -122,7 +122,14 @@ test("getCourseById returns 404 for missing and 403 for unpublished courses", as
   let outcome = response();
   await getCourseById({ params: { id: "99" } }, outcome.res);
   assert.equal(outcome.state.statusCode, 404);
-  assert.deepEqual(outcome.state.body, { message: "Course not found" });
+  assert.deepEqual(outcome.state.body, {
+    success: false,
+    error: {
+      code: "NOT_FOUND",
+      message: "Course not found",
+      details: [],
+    },
+  });
 
   Course.findByPk = async () => course({ status: "disabled" });
   outcome = response();
@@ -150,12 +157,17 @@ test("getMyCourses returns empty without purchases and queries only owned publis
   let query;
   Course.findAll = async (options) => {
     query = options;
-    return [course({ id: "2" })];
+    return [
+      course({ id: "2", modules: [{ lessons: [{ duration: "45 min" }, { duration: "30 min" }] }] }),
+    ];
   };
   outcome = response();
   await getMyCourses({ user: { purchasedCourses: [{ courseId: 2 }] } }, outcome.res);
   assert.deepEqual(query.where, { id: ["2"], status: "published" });
   assert.equal(outcome.state.body[0].id, "2");
+  assert.equal(outcome.state.body[0].duration, "1h 15m");
+  assert.equal(query.include[0].as, "modules");
+  assert.equal(query.include[0].include[0].as, "lessons");
   assert.equal("priceValue" in outcome.state.body[0], false);
 });
 
@@ -187,14 +199,14 @@ test("learning data blocks missing, disabled, deleted, and unowned paid courses"
     outcome.res,
   );
   assert.equal(outcome.state.statusCode, 403);
-  assert.match(outcome.state.body.message, /purchase\/enroll/);
+  assert.match(outcome.state.body.error.message, /purchase\/enroll/);
 });
 
 test("learning data permits an owner, admin, and free course", async () => {
   const scenarios = [
     { user: { role: "user", purchasedCourses: [{ courseId: 1 }] }, priceValue: 499 },
     { user: { role: "admin", purchasedCourses: [] }, priceValue: 499 },
-    { user: { role: "user", purchasedCourses: [] }, priceValue: 1 },
+    { user: { role: "user", purchasedCourses: [] }, priceValue: 0 },
   ];
   for (const scenario of scenarios) {
     Course.findByPk = async () => course({ priceValue: scenario.priceValue });
@@ -205,6 +217,17 @@ test("learning data permits an owner, admin, and free course", async () => {
     assert.deepEqual(state.body.modules, []);
     assert.equal(state.body.currentLesson, null);
   }
+});
+
+test("learning data rejects unpurchased ₹1 course", async () => {
+  Course.findByPk = async () => course({ priceValue: 1 });
+  const outcome = response();
+  await getCourseLearningData(
+    { params: { id: "1" }, user: { role: "user", purchasedCourses: [] } },
+    outcome.res,
+  );
+  assert.equal(outcome.state.statusCode, 403);
+  assert.match(outcome.state.body.error.message, /purchase\/enroll/);
 });
 
 test("learning data returns ordered modules, lessons, content, and first current lesson", async () => {
@@ -364,7 +387,14 @@ test("addLessons rolls back earlier inserts when a later lesson fails", async ()
   );
 
   assert.equal(state.statusCode, 500);
-  assert.deepEqual(state.body, { message: "Failed to add lessons" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Internal Server Error",
+      details: [],
+    },
+  });
   assert.equal(transactionRolledBack, true);
   assert.deepEqual(saved, []);
   assert.equal(createCalls, 3);
@@ -399,7 +429,14 @@ test("addLessons rolls back when the order lookup fails", async () => {
   );
 
   assert.equal(state.statusCode, 500);
-  assert.deepEqual(state.body, { message: "Failed to add lessons" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Internal Server Error",
+      details: [],
+    },
+  });
   assert.equal(transactionRolledBack, true);
   assert.equal(createCalls, 0);
 });
@@ -447,7 +484,7 @@ test("addLessons route validation rejects invalid input before the controller ru
   });
 
   assert.equal(state.statusCode, 400);
-  assert.equal(state.body.message, "Validation failed");
+  assert.equal(state.body.error.message, "Validation failed");
   assert.equal(nextCalled, false);
 });
 
@@ -505,7 +542,7 @@ test("addLessons rejects a module belonging to another course", async () => {
   );
 
   assert.equal(state.statusCode, 404);
-  assert.equal(state.body.message, "Module not found for the specified course");
+  assert.equal(state.body.error.message, "Module not found for the specified course");
   assert.equal(maxCalled, false);
   assert.equal(createCalled, false);
 });
