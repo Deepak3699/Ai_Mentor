@@ -322,7 +322,20 @@
     "delete_task_confirm": "هل أنت متأكد أنك تريد حذف هذه المهمة؟",
     "task_exists_error": "المهمة موجودة بالفعل لهذا التاريخ.",
     "hours_unit": "ساعة",
-    "this_week": "هذا الأسبوع"
+    "this_week": "هذا الأسبوع",
+    "completion_breakdown": {
+      "title": "تفاصيل الإكمال",
+      "completed": "مكتمل",
+      "completed_courses": "الدورات المكتملة",
+      "in_progress": "قيد التقدم",
+      "not_started": "لم تبدأ",
+      "empty_state_message": "سجل في دورة لرؤية تقدمك",
+      "aria_summary": "إكمال الدورات: {{completed}} مكتملة، {{inProgress}} قيد التقدم، {{notStarted}} لم تبدأ",
+      "table_caption": "تفاصيل إكمال الدورات",
+      "status_header": "الحالة",
+      "count_header": "الدورات",
+      "percentage_header": "النسبة المئوية"
+    }
   },
   "discussions": {
     "title": "النقاشات",

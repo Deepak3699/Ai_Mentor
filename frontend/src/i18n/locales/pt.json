@@ -322,7 +322,20 @@
     "delete_task_confirm": "Tem certeza que deseja excluir esta tarefa?",
     "task_exists_error": "Já existe uma tarefa para esta data.",
     "hours_unit": "h",
-    "this_week": "esta semana"
+    "this_week": "esta semana",
+    "completion_breakdown": {
+      "title": "Detalhamento de Conclusão",
+      "completed": "Concluído",
+      "completed_courses": "Cursos concluídos",
+      "in_progress": "Em progresso",
+      "not_started": "Não iniciado",
+      "empty_state_message": "Inscreva-se em um curso para ver seu progresso",
+      "aria_summary": "Conclusão de cursos: {{completed}} concluídos, {{inProgress}} em progresso, {{notStarted}} não iniciados",
+      "table_caption": "Detalhamento da conclusão dos cursos",
+      "status_header": "Status",
+      "count_header": "Cursos",
+      "percentage_header": "Porcentagem"
+    }
   },
   "discussions": {
     "title": "Discussões",

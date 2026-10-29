@@ -30,6 +30,7 @@ import { useTranslation } from "react-i18next";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import StatCard from "../components/StatCard";
+import CompletionBreakdownCard from "../components/CompletionBreakdownCard";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -412,6 +413,11 @@ const Analytics = () => {
             onClick={() => setActiveTab("calendar")}
             ariaLabel={`${t("analytics.upcoming_tasks_count")}: ${upcomingTasksCount} ${t("analytics.need_attention")}`}
           />
+        </div>
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <CompletionBreakdownCard courses={myCourses} />
         </div>
 
         {/* Tab Navigation */}

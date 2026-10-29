@@ -322,7 +322,20 @@
     "delete_task_confirm": "このタスクを削除してもよろしいですか？",
     "task_exists_error": "この日付のタスクは既に存在します。",
     "hours_unit": "時間",
-    "this_week": "今週"
+    "this_week": "今週",
+    "completion_breakdown": {
+      "title": "完了状況の内訳",
+      "completed": "完了",
+      "completed_courses": "完了したコース",
+      "in_progress": "受講中",
+      "not_started": "未開始",
+      "empty_state_message": "進捗状況を確認するにはコースに登録してください",
+      "aria_summary": "コース完了状況: {{completed}}件完了、{{inProgress}}件受講中、{{notStarted}}件未開始",
+      "table_caption": "コース完了状況の内訳",
+      "status_header": "ステータス",
+      "count_header": "コース数",
+      "percentage_header": "割合"
+    }
   },
   "discussions": {
     "title": "ディスカッション",

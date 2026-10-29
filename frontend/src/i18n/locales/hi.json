@@ -322,7 +322,20 @@
     "delete_task_confirm": "क्या आप वाकई इस कार्य को हटाना चाहते हैं?",
     "task_exists_error": "इस तारीख के लिए कार्य पहले से मौजूद है।",
     "hours_unit": "घंटे",
-    "this_week": "इस सप्ताह"
+    "this_week": "इस सप्ताह",
+    "completion_breakdown": {
+      "title": "पूर्णता विवरण",
+      "completed": "पूर्ण",
+      "completed_courses": "पूर्ण किए गए कोर्स",
+      "in_progress": "प्रगति में",
+      "not_started": "शुरू नहीं हुआ",
+      "empty_state_message": "अपनी प्रगति देखने के लिए किसी कोर्स में नामांकन करें",
+      "aria_summary": "कोर्स पूर्णता: {{completed}} पूर्ण, {{inProgress}} प्रगति में, {{notStarted}} शुरू नहीं हुए",
+      "table_caption": "कोर्स पूर्णता का विवरण",
+      "status_header": "स्थिति",
+      "count_header": "कोर्स",
+      "percentage_header": "प्रतिशत"
+    }
   },
   "discussions": {
     "title": "चर्चा",

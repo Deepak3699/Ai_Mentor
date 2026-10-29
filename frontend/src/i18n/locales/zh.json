@@ -322,7 +322,20 @@
     "delete_task_confirm": "您确定要删除此任务吗？",
     "task_exists_error": "该日期的任务已存在。",
     "hours_unit": "小时",
-    "this_week": "本周"
+    "this_week": "本周",
+    "completion_breakdown": {
+      "title": "完成情况细分",
+      "completed": "已完成",
+      "completed_courses": "已完成课程",
+      "in_progress": "进行中",
+      "not_started": "未开始",
+      "empty_state_message": "加入课程以查看您的学习进度",
+      "aria_summary": "课程完成情况：{{completed}}门已完成，{{inProgress}}门进行中，{{notStarted}}门未开始",
+      "table_caption": "课程完成情况细分",
+      "status_header": "状态",
+      "count_header": "课程数",
+      "percentage_header": "百分比"
+    }
   },
   "discussions": {
     "title": "讨论",

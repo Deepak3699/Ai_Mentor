@@ -324,7 +324,20 @@
     "delete_task_confirm": "Are you sure you want to delete this task?",
     "task_exists_error": "Task already exists for this date.",
     "hours_unit": "hrs",
-    "this_week": "this week"
+    "this_week": "this week",
+    "completion_breakdown": {
+      "title": "Completion Breakdown",
+      "completed": "Completed",
+      "completed_courses": "Completed Courses",
+      "in_progress": "In Progress",
+      "not_started": "Not Started",
+      "empty_state_message": "Enrol in a course to see your progress",
+      "aria_summary": "Course completion: {{completed}} completed, {{inProgress}} in progress, {{notStarted}} not started",
+      "table_caption": "Course completion breakdown",
+      "status_header": "Status",
+      "count_header": "Courses",
+      "percentage_header": "Percentage"
+    }
   },
   "discussions": {
     "title": "Discussions",
