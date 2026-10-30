@@ -167,8 +167,14 @@ Install the following before setting up the repository:
 
 ### 1. Clone and configure
 
-Clone the repository, then copy each required `.env.example` file to `.env`. Use [`initalSetup.md`](./initalSetup.md) for the complete variable list. Never commit `.env` files or credentials.
+Clone the repository and enter its directory:
 
+```bash
+git clone https://github.com/Deepak3699/Ai_Mentor.git
+cd Ai_Mentor
+```
+
+Then copy each required `.env.example` file to `.env`. Use [`initalSetup.md`](./initalSetup.md) for the complete variable list. Never commit `.env` files or credentials.
 ### 2. Install the complete project
 
 ```bash
