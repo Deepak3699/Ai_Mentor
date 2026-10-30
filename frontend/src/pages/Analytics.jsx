@@ -30,9 +30,11 @@ import { useTranslation } from "react-i18next";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import StatCard from "../components/StatCard";
+import DateRangeSelector from "../components/DateRangeSelector";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
+  const firstName = user?.name?.trim().split(/\s+/)[0] || "Learner";
 
   const [courses, setCourses] = useState([]);
   const [studySessions, setStudySessions] = useState([]);
@@ -43,6 +45,8 @@ const Analytics = () => {
   const [streak, setStreak] = useState(0);
   const [activeTab, setActiveTab] = useState("courses");
   const [pageLoading, setPageLoading] = useState(true);
+  const [rangePreset, setRangePreset] = useState("last30");
+  const [customRange, setCustomRange] = useState(null);
   const searchQuery = "";
 
   // Initialize dark mode from localStorage
@@ -69,6 +73,58 @@ const Analytics = () => {
   const formatDateKey = (date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const getActiveRange = () => {
+    const today = startOfDay(new Date());
+
+    if (rangePreset === "custom" && customRange) {
+      return {
+        start: startOfDay(customRange.start),
+        end: startOfDay(customRange.end),
+      };
+    }
+
+    if (rangePreset === "last7") {
+      const start = new Date(today);
+      start.setDate(today.getDate() - 6);
+      return { start, end: today };
+    }
+
+    if (rangePreset === "thisMonth") {
+      return {
+        start: new Date(today.getFullYear(), today.getMonth(), 1),
+        end: today,
+      };
+    }
+
+    // default: last30
+    const start = new Date(today);
+    start.setDate(today.getDate() - 29);
+    return { start, end: today };
+  };
+
+  const { start: rangeStart, end: rangeEnd } = getActiveRange();
+  const rangeDays = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
+
+  const rangeLabel =
+    rangePreset === "last7"
+      ? t("analytics.range_last7")
+      : rangePreset === "last30"
+        ? t("analytics.range_last30")
+        : rangePreset === "thisMonth"
+          ? t("analytics.range_this_month")
+          : `${rangeStart.toLocaleDateString(i18n.language)} - ${rangeEnd.toLocaleDateString(i18n.language)}`;
+
+  const rangeDatesLabel = `${rangeStart.toLocaleDateString(i18n.language, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })} - ${rangeEnd.toLocaleDateString(i18n.language, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })}`;
   // Fetch courses and analytics
   useEffect(() => {
     const fetchData = async () => {
@@ -135,17 +191,13 @@ const Analytics = () => {
     }).length || 0;
 
   const calculateAttendance = () => {
-    const today = new Date();
-    const last30 = [];
-    for (let i = 0; i < 30; i++) {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
-      last30.push(d.toDateString());
-    }
-    const studiedDays = studySessions.map((s) => new Date(s.date).toDateString());
-    const uniqueDays = [...new Set(studiedDays)];
-    const attended = uniqueDays.filter((d) => last30.includes(d)).length;
-    return Math.round((attended / 30) * 100);
+    const studiedDays = new Set(
+      studySessions
+        .map((s) => startOfDay(new Date(s.date)))
+        .filter((d) => d >= rangeStart && d <= rangeEnd)
+        .map((d) => d.getTime()),
+    );
+    return Math.round((studiedDays.size / rangeDays) * 100);
   };
 
   const attendance = calculateAttendance();
@@ -227,7 +279,26 @@ const Analytics = () => {
   );
 
   // Calculate total study time
-  const totalStudyTime = studySessions.reduce((acc, session) => acc + (session.duration || 0), 0);
+  const sessionsInRange = studySessions.filter((s) => {
+    const d = startOfDay(new Date(s.date));
+    return d >= rangeStart && d <= rangeEnd;
+  });
+
+  const totalStudyTime = sessionsInRange.reduce((acc, session) => acc + (session.duration || 0), 0);
+  const prevEnd = new Date(rangeStart);
+  prevEnd.setDate(prevEnd.getDate() - 1);
+  const prevStart = new Date(prevEnd);
+  prevStart.setDate(prevEnd.getDate() - (rangeDays - 1));
+
+  const prevTotalStudyTime = studySessions
+    .filter((s) => {
+      const d = startOfDay(new Date(s.date));
+      return d >= prevStart && d <= prevEnd;
+    })
+    .reduce((acc, session) => acc + (session.duration || 0), 0);
+
+  const studyTimeChangeHours =
+    prevTotalStudyTime > 0 ? Math.round((totalStudyTime - prevTotalStudyTime) / 60) : null;
   const averageProgress =
     myCourses.length > 0
       ? Math.round(myCourses.reduce((acc, c) => acc + c.progress, 0) / myCourses.length)
@@ -256,13 +327,30 @@ const Analytics = () => {
         </div>
 
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#2D3436] dark:text-white">
-            {t("analytics.welcome_back_user", { name: user?.name || "Learner" })}
-          </h1>
-          <p className="text-[#2D3436]/70 dark:text-gray-400 mt-2 text-lg">
-            {t("analytics.analytics_subtitle")}
-          </p>
+
+        {/* Welcome Section */}
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-3xl font-bold text-[#2D3436] dark:text-white">
+              {t("analytics.welcome_back_user", { name: firstName })}{" "}
+              <span aria-hidden="true">👋</span>
+            </h1>
+            <p className="text-[#2D3436]/70 dark:text-gray-400 mt-2 text-lg">
+              {t("analytics.analytics_subtitle")}
+            </p>
+          </div>
+          <DateRangeSelector
+            preset={rangePreset}
+            label={rangeDatesLabel}
+            onSelectPreset={(key) => {
+              setRangePreset(key);
+              setCustomRange(null);
+            }}
+            onApplyCustom={(range) => {
+              setCustomRange(range);
+              setRangePreset("custom");
+            }}
+          />
         </div>
 
         {/* METRICS CARDS */}
@@ -348,9 +436,18 @@ const Analytics = () => {
             <div className="text-xl font-bold text-[#ff6d34]">
               {Math.round(totalStudyTime / 60)} {t("analytics.hours_unit", { defaultValue: "hrs" })}
             </div>
-            <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">
-              {t("analytics.this_month")}
-            </div>
+            <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">{rangeLabel}</div>
+            {studyTimeChangeHours !== null && (
+              <div
+                className={`text-xs mt-1 font-medium ${
+                  studyTimeChangeHours >= 0 ? "text-[#28A745]" : "text-red-500"
+                }`}
+              >
+                {studyTimeChangeHours >= 0 ? "↑" : "↓"} {Math.abs(studyTimeChangeHours)}{" "}
+                {t("analytics.hours_unit", { defaultValue: "hrs" })}{" "}
+                {t("analytics.vs_previous_period")}
+              </div>
+            )}
           </div>
           <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
             <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">
