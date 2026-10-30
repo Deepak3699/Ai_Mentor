@@ -29,14 +29,24 @@ export const getAllCourses = async (req, res) => {
         "id",
         "title",
         "category",
+        "categoryColor",
+        "lessons",
+        "lessonsCount",
+        "level",
+        "price",
         "priceValue",
         "currency",
+        "rating",
+        "students",
+        "studentsCount",
+        "image",
         "status",
         "createdAt",
         "updatedAt",
       ],
       order: [["createdAt", "DESC"]],
     });
+
     res.status(200).json({ success: true, data: courses });
   } catch (error) {
     return sendServerError(req, res, error, "courseController.getAllCourses");
@@ -50,15 +60,44 @@ export const getAllCourses = async (req, res) => {
  */
 export const createCourse = async (req, res) => {
   try {
-    const { title, category, priceValue, currency } = req.body;
-    if (!title) return res.status(400).json({ success: false, message: "Title is required" });
+    // Derived statistics (rating, students, lessons) are intentionally not
+    // accepted from the client. They are owned by the learner-facing services.
+    const { title, category, level, price, priceValue, currency, image } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Title is required",
+      });
+    }
+
+    if (!category || !category.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Category is required",
+      });
+    }
+
+    const parsedPrice = Number(priceValue ?? 0);
+
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Price value must be a valid non-negative number",
+      });
+    }
+
     const course = await Course.create({
-      title,
-      category,
-      priceValue: parseFloat(priceValue) || 0,
+      title: title.trim(),
+      category: category.trim(),
+      level,
+      price,
+      priceValue: parsedPrice,
       currency: currency || "INR",
+      image,
       status: "published",
     });
+
     res.status(201).json({ success: true, data: course });
   } catch (error) {
     return sendServerError(req, res, error, "courseController.createCourse");

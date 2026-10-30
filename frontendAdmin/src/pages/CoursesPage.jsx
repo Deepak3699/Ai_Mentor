@@ -178,8 +178,11 @@ function CoursesPage() {
   const [newCourse, setNewCourse] = useState({
     title: "",
     category: "",
+    level: "Beginner",
+    price: "",
     priceValue: "",
     currency: "INR",
+    image: "",
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -378,12 +381,17 @@ function CoursesPage() {
         body: JSON.stringify(newCourse),
       });
       setShowAddModal(false);
+
       setNewCourse({
         title: "",
         category: "",
+        level: "Beginner",
+        price: "",
         priceValue: "",
         currency: "INR",
+        image: "",
       });
+
       fetchCourses();
     } catch (err) {
       showToast("Failed to add course: " + err.message, "error");
@@ -730,10 +738,12 @@ function CoursesPage() {
         <table className="w-full">
           <thead className="text-left text-xs uppercase tracking-wider text-muted">
             <tr className="border-b border-border">
-              <th className="p-5">Course Title</th>
+              <th className="p-5">Course</th>
               <th className="pr-4">Category</th>
+              <th className="pr-4">Level</th>
+              <th className="pr-4">Rating</th>
+              <th className="pr-4">Students</th>
               <th className="pr-4">Price</th>
-              <th className="pr-4">Currency</th>
               <th className="pr-4">Added On</th>
               <th className="pr-4">Status</th>
             </tr>
@@ -745,35 +755,68 @@ function CoursesPage() {
                   key={course.id}
                   className={`border-b border-border hover:bg-canvas-alt transition-colors group ${getRowClass(course.status)}`}
                 >
+                  {/* Image + Title Column */}
                   <td className="p-5">
-                    <div
-                      className={`font-semibold text-main group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors ${course.status === "deleted" ? "line-through opacity-70" : ""}`}
-                    >
-                      {course.title}
-                    </div>
-                    <div className="text-muted text-[10px] uppercase tracking-tighter mt-0.5 flex gap-2 items-center">
-                      <span>ID: {course.id}</span>
-                      <span>•</span>
-                      <button
-                        onClick={() => setBuilderCourse(course)}
-                        className="text-purple-500 hover:text-purple-600 font-bold transition-colors"
-                      >
-                        Builder
-                      </button>
-                      <span>•</span>
-                      <button
-                        onClick={() => handleViewEnrollments(course)}
-                        className="text-teal-500 hover:text-teal-600 font-bold transition-colors"
-                      >
-                        Students
-                      </button>
+                    <div className="flex items-center gap-3">
+                      {course.image && (
+                        <img
+                          src={course.image}
+                          alt={course.title}
+                          className="w-10 h-10 rounded-lg object-cover border border-border flex-shrink-0"
+                        />
+                      )}
+                      <div>
+                        <div
+                          className={`font-semibold text-main group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors ${course.status === "deleted" ? "line-through opacity-70" : ""}`}
+                        >
+                          {course.title}
+                        </div>
+                        <div className="text-muted text-[10px] uppercase tracking-tighter mt-0.5 flex gap-2 items-center">
+                          <span>ID: {course.id}</span>
+                          <span>•</span>
+                          <button
+                            onClick={() => setBuilderCourse(course)}
+                            className="text-purple-500 hover:text-purple-600 font-bold transition-colors"
+                          >
+                            Builder
+                          </button>
+                          <span>•</span>
+                          <button
+                            onClick={() => handleViewEnrollments(course)}
+                            className="text-teal-500 hover:text-teal-600 font-bold transition-colors"
+                          >
+                            Students
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </td>
+
+                  {/* Category */}
                   <td className="pr-4">
                     <span className="px-2.5 py-1 rounded-lg bg-canvas-alt border border-border text-[11px] font-bold uppercase tracking-tight text-muted">
                       {course.category || "—"}
                     </span>
                   </td>
+
+                  {/* Level */}
+                  <td className="pr-4">
+                    <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-canvas-alt border border-border text-muted">
+                      {course.level || "Beginner"}
+                    </span>
+                  </td>
+
+                  {/* Rating */}
+                  <td className="pr-4 text-xs font-semibold text-amber-500">
+                    ★ {course.rating != null ? Number(course.rating).toFixed(1) : "N/A"}
+                  </td>
+
+                  {/* Students */}
+                  <td className="pr-4 text-xs font-medium text-main">
+                    {course.studentsCount ?? course.students ?? 0}
+                  </td>
+
+                  {/* Price */}
                   <td className="pr-4 font-black text-main tracking-tight">
                     {course.priceValue != null && course.priceValue !== "" ? (
                       Number(course.priceValue) === 0 ? (
@@ -787,12 +830,13 @@ function CoursesPage() {
                       "—"
                     )}
                   </td>
-                  <td className="pr-4 text-muted font-bold text-[11px]">
-                    {course.currency || "INR"}
-                  </td>
+
+                  {/* Added On */}
                   <td className="pr-4 text-muted text-[11px] font-medium">
                     {new Date(course.createdAt).toLocaleDateString()}
                   </td>
+
+                  {/* Status Dropdown */}
                   <td>
                     <CourseStatusDropdown
                       courseId={course.id}
@@ -805,7 +849,7 @@ function CoursesPage() {
               ))
             ) : (
               <tr>
-                <td colSpan="6">
+                <td colSpan="8">
                   <EmptyState onClear={clearAll} loading={loading} />
                 </td>
               </tr>
@@ -932,6 +976,36 @@ function CoursesPage() {
                   </select>
                 </div>
               </div>
+              {/* Course Thumbnail */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-1">
+                  Thumbnail Image URL
+                </label>
+                <input
+                  type="text"
+                  className="w-full h-12 px-5 rounded-2xl bg-canvas border border-border outline-none focus:border-teal-500 text-main"
+                  placeholder="https://example.com/course-image.png"
+                  value={newCourse.image}
+                  onChange={(e) => setNewCourse({ ...newCourse, image: e.target.value })}
+                />
+              </div>
+
+              {/* Course Level */}
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-1">
+                  Course Level
+                </label>
+                <select
+                  className="w-full h-12 px-5 rounded-2xl bg-canvas border border-border outline-none focus:border-teal-500 text-main"
+                  value={newCourse.level}
+                  onChange={(e) => setNewCourse({ ...newCourse, level: e.target.value })}
+                >
+                  <option value="Beginner">Beginner</option>
+                  <option value="Intermediate">Intermediate</option>
+                  <option value="Advanced">Advanced</option>
+                </select>
+              </div>
+
               <div className="pt-2 flex gap-3">
                 <button
                   type="button"
