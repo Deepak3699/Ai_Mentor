@@ -4,6 +4,7 @@ import { Eye, EyeOff, Lock, ArrowLeft } from "lucide-react";
 import AuthLayout from "../components/auth/AuthLayout";
 import axios from "axios";
 import { z } from "zod";
+import { getErrorMessage } from "../lib/errorHandling.js";
 
 const resetPasswordSchema = z
   .object({
@@ -51,7 +52,7 @@ const ResetPassword = () => {
       if (err instanceof z.ZodError) {
         setError(err.errors[0].message);
       } else {
-        setError(err.response?.data?.message || err.message);
+        setError(getErrorMessage(err, "Unable to reset password."));
       }
     } finally {
       setLoading(false);

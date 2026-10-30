@@ -23,6 +23,7 @@ const renderPanel = (props = {}) => {
     <AITranscript
       id="panel"
       isOpen
+      isDrawer={false}
       isLoading={false}
       onClose={onClose}
       captions={CAPTIONS}
@@ -47,6 +48,17 @@ describe("AITranscript", () => {
     expect(screen.getByText("First sentence.")).toBeTruthy();
     expect(screen.getByText("Second sentence.")).toBeTruthy();
     expect(screen.getByText("0:10")).toBeTruthy();
+  });
+
+  it("uses dialog semantics when rendered as a responsive drawer", () => {
+    renderPanel({ isDrawer: true });
+    const dialog = screen.getByRole("dialog", { name: "learning.transcript" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+  });
+
+  it("keeps desktop transcript semantics as a labelled region", () => {
+    renderPanel({ isDrawer: false });
+    expect(screen.getByRole("region", { name: "learning.transcript" })).toBeTruthy();
   });
 
   it("lets keyboard users jump to a timestamp through focusable buttons", () => {
