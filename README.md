@@ -42,6 +42,7 @@
 - [Repository structure](#repository-structure)
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
+- [First-time contributor checklist](#first-time-contributor-checklist)
 - [Environment configuration](#environment-configuration)
 - [Development commands](#development-commands)
 - [Quality and validation](#quality-and-validation)
@@ -205,6 +206,144 @@ npm run dev:ai
 
 The runner labels AI output with `[AI/API]` and reports AI `Startup` and `Health` timing in the terminal dashboard. `Ctrl+C` stops only processes started by that terminal.
 
+## First-time contributor checklist
+
+Do this in order on day one. [`initalSetup.md`](./initalSetup.md) is the long version: database choices and every environment variable. This list is the sequence, which command starts which service, and how to tell the app is running.
+
+Pull-request checks (format, lint, and tests) stay in [Quality and validation](#quality-and-validation). They do not tell you the local app is up.
+
+### Prerequisites
+
+| Tool             | Version                                                       | Check                                         |
+| ---------------- | ------------------------------------------------------------- | --------------------------------------------- |
+| Node.js          | 18 or newer. GitHub CI uses 20.                               | `node -v`                                     |
+| npm              | Bundled with Node.js                                          | `npm -v`                                      |
+| Python           | 3.10 or newer. GitHub CI uses 3.11.                           | `python3 --version`                           |
+| PostgreSQL       | 14 or newer, or a Neon database. Required for the full stack. | `psql --version`                              |
+| FFmpeg           | On `PATH`. Required for AI video.                             | `ffmpeg -version`                             |
+| Git              | Installed                                                     | `git --version`                               |
+| Redis or Memurai | Listening on port 6379 for queued video jobs.                 | `npm run setup` warns if nothing is listening |
+
+Fork the repository, then clone your fork. [CONTRIBUTING.md](./CONTRIBUTING.md) has the fork steps.
+
+```bash
+git clone https://github.com/<your-github-username>/Ai_Mentor.git
+cd Ai_Mentor
+```
+
+### Full repository or AI service only
+
+|           | Full repository                                                   | AI service only                                      |
+| --------- | ----------------------------------------------------------------- | ---------------------------------------------------- |
+| Env files | All five `.env` files below                                       | `ai_service/backend/.env` only                       |
+| Database  | One PostgreSQL database, shared by `backend/` and `backendAdmin/` | Not used                                             |
+| Install   | `npm run setup`                                                   | `npm run setup:ai`                                   |
+| Start     | `npm run dev` (all five services)                                 | `npm run dev:ai`                                     |
+| Confirm   | Health checks below, or `scripts/smoke-test.sh --quick`           | http://localhost:8000 and http://localhost:8000/docs |
+
+`npm run setup` installs the root workspace and all four Node/React applications, creates or reuses `ai_service/.venv`, installs `ai_service/backend/requirements.txt`, and checks Node.js, npm, Python, FFmpeg, AI configuration names, AI imports, and Redis/Memurai. It does not create, overwrite, or print secrets.
+
+`npm run setup:ai` prepares and checks only the AI environment. It does not install the four Node/React applications.
+
+### Copy the env files
+
+Copy these before setup. Setup stops when `ai_service/backend/.env` is missing or `GEMINI_API_KEY` is empty. From the repository root:
+
+```bash
+cp backend/.env.example            backend/.env
+cp frontend/.env.example           frontend/.env
+cp backendAdmin/.env.example       backendAdmin/.env
+cp frontendAdmin/.env.example      frontendAdmin/.env
+cp ai_service/backend/.env.example ai_service/backend/.env
+```
+
+AI-only setup copies the last file and skips the other four. Fill the values from [`initalSetup.md`](./initalSetup.md) section 5. Never commit a `.env` file.
+
+The user API creates the database tables. The admin API does not. For the full stack, put the same database URL and the same `JWT_SECRET` in `backend/.env` and `backendAdmin/.env`.
+
+### Install dependencies and run setup
+
+Full repository:
+
+```bash
+npm run setup
+```
+
+AI service only:
+
+```bash
+npm run setup:ai
+```
+
+### Start services
+
+Full stack, from the repository root:
+
+```bash
+npm run dev
+```
+
+This starts or reuses the user API, learner web, admin API, admin web, and AI service. A frontend starts only after its API is healthy. `Ctrl+C` stops only processes that terminal started.
+
+One part of the stack:
+
+| Command                      | What it starts                               |
+| ---------------------------- | -------------------------------------------- |
+| `npm run dev:user`           | User API and learner web                     |
+| `npm run dev:admin`          | Admin API and admin web                      |
+| `npm run dev:ai`             | AI service                                   |
+| `npm run dev:backend`        | User API                                     |
+| `npm run dev:frontend`       | Learner web, after the user API health check |
+| `npm run dev:backend-admin`  | Admin API                                    |
+| `npm run dev:frontend-admin` | Admin web, after the admin API health check  |
+
+If you start the APIs by hand, start the user API before the admin API so the tables exist.
+
+### Verify
+
+With the full stack running, confirm each row:
+
+| Check                              | Expected                                            |
+| ---------------------------------- | --------------------------------------------------- |
+| http://localhost:5000/health/live  | `{"status":"alive"}`                                |
+| http://localhost:5000/health/ready | `{"status":"ready"}` when the database is available |
+| http://localhost:5001/health/live  | `{"status":"alive"}`                                |
+| http://localhost:5001/health/ready | `{"status":"ready"}` when the database is available |
+| http://localhost:5173              | Learner login page                                  |
+| http://localhost:5174              | Admin login page                                    |
+| http://localhost:8000              | `{"message":"AI Lesson Generator Backend Running"}` |
+| http://localhost:8000/docs         | Swagger UI                                          |
+
+When bash and `curl` are available, this one command checks that all five service URLs return HTTP 200:
+
+```bash
+scripts/smoke-test.sh --quick
+```
+
+Exit code 0 means those service checks passed. It does not run the deeper API checks. `scripts/smoke-test.sh` without `--quick` does. AI-only setup is confirmed by opening http://localhost:8000/docs after `npm run dev:ai`. The quick smoke test also expects the other four services, so use it for the full stack.
+
+### Common pitfalls
+
+| What you see                                                              | What to do                                                                                         |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `Missing STRIPE_SECRET_KEY environment variable` or missing Razorpay keys | Add the test keys to `backend/.env`. The user API exits without them.                              |
+| Vite exits with `Environment Variable Error — Frontend`                   | A `VITE_` value in `frontend/.env` is missing or still starts with `your_`.                        |
+| `Missing AI environment file` or `GEMINI_API_KEY is not configured`       | Use `ai_service/backend/.env`, and set `GEMINI_API_KEY` to a real key.                             |
+| Redis warning, or video jobs stay queued                                  | Start Redis or Memurai on port 6379, then run `npm run dev` again.                                 |
+| Admin pages load and every page is empty                                  | Set `VITE_API_BASE_URL=http://localhost:5001` in `frontendAdmin/.env`, then restart the admin web. |
+| A `.env` file appears in `git status`                                     | Do not commit it. Only `.env.example` files belong in git.                                         |
+
+More cases are in [`initalSetup.md`](./initalSetup.md) section 10.
+
+### Checklist
+
+- [ ] Node.js 18+, Python 3.10+, FFmpeg, and Git are installed. The full stack also has PostgreSQL 14+ or Neon.
+- [ ] Env files are copied. The full stack uses all five. AI-only uses `ai_service/backend/.env`.
+- [ ] `npm run setup` finished, or `npm run setup:ai` for the AI service only.
+- [ ] `npm run dev` is running, or one `npm run dev:*` command for a single part of the stack.
+- [ ] Full stack: the health table matches, or `scripts/smoke-test.sh --quick` exits 0. AI-only: http://localhost:8000/docs opens.
+- [ ] `git status` does not list a `.env` file.
+
 ## Unified setup and development workflow
 
 | Command            | Purpose                                                 |
@@ -308,7 +447,7 @@ CI uses dummy frontend and AI-service values where configuration is required onl
 
 ## Documentation
 
-- [`initalSetup.md`](./initalSetup.md): first-time environment and database setup
+- [`initalSetup.md`](./initalSetup.md): first-time environment and database setup. The day-one order is the [checklist](#first-time-contributor-checklist) above.
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md): branch, commit, validation, review, and security workflow
 - [`backend/README.md`](./backend/README.md): user API setup and endpoints
 - [`backend/BACKEND_DOCUMENTATION.md`](./backend/BACKEND_DOCUMENTATION.md): detailed backend reference
