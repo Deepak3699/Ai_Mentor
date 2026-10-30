@@ -89,12 +89,20 @@ jobs:
           NODE_ENV: test
         run: npm test
 
-  # ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
   # FRONTEND — learner app (React, port 5173)
   # ─────────────────────────────────────────────────────────────
   lint-frontend:
     name: Lint frontend
     runs-on: ubuntu-latest
+    env:
+      VITE_API_BASE_URL: http://localhost:5000
+      VITE_FIREBASE_API_KEY: ci-dummy-key
+      VITE_FIREBASE_AUTH_DOMAIN: ci-dummy.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: ci-dummy
+      VITE_FIREBASE_STORAGE_BUCKET: ci-dummy.appspot.com
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+      VITE_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000000000"
     steps:
       - uses: actions/checkout@v7
 
@@ -114,14 +122,6 @@ jobs:
 
       - name: Run tests
         working-directory: frontend
-        env:
-          VITE_API_BASE_URL: http://localhost:5000
-          VITE_FIREBASE_API_KEY: ci-dummy-key
-          VITE_FIREBASE_AUTH_DOMAIN: ci-dummy.firebaseapp.com
-          VITE_FIREBASE_PROJECT_ID: ci-dummy
-          VITE_FIREBASE_STORAGE_BUCKET: ci-dummy.appspot.com
-          VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
-          VITE_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000000000"
         run: npm test
 
   build-frontend:
@@ -153,7 +153,6 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
-
   # ─────────────────────────────────────────────────────────────
   # FRONTEND ADMIN — admin panel (React, port 5174)
   # ─────────────────────────────────────────────────────────────
