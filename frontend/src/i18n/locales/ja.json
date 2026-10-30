@@ -320,7 +320,18 @@
     "status_ongoing": "進行中",
     "status_upcoming": "予定",
     "delete_task_confirm": "このタスクを削除してもよろしいですか？",
-    "task_exists_error": "この日付のタスクは既に存在します。"
+    "task_exists_error": "この日付のタスクは既に存在します。",
+    "achievements": {
+      "title": "実績",
+      "view_all": "すべて表示",
+      "course_title": "修了：{{title}}",
+      "course_description": "コースを修了しました",
+      "streak_title_one": "{{count}}日連続学習",
+      "streak_title_other": "{{count}}日連続学習",
+      "streak_description": "継続して学習",
+      "certificate_title": "初めての修了証",
+      "empty": "最初の実績を獲得するには、コースを修了するか、3日連続で学習してください。"
+    }
   },
   "discussions": {
     "title": "ディスカッション",

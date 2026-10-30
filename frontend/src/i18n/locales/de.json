@@ -320,7 +320,18 @@
     "status_ongoing": "Laufend",
     "status_upcoming": "Bevorstehend",
     "delete_task_confirm": "Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?",
-    "task_exists_error": "Aufgabe für dieses Datum existiert bereits."
+    "task_exists_error": "Aufgabe für dieses Datum existiert bereits.",
+    "achievements": {
+      "title": "Erfolge",
+      "view_all": "Alle anzeigen",
+      "course_title": "Abgeschlossen: {{title}}",
+      "course_description": "Du hast den Kurs abgeschlossen",
+      "streak_title_one": "{{count}}-Tage-Serie",
+      "streak_title_other": "{{count}}-Tage-Serie",
+      "streak_description": "Lernst kontinuierlich",
+      "certificate_title": "Erstes Zertifikat",
+      "empty": "Schließe einen Kurs ab oder lerne 3 Tage hintereinander, um deinen ersten Erfolg zu erzielen."
+    }
   },
   "discussions": {
     "title": "Diskussionen",
