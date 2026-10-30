@@ -2,6 +2,14 @@ import crypto from "crypto";
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import { Op } from "sequelize";
+
+import sendEmail from "../utils/sendEmail.js";
+import {
+  ensureProfileCompleteness,
+  formatFullName,
+} from "../utils/userUtils.js";
+import cloudinary from "../config/cloudinary.js";
+import admin from "../config/firebase.js";
 import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
 import admin from "firebase-admin";
 import { authServices } from "../services/authExternalServices.js";
@@ -43,6 +51,7 @@ const generateToken = (id) => {
     expiresIn: "30d",
   });
 };
+
 
 // Centralized logic moved to userUtils.js
 const register = async (req, res, next) => {
