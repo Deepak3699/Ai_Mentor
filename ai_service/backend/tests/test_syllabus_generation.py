@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from fastapi import HTTPException
 
-from api import (
+from backend.api import (
     FlashcardRequest,
     LessonRequest,
     QuizRequest,

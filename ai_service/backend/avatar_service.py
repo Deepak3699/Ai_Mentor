@@ -5,7 +5,7 @@ import os
 
 import requests
 
-from config import DID_API_KEY, DID_API_URL, DID_SOURCE_URL
+from backend.config import DID_API_KEY, DID_API_URL, DID_SOURCE_URL
 
 POLL_INTERVAL = 5
 MAX_POLL_ATTEMPTS = 60
