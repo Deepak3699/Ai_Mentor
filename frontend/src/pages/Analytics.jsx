@@ -256,13 +256,18 @@ const Analytics = () => {
         </div>
 
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#2D3436] dark:text-white">
-            {t("analytics.welcome_back_user", { name: user?.name || "Learner" })}
-          </h1>
-          <p className="text-[#2D3436]/70 dark:text-gray-400 mt-2 text-lg">
-            {t("analytics.analytics_subtitle")}
-          </p>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <h1 className="break-words text-3xl font-bold text-[#2D3436] dark:text-white">
+              {t("analytics.welcome_back_user", {
+                name: user?.name?.trim().split(/\s+/)[0] || "Learner",
+              })}{" "}
+              <span aria-hidden="true">👋</span>
+            </h1>
+            <p className="mt-2 text-lg text-[#2D3436]/70 dark:text-gray-400">
+              {t("analytics.analytics_subtitle")}
+            </p>
+          </div>
         </div>
 
         {/* METRICS CARDS */}
