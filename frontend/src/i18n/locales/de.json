@@ -320,7 +320,22 @@
     "status_ongoing": "Laufend",
     "status_upcoming": "Bevorstehend",
     "delete_task_confirm": "Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?",
-    "task_exists_error": "Aufgabe für dieses Datum existiert bereits."
+    "task_exists_error": "Aufgabe für dieses Datum existiert bereits.",
+    "hours_unit": "Std.",
+    "this_week": "diese Woche",
+    "completion_breakdown": {
+      "title": "Abschlussübersicht",
+      "completed": "Abgeschlossen",
+      "completed_courses": "Abgeschlossene Kurse",
+      "in_progress": "In Bearbeitung",
+      "not_started": "Nicht begonnen",
+      "empty_state_message": "Schreiben Sie sich in einen Kurs ein, um Ihren Fortschritt zu sehen",
+      "aria_summary": "Kursabschluss: {{completed}} abgeschlossen, {{inProgress}} in Bearbeitung, {{notStarted}} nicht begonnen",
+      "table_caption": "Übersicht über den Kursabschluss",
+      "status_header": "Status",
+      "count_header": "Kurse",
+      "percentage_header": "Prozentsatz"
+    }
   },
   "discussions": {
     "title": "Diskussionen",

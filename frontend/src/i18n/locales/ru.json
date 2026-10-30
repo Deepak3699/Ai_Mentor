@@ -320,7 +320,22 @@
     "status_ongoing": "В процессе",
     "status_upcoming": "Предстоит",
     "delete_task_confirm": "Вы уверены, что хотите удалить эту задачу?",
-    "task_exists_error": "Задача на эту дату уже существует."
+    "task_exists_error": "Задача на эту дату уже существует.",
+    "hours_unit": "ч",
+    "this_week": "на этой неделе",
+    "completion_breakdown": {
+      "title": "Распределение прогресса",
+      "completed": "Завершено",
+      "completed_courses": "Завершенные курсы",
+      "in_progress": "В процессе",
+      "not_started": "Не начато",
+      "empty_state_message": "Запишитесь на курс, чтобы увидеть свой прогресс",
+      "aria_summary": "Завершение курсов: {{completed}} завершено, {{inProgress}} в процессе, {{notStarted}} не начато",
+      "table_caption": "Распределение завершения курсов",
+      "status_header": "Статус",
+      "count_header": "Курсы",
+      "percentage_header": "Процент"
+    }
   },
   "discussions": {
     "title": "Обсуждения",

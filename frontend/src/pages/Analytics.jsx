@@ -30,6 +30,7 @@ import { useTranslation } from "react-i18next";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import StatCard from "../components/StatCard";
+import CompletionBreakdownCard from "../components/CompletionBreakdownCard";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -232,6 +233,53 @@ const Analytics = () => {
     myCourses.length > 0
       ? Math.round(myCourses.reduce((acc, c) => acc + c.progress, 0) / myCourses.length)
       : 0;
+  const totalCompletedLessons = myCourses.reduce((acc, c) => acc + c.completedLessons, 0);
+  const formattedStudyTime = totalStudyTime > 0 ? (totalStudyTime / 60).toFixed(1) : 0;
+  const upcomingTasksCount = Object.values(tasks)
+    .flat()
+    .filter((t) => t.status === "Upcoming").length;
+
+  // Calculate week-over-week change for study time only if real sessions exist
+  const getStudyTimeChange = () => {
+    if (!studySessions || studySessions.length === 0) return null;
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+    const thisWeekSessions = studySessions.filter((s) => {
+      const d = new Date(s.date);
+      return d >= oneWeekAgo && d <= now;
+    });
+    const lastWeekSessions = studySessions.filter((s) => {
+      const d = new Date(s.date);
+      return d >= twoWeeksAgo && d < oneWeekAgo;
+    });
+
+    if (thisWeekSessions.length === 0 && lastWeekSessions.length === 0) return null;
+
+    const thisWeekHours = thisWeekSessions.reduce((acc, s) => acc + (s.duration || 0), 0) / 60;
+    const lastWeekHours = lastWeekSessions.reduce((acc, s) => acc + (s.duration || 0), 0) / 60;
+    const diff = Number((thisWeekHours - lastWeekHours).toFixed(1));
+
+    if (diff > 0) {
+      return {
+        label: `+${diff} ${t("analytics.hours_unit", { defaultValue: "hrs" })} ${t("analytics.this_week", { defaultValue: "this week" })}`,
+        direction: "up",
+      };
+    }
+    if (diff < 0) {
+      return {
+        label: `${diff} ${t("analytics.hours_unit", { defaultValue: "hrs" })} ${t("analytics.this_week", { defaultValue: "this week" })}`,
+        direction: "down",
+      };
+    }
+    return {
+      label: `0 ${t("analytics.hours_unit", { defaultValue: "hrs" })} ${t("analytics.this_week", { defaultValue: "this week" })}`,
+      direction: "flat",
+    };
+  };
+
+  const studyTimeChange = getStudyTimeChange();
 
   // Calculate ongoing courses (courses with progress > 0)
   if (pageLoading) {
@@ -318,55 +366,58 @@ const Analytics = () => {
 
         {/* Quick Stats Row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
-            <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">
-              {t("analytics.average_progress")}
-            </div>
-            <div className="text-xl font-bold text-[#00bea3]">{averageProgress}%</div>
-            <div className="w-full bg-[#F5F5F5] dark:bg-gray-700 rounded-full h-1.5 mt-2">
-              <div
-                className="bg-gradient-to-r from-[#00bea3] to-[#ff6d34] h-1.5 rounded-full transition-all duration-500"
-                style={{ width: `${averageProgress}%` }}
-              ></div>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
-            <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">
-              {t("analytics.completed_lessons_count")}
-            </div>
-            <div className="text-xl font-bold text-[#28A745]">
-              {myCourses.reduce((acc, c) => acc + c.completedLessons, 0)}
-            </div>
-            <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">
-              {t("analytics.across_all_courses")}
-            </div>
-          </div>
-          <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
-            <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">
-              {t("analytics.total_study_time_label")}
-            </div>
-            <div className="text-xl font-bold text-[#ff6d34]">
-              {Math.round(totalStudyTime / 60)} {t("analytics.hours_unit", { defaultValue: "hrs" })}
-            </div>
-            <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">
-              {t("analytics.this_month")}
-            </div>
-          </div>
-          <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
-            <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">
-              {t("analytics.upcoming_tasks_count")}
-            </div>
-            <div className="text-xl font-bold text-[#FFC107]">
-              {
-                Object.values(tasks)
-                  .flat()
-                  .filter((t) => t.status === "Upcoming").length
-              }
-            </div>
-            <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">
-              {t("analytics.need_attention")}
-            </div>
-          </div>
+          {/* 1. Average Progress */}
+          <StatCard
+            icon={Target}
+            iconBgColor="bg-blue-50 dark:bg-blue-950/40"
+            iconColor="text-blue-500 dark:text-blue-400"
+            label={t("analytics.average_progress")}
+            value={`${averageProgress}%`}
+            progressBar={{
+              value: averageProgress,
+              min: 0,
+              max: 100,
+              ariaLabel: t("analytics.average_progress"),
+            }}
+          />
+
+          {/* 2. Completed Lessons */}
+          <StatCard
+            icon={CheckCircle}
+            iconBgColor="bg-emerald-50 dark:bg-emerald-950/40"
+            iconColor="text-emerald-500 dark:text-emerald-400"
+            label={t("analytics.completed_lessons_count")}
+            value={totalCompletedLessons}
+            subtext={t("analytics.across_all_courses")}
+          />
+
+          {/* 3. Total Study Time */}
+          <StatCard
+            icon={Clock}
+            iconBgColor="bg-blue-50 dark:bg-blue-950/40"
+            iconColor="text-blue-500 dark:text-blue-400"
+            label={t("analytics.total_study_time_label")}
+            value={formattedStudyTime}
+            unit={t("analytics.hours_unit", { defaultValue: "hrs" })}
+            change={studyTimeChange}
+          />
+
+          {/* 4. Upcoming Tasks */}
+          <StatCard
+            icon={Calendar}
+            iconBgColor="bg-blue-50 dark:bg-blue-950/40"
+            iconColor="text-blue-500 dark:text-blue-400"
+            label={t("analytics.upcoming_tasks_count")}
+            value={upcomingTasksCount}
+            subtext={t("analytics.need_attention")}
+            onClick={() => setActiveTab("calendar")}
+            ariaLabel={`${t("analytics.upcoming_tasks_count")}: ${upcomingTasksCount} ${t("analytics.need_attention")}`}
+          />
+        </div>
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <CompletionBreakdownCard courses={myCourses} />
         </div>
 
         {/* Tab Navigation */}

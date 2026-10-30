@@ -320,7 +320,22 @@
     "status_ongoing": "En cours",
     "status_upcoming": "À venir",
     "delete_task_confirm": "Êtes-vous sûr de vouloir supprimer cette tâche ?",
-    "task_exists_error": "La tâche existe déjà pour cette date."
+    "task_exists_error": "La tâche existe déjà pour cette date.",
+    "hours_unit": "h",
+    "this_week": "cette semaine",
+    "completion_breakdown": {
+      "title": "Répartition de l'Achèvement",
+      "completed": "Terminé",
+      "completed_courses": "Cours terminés",
+      "in_progress": "En cours",
+      "not_started": "Non commencé",
+      "empty_state_message": "Inscrivez-vous à un cours pour voir votre progression",
+      "aria_summary": "Achèvement des cours : {{completed}} terminés, {{inProgress}} en cours, {{notStarted}} non commencés",
+      "table_caption": "Répartition de l'achèvement des cours",
+      "status_header": "Statut",
+      "count_header": "Cours",
+      "percentage_header": "Pourcentage"
+    }
   },
   "discussions": {
     "title": "Discussions",

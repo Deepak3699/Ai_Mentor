@@ -320,7 +320,22 @@
     "status_ongoing": "En curso",
     "status_upcoming": "Próximo",
     "delete_task_confirm": "¿Estás seguro de que deseas eliminar esta tarea?",
-    "task_exists_error": "La tarea ya existe para esta fecha."
+    "task_exists_error": "La tarea ya existe para esta fecha.",
+    "hours_unit": "h",
+    "this_week": "esta semana",
+    "completion_breakdown": {
+      "title": "Desglose de Finalización",
+      "completed": "Completado",
+      "completed_courses": "Cursos completados",
+      "in_progress": "En progreso",
+      "not_started": "No iniciado",
+      "empty_state_message": "Inscríbete en un curso para ver tu progreso",
+      "aria_summary": "Finalización de cursos: {{completed}} completados, {{inProgress}} en progreso, {{notStarted}} no iniciados",
+      "table_caption": "Desglose de finalización de cursos",
+      "status_header": "Estado",
+      "count_header": "Cursos",
+      "percentage_header": "Porcentaje"
+    }
   },
   "discussions": {
     "title": "Discusiones",
