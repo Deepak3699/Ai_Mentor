@@ -1087,7 +1087,11 @@ async def process_lesson(data: LessonRequest, base_filename: str):
                 os.remove(audio_path)
 
             # Validate voice or fallback
-            selected_voice = voices.get_voice(data.voice_id)
+            selected_voice = voices.get_voice(
+             data.voice_id,
+            language=data.language,
+            gender=data.gender,
+)
 
             rate = data.speech_rate if data.speech_rate else "+0%"
             pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
