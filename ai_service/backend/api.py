@@ -18,17 +18,20 @@ import json
 import hashlib
 import uuid
 import time
+import threading
 from mutagen.mp3 import MP3
 from google import genai
 from google.genai import types
 from groq import Groq
 from cachetools import TTLCache
 from subtitles import write_subtitles
+
 from config import (
     GEMINI_API_KEY,
     GEMINI_MODEL,
     GROQ_API_KEY,
     LLM_TIMEOUT_SECONDS,
+    MAX_ACTIVE_LESSON_JOBS,
     CLOUDINARY_CLOUD_NAME,
     CLOUDINARY_API_KEY,
     CLOUDINARY_API_SECRET,
@@ -880,6 +883,7 @@ def explain_code(data: ExplainCodeRequest):
 # --------------------------
 
 active_jobs = set()
+active_jobs_lock = threading.Lock()
 shutdown_failed_jobs = set()
 shutting_down = False
 # Job status cache:
@@ -981,8 +985,17 @@ def generate_lesson(
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     base_filename = f"{topic_clean}_{timestamp}_{uuid.uuid4().hex[:8]}"
 
+    with active_jobs_lock:
+        if len(active_jobs) >= MAX_ACTIVE_LESSON_JOBS:
+            raise HTTPException(
+                status_code=503,
+                detail="AI service is busy. Please try again later.",
+            )
+        active_jobs.add(base_filename)
+
     if not force:
         generation_cache[cache_key] = base_filename
+
     job_status[base_filename] = {
         "status": "queued",
         "meta": {
@@ -992,7 +1005,6 @@ def generate_lesson(
         }
     }
 
-    active_jobs.add(base_filename)
     background_tasks.add_task(run_tracked_lesson, data, base_filename)
 
     return {
@@ -1019,7 +1031,8 @@ async def run_tracked_lesson(data: LessonRequest, base_filename: str):
     try:
         await process_lesson(data, base_filename)
     finally:
-        active_jobs.discard(base_filename)
+        with active_jobs_lock:
+            active_jobs.discard(base_filename)
 
 
 async def process_lesson(data: LessonRequest, base_filename: str):
@@ -1053,7 +1066,9 @@ async def process_lesson(data: LessonRequest, base_filename: str):
         log_event("START", "Lesson generation started", correlation_id=correlation_id)
 
         log_event("INFO", "User preferences", configured=bool(data.preferences))
-        script, provider_used, model_used = generate_lesson_script(data)
+        script, provider_used, model_used = await asyncio.to_thread(
+            generate_lesson_script, data
+        )
         log_event("INFO", "Script prepared", words=len(script.split()))
 
         # 2️⃣ Create Output Folders

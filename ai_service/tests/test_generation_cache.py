@@ -19,14 +19,21 @@ if str(backend_dir) not in sys.path:
 
 import api
 
-
 @pytest.fixture(autouse=True)
 def clear_generation_caches():
     api.generation_cache.clear()
     api.job_status.clear()
+
+    with api.active_jobs_lock:
+        api.active_jobs.clear()
+
     yield
+
     api.generation_cache.clear()
     api.job_status.clear()
+
+    with api.active_jobs_lock:
+        api.active_jobs.clear()
 
 
 def make_request(**overrides):
@@ -158,6 +165,48 @@ def test_force_regeneration_does_not_replace_normal_cache_entry():
     assert cached["jobId"] == normal["jobId"]
 
 
+def test_new_job_rejected_when_capacity_is_reached(monkeypatch):
+    monkeypatch.setattr(api, "MAX_ACTIVE_LESSON_JOBS", 1)
+
+    with api.active_jobs_lock:
+        api.active_jobs.add("already-running")
+
+    with pytest.raises(api.HTTPException) as exc_info:
+        generate(make_request())
+
+    assert exc_info.value.status_code == 503
+    assert "busy" in exc_info.value.detail.lower()
+    assert not api.generation_cache
+
+
+def test_cached_request_works_when_capacity_is_reached(monkeypatch):
+    monkeypatch.setattr(api, "MAX_ACTIVE_LESSON_JOBS", 1)
+
+    first = generate(make_request())
+    second = generate(make_request())
+
+    assert first["cached"] is False
+    assert second["cached"] is True
+    assert second["jobId"] == first["jobId"]
+
+
+def test_job_slot_is_released_when_processing_raises(monkeypatch):
+    job_id = "test-failed-job"
+
+    with api.active_jobs_lock:
+        api.active_jobs.add(job_id)
+
+    async def fail_processing(data, base_filename):
+        raise RuntimeError("Expected test failure")
+
+    monkeypatch.setattr(api, "process_lesson", fail_processing)
+
+    with pytest.raises(RuntimeError, match="Expected test failure"):
+        asyncio.run(api.run_tracked_lesson(make_request(), job_id))
+
+    with api.active_jobs_lock:
+        assert job_id not in api.active_jobs
+
 def test_long_topic_truncates_base_filename_and_cache():
     long_topic = "A" * 200
     req = make_request(topic=long_topic)
@@ -185,4 +234,3 @@ def test_long_topic_truncates_base_filename_and_cache():
     assert forced_result["jobId"].startswith("A" * 81 + "_")
     assert not forced_result["jobId"].startswith("A" * 82)
     assert len(forced_result["jobId"]) == 113
-
