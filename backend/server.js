@@ -45,6 +45,7 @@ import { securityHeaders } from "./config/securityHeaders.js";
 import requestContext from "./middleware/requestContext.js";
 import { errorHandler } from "./middleware/errorMiddleware.js";
 
+import { startTokenCleanup } from "./jobs/tokenCleanup.js";
 validateEnv();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -184,7 +185,7 @@ const startServer = async () => {
     server.requestTimeout = 120_000;
     server.headersTimeout = 65_000;
     server.keepAliveTimeout = 60_000;
-
+    startTokenCleanup();
     server.listen(PORT, () => {
       console.log(`[READY] Backend: http://localhost:${PORT}`);
       console.log(`[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`);

@@ -1,3 +1,6 @@
+torch>=2.0.0
+transformers>=4.30.0
+langchain>=0.1.0
 cloudinary>=1.40.0,<2.0.0
 edge-tts>=7.3.1,<8.0.0
 fastapi>=0.143.1,<1.0.0
