@@ -273,7 +273,7 @@
     "course_performance": "コースの成績",
     "no_courses": "表示するコースの成績がありません。",
     "progress_lessons": "進捗",
-        "range_last7": "過去7日間",
+    "range_last7": "過去7日間",
     "range_last30": "過去30日間",
     "range_this_month": "今月",
     "custom_range": "期間を指定",

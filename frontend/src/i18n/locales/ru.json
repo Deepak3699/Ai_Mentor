@@ -273,7 +273,7 @@
     "course_performance": "Успеваемость по курсу",
     "no_courses": "Нет курсов для отображения.",
     "progress_lessons": "Прогресс",
-        "range_last7": "Последние 7 дней",
+    "range_last7": "Последние 7 дней",
     "range_last30": "Последние 30 дней",
     "range_this_month": "Этот месяц",
     "custom_range": "Произвольный период",
