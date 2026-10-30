@@ -34,7 +34,6 @@ import DateRangeSelector from "../components/DateRangeSelector";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
-  const firstName = user?.name?.trim().split(/\s+/)[0] || "Learner";
 
   const [courses, setCourses] = useState([]);
   const [studySessions, setStudySessions] = useState([]);
@@ -332,8 +331,7 @@ const Analytics = () => {
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
             <h1 className="text-3xl font-bold text-[#2D3436] dark:text-white">
-              {t("analytics.welcome_back_user", { name: firstName })}{" "}
-              <span aria-hidden="true">👋</span>
+              {t("analytics.welcome_back_user", { name: user?.name || "Learner" })}
             </h1>
             <p className="text-[#2D3436]/70 dark:text-gray-400 mt-2 text-lg">
               {t("analytics.analytics_subtitle")}
