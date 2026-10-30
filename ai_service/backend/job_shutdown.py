@@ -21,7 +21,9 @@ async def wait_for_jobs_to_finish(
         await asyncio.sleep(poll_interval)
 
     for job_id in list(active_jobs):
-        if job_status.get(job_id, {}).get("status") == "processing":
+        status = job_status.get(job_id, {}).get("status")
+
+        if status in {"queued", "processing"}:
             shutdown_failed_jobs.add(job_id)
             try:
                 status = job_status[job_id]

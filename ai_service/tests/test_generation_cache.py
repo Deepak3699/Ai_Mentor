@@ -185,4 +185,3 @@ def test_long_topic_truncates_base_filename_and_cache():
     assert forced_result["jobId"].startswith("A" * 81 + "_")
     assert not forced_result["jobId"].startswith("A" * 82)
     assert len(forced_result["jobId"]) == 113
-

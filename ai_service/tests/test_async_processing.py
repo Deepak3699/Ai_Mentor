@@ -1,9 +1,11 @@
 import os
 import sys
+import httpx
 import asyncio
 import inspect
 from pathlib import Path
 import pytest
+import threading
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Ensure dummy env vars are set for config validation before importing api module
@@ -170,3 +172,296 @@ def test_did_video_is_normalized_before_delivery():
 def test_create_avatar_video_is_coroutine_function():
     """Verify that create_avatar_video is defined as an async coroutine function in api."""
     assert inspect.iscoroutinefunction(api.create_avatar_video)
+
+def test_event_loop_stays_responsive_during_slow_script_generation():
+    """The event loop should remain responsive while script generation blocks."""
+    req = LessonRequest(
+        course="Python",
+        topic="Asyncio",
+        celebrity="Modi",
+    )
+    base_filename = "test_heartbeat_123"
+
+    generation_started = threading.Event()
+    release_generation = threading.Event()
+
+    def slow_generate_lesson_script(data):
+        generation_started.set()
+        release_generation.wait(timeout=3)
+        return "A test lesson script.", "gemini", api.GEMINI_MODEL
+
+    mock_proc = AsyncMock()
+    mock_proc.returncode = 0
+    mock_proc.communicate.return_value = (b"", b"")
+
+    async def run_test():
+        task = asyncio.create_task(
+            process_lesson(req, base_filename)
+        )
+
+        try:
+            started = await asyncio.wait_for(
+                asyncio.to_thread(generation_started.wait, 1),
+                timeout=2,
+            )
+            assert started, "Script generation did not start"
+
+            # This callback must run even while generation is waiting.
+            heartbeat = asyncio.Event()
+            asyncio.get_running_loop().call_soon(heartbeat.set)
+
+            await asyncio.wait_for(heartbeat.wait(), timeout=0.5)
+        finally:
+            release_generation.set()
+            await asyncio.wait_for(task, timeout=10)
+
+    with patch(
+        "api.generate_lesson_script",
+        side_effect=slow_generate_lesson_script,
+    ), patch("api.generate_tts", new_callable=AsyncMock), \
+         patch("api.create_avatar_video",
+               side_effect=Exception("D-ID disabled")), \
+         patch(
+             "os.path.exists",
+             side_effect=lambda path: not path.endswith(".mp3"),
+         ), patch("os.remove"), \
+         patch(
+             "asyncio.create_subprocess_exec",
+             return_value=mock_proc,
+         ), patch(
+             "cloudinary.uploader.upload",
+             return_value={
+                 "secure_url": "https://example.test/video.mp4"
+             },
+         ):
+        asyncio.run(run_test())
+def test_shutdown_failed_job_cleans_up_video_uploaded_after_shutdown():
+    """Clean up a video if shutdown fails the job during its upload."""
+    req = LessonRequest(
+        course="Python",
+        topic="Asyncio",
+        celebrity="Modi",
+    )
+    base_filename = "test_shutdown_cleanup_123"
+
+    mock_gemini_resp = MagicMock()
+    mock_gemini_resp.text = "Test lesson script."
+
+    mock_proc = AsyncMock()
+    mock_proc.returncode = 0
+    mock_proc.communicate.return_value = (b"", b"")
+    cleanup_calls = []
+    def upload_and_mark_shutdown(*args, **kwargs):
+        if kwargs.get("resource_type") == "video":
+            api.shutdown_failed_jobs.add(base_filename)
+            api.job_status[base_filename]["status"] = "failed"
+
+        return {
+            "secure_url": "https://example.test/video.mp4",
+            "public_id": base_filename,
+        }
+
+    def record_destroy(*args, **kwargs):
+        cleanup_calls.append((args, kwargs))
+        return {"result": "ok"}
+
+    original_shutting_down = api.shutting_down
+    api.shutting_down = False
+    api.job_status[base_filename] = {"status": "processing"}
+    api.shutdown_failed_jobs.discard(base_filename)
+
+    try:
+        with patch.object(
+            api.gemini_client.models,
+            "generate_content",
+            return_value=mock_gemini_resp,
+        ), patch(
+            "api.generate_tts",
+            new_callable=AsyncMock,
+        ), patch(
+            "api.create_avatar_video",
+            side_effect=Exception("D-ID disabled"),
+        ), patch(
+            "os.path.exists",
+            side_effect=lambda path: not path.endswith(".mp3"),
+        ), patch(
+            "os.remove",
+        ), patch(
+            "asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ), patch(
+            "cloudinary.uploader.upload",
+            side_effect=upload_and_mark_shutdown,
+        ), patch(
+            "cloudinary.uploader.destroy",
+            side_effect=record_destroy,
+        ):
+            asyncio.run(api.process_lesson(req, base_filename))
+        assert cleanup_calls, "The uploaded video should be deleted."
+        args, kwargs = cleanup_calls[0]
+        assert args[0] == base_filename
+        assert kwargs["resource_type"] == "video"
+        assert api.job_status[base_filename]["status"] == "failed"
+    finally:
+        api.shutting_down = original_shutting_down
+        api.shutdown_failed_jobs.discard(base_filename)
+        api.job_status.pop(base_filename, None)
+
+@pytest.mark.asyncio
+async def test_shutdown_failed_job_skips_video_upload():
+    """A job failed during shutdown must not start a video upload."""
+    job_id = "shutdown-upload-guard-test"
+
+    api.shutdown_failed_jobs.add(job_id)
+    api.job_status[job_id] = {"status": "failed"}
+
+    try:
+        with patch.object(
+            api.cloudinary.uploader,
+            "upload",
+        ) as mock_upload:
+            with patch.object(
+                api,
+                "write_subtitles",
+                return_value=("test.vtt", "test.srt"),
+            ):
+                await api.process_lesson(
+                    LessonRequest(
+                        course="Test course",
+                        topic="Test topic",
+                        duration=1,
+                        language="English",
+                    ),
+                    job_id,
+                )
+
+            mock_upload.assert_not_called()
+    finally:
+        api.shutdown_failed_jobs.discard(job_id)
+        api.job_status.pop(job_id, None)
+
+@pytest.mark.asyncio
+async def test_status_and_voices_respond_during_lesson_processing():
+    """Status and voices endpoints should respond during a running lesson."""
+    job_id = "endpoint_responsiveness_test"
+    request_data = LessonRequest(
+        course="Python",
+        topic="Endpoint responsiveness",
+        celebrity="Modi",
+    )
+
+    processing_started = asyncio.Event()
+    release_processing = asyncio.Event()
+    original_shutting_down = api.shutting_down
+
+    async def slow_process_lesson(data, base_filename):
+        processing_started.set()
+        await release_processing.wait()
+
+    api.shutting_down = False
+    api.job_status[job_id] = {"status": "processing"}
+    api.active_jobs.add(job_id)
+
+    try:
+        with patch.object(api, "process_lesson", slow_process_lesson):
+            worker = asyncio.create_task(
+                api.run_tracked_lesson(request_data, job_id)
+            )
+
+            try:
+                await asyncio.wait_for(
+                    processing_started.wait(),
+                    timeout=2,
+                )
+
+                transport = httpx.ASGITransport(app=api.app)
+                async with httpx.AsyncClient(
+                    transport=transport,
+                    base_url="http://test",
+                ) as client:
+                    status_response, voices_response = await asyncio.wait_for(
+                        asyncio.gather(
+                            client.get(f"/status/{job_id}"),
+                            client.get("/voices"),
+                        ),
+                        timeout=2,
+                    )
+
+                assert status_response.status_code == 200
+                assert status_response.json()["status"] == "processing"
+                assert voices_response.status_code == 200
+                assert "voices" in voices_response.json()
+
+            finally:
+                release_processing.set()
+                await asyncio.wait_for(worker, timeout=2)
+
+    finally:
+        release_processing.set()
+        api.shutting_down = original_shutting_down
+        api.active_jobs.discard(job_id)
+        api.shutdown_failed_jobs.discard(job_id)
+        api.job_status.pop(job_id, None)
+def test_concurrent_lesson_generation_respects_limit():
+    async def scenario():
+        limit = api.MAX_CONCURRENT_GENERATIONS
+        assert limit == 3
+
+        active_count = 0
+        max_active_count = 0
+        started_count = 0
+
+        async def fake_process_lesson(data, base_filename):
+            nonlocal active_count, max_active_count, started_count
+
+            active_count += 1
+            started_count += 1
+            max_active_count = max(max_active_count, active_count)
+
+            try:
+                await asyncio.sleep(0.05)
+            finally:
+                active_count -= 1
+
+        old_semaphore = api.generation_semaphore
+
+        try:
+            api.generation_semaphore = asyncio.Semaphore(limit)
+            api.shutting_down = False
+
+            job_ids = [f"concurrency-test-{i}" for i in range(7)]
+
+            for job_id in job_ids:
+                api.shutdown_failed_jobs.discard(job_id)
+                api.job_status[job_id] = {"status": "queued"}
+
+            with patch.object(
+                api, "process_lesson", new=fake_process_lesson
+            ):
+                await asyncio.gather(
+                    *[
+                        api.run_tracked_lesson(
+                            LessonRequest(
+                                course="Python",
+                                topic="Concurrency",
+                                celebrity="Test",
+                            ),
+                            job_id,
+                        )
+                        for job_id in job_ids
+                    ]
+                )
+
+            assert started_count == 7
+            assert max_active_count == limit
+            assert active_count == 0
+
+        finally:
+            api.generation_semaphore = old_semaphore
+
+            for job_id in job_ids:
+                api.job_status.pop(job_id, None)
+                api.shutdown_failed_jobs.discard(job_id)
+                api.active_jobs.discard(job_id)
+
+    asyncio.run(scenario())
