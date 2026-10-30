@@ -4,6 +4,10 @@ from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parents[1] / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
+LESSON_ENDPOINT_PATH = (
+    BACKEND_DIR / "api" / "v1" / "endpoints" / "lessons.py"
+)
+JOB_TRACKER_PATH = BACKEND_DIR / "services" / "job_tracker.py"
 
 from job_shutdown import wait_for_jobs_to_finish
 
@@ -57,14 +61,14 @@ def test_shutdown_marks_unfinished_job_failed():
 
 
 def test_api_rejects_new_jobs_during_shutdown():
-    source = (BACKEND_DIR / "api.py").read_text(encoding="utf-8")
+    source = LESSON_ENDPOINT_PATH.read_text(encoding="utf-8")
 
-    assert "if shutting_down:" in source
+    assert "if jt.shutting_down:" in source
     assert "status_code=503" in source
 
 
 def test_api_does_not_overwrite_shutdown_failed_job_as_ready():
-    source = (BACKEND_DIR / "api.py").read_text(encoding="utf-8")
+    source = JOB_TRACKER_PATH.read_text(encoding="utf-8")
 
     assert (
         "if base_filename not in shutdown_failed_jobs:" in source

@@ -15,7 +15,10 @@ def clear_job_status():
     yield
 
 def test_generation_logging_is_ascii_safe():
-    source_path = os.path.join(os.path.dirname(__file__), "../backend/api.py")
+    source_path = os.path.join(
+        os.path.dirname(__file__),
+        "../backend/services/lesson_pipeline.py",
+    )
     with open(source_path, "r", encoding="utf-8") as source_file:
         source = source_file.read()
     assert not any(symbol in source for symbol in ("📊", "⚡", "❌", "✅"))
