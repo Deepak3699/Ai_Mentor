@@ -67,20 +67,20 @@ The frontend admin dashboard handles:
 
 # Tech Stack
 
-| Category         | Technology            |
-| ---------------- | --------------------- |
-| Framework        | React 19              |
-| Build Tool       | Vite                  |
-| Routing          | React Router DOM      |
-| Styling          | Tailwind CSS          |
-| Icons            | Lucide React          |
-| HTTP Client      | Axios                 |
-| Notifications    | React Hot Toast       |
-| State Management | React Hooks + Context |
-| Authentication   | `jwt-decode` + localStorage |
+| Category         | Technology                                            |
+| ---------------- | ----------------------------------------------------- |
+| Framework        | React 19                                              |
+| Build Tool       | Vite                                                  |
+| Routing          | React Router DOM                                      |
+| Styling          | Tailwind CSS                                          |
+| Icons            | Lucide React                                          |
+| HTTP Client      | Axios                                                 |
+| Notifications    | React Hot Toast                                       |
+| State Management | React Hooks + Context                                 |
+| Authentication   | `jwt-decode` + localStorage                           |
 | Data export      | ExcelJS, FileSaver, PapaParse, jsPDF, jsPDF-AutoTable |
-| API helpers      | Axios and the native Fetch API |
-| Utilities        | `jwt-decode` for token claims |
+| API helpers      | Axios and the native Fetch API                        |
+| Utilities        | `jwt-decode` for token claims                         |
 
 ---
 
@@ -216,7 +216,7 @@ Page Component Rendering
 | /enrollments | Enrollment tracking |
 | /payments    | Payment monitoring  |
 | /reports     | Report moderation   |
-| /discussions | Discussion reviews   |
+| /discussions | Discussion reviews  |
 | /profile     | Admin profile       |
 | /settings    | Dashboard settings  |
 
@@ -828,13 +828,13 @@ Prevent CORS issues during local development.
 
 Run these from `frontendAdmin/`:
 
-| Script | Purpose |
-| ------ | ------- |
-| `npm run dev` | Start the Vite development server on port 5174 |
-| `npm run build` | Create the production build |
-| `npm run preview` | Preview the production build locally |
-| `npm run lint` | Run ESLint |
-| `npm run test` | Run the Vitest test suite once |
+| Script            | Purpose                                        |
+| ----------------- | ---------------------------------------------- |
+| `npm run dev`     | Start the Vite development server on port 5174 |
+| `npm run build`   | Create the production build                    |
+| `npm run preview` | Preview the production build locally           |
+| `npm run lint`    | Run ESLint                                     |
+| `npm run test`    | Run the Vitest test suite once                 |
 
 ---
 
