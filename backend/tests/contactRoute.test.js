@@ -10,11 +10,10 @@ const { default: express } = await import("express");
 const { default: ContactMessage } = await import("../models/Contactmessage.js");
 const { default: User } = await import("../models/User.js");
 const { default: contactRoutes } = await import("../routes/contactus.js");
+const { errorHandler, notFoundMiddleware } = await import("../middleware/errorMiddleware.js");
 
 let server;
 let baseUrl;
-
-const { errorHandler, notFoundMiddleware } = await import("../middleware/errorMiddleware.js");
 
 const originalCreate = ContactMessage.create;
 const originalFindByPk = User.findByPk;
@@ -223,11 +222,12 @@ test("persistence failure returns a safe 500 response", async () => {
     console.error = original;
   }
 });
+
 test("Sequelize validation errors are converted to a safe 400 response", async () => {
   ContactMessage.create = async () => {
     const error = new Error("validation failed");
     error.name = "SequelizeValidationError";
-    error.errors = [{ message: "Please enter a valid email address" }];
+    error.errors = [{ message: "Please enter a valid email address", path: "email" }];
     throw error;
   };
 
@@ -246,32 +246,6 @@ test("Sequelize validation errors are converted to a safe 400 response", async (
         code: "VALIDATION_ERROR",
         message: "Request validation failed",
         details: [{ message: "Please enter a valid email address", path: "email" }],
-      },
-    });
-  } finally {
-    console.error = original;
-  }
-});
-
-test("contact route hides unexpected persistence failures", async () => {
-  ContactMessage.create = async () => {
-    throw new Error("database unavailable");
-  };
-  const original = console.error;
-  console.error = () => {};
-  try {
-    const res = await post({
-      email: "user@example.com",
-      subject: "Help",
-      message: "A sufficiently long message",
-    });
-    assert.equal(res.status, 500);
-    assert.deepEqual(await res.json(), {
-      success: false,
-      error: {
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Internal Server Error",
-        details: [],
       },
     });
   } finally {

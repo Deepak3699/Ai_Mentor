@@ -19,7 +19,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
 
@@ -71,7 +71,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -95,12 +95,20 @@ jobs:
   lint-frontend:
     name: Lint frontend
     runs-on: ubuntu-latest
+    env:
+      VITE_API_BASE_URL: http://localhost:5000
+      VITE_FIREBASE_API_KEY: ci-dummy-key
+      VITE_FIREBASE_AUTH_DOMAIN: ci-dummy.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: ci-dummy
+      VITE_FIREBASE_STORAGE_BUCKET: ci-dummy.appspot.com
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+      VITE_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000000000"
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -114,14 +122,6 @@ jobs:
 
       - name: Run tests
         working-directory: frontend
-        env:
-          VITE_API_BASE_URL: http://localhost:5000
-          VITE_FIREBASE_API_KEY: ci-dummy-key
-          VITE_FIREBASE_AUTH_DOMAIN: ci-dummy.firebaseapp.com
-          VITE_FIREBASE_PROJECT_ID: ci-dummy
-          VITE_FIREBASE_STORAGE_BUCKET: ci-dummy.appspot.com
-          VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
-          VITE_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000000000"
         run: npm test
 
   build-frontend:
@@ -142,7 +142,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
@@ -153,7 +153,6 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
-
   # ─────────────────────────────────────────────────────────────
   # FRONTEND ADMIN — admin panel (React, port 5174)
   # ─────────────────────────────────────────────────────────────
@@ -165,7 +164,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: frontendAdmin/package-lock.json
 
@@ -193,7 +192,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: frontendAdmin/package-lock.json
 
@@ -239,7 +238,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: backendAdmin/package-lock.json
 

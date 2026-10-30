@@ -7,7 +7,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import healthRoutes from "./routes/healthRoutes.js";
 
-import { connectDB, sequelize } from "./config/db.js";
+import { connectDB, closeDB, sequelize } from "./config/db.js";
 
 // ================= ROUTES =================
 import authRoutes from "./routes/auth.js";
@@ -143,6 +143,7 @@ app.use(errorHandler);
 
 // ================= SERVER START =================
 const PORT = process.env.PORT || 5000;
+let server; // Keep reference to server globally for graceful shutdown handlers
 
 const startServer = async () => {
   try {
@@ -162,7 +163,7 @@ const startServer = async () => {
         : "[OK] Database schema synchronized",
     );
 
-    const server = http.createServer(app);
+    server = http.createServer(app);
 
     server.requestTimeout = 120_000;
     server.headersTimeout = 65_000;
@@ -179,8 +180,56 @@ const startServer = async () => {
   }
 };
 
+// ================= GRACEFUL SHUTDOWN (Issue #127) =================
+let isShuttingDown = false;
+
+const gracefulShutdown = (signal) => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`\n[INFO] Received ${signal}. Starting graceful shutdown...`);
+
+  // Force exit fallback timer (10 seconds)
+  const forceExitTimeout = setTimeout(() => {
+    console.error("[ERROR] Forced shutdown: Could not close connections in time.");
+    process.exit(1);
+  }, 10_000);
+
+  if (!server) {
+    console.log("[INFO] Server instance not initialized. Closing DB directly.");
+    closeDB()
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
+    return;
+  }
+
+  // Stop accepting new connections
+  server.close(async (err) => {
+    if (err) {
+      console.error("[ERROR] Error closing HTTP server:", err);
+      clearTimeout(forceExitTimeout);
+      process.exit(1);
+    }
+
+    console.log("[OK] HTTP server closed cleanly.");
+
+    try {
+      // Close database connection pool
+      await closeDB();
+      clearTimeout(forceExitTimeout);
+      console.log("[OK] Graceful shutdown completed successfully.");
+      process.exit(0);
+    } catch (dbErr) {
+      console.error("[ERROR] Error during database closure:", dbErr);
+      clearTimeout(forceExitTimeout);
+      process.exit(1);
+    }
+  });
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
 if (process.env.NODE_ENV !== "test") {
   startServer();
 }
-
 export default app;
