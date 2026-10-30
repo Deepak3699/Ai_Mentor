@@ -2,13 +2,7 @@ import { Course, Module, Lesson, LessonContent } from "../models/modelAssociatio
 import { sequelize } from "../config/db.js";
 import { sendServerError, logServerError, dependencyFailure } from "../utils/apiError.js";
 import { courseDuration } from "../utils/courseDuration.js";
-import {
-  AppError,
-  BadRequestError,
-  ForbiddenError,
-  NotFoundError,
-  forwardError,
-} from "../utils/error.js";
+import { AppError, ForbiddenError, NotFoundError, forwardError } from "../utils/error.js";
 
 /* =========================
    HELPERS
