@@ -111,11 +111,16 @@ export const getAllEnrollments = async (req, res) => {
         data: enrollments.slice(start, start + limit),
       });
     }
+
+    // Handle unsupported or malformed query types cleanly
+    return res.status(400).json({
+      success: false,
+      message: "Invalid or unsupported query type parameter",
+    });
   } catch (error) {
     return sendServerError(req, res, error, "dataController.getAllEnrollments");
   }
 };
-
 export const getAllPayments = async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page) || 1, 1),

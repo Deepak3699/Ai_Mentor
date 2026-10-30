@@ -140,7 +140,6 @@ import { errorHandler, notFoundMiddleware } from "./middleware/errorMiddleware.j
 app.use(notFoundMiddleware);
 // ================= GLOBAL ERROR HANDLER =================
 app.use(errorHandler);
-
 // ================= SERVER START =================
 const PORT = process.env.PORT || 5000;
 

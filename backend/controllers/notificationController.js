@@ -15,6 +15,7 @@ export const getUnreadCount = async (req, res, next) => {
 
     res.status(200).json({ count });
   } catch (error) {
+    console.error("NOTIFICATION ERROR:", error);
     return forwardError(
       next,
       res,
@@ -39,6 +40,7 @@ export const getNotifications = async (req, res, next) => {
 
     res.status(200).json(notifications);
   } catch (error) {
+    console.error("NOTIFICATION ERROR:", error);
     return forwardError(
       next,
       res,
@@ -71,6 +73,7 @@ export const markAsRead = async (req, res, next) => {
 
     res.status(200).json(notification);
   } catch (error) {
+    console.error("NOTIFICATION ERROR:", error);
     return forwardError(
       next,
       res,
@@ -94,6 +97,7 @@ export const markAllAsRead = async (req, res, next) => {
 
     res.status(200).json({ message: "All notifications marked as read" });
   } catch (error) {
+    console.error("NOTIFICATION ERROR:", error);
     return forwardError(
       next,
       res,
@@ -119,6 +123,7 @@ export const clearAll = async (req, res, next) => {
 
     res.status(200).json({ message: "All notifications cleared" });
   } catch (error) {
+    console.error("NOTIFICATION ERROR:", error);
     return forwardError(
       next,
       res,

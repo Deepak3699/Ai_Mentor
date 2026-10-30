@@ -351,6 +351,7 @@ const addCourse = async (req, res, next) => {
     });
     res.status(201).json(course);
   } catch (error) {
+    console.error("ADD COURSE ERROR:", error);
     return forwardError(
       next,
       res,

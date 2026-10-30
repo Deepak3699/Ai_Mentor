@@ -15,6 +15,7 @@
   "dependencies": {
     "@google/genai": "^2.31.0",
     "@google/generative-ai": "^0.24.1",
+    "ai-mentor-updated": "file:..",
     "assert": "^2.1.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
