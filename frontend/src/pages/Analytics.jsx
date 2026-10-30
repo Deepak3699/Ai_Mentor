@@ -17,8 +17,6 @@ import {
   LogOut,
   Bell,
   Search,
-  Moon,
-  Sun,
   Menu,
   Users,
   Flame,
@@ -45,14 +43,6 @@ const Analytics = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const searchQuery = "";
 
-  // Initialize dark mode from localStorage
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme) {
-      return savedTheme === "dark";
-    }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
 
   const statusEmojis = {
     Completed: "✅",
@@ -241,19 +231,6 @@ const Analytics = () => {
   return (
     <>
       <main className="p-4 md:p-6 lg:p-8">
-        {/* Dark Mode Toggle Button */}
-        <div className="fixed bottom-6 right-6 z-50">
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-3 rounded-full bg-white dark:bg-[#1A1A1A] shadow-lg hover:shadow-xl transition-all duration-300 border border-[#CCCCCC] dark:border-gray-700"
-          >
-            {isDarkMode ? (
-              <Sun className="w-5 h-5 text-[#ff6d34]" />
-            ) : (
-              <Moon className="w-5 h-5 text-[#ff6d34]" />
-            )}
-          </button>
-        </div>
 
         {/* Welcome Section */}
         <div className="mb-8">
