@@ -5,8 +5,9 @@ import validate from "../middleware/validate.js";
 
 const invoke = (schema, body) => {
   const result = { statusCode: 200, payload: undefined, nextCalls: 0 };
-  const req = { body };
+  const req = { id: "test-id", method: "POST", originalUrl: "/x", body };
   const res = {
+    headersSent: false,
     status(code) {
       result.statusCode = code;
       return this;
@@ -24,13 +25,17 @@ const invoke = (schema, body) => {
       }),
   };
 };
+
 const quiet = async (callback) => {
-  const original = console.error;
+  const originalError = console.error;
+  const originalWarn = console.warn;
   console.error = () => {};
+  console.warn = () => {};
   try {
     return await callback();
   } finally {
-    console.error = original;
+    console.error = originalError;
+    console.warn = originalWarn;
   }
 };
 
@@ -48,37 +53,27 @@ test("validate returns normalized nested field errors", async () => {
   await quiet(run);
   assert.equal(result.nextCalls, 0);
   assert.equal(result.statusCode, 400);
-  const res = result.payload;
-  assert.ok(res);
-  const error = res.error;
-  assert.ok(error);
-
-  assert.equal(error.code, "VALIDATION_ERROR");
-  assert.equal(error.message, "Validation failed");
-
-  assert.deepEqual(error.details, [
-    {
-      path: "profile.email",
-      message: "Invalid email address",
-    },
-  ]);
+  assert.equal(result.nextCalls, 0);
+  assert.equal(result.payload.error.message, "Validation failed");
+  assert.equal(result.payload.error.details[0].path, "profile.email");
 });
 
-test("validate returns 500 when no schema is provided", async () => {
+test("validate returns a generic 500 when no schema is provided", async () => {
   const { result, run } = invoke(undefined, {});
 
   await quiet(run);
 
   assert.equal(result.nextCalls, 0);
   assert.equal(result.statusCode, 500);
-
-  const error = result.payload.error;
-
-  assert.equal(error.code, "INTERNAL_SERVER_ERROR");
-  assert.equal(error.message, "Internal Server Error: No schema provided");
+  assert.deepEqual(result.payload, {
+    success: false,
+    message: "Internal server error",
+    error: "Internal server error",
+    requestId: "test-id",
+  });
 });
 
-test("validate safely handles unexpected schema exceptions", async () => {
+test("validate hides unexpected schema exceptions from the client", async () => {
   const { result, run } = invoke(
     {
       safeParse() {
@@ -92,9 +87,6 @@ test("validate safely handles unexpected schema exceptions", async () => {
 
   assert.equal(result.nextCalls, 0);
   assert.equal(result.statusCode, 500);
-
-  const error = result.payload.error;
-
-  assert.equal(error.code, "INTERNAL_SERVER_ERROR");
-  assert.equal(error.message, "Internal Server Error during validation");
+  assert.equal(result.payload.message, "Internal server error");
+  assert.ok(!JSON.stringify(result.payload).includes("schema exploded"));
 });

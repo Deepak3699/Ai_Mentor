@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import { createNotification } from "./notificationController.js";
 import AdminNotification from "../models/AdminNotification.js";
 import CourseReport from "../models/CourseReport.js";
+import { sendServerError, sendApiError } from "../utils/apiError.js";
 
 // Roles that moderate course reports. These are the User.role enum values in
 // backend/models/User.js ("superadmin" is lowercase there, as in
@@ -28,7 +29,11 @@ export const createReport = async (req, res) => {
   if (!req.user || !req.user.id) {
     return res.status(401).json({
       success: false,
-      error: { code: "UNAUTHORIZED", message: "User not authenticated", details: [] },
+      error: {
+        code: "UNAUTHORIZED",
+        message: "User not authenticated",
+        details: [],
+      },
     });
   }
 
@@ -93,10 +98,6 @@ export const createReport = async (req, res) => {
 
     return res.status(201).json(report);
   } catch (err) {
-    console.error("Course report submission failed, nothing was saved:", err);
-    return res.status(500).json({
-      success: false,
-      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
-    });
+    return sendServerError(req, res, err, "reportController.createReport");
   }
 };

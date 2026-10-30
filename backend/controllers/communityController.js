@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { createNotification } from "./notificationController.js";
 import AdminNotification from "../models/AdminNotification.js";
 import { sequelize } from "../config/db.js";
+import { sendServerError } from "../utils/apiError.js";
 import {
   AppError,
   ConflictError,
@@ -923,18 +924,7 @@ const moderateReport = async (req, res, next) => {
 
     return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("MODERATE REPORT ERROR:", error);
-    return forwardError(
-      next,
-      res,
-      new AppError(
-        "Internal Server Error",
-        500,
-        "INTERNAL_SERVER_ERROR",
-        [],
-        error?.message || "Server error",
-      ),
-    );
+    return sendServerError(req, res, error, "communityController.moderateReport");
   }
 };
 
