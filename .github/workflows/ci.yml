@@ -347,4 +347,3 @@ jobs:
             --no-banner \
             --no-color \
             --exit-code 1
-            
