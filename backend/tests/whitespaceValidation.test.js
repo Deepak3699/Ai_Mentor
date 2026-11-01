@@ -7,9 +7,19 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
-import { addCourseSchema, addModulesSchema, addLessonsSchema, addSubtopicsSchema } from "../schemas/courseSchema.js";
+import {
+  addCourseSchema,
+  addModulesSchema,
+  addLessonsSchema,
+  addSubtopicsSchema,
+} from "../schemas/courseSchema.js";
 import { registerSchema } from "../schemas/authSchema.js";
-import { createPostSchema, replySchema, editPostSchema, editReplySchema } from "../schemas/communitySchema.js";
+import {
+  createPostSchema,
+  replySchema,
+  editPostSchema,
+  editReplySchema,
+} from "../schemas/communitySchema.js";
 import { generateVideoSchema } from "../schemas/aiSchema.js";
 import { updateProfileSchema } from "../schemas/userSchema.js";
 
@@ -22,7 +32,11 @@ function rejects(schema, value, label) {
 // Helper — assert schema accepts the given value
 function accepts(schema, value, label) {
   const result = schema.safeParse(value);
-  assert.equal(result.success, true, `Expected ${label} to be accepted but it was rejected: ${JSON.stringify(result.error?.issues)}`);
+  assert.equal(
+    result.success,
+    true,
+    `Expected ${label} to be accepted but it was rejected: ${JSON.stringify(result.error?.issues)}`,
+  );
 }
 
 // ──────────────────────────────────────────────
@@ -78,11 +92,7 @@ describe("courseSchema — whitespace validation", () => {
   });
 
   it("accepts valid lesson", () => {
-    accepts(
-      addLessonsSchema,
-      { lessons: [{ id: "l1", title: "Introduction" }] },
-      "valid lesson",
-    );
+    accepts(addLessonsSchema, { lessons: [{ id: "l1", title: "Introduction" }] }, "valid lesson");
   });
 
   it("rejects whitespace-only subtopic", () => {
@@ -185,11 +195,7 @@ describe("aiSchema — whitespace validation", () => {
   });
 
   it("rejects empty celebrity name", () => {
-    rejects(
-      generateVideoSchema,
-      { courseId: 1, lessonId: 1, celebrity: "" },
-      "empty celebrity",
-    );
+    rejects(generateVideoSchema, { courseId: 1, lessonId: 1, celebrity: "" }, "empty celebrity");
   });
 
   it("accepts valid generate video request", () => {

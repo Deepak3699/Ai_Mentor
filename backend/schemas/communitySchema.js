@@ -58,7 +58,11 @@ export const editReplySchema = z.object({
 export const reportContentSchema = z.object({
   replyId: z.string().uuid().optional().or(z.string().optional()),
 
-  reason: z.string().trim().min(1, "Reason is required").max(200, "Reason cannot exceed 200 characters"),
+  reason: z
+    .string()
+    .trim()
+    .min(1, "Reason is required")
+    .max(200, "Reason cannot exceed 200 characters"),
 
   description: z.string().trim().max(500, "Description cannot exceed 500 characters").optional(),
 });

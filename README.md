@@ -175,6 +175,7 @@ cd Ai_Mentor
 ```
 
 Then copy each required `.env.example` file to `.env`. Use [`initalSetup.md`](./initalSetup.md) for the complete variable list. Never commit `.env` files or credentials.
+
 ### 2. Install the complete project
 
 ```bash
