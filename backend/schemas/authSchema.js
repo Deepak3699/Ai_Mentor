@@ -8,9 +8,9 @@ export const passwordSchema = z
   .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one special character");
 
 export const registerSchema = z.object({
-  firstName: z.string().min(1, "First name is required").max(50, "First name too long"),
-  lastName: z.string().min(1, "Last name is required").max(50, "Last name too long"),
-  name: z.string().min(2, "Name must be at least 2 characters long"),
+  firstName: z.string().trim().min(1, "First name is required").max(50, "First name too long"),
+  lastName: z.string().trim().min(1, "Last name is required").max(50, "Last name too long"),
+  name: z.string().trim().min(2, "Name must be at least 2 characters long"),
   email: z.string().email("Invalid email format"),
   password: passwordSchema,
 });
@@ -25,5 +25,5 @@ export const resetPasswordSchema = z.object({
   password: passwordSchema,
 });
 export const googleLoginSchema = z.object({
-  idToken: z.string().min(1, "ID token is required"),
+  idToken: z.string().trim().min(1, "ID token is required"),
 });
