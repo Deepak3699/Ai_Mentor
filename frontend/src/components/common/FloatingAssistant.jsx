@@ -113,9 +113,7 @@ const FloatingAssistant = () => {
 
   const sendMessage = async () => {
     const message = input.trim();
-
     if (!message || requestInFlight.current) return;
-
     requestInFlight.current = true;
     setLoading(true);
     setMessages((previous) => [...previous, { sender: "user", text: message }]);
@@ -128,7 +126,6 @@ const FloatingAssistant = () => {
         { message },
         { headers: { Authorization: `Bearer ${token}` } },
       );
-
       setMessages((previous) => [
         ...previous,
         {
