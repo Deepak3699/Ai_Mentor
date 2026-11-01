@@ -151,16 +151,9 @@ const startServer = async () => {
     await connectDB();
     console.log("[OK] Database connected");
 
-    const isDevelopment = process.env.NODE_ENV !== "production";
-    const syncOptions = isDevelopment ? { alter: true } : {};
+    await sequelize.sync();
 
-    await sequelize.sync(syncOptions);
-
-    console.log(
-      isDevelopment
-        ? "[OK] Database schema synchronized (development auto-alter enabled)"
-        : "[OK] Database schema synchronized",
-    );
+    console.log("[OK] Database schema synchronized");
 
     const server = http.createServer(app);
 
