@@ -399,12 +399,19 @@ test("Stripe checkout creates and updates a payment using the authenticated user
   assert.equal(updatedData.status, "processing");
   assert.equal(updatedData.stripeSessionId, "session-1");
 });
-
-test("Stripe gateway failure returns 500 after payment creation", async () => {
+test("Stripe gateway failure returns 500 after payment creation and marks payment failed", async () => {
   let created = 0;
+  let update;
   Payment.create = async () => {
     created += 1;
-    return { id: "payment-1", async update() {} };
+    return {
+      id: "payment-1",
+      status: "initiated",
+      async update(data) {
+        update = data;
+        this.status = data.status;
+      },
+    };
   };
   paymentGatewayServices.createStripeCheckoutSession = async () => {
     throw new Error("Stripe unavailable");
@@ -422,9 +429,105 @@ test("Stripe gateway failure returns 500 after payment creation", async () => {
       error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
     });
     assert.equal(created, 1);
+    assert.deepEqual(update, { status: "failed" });
   } finally {
     console.error = originalError;
   }
+});
+test("Stale payment reconciliation moves expired initiated or processing payments to failed", async () => {
+  let updateArgs;
+  Payment.update = async (values, options) => {
+    updateArgs = { values, options };
+    return [3];
+  };
+
+  const reconciledCount = await Payment.reconcileStalePayments({
+    timeoutMs: 15 * 60 * 1000,
+    now: new Date("2026-10-26T12:00:00.000Z"),
+  });
+
+  assert.equal(reconciledCount, 3);
+  assert.deepEqual(updateArgs.values, { status: "failed" });
+
+  // Verify GET /api/payment/status/:paymentId reconciles an expired non-terminal payment
+  let statusUpdated = null;
+  Payment.findByPk = async (id) => ({
+    id,
+    userId: "owner",
+    status: "initiated",
+    courseId: 7,
+    courseTitle: "Course",
+    amount: 49900,
+    currency: "inr",
+    gateway: "stripe",
+    createdAt: "2026-10-05T00:00:00.000Z",
+    cacheExpiresAt: new Date(Date.now() - 60_000),
+    async update(data) {
+      statusUpdated = data;
+      Object.assign(this, data);
+    },
+  });
+
+  const res = await request("/api/payment/status/payment-stale", { userId: "owner" });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.status, "failed");
+  assert.deepEqual(statusUpdated, { status: "failed" });
+});
+
+test("Regression: failed payment row with empty cachedResponse is not served as cached success and can be retried", async () => {
+  const failedRow = {
+    id: "pay-retry-1",
+    userId: "user-1",
+    courseId: 7,
+    courseTitle: "Course",
+    amount: 10000,
+    currency: "inr",
+    status: "failed",
+    gateway: "stripe",
+    cachedResponse: {},
+    cacheExpiresAt: new Date(Date.now() + 60_000),
+    transitions: [],
+    async update(data) {
+      if (data.status) {
+        this.transitions.push(data.status);
+      }
+      Object.assign(this, data);
+    },
+  };
+
+  Payment.findOne = async () => failedRow;
+  paymentGatewayServices.createStripeCheckoutSession = async () => ({
+    id: "sess-retry-1",
+    url: "https://checkout.test/sess-retry-1",
+  });
+
+  const res = await request("/api/payment/create-checkout-session", {
+    userId: "user-1",
+    method: "POST",
+    body: {
+      course: { id: 7, title: "Course", priceValue: 100 },
+      idempotencyKey: "retry-key-1",
+    },
+  });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), {
+    url: "https://checkout.test/sess-retry-1",
+    paymentId: "pay-retry-1",
+  });
+  assert.deepEqual(failedRow.transitions, ["initiated", "processing"]);
+  assert.equal(failedRow.status, "processing");
+});
+
+test("Payment state machine enforces valid lifecycle transitions across Stripe and Razorpay", () => {
+  assert.equal(Payment.canTransition("initiated", "processing"), true);
+  assert.equal(Payment.canTransition("initiated", "failed"), true);
+  assert.equal(Payment.canTransition("processing", "success"), true);
+  assert.equal(Payment.canTransition("processing", "failed"), true);
+  assert.equal(Payment.canTransition("failed", "initiated"), true);
+  assert.equal(Payment.canTransition("success", "failed"), false);
+  assert.equal(Payment.canTransition("success", "processing"), false);
 });
 
 test("Razorpay order creates, caches, and updates a payment", async () => {

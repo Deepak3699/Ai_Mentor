@@ -93,7 +93,12 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
           error: { code: "FORBIDDEN", message: "Unauthorized idempotency key", details: [] },
         });
       }
-      if (existing.cachedResponse && Object.keys(existing.cachedResponse).length > 0) {
+      const hasCachedPayload =
+        existing.cachedResponse && Object.keys(existing.cachedResponse).length > 0;
+      const isNotExpired =
+        !existing.cacheExpiresAt || new Date(existing.cacheExpiresAt) > new Date();
+
+      if (hasCachedPayload && isNotExpired && existing.status !== "failed") {
         log.info({ idempotencyKey }, "Returning cached Razorpay response");
         return res.status(200).json(existing.cachedResponse);
       }
@@ -102,6 +107,7 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
     const amount = Math.round(priceValue * 100);
     const currency = (courseRecord.currency || "INR").toUpperCase();
     const courseTitle = courseRecord.title || "Course";
+    const cacheExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const options = {
       amount,
@@ -111,18 +117,33 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
 
     log.info({ courseTitle, userId }, "Initiating Razorpay payment");
 
-    // Persist the payment before contacting Razorpay.
-    const payment = await Payment.create({
-      userId,
-      courseId: courseRecord.id,
-      courseTitle,
-      amount,
-      currency,
-      status: "initiated",
-      gateway: "razorpay",
-      idempotencyKey,
-      cacheExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    });
+    // Persist or re-initiate the payment before contacting Razorpay.
+    let payment;
+    if (existing && typeof existing.update === "function") {
+      payment = existing;
+      await payment.update({
+        courseId: courseRecord.id,
+        courseTitle,
+        amount,
+        currency,
+        status: "initiated",
+        gateway: "razorpay",
+        cachedResponse: {},
+        cacheExpiresAt,
+      });
+    } else {
+      payment = await Payment.create({
+        userId,
+        courseId: courseRecord.id,
+        courseTitle,
+        amount,
+        currency,
+        status: "initiated",
+        gateway: "razorpay",
+        idempotencyKey,
+        cacheExpiresAt,
+      });
+    }
 
     let order;
 

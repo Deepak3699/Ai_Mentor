@@ -7,10 +7,11 @@ export const createPostSchema = z
       .union([z.string(), z.number()])
       .transform((val) => Number(val))
       .optional(),
-    courseName: z.string().max(100, "Course name cannot exceed 100 characters").optional(),
-    category: z.string().max(50, "Category cannot exceed 50 characters").optional(),
+    courseName: z.string().trim().max(100, "Course name cannot exceed 100 characters").optional(),
+    category: z.string().trim().max(50, "Category cannot exceed 50 characters").optional(),
     content: z
       .string()
+      .trim()
       .min(1, "Post content is required")
       .max(2000, "Post content cannot exceed 2000 characters"),
   })
@@ -33,6 +34,7 @@ export const createPostSchema = z
 export const editPostSchema = z.object({
   content: z
     .string()
+    .trim()
     .min(1, "Post content is required")
     .max(2000, "Post content cannot exceed 2000 characters"),
 });
@@ -40,6 +42,7 @@ export const editPostSchema = z.object({
 export const replySchema = z.object({
   text: z
     .string()
+    .trim()
     .min(1, "Reply text is required")
     .max(1000, "Reply cannot exceed 1000 characters"),
 });
@@ -47,6 +50,7 @@ export const replySchema = z.object({
 export const editReplySchema = z.object({
   text: z
     .string()
+    .trim()
     .min(1, "Reply text is required")
     .max(1000, "Reply cannot exceed 1000 characters"),
 });
@@ -54,9 +58,9 @@ export const editReplySchema = z.object({
 export const reportContentSchema = z.object({
   replyId: z.string().uuid().optional().or(z.string().optional()),
 
-  reason: z.string().min(1, "Reason is required").max(200, "Reason cannot exceed 200 characters"),
+  reason: z.string().trim().min(1, "Reason is required").max(200, "Reason cannot exceed 200 characters"),
 
-  description: z.string().max(500, "Description cannot exceed 500 characters").optional(),
+  description: z.string().trim().max(500, "Description cannot exceed 500 characters").optional(),
 });
 
 export const moderateReportSchema = z.object({

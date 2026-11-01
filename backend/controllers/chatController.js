@@ -137,21 +137,6 @@ export const chatWithAssistant = async (req, res, next) => {
       });
     }
 
-    //recommendation
-    if (intent.type === "recommendation") {
-      const courses = user.purchasedCourses || [];
-      if (!courses.length) {
-        return res.json({
-          reply: "You are not enrolled in any courses yet.",
-        });
-      }
-
-      const course = courses[0];
-      return res.json({
-        reply: `I recommend continuing ${course.courseTitle}.`,
-      });
-    }
-
     // Current lesson and resume navigation
     if (intent.type === "current_lesson") {
       const courses = user.purchasedCourses || [];

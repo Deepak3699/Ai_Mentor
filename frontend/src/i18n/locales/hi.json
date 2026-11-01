@@ -320,7 +320,18 @@
     "status_ongoing": "चल रहा है",
     "status_upcoming": "आगामी",
     "delete_task_confirm": "क्या आप वाकई इस कार्य को हटाना चाहते हैं?",
-    "task_exists_error": "इस तारीख के लिए कार्य पहले से मौजूद है।"
+    "task_exists_error": "इस तारीख के लिए कार्य पहले से मौजूद है।",
+    "achievements": {
+      "title": "उपलब्धियाँ",
+      "view_all": "सभी देखें",
+      "course_title": "पूरा किया: {{title}}",
+      "course_description": "आपने कोर्स पूरा कर लिया",
+      "streak_title_one": "{{count}} दिन की स्ट्रीक",
+      "streak_title_other": "{{count}} दिन की स्ट्रीक",
+      "streak_description": "लगातार सीखने वाले",
+      "certificate_title": "पहला प्रमाणपत्र",
+      "empty": "पहली उपलब्धि पाने के लिए एक कोर्स पूरा करें या लगातार 3 दिन पढ़ाई करें।"
+    }
   },
   "discussions": {
     "title": "चर्चा",
