@@ -1,4 +1,3 @@
-// backend/server.js
 import express from "express";
 import http from "node:http";
 import dotenv from "dotenv";
@@ -43,6 +42,9 @@ dotenv.config();
 
 import { validateEnv } from "./env-validator.js";
 import { securityHeaders } from "./config/securityHeaders.js";
+import requestContext from "./middleware/requestContext.js";
+import { errorHandler } from "./middleware/errorMiddleware.js";
+
 import { startTokenCleanup } from "./jobs/tokenCleanup.js";
 validateEnv();
 
@@ -67,12 +69,15 @@ const defaultDevOrigins = [
 
 const allowedOrigins = Array.from(new Set([...envOrigins, ...defaultDevOrigins]));
 
+// Request ID first, so every response and log line has one.
+app.use(requestContext);
+
 app.use(securityHeaders());
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without origin (Postman, mobile apps, curl)
+      // Allow requests without origin (Postman, mobile apps, curl).
       if (!origin) {
         return callback(null, true);
       }
@@ -81,21 +86,26 @@ app.use(
         return callback(null, true);
       }
 
-      // Allow any localhost/127.0.0.1 origin in development
+      // Allow localhost/127.0.0.1 origins in development.
       if (process.env.NODE_ENV !== "production") {
         if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
           return callback(null, true);
         }
       }
 
-      console.error(`❌ Blocked by CORS: ${origin}`);
-      return callback(new Error("Not allowed by CORS"));
+      console.warn("Blocked by CORS");
+      const corsError = new Error("Not allowed by CORS");
+      corsError.status = 403;
+      corsError.expose = true;
+
+      return callback(corsError);
     },
     credentials: true,
   }),
 );
 
-// ================= STRIPE WEBHOOK (MUST BE BEFORE express.json) =================
+// ================= STRIPE WEBHOOK =================
+// These routes must be before express.json().
 app.use("/api/stripe", webhookRoutes);
 app.use("/api/payment", webhookRoutes);
 
@@ -135,10 +145,16 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/assistant", assistantRoutes);
 app.use("/api/calendar", CalendarTaskRoutes);
 
-import { errorHandler, notFoundMiddleware } from "./middleware/errorMiddleware.js";
 // ================= 404 HANDLER =================
-app.use(notFoundMiddleware);
-// ================= GLOBAL ERROR HANDLER =================
+app.use((req, res) => {
+  return res.status(404).json({
+    success: false,
+    message: "Route not found",
+    requestId: req.id,
+  });
+});
+
+// ================= GLOBAL ERROR HANDLER (must be last) =================
 app.use(errorHandler);
 
 // ================= SERVER START =================
@@ -148,7 +164,9 @@ const startServer = async () => {
   try {
     console.log("[STARTING] Backend startup");
     console.log("[CHECK] Connecting to database...");
+
     await connectDB();
+
     console.log("[OK] Database connected");
 
     const isDevelopment = process.env.NODE_ENV !== "production";
@@ -173,8 +191,8 @@ const startServer = async () => {
       console.log(`[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`);
       console.log("[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.");
     });
-  } catch (error) {
-    console.error("[FAILED] Backend startup failed:", error);
+  } catch {
+    console.error("[FAILED] Backend startup failed:");
     process.exit(1);
   }
 };
