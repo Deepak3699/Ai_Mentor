@@ -12,6 +12,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { OPEN_ASSISTANT_EVENT } from "../dashboard/QuickActions";
+import { buildChatHistory } from "../../service/chatHistory.js";
 
 const ANCHOR_KEY = "floatingAssistantAnchor";
 const EDGE_GAP = 16;
@@ -115,6 +116,7 @@ const FloatingAssistant = () => {
     const message = input.trim();
     if (!message || requestInFlight.current) return;
     requestInFlight.current = true;
+    const history = buildChatHistory(messages);
     setLoading(true);
     setMessages((previous) => [...previous, { sender: "user", text: message }]);
     setInput("");
@@ -123,7 +125,7 @@ const FloatingAssistant = () => {
       const token = localStorage.getItem("token");
       const { data } = await axios.post(
         "/api/assistant/chat",
-        { message },
+        { message, history },
         { headers: { Authorization: `Bearer ${token}` } },
       );
       setMessages((previous) => [
@@ -141,6 +143,7 @@ const FloatingAssistant = () => {
         {
           sender: "assistant",
           text: error?.response?.data?.message || "Sorry, something went wrong.",
+          isError: true,
         },
       ]);
     } finally {

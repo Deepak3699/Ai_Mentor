@@ -163,6 +163,35 @@ describe("FloatingAssistant regression tests", () => {
     expect(reply.textContent).toBe("First line\nSecond line\nThird line");
   });
 
+  it("sends conversation history without failed assistant bubbles", async () => {
+    axios.post
+      .mockResolvedValueOnce({ data: { reply: "First reply" } })
+      .mockRejectedValueOnce({ response: { data: { message: "Request failed" } } })
+      .mockResolvedValueOnce({ data: { reply: "Third reply" } });
+    const { input, sendButton } = openAssistant();
+    fireEvent.change(input, { target: { value: "First question" } });
+    fireEvent.click(sendButton);
+    expect(await screen.findByText("First reply")).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "Second question" } });
+    fireEvent.click(sendButton);
+    expect(await screen.findByText("Request failed")).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "Third question" } });
+    fireEvent.click(sendButton);
+    expect(await screen.findByText("Third reply")).toBeInTheDocument();
+    expect(axios.post).toHaveBeenLastCalledWith(
+      "/api/assistant/chat",
+      {
+        message: "Third question",
+        history: [
+          { role: "user", text: "First question" },
+          { role: "model", text: "First reply" },
+          { role: "user", text: "Second question" },
+        ],
+      },
+      { headers: { Authorization: "Bearer test-token" } },
+    );
+  });
+
   it("preserves earlier conversation messages", async () => {
     axios.post
       .mockResolvedValueOnce({ data: { reply: "First reply" } })
