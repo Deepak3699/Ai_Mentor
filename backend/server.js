@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB, sequelize } from "./config/db.js";
+import { createGracefulShutdown } from "./gracefulShutdown.js";
 
 // ================= ROUTES =================
 import authRoutes from "./routes/auth.js";
@@ -160,6 +161,20 @@ app.use(errorHandler);
 // ================= SERVER START =================
 const PORT = process.env.PORT || 5000;
 
+const SHUTDOWN_TIMEOUT = 10_000;
+let server;
+const shutdown = createGracefulShutdown({
+  getServer: () => server,
+  database: sequelize,
+  timeoutMs: SHUTDOWN_TIMEOUT,
+});
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
+process.once("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+
 const startServer = async () => {
   try {
     console.log("[STARTING] Backend startup");
@@ -180,11 +195,15 @@ const startServer = async () => {
         : "[OK] Database schema synchronized",
     );
 
-    const server = http.createServer(app);
+    server = http.createServer(app);
 
     server.requestTimeout = 120_000;
     server.headersTimeout = 65_000;
     server.keepAliveTimeout = 60_000;
+    server.on("error", () => {
+      console.error("[FAILED] Backend HTTP server error.");
+      process.exitCode = 1;
+    });
     startTokenCleanup();
     server.listen(PORT, () => {
       console.log(`[READY] Backend: http://localhost:${PORT}`);
