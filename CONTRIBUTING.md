@@ -138,6 +138,30 @@ Use obvious placeholders in docs and examples (`your_password`, `xxxxx`), which 
 
 ---
 
+## Review and smoke-test scripts
+
+```bash
+scripts/review-pr.sh 123          # check a PR (needs gh; run npm run setup first)
+scripts/smoke-test.sh             # is the local stack alive? (--quick = services only)
+scripts/test-review-scripts.sh    # self-test of both scripts (also runs in CI)
+```
+
+Both scripts list exactly which checks passed, failed, or were skipped. Neither runs the automated test suites (CI does), so a pass means "the listed checks passed", not "this change is correct".
+
+`review-pr.sh` stops before switching branches if you have uncommitted or untracked files (ignored files such as `node_modules` are fine), and it restores your branch when it finishes or is interrupted. It fetches the base branch first and prints the exact base commit: `upstream/main` if you have an `upstream` remote, otherwise `origin/main`. Use `BASE_REF=<remote>/<branch>` to pick another base, or `NO_FETCH=1` to skip the fetch (the result then carries a warning).
+
+`smoke-test.sh` treats only HTTP 400, 401, 403 and 404 as a safe rejection in the transcript checks. A 5xx fails, and no response, a redirect or any other status warns.
+
+| Exit code | Meaning                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------- |
+| `0`       | Every required check ran and passed, no warnings                                            |
+| `1`       | A check failed, or the script could not run (bad input, local work in the way, `curl` gone) |
+| `2`       | Warnings, or a required check was skipped (for example `node_modules` missing)              |
+
+Exit code `2` is never a safe-to-merge result. Install what is missing and run the script again.
+
+---
+
 ## Commit message format
 
 ```
@@ -212,5 +236,5 @@ help you from that alone.
 
 ---
 
-_Questions? Ask the team lead. If you spot a mistake in these rules, send a pull
-request — this file should improve too._
+Questions? Ask the team lead. If you spot a mistake in these rules, send a pull
+request, this file should improve too.

@@ -1,11 +1,11 @@
-import React, { Suspense, lazy } from "react";
-import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import React, { Suspense, lazy, useEffect } from "react";
+import { Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import DashboardLayout from "./components/DashboardLayout";
-import LoadingSpinner from "./components/common/LoadingSpinner";
+
 import Dashboard from "./pages/Dashboard";
 
 // Lazy Loading
@@ -18,6 +18,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const WatchedVideos = lazy(() => import("./pages/WatchedVideos"));
 const CoursePreview = lazy(() => import("./pages/CoursePreview"));
 const LearningPage = lazy(() => import("./pages/LearningPage"));
+const CodeExplainerPage = lazy(() => import("./pages/CodeExplainer"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CertificatesPage = lazy(() => import("./pages/CertificatesPage"));
@@ -38,6 +39,17 @@ const RootRedirect = () => {
   return <Navigate to={user?.isProfileComplete ? "/dashboard" : "/complete-profile"} replace />;
 };
 
+const InitialRouteReady = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    if (pathname !== "/dashboard") {
+      window.dispatchEvent(new Event("app:initial-route-ready"));
+    }
+  }, [pathname]);
+
+  return null;
+};
 // Public routes (block logged-in users)
 const PublicRoutes = () => {
   const { isAuthenticated, user } = useAuth();
@@ -49,7 +61,7 @@ const PublicRoutes = () => {
 
 const App = () => {
   return (
-    <Suspense fallback={<LoadingSpinner variant="route" label="Loading page..." />}>
+    <Suspense fallback={null}>
       <Routes>
         {/* ROOT */}
         <Route path="/" element={<RootRedirect />} />
@@ -75,6 +87,7 @@ const App = () => {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/courses" element={<CoursesPage />} />
+            <Route path="/code-explainer" element={<CodeExplainerPage />} />
             <Route path="/discussions" element={<DiscussionsPage />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/certificates" element={<CertificatesPage />} />
@@ -97,6 +110,7 @@ const App = () => {
         {/* 404 */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <InitialRouteReady />
     </Suspense>
   );
 };

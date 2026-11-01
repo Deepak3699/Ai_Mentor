@@ -1,4 +1,5 @@
 import { AdminNotification, Course, User, Admin } from "../models/index.js";
+import { sendServerError } from "../utils/apiError.js";
 
 const ensureNotificationSeed = async () => {
   await AdminNotification.sync();
@@ -59,8 +60,7 @@ export const getAdminNotifications = async (req, res) => {
     });
     res.status(200).json({ success: true, data: notifications });
   } catch (error) {
-    console.error("GET NOTIFICATIONS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "notificationController.getAdminNotifications");
   }
 };
 
@@ -69,8 +69,7 @@ export const markAllNotificationsRead = async (req, res) => {
     await AdminNotification.update({ unread: false }, { where: { unread: true } });
     res.status(200).json({ success: true, message: "All notifications marked as read" });
   } catch (error) {
-    console.error("MARK ALL READ ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "notificationController.markAllNotificationsRead");
   }
 };
 
@@ -84,8 +83,7 @@ export const markNotificationRead = async (req, res) => {
     await notification.save();
     res.status(200).json({ success: true, data: notification });
   } catch (error) {
-    console.error("MARK READ ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "notificationController.markNotificationRead");
   }
 };
 
@@ -101,7 +99,6 @@ export const clearAllNotifications = async (req, res) => {
     });
     res.status(200).json({ success: true, message: "All notifications cleared" });
   } catch (error) {
-    console.error("CLEAR NOTIFICATIONS ERROR:", error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
+    return sendServerError(req, res, error, "notificationController.clearAllNotifications");
   }
 };

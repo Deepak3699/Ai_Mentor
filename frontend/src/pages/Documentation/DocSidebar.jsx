@@ -16,7 +16,7 @@ const DocSidebar = ({ docData, activeId, isMobileOpen, setIsMobileOpen }) => {
       {/* Mobile overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden ui-overlay-motion"
           onClick={() => setIsMobileOpen(false)}
         />
       )}

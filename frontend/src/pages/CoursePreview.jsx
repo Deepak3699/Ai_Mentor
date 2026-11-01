@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import API_BASE_URL from "../lib/api";
 import { Play, ChevronDown, ChevronUp, X } from "lucide-react";
 import toast from "react-hot-toast";
+import { getErrorMessage } from "../lib/errorHandling.js";
 import { loadRazorpayScript } from "../lib/loadRazorPay";
 import CourseFeedback from "../components/common/CourseFeedback";
 import LoadingSpinner from "../components/common/LoadingSpinner";
@@ -251,12 +252,18 @@ export default function CoursePreview() {
             courseTitle: selectedCourse.title,
           }),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => null);
         if (!res.ok) {
-          if (data.message === "Already enrolled") {
+          if (data?.error?.code === "CONFLICT" || data?.message === "Already enrolled") {
             toast.success("Already enrolled!");
           } else {
-            throw new Error(data.message || "Enrollment failed");
+            throw {
+              response: { status: res.status, data },
+              message: getErrorMessage(
+                { response: { status: res.status, data } },
+                "Enrollment failed",
+              ),
+            };
           }
         } else {
           toast.success("Course enrolled successfully!");
@@ -269,7 +276,7 @@ export default function CoursePreview() {
         navigate(`/learning/${selectedCourse.id}`);
       } catch (err) {
         console.error(err);
-        toast.error(err.message || "Enrollment failed");
+        toast.error(getErrorMessage(err, "Enrollment failed"));
       } finally {
         setIsPurchasing(false);
       }
@@ -804,7 +811,7 @@ export default function CoursePreview() {
       </main>
       {/* ENROLL CONFIRM POPUP (same style as CoursesPage) */}
       {showEnrollPopup && selectedCourse && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 ui-overlay-motion">
           <div className="bg-card w-full max-w-md rounded-2xl p-6 pt-10 relative border border-border">
             <button
               onClick={() => setShowEnrollPopup(false)}

@@ -15,9 +15,9 @@ jobs:
     name: Check formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -28,6 +28,27 @@ jobs:
 
       - name: Run Prettier check
         run: npm run format:check
+
+  # Shell tests for scripts/review-pr.sh and scripts/smoke-test.sh.
+  # Linux, plus Git Bash on Windows (the shell most Windows contributors use).
+  test-shell-scripts:
+    name: Shell tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Keep LF line endings on Windows
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v7
+
+      - name: Run review and smoke-test script tests
+        run: bash scripts/test-review-scripts.sh
 
   # ─────────────────────────────────────────────────────────────
   # BACKEND (Node + Express, port 5000)
@@ -46,9 +67,9 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -75,9 +96,9 @@ jobs:
     name: Lint frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -117,9 +138,9 @@ jobs:
       VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
       VITE_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000000000"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -140,9 +161,9 @@ jobs:
     name: Lint admin frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -168,9 +189,9 @@ jobs:
     env:
       VITE_API_BASE_URL: http://localhost:5001
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -190,10 +211,33 @@ jobs:
   lint-backend-admin:
     name: Lint backendAdmin
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: backend_admin_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d backend_admin_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - name: Configure PostgreSQL rollback test
+        shell: bash
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: backend_admin_test
+        run: |
+          printf 'TEST_DATABASE_URL=postgresql://%s:%s@localhost:5432/%s\n' \
+            "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -211,6 +255,10 @@ jobs:
         working-directory: backendAdmin
         run: npm test
 
+      - name: Run PostgreSQL rollback integration test
+        working-directory: backendAdmin
+        run: npm run test:postgres-rollback
+
   # ─────────────────────────────────────────────────────────────
   # AI SERVICE (Python + FastAPI, port 8000)
   # ─────────────────────────────────────────────────────────────
@@ -218,9 +266,9 @@ jobs:
     name: Check ai_service
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -260,7 +308,7 @@ jobs:
       # release checksums file. Update both values together.
       GITLEAKS_SHA256: "79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Full history, so a secret that was added and later deleted
           # is still caught.

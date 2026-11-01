@@ -138,6 +138,11 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd());
 
   return {
+    css: {
+      postcss: {
+        plugins: [],
+      },
+    },
     plugins: [
       envValidatorPlugin(REQUIRED_ENV_VARS), // must be first
       clearStartupStatusPlugin(),
