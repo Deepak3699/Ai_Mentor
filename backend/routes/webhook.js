@@ -8,6 +8,9 @@ import buildLogger from "../utils/logger.js";
 
 const router = express.Router();
 
+// Webhook routes intentionally keep provider-specific plain-text failures for Stripe:
+// Stripe requires a 4xx response body for invalid signatures and missing headers,
+// and the receiver must not be forced into the standard JSON API schema here.
 const prodRedactPaths = ["stripeSessionId", "courseId", "intentId"];
 
 const log = buildLogger("WEBHOOK", prodRedactPaths);
@@ -43,40 +46,80 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
       const courseId = session.metadata?.courseId;
       const userId = session.metadata?.userId;
       const courseTitle = session.metadata?.courseTitle;
+      const paymentId = session.metadata?.paymentId;
+
+      if (!session.id && !paymentId) {
+        log.error("Missing session ID or payment ID in webhook event");
+        return res.status(400).send("Missing session ID");
+      }
 
       const transaction = await sequelize.transaction();
       try {
-        if (session.id) {
-          const payment = await Payment.findOne({
-            where: { stripeSessionId: session.id },
-            transaction,
-          });
+        const payment = await Payment.findOne({
+          where: session.id ? { stripeSessionId: session.id } : { id: paymentId },
+          transaction,
+        });
 
-          if (payment?.status === "success") {
-            await transaction.rollback();
-            log.info({ stripeSessionId: session.id }, "Already processed");
-            return res.json({ received: true });
-          }
-
-          await Payment.update(
-            { status: "success", stripePaymentIntentId: session.payment_intent },
-            { where: { stripeSessionId: session.id }, transaction },
+        // Webhook MUST NOT grant enrollment without a matching Payment record
+        if (!payment) {
+          await transaction.rollback();
+          log.error(
+            { stripeSessionId: session.id },
+            "No matching Payment record found for webhook",
           );
+          return res.status(404).send("Payment record not found");
         }
 
-        const user = await User.findByPk(userId, { transaction });
+        if (payment.status === "success") {
+          await transaction.rollback();
+          log.info({ stripeSessionId: session.id }, "Already processed");
+          return res.json({ received: true });
+        }
+
+        // Validate session details against stored payment record
+        if (
+          (userId && payment.userId !== userId) ||
+          (courseId && Number(payment.courseId) !== Number(courseId)) ||
+          (session.amount_total != null &&
+            Number(session.amount_total) !== Number(payment.amount)) ||
+          (session.currency && session.currency.toLowerCase() !== payment.currency.toLowerCase())
+        ) {
+          await transaction.rollback();
+          log.error({ stripeSessionId: session.id }, "Session details do not match stored payment");
+          return res.status(400).send("Session details do not match stored payment");
+        }
+
+        if (session.payment_status && session.payment_status !== "paid") {
+          await transaction.rollback();
+          log.warn(
+            { stripeSessionId: session.id, status: session.payment_status },
+            "Session is not paid",
+          );
+          return res.status(400).send("Session is not paid");
+        }
+
+        await Payment.update(
+          { status: "success", stripePaymentIntentId: session.payment_intent },
+          { where: { id: payment.id }, transaction },
+        );
+
+        const targetUserId = payment.userId || userId;
+        const targetCourseId = Number(payment.courseId || courseId);
+        const targetCourseTitle = payment.courseTitle || courseTitle || "Course";
+
+        const user = await User.findByPk(targetUserId, { transaction });
         if (!user) {
           await transaction.rollback();
           return res.status(404).send("User not found");
         }
 
         let purchased = user.purchasedCourses || [];
-        const alreadyPurchased = purchased.find((c) => Number(c.courseId) === Number(courseId));
+        const alreadyPurchased = purchased.find((c) => Number(c.courseId) === targetCourseId);
 
         if (!alreadyPurchased) {
           purchased.push({
-            courseId: Number(courseId),
-            courseTitle: courseTitle || "Course",
+            courseId: targetCourseId,
+            courseTitle: targetCourseTitle,
             purchasedAt: new Date(),
             progress: { completedLessons: [], currentLesson: null },
           });
@@ -91,14 +134,14 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
         try {
           await createNotification(user.id, {
             title: "Course Enrolled 🎉",
-            message: `You successfully enrolled in ${courseTitle || "a course"}`,
+            message: `You successfully enrolled in ${targetCourseTitle}`,
             type: "course",
-            metadata: { courseId },
+            metadata: { courseId: targetCourseId },
           });
         } catch (err) {
           log.error({ err }, "Notification error:");
         }
-        log.info({ courseId }, "Payment Processed:");
+        log.info({ courseId: targetCourseId }, "Payment Processed:");
       } catch (err) {
         await transaction.rollback();
 

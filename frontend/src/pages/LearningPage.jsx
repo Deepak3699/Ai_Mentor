@@ -2,7 +2,7 @@ import { apiFetch as fetch } from "../lib/api";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getAIVideo } from "../service/aiService";
 import {
@@ -30,6 +30,7 @@ const TRANSCRIPT_PANEL_ID = "lesson-transcript-panel";
 export default function Learning() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { id: courseId } = useParams();
   const { user, updateUser } = useAuth();
   const [learningData, setLearningData] = useState(null);
@@ -179,9 +180,26 @@ export default function Learning() {
   }, [courseId]);
 
   // Reset restore flag on course change
+  const openedAIVoiceoverRef = useRef(false);
   useEffect(() => {
     hasRestoredProgressRef.current = false;
+    openedAIVoiceoverRef.current = false;
   }, [courseId]);
+
+  // Dashboard "Generate AI Lesson" banner: open the existing celebrity modal
+  // once, after the learning data has loaded.
+  useEffect(() => {
+    if (!learningData || openedAIVoiceoverRef.current) return;
+    if (!location.state?.openAIVoiceover) return;
+    openedAIVoiceoverRef.current = true;
+    setIsCelebrityModalOpen(true);
+    // Drop the flag from history state while preserving all other router state and query params.
+    const { openAIVoiceover: _discard, ...restState } = location.state || {};
+    navigate(`${location.pathname}${location.search}`, {
+      replace: true,
+      state: Object.keys(restState).length > 0 ? restState : undefined,
+    });
+  }, [learningData, location, navigate]);
 
   // Captions useEffect
   useEffect(() => {
@@ -446,6 +464,13 @@ export default function Learning() {
           retryable: generationError.retryable,
           details: generationError.details,
         });
+        const fallbackMessage = "Couldn't generate the AI lesson. Please try again.";
+        toast.error(
+          error instanceof TypeError ? fallbackMessage : generationError.message || fallbackMessage,
+          {
+            id: "ai-video-error",
+          },
+        );
         console.error("AI video generation failed:", {
           type: generationError.type,
           message: generationError.message,

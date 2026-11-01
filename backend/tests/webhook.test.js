@@ -161,7 +161,7 @@ test("completed checkout marks payment successful, enrolls the user, and commits
   Payment.findOne = async ({ where, transaction: tx }) => {
     assert.deepEqual(where, { stripeSessionId: "session-complete" });
     transaction = tx;
-    return { status: "processing" };
+    return { id: "pay-1", userId: "user-1", courseId: 7, status: "processing" };
   };
   Payment.update = async (...args) => {
     paymentUpdate = args;
@@ -191,7 +191,7 @@ test("completed checkout does not duplicate an existing enrollment", async () =>
   paymentGatewayServices.constructStripeWebhookEvent = () => completedEvent();
   Payment.findOne = async ({ transaction: tx }) => {
     transaction = tx;
-    return { status: "processing" };
+    return { id: "pay-1", userId: "user-1", courseId: 7, status: "processing" };
   };
   Payment.update = async () => [1];
   User.findByPk = async () => ({
@@ -231,12 +231,38 @@ test("already successful Stripe sessions are acknowledged and rolled back as rep
   assert.equal(updateCalls, 0);
 });
 
+test("webhook rejects when no matching payment record exists", async () => {
+  let transaction;
+  paymentGatewayServices.constructStripeWebhookEvent = () => completedEvent();
+  Payment.findOne = async ({ transaction: tx }) => {
+    transaction = tx;
+    return null; // no matching payment record
+  };
+  const res = await quietErrors(() => send("valid"));
+  assert.equal(res.status, 404);
+  assert.equal(await res.text(), "Payment record not found");
+  assert.equal(transaction.finished, "rollback");
+});
+
+test("webhook rejects when session details mismatch stored payment", async () => {
+  let transaction;
+  paymentGatewayServices.constructStripeWebhookEvent = () => completedEvent();
+  Payment.findOne = async ({ transaction: tx }) => {
+    transaction = tx;
+    return { id: "pay-1", userId: "different-user", courseId: 7, status: "processing" };
+  };
+  const res = await quietErrors(() => send("valid"));
+  assert.equal(res.status, 400);
+  assert.equal(await res.text(), "Session details do not match stored payment");
+  assert.equal(transaction.finished, "rollback");
+});
+
 test("missing webhook user rolls back and returns 404", async () => {
   let transaction;
   paymentGatewayServices.constructStripeWebhookEvent = () => completedEvent();
   Payment.findOne = async ({ transaction: tx }) => {
     transaction = tx;
-    return { status: "processing" };
+    return { id: "pay-1", userId: "user-1", courseId: 7, status: "processing" };
   };
   Payment.update = async () => [1];
   User.findByPk = async () => null;

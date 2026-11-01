@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = "test-secret";
 process.env.AI_SERVICE_URL = "http://ai.invalid";
+process.env.AI_SERVICE_KEY = "test-service-key";
 
 const { default: app } = await import("../server.js");
 const { Admin, User, Course } = await import("../models/index.js");
@@ -74,6 +75,22 @@ function expectLogged(res, fragment) {
   assert.ok(!logged.includes(token), "auth token must never be logged");
 }
 
+function expectSyllabusFailure(res, { status, code, retryable }) {
+  assert.equal(res.status, status);
+  assert.deepEqual(Object.keys(res.body).sort(), [
+    "code",
+    "message",
+    "requestId",
+    "retryable",
+    "success",
+  ]);
+  assert.equal(res.body.success, false);
+  assert.equal(res.body.message, STABLE_SYLLABUS);
+  assert.equal(res.body.code, code);
+  assert.equal(res.body.retryable, retryable);
+  assert.equal(res.body.requestId, res.headers.get("x-request-id"));
+}
+
 const failingDb = async () => {
   throw new Error(SECRET_DB);
 };
@@ -115,7 +132,7 @@ describe("unexpected errors are sanitized", () => {
   });
 });
 
-describe("AI syllabus errors", () => {
+describe("syllabus provider errors", () => {
   const course = { id: 1, title: "Algebra", category: "Math" };
   const path = "/api/admin/courses/1/generate-syllabus";
 
@@ -126,26 +143,38 @@ describe("AI syllabus errors", () => {
       json: async () => ({ error: "401 invalid api key sk-abc123 for model xyz" }),
     }));
     const res = await call("POST", path);
-    expectStable500(res, STABLE_SYLLABUS);
-    expectLogged(res, "sk-abc123"); // provider text exists in logs only
+    expectSyllabusFailure(res, {
+      status: 502,
+      code: "INVALID_PROVIDER_RESPONSE",
+      retryable: false,
+    });
+    assert.ok(!loggedText().includes("sk-abc123"));
   });
 
-  test("AI service responds with a failure status", async () => {
+  test("provider responds with a failure status", async () => {
     mock.method(Course, "findByPk", async () => course);
     mock.method(globalThis, "fetch", async () => ({ ok: false, status: 503 }));
     const res = await call("POST", path);
-    expectStable500(res, STABLE_SYLLABUS);
-    expectLogged(res, "AI service responded 503");
+    expectSyllabusFailure(res, {
+      status: 503,
+      code: "PROVIDER_UNAVAILABLE",
+      retryable: true,
+    });
+    assert.ok(!loggedText().includes("503"));
   });
 
-  test("AI service is down (ECONNREFUSED)", async () => {
+  test("provider is unreachable", async () => {
     mock.method(Course, "findByPk", async () => course);
     mock.method(globalThis, "fetch", async () => {
       throw Object.assign(new Error("fetch failed"), { cause: { code: "ECONNREFUSED" } });
     });
     const res = await call("POST", path);
-    expectStable500(res, STABLE_SYLLABUS);
-    expectLogged(res, "fetch failed");
+    expectSyllabusFailure(res, {
+      status: 503,
+      code: "PROVIDER_UNAVAILABLE",
+      retryable: true,
+    });
+    assert.ok(!loggedText().includes("fetch failed"));
   });
 });
 

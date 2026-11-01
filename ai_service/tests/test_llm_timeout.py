@@ -9,6 +9,7 @@ import pytest
 from fastapi import HTTPException
 from groq import APITimeoutError
 import httpx
+import requests
 
 import api
 from config import LLM_TIMEOUT_SECONDS
@@ -275,11 +276,12 @@ async def test_both_providers_timeout_marks_job_failed():
     assert api.job_status[job_id]["status"] == "failed"
     assert api.job_status[job_id]["status"] != "processing"
 
-    # Must provide clear reason explaining both failures
+    # Public failure details are stable and do not expose provider diagnostics.
     error_msg = api.job_status[job_id].get("error", "")
-    assert "Gemini" in error_msg
-    assert "Groq" in error_msg
-    assert "failed" in error_msg.lower() or "timeout" in error_msg.lower()
+    assert error_msg == "AI provider generation failed."
+    assert api.job_status[job_id]["failure_code"] == "provider_failed"
+    assert "Gemini connection timed out" not in error_msg
+    assert "api.groq.com" not in error_msg
 
     # Reason field should also be populated
     assert "reason" in api.job_status[job_id]
@@ -341,7 +343,7 @@ def test_slow_gemini_provider_aborts_with_timeout(slow_upstream_server):
     test_client = genai.Client(api_key="test-key")
     start = time.time()
 
-    with pytest.raises(httpx.TimeoutException):
+    with pytest.raises((httpx.TimeoutException, requests.exceptions.Timeout)):
         test_client.models.generate_content(
             model="gemini-2.5-flash",
             contents="hello",

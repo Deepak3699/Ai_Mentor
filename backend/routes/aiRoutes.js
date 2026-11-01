@@ -3,6 +3,7 @@ import express from "express";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
 import { generateVideoSchema, explainCodeSchema } from "../schemas/aiSchema.js";
+import { aiVideoLimiter } from "../middleware/rateLimiter.js";
 import { getCourseAndLessonTitles } from "../controllers/courseController.js";
 import Preferences from "../models/Preference.js";
 import { getVideoQueue } from "../queues/videoQueue.js";
@@ -12,188 +13,142 @@ dotenv.config();
 
 const router = express.Router();
 
-router.post("/generate-video", protect, validate(generateVideoSchema), async (req, res) => {
-  let aiVideo;
+const hasCourseAccess = (user, courseId) => {
+  if (!user) return false;
+  if (user.role === "admin" || user.role === "superadmin") return true;
+  return (user.purchasedCourses || []).some(
+    (course) => Number(course.courseId) === Number(courseId),
+  );
+};
 
-  try {
-    const { courseId, lessonId, celebrity, voice_id, speech_rate, speech_pitch } = req.body;
+router.post(
+  "/generate-video",
+  protect,
+  aiVideoLimiter,
+  validate(generateVideoSchema),
+  async (req, res) => {
+    let aiVideo;
 
-    const purchasedCourse = (req.user.purchasedCourses || []).find(
-      (course) => Number(course.courseId) === Number(courseId),
-    );
+    try {
+      const { courseId, lessonId, celebrity, voice_id, speech_rate, speech_pitch } = req.body;
 
-    if (!purchasedCourse) {
-      return res.status(403).json({ message: "Course not purchased" });
-    }
-
-    const key = {
-      courseId: Number(courseId),
-      lessonId: Number(lessonId),
-      celebrity: String(celebrity).toLowerCase(),
-    };
-
-    const sendProcessing = (record, message = "Video generation is already in progress") =>
-      res.json({
-        jobId: record.id,
-        status: "processing",
-        message,
-      });
-
-    const resetVideoFields = {
-      videoUrl: "",
-      transcriptName: "",
-      jobId: null,
-      status: "pending",
-      error: null,
-      meta: null,
-    };
-
-    // Atomically claim only failed or completed records.
-    // A concurrent request cannot claim the same record twice.
-    const claimExistingVideo = async (record) => {
-      const [updatedCount] = await AIVideo.update(resetVideoFields, {
-        where: {
-          id: record.id,
-          status: { [Op.in]: ["failed", "completed"] },
-        },
-      });
-
-      await record.reload();
-      return updatedCount === 1;
-    };
-
-    aiVideo = await AIVideo.findOne({ where: key });
-
-    // Never delete or replace a record whose generation is in progress.
-    if (aiVideo && ["pending", "processing"].includes(aiVideo.status)) {
-      return sendProcessing(aiVideo);
-    }
-
-    // Return a valid completed Cloudinary cache immediately.
-    if (aiVideo?.status === "completed" && aiVideo.videoUrl) {
-      let parsedUrl;
-
-      try {
-        parsedUrl = new URL(aiVideo.videoUrl);
-      } catch {
-        parsedUrl = null;
-      }
-
-      if (
-        parsedUrl &&
-        parsedUrl.protocol === "https:" &&
-        parsedUrl.hostname.endsWith("res.cloudinary.com")
-      ) {
-        return res.json({
-          videoUrl: aiVideo.videoUrl,
-          transcriptName: aiVideo.transcriptName,
-          jobId: aiVideo.jobId,
-          meta: aiVideo.meta,
-          cached: true,
+      if (!hasCourseAccess(req.user, courseId)) {
+        return res.status(403).json({
+          success: false,
+          error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
         });
       }
 
-      // Verify a local video only when a URL exists.
-      if (aiVideo.videoUrl.trim()) {
-        const filename = aiVideo.videoUrl.split("/").pop();
+      const key = {
+        courseId: Number(courseId),
+        lessonId: Number(lessonId),
+        celebrity: String(celebrity).toLowerCase(),
+      };
+
+      const sendProcessing = (record, message = "Video generation is already in progress") =>
+        res.json({
+          jobId: record.id,
+          status: "processing",
+          message,
+        });
+
+      const resetVideoFields = {
+        videoUrl: "",
+        transcriptName: "",
+        jobId: null,
+        status: "pending",
+        error: null,
+        meta: null,
+      };
+
+      // Atomically claim only failed or completed records.
+      // A concurrent request cannot claim the same record twice.
+      const claimExistingVideo = async (record) => {
+        const [updatedCount] = await AIVideo.update(resetVideoFields, {
+          where: {
+            id: record.id,
+            status: { [Op.in]: ["failed", "completed"] },
+          },
+        });
+
+        await record.reload();
+        return updatedCount === 1;
+      };
+
+      aiVideo = await AIVideo.findOne({ where: key });
+
+      // Never delete or replace a record whose generation is in progress.
+      if (aiVideo && ["pending", "processing"].includes(aiVideo.status)) {
+        return sendProcessing(aiVideo);
+      }
+
+      // Return a valid completed Cloudinary cache immediately.
+      if (aiVideo?.status === "completed" && aiVideo.videoUrl) {
+        let parsedUrl;
 
         try {
-          const check = await fetch(
-            `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`,
-            { method: "HEAD" },
-          );
-
-          if (check.ok) {
-            return res.json({
-              videoUrl: aiVideo.videoUrl,
-              transcriptName: aiVideo.transcriptName,
-              jobId: aiVideo.jobId,
-              meta: aiVideo.meta,
-              cached: true,
-            });
-          }
-        } catch (error) {
-          console.warn("Cached video verification failed:", error.message);
-        }
-      }
-    }
-
-    const titles = await getCourseAndLessonTitles(courseId, lessonId);
-
-    if (!titles) {
-      return res.status(404).json({ message: "Invalid course or lesson" });
-    }
-
-    const { courseTitle, lessonTitle } = titles;
-
-    const preferencesRecord = await Preferences.findOne({
-      where: { user_id: req.user.id },
-    });
-
-    const userPreferences = preferencesRecord ? preferencesRecord.toJSON() : null;
-
-    if (aiVideo) {
-      const claimed = await claimExistingVideo(aiVideo);
-
-      if (!claimed) {
-        if (["pending", "processing"].includes(aiVideo.status)) {
-          return sendProcessing(aiVideo);
+          parsedUrl = new URL(aiVideo.videoUrl);
+        } catch {
+          parsedUrl = null;
         }
 
-        return res.status(409).json({
-          message: "Video generation state changed. Please retry.",
-        });
-      }
-    } else {
-      try {
-        aiVideo = await AIVideo.create({
-          ...key,
-          videoUrl: "",
-          transcriptName: "",
-          status: "pending",
-        });
-      } catch (error) {
-        if (error.name !== "SequelizeUniqueConstraintError") {
-          throw error;
+        if (
+          parsedUrl &&
+          parsedUrl.protocol === "https:" &&
+          parsedUrl.hostname.endsWith("res.cloudinary.com")
+        ) {
+          return res.json({
+            videoUrl: aiVideo.videoUrl,
+            transcriptName: aiVideo.transcriptName,
+            jobId: aiVideo.jobId,
+            meta: aiVideo.meta,
+            cached: true,
+          });
         }
 
-        // Another request may have created the same record concurrently.
-        aiVideo = await AIVideo.findOne({ where: key });
-
-        if (!aiVideo) {
-          throw error;
-        }
-
-        if (["pending", "processing"].includes(aiVideo.status)) {
-          return sendProcessing(aiVideo);
-        }
-
-        if (aiVideo.status === "completed" && aiVideo.videoUrl) {
-          let parsedUrl;
+        // Verify a local video only when a URL exists.
+        if (aiVideo.videoUrl.trim()) {
+          const filename = aiVideo.videoUrl.split("/").pop();
 
           try {
-            parsedUrl = new URL(aiVideo.videoUrl);
-          } catch {
-            parsedUrl = null;
-          }
+            const check = await fetch(
+              `${process.env.AI_SERVICE_URL}/video-stream/${encodeURIComponent(filename)}`,
+              { method: "HEAD" },
+            );
 
-          if (
-            parsedUrl &&
-            parsedUrl.protocol === "https:" &&
-            parsedUrl.hostname.endsWith("res.cloudinary.com")
-          ) {
-            return res.json({
-              videoUrl: aiVideo.videoUrl,
-              transcriptName: aiVideo.transcriptName,
-              jobId: aiVideo.jobId,
-              meta: aiVideo.meta,
-              cached: true,
-            });
+            if (check.ok) {
+              return res.json({
+                videoUrl: aiVideo.videoUrl,
+                transcriptName: aiVideo.transcriptName,
+                jobId: aiVideo.jobId,
+                meta: aiVideo.meta,
+                cached: true,
+              });
+            }
+          } catch (error) {
+            console.warn("Cached video verification failed:", error.message);
           }
-
-          return sendProcessing(aiVideo, "An existing video record was found");
         }
+      }
 
+      const titles = await getCourseAndLessonTitles(courseId, lessonId);
+
+      if (!titles) {
+        return res.status(404).json({
+          success: false,
+          error: { code: "NOT_FOUND", message: "Invalid course or lesson", details: [] },
+        });
+      }
+
+      const { courseTitle, lessonTitle } = titles;
+
+      const preferencesRecord = await Preferences.findOne({
+        where: { user_id: req.user.id },
+      });
+
+      const userPreferences = preferencesRecord ? preferencesRecord.toJSON() : null;
+
+      if (aiVideo) {
         const claimed = await claimExistingVideo(aiVideo);
 
         if (!claimed) {
@@ -202,68 +157,159 @@ router.post("/generate-video", protect, validate(generateVideoSchema), async (re
           }
 
           return res.status(409).json({
-            message: "Video generation state changed. Please retry.",
+            success: false,
+            error: {
+              code: "CONFLICT",
+              message: "Video generation state changed. Please retry.",
+              details: [],
+            },
           });
         }
+      } else {
+        try {
+          aiVideo = await AIVideo.create({
+            ...key,
+            videoUrl: "",
+            transcriptName: "",
+            status: "pending",
+          });
+        } catch (error) {
+          if (error.name !== "SequelizeUniqueConstraintError") {
+            throw error;
+          }
+
+          // Another request may have created the same record concurrently.
+          aiVideo = await AIVideo.findOne({ where: key });
+
+          if (!aiVideo) {
+            throw error;
+          }
+
+          if (["pending", "processing"].includes(aiVideo.status)) {
+            return sendProcessing(aiVideo);
+          }
+
+          if (aiVideo.status === "completed" && aiVideo.videoUrl) {
+            let parsedUrl;
+
+            try {
+              parsedUrl = new URL(aiVideo.videoUrl);
+            } catch {
+              parsedUrl = null;
+            }
+
+            if (
+              parsedUrl &&
+              parsedUrl.protocol === "https:" &&
+              parsedUrl.hostname.endsWith("res.cloudinary.com")
+            ) {
+              return res.json({
+                videoUrl: aiVideo.videoUrl,
+                transcriptName: aiVideo.transcriptName,
+                jobId: aiVideo.jobId,
+                meta: aiVideo.meta,
+                cached: true,
+              });
+            }
+
+            return sendProcessing(aiVideo, "An existing video record was found");
+          }
+
+          const claimed = await claimExistingVideo(aiVideo);
+
+          if (!claimed) {
+            if (["pending", "processing"].includes(aiVideo.status)) {
+              return sendProcessing(aiVideo);
+            }
+
+            return res.status(409).json({
+              success: false,
+              error: {
+                code: "CONFLICT",
+                message: "Video generation state changed. Please retry.",
+                details: [],
+              },
+            });
+          }
+        }
       }
-    }
 
-    try {
-      const queue = getVideoQueue();
+      try {
+        const queue = getVideoQueue();
 
-      const job = await queue.add(
-        "generate-video",
-        {
-          aiVideoId: aiVideo.id,
-          courseId,
-          lessonId,
-          celebrity,
-          courseTitle,
-          lessonTitle,
-          userPreferences,
-          voice_id,
-          speech_rate,
-          speech_pitch,
-        },
-        {
+        const job = await queue.add(
+          "generate-video",
+          {
+            aiVideoId: aiVideo.id,
+            courseId,
+            lessonId,
+            celebrity,
+            courseTitle,
+            lessonTitle,
+            userPreferences,
+            voice_id,
+            speech_rate,
+            speech_pitch,
+          },
+          {
+            jobId: aiVideo.id,
+          },
+        );
+
+        console.log(`Job added to queue: ${job.id}, DB ID: ${aiVideo.id}`);
+
+        return res.json({
           jobId: aiVideo.id,
-        },
-      );
+          status: "processing",
+          message: "Video generation started",
+        });
+      } catch (queueError) {
+        await aiVideo.update({
+          status: "failed",
+          error: queueError.message,
+        });
 
-      console.log(`Job added to queue: ${job.id}, DB ID: ${aiVideo.id}`);
-
-      return res.json({
-        jobId: aiVideo.id,
-        status: "processing",
-        message: "Video generation started",
+        throw queueError;
+      }
+    } catch (error) {
+      console.error("AI GENERATE ERROR:", error);
+      return res.status(500).json({
+        success: false,
+        error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
       });
-    } catch (queueError) {
-      await aiVideo.update({
-        status: "failed",
-        error: queueError.message,
-      });
-
-      throw queueError;
     }
-  } catch (error) {
-    console.error("AI GENERATE ERROR:", error);
-    return res.status(500).json({ message: "Failed to generate AI video" });
-  }
-});
+  },
+);
 
 // Proxy Transcript Content from Python
 // ----------------------------------------------------
-router.get("/transcript/:filename", async (req, res) => {
+router.get("/transcript/:filename", protect, async (req, res) => {
   try {
     const { filename } = req.params;
 
-    // 🕵️ Check Cache First
+    // Check DB record to enforce course access
     const cachedVideo = await AIVideo.findOne({
       where: { transcriptName: filename },
     });
 
-    if (cachedVideo && cachedVideo.transcript) {
-      console.log("🎯 Serving cached transcript for:", filename);
+    if (!cachedVideo) {
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Transcript not found", details: [] },
+      });
+    }
+
+    if (!hasCourseAccess(req.user, cachedVideo.courseId)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+      });
+    }
+
+    if (cachedVideo.transcript) {
+      if (process.env.NODE_ENV !== "test") {
+        console.log("[AI] Serving cached transcript for:", filename);
+      }
       return res.json({ content: cachedVideo.transcript });
     }
 
@@ -271,22 +317,30 @@ router.get("/transcript/:filename", async (req, res) => {
     const response = await fetch(pythonTranscriptUrl);
 
     if (!response.ok) {
-      return res.status(404).json({ error: "Transcript not found" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Transcript not found", details: [] },
+      });
     }
 
     const data = await response.json();
 
-    // 💾 Save to Cache if we found the record
-    if (cachedVideo) {
-      cachedVideo.transcript = data.content;
-      await cachedVideo.save();
-      console.log("💾 Transcript cached for:", filename);
+    // Save to Cache
+    cachedVideo.transcript = data.content;
+    await cachedVideo.save();
+    if (process.env.NODE_ENV !== "test") {
+      console.log("[AI] Transcript cached for:", filename);
     }
 
     res.json(data);
   } catch (error) {
-    console.error("❌ Transcript Proxy Error:", error.message);
-    res.status(500).json({ error: "Failed to load transcript" });
+    if (process.env.NODE_ENV !== "test") {
+      console.error("[AI] Transcript Proxy Error:", error.message);
+    }
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
   }
 });
 
@@ -298,7 +352,26 @@ router.get("/status/:jobId", protect, async (req, res) => {
     const videoJob = await AIVideo.findOne({ where: { id: jobId } });
 
     if (!videoJob) {
-      return res.status(404).json({ status: "not_found" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Video job not found", details: [] },
+      });
+    }
+
+    // Enforce course entitlement before returning video status or URLs
+    if (!hasCourseAccess(req.user, videoJob.courseId)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+      });
+    }
+
+    // Enforce course entitlement before returning video status or URLs
+    if (!hasCourseAccess(req.user, videoJob.courseId)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+      });
     }
 
     if (videoJob.status === "failed") {
@@ -336,8 +409,7 @@ router.get("/status/:jobId", protect, async (req, res) => {
     // Persist ready results by the database record ID. The Python job ID is only
     // used for polling the AI service and must never be used as the DB identity.
     if (data.status === "ready" && data.local_video_url) {
-      const filename = data.local_video_url.split("/").pop();
-      data.local_video_url = `/api/ai/video/${videoJob.courseId}/${jobId}/${filename}`;
+      data.local_video_url = `/api/ai/video/${videoJob.courseId}/${jobId}.mp4`;
     }
 
     if (data.status === "ready" && (data.cloudinary_url || data.local_video_url)) {
@@ -366,7 +438,10 @@ router.get("/status/:jobId", protect, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error("❌ Status Proxy Error:", error.message);
-    res.status(500).json({ status: "error" });
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
   }
 });
 
@@ -379,22 +454,27 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
     const numericCourseId = Number(courseId);
 
     if (!Number.isInteger(numericCourseId)) {
-      return res.status(404).json({ error: "Video not found" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Video not found", details: [] },
+      });
     }
 
-    // 🔐 The user must be enrolled in the course named in the URL
-    const isEnrolled = (req.user.purchasedCourses || []).some(
-      (c) => Number(c.courseId) === numericCourseId,
-    );
-
-    if (!isEnrolled) {
-      return res.status(403).json({ error: "Course not purchased" });
+    // 🔐 The user must be enrolled in the course named in the URL (or admin)
+    if (!hasCourseAccess(req.user, numericCourseId)) {
+      return res.status(403).json({
+        success: false,
+        error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+      });
     }
 
     // 🎯 The AI service names each video "<jobId>.mp4". Only serve a file that
     // belongs to an AIVideo record of *this* course; anything else is a 404.
     if (!filename.endsWith(".mp4")) {
-      return res.status(404).json({ error: "Video not found" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Video not found", details: [] },
+      });
     }
 
     // The frontend sends <aiVideo.id>.mp4
@@ -404,7 +484,10 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
     });
 
     if (!video || !video.jobId) {
-      return res.status(404).json({ error: "Video not found" });
+      return res.status(404).json({
+        success: false,
+        error: { code: "NOT_FOUND", message: "Video not found", details: [] },
+      });
     }
 
     // Python service expects &lt;pythonJobId&gt;.mp4
@@ -421,7 +504,8 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
 
     if (!response.ok) {
       return res.status(404).json({
-        error: "Video not found in AI service",
+        success: false,
+        error: { code: "NOT_FOUND", message: "Video not found in AI service", details: [] },
       });
     }
 
@@ -440,15 +524,21 @@ router.get("/video/:courseId/:filename", protect, async (req, res) => {
 
     if (!response.body) {
       return res.status(502).json({
-        error: "Empty video response from AI service",
+        success: false,
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Empty video response from AI service",
+          details: [],
+        },
       });
     }
     const { Readable } = await import("node:stream");
     Readable.fromWeb(response.body).pipe(res);
   } catch (error) {
     console.error("❌ Proxy Error:", error.message);
-    res.status(500).json({
-      error: "Failed to load video via proxy",
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
     });
   }
 });
@@ -469,7 +559,12 @@ router.post("/explain-code", protect, validate(explainCodeSchema), async (req, r
       console.error("AI code explanation failed:", errorText);
 
       return res.status(502).json({
-        message: "AI code explanation service failed",
+        success: false,
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "AI code explanation service failed",
+          details: [],
+        },
       });
     }
 
@@ -479,7 +574,8 @@ router.post("/explain-code", protect, validate(explainCodeSchema), async (req, r
     console.error("AI code explanation error:", error);
 
     return res.status(500).json({
-      message: "Unable to explain or debug code right now",
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
     });
   }
 });
@@ -494,7 +590,10 @@ router.get("/voices", protect, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error("❌ Voices Proxy Error:", error.message);
-    res.status(500).json({ error: "Failed to fetch voices" });
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
   }
 });
 

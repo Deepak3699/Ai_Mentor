@@ -1,8 +1,26 @@
 import { z } from "zod";
 
+const positiveIntId = (fieldName = "ID") =>
+  z
+    .union([
+      z.string().trim().min(1, `${fieldName} is required`),
+      z
+        .number()
+        .int(`${fieldName} must be an integer`)
+        .positive(`${fieldName} must be a positive integer`),
+    ])
+    .refine(
+      (value) => {
+        const numericValue = Number(value);
+        return Number.isInteger(numericValue) && numericValue > 0;
+      },
+      { message: `${fieldName} must be a positive integer` },
+    )
+    .transform((value) => Number(value));
+
 export const generateVideoSchema = z.object({
-  courseId: z.union([z.string(), z.number()]).transform((val) => Number(val)),
-  lessonId: z.union([z.string(), z.number()]).transform((val) => Number(val)),
+  courseId: positiveIntId("Course ID"),
+  lessonId: positiveIntId("Lesson ID"),
   celebrity: z.string().min(1, "Celebrity name is required"),
   voice_id: z.string().optional(),
   speech_rate: z.string().optional(),
