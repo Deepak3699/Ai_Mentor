@@ -213,25 +213,21 @@ export const chatWithAssistant = async (req, res, next) => {
 
     const context = buildUserContext(user, preferences);
 
-    const geminiReply = await askGemini(context, message);
-
-    // Check if Gemini returned a route
-    let route = null;
-
-    const routeMatch = geminiReply.match(/ROUTE:([^\r\n]*)/i);
-
-    if (routeMatch) {
-      const requestedRoute = routeMatch[1].trim();
-      if (Object.values(APP_ROUTES).includes(requestedRoute)) {
-        route = requestedRoute;
-      }
+    const result = await askGemini(context, message, { requestId: req.id });
+    if (!result.ok) {
+      return res.json({ reply: result.message, route: null, error: result.category });
     }
-
-    // Remove ROUTE from visible message
-    const cleanedReply = geminiReply.replace(/ROUTE:[^\r\n]*/gi, "").trim();
-
+    const routeMatch = result.text.match(/ROUTE:([^\r\n]*)/i);
+    const requestedRoute = routeMatch ? routeMatch[1].trim() : null;
+    const route =
+      requestedRoute && Object.values(APP_ROUTES).includes(requestedRoute) ? requestedRoute : null;
+    const cleanedReply = result.text.replace(/ROUTE:[^\r\n]*/gi, "").trim();
     return res.json({
-      reply: cleanedReply,
+      reply:
+        cleanedReply ||
+        (route
+          ? "I can take you to that page."
+          : "I couldn't generate a response. Please try asking in a different way."),
       route,
     });
   } catch (error) {
