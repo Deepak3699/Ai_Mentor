@@ -1,6 +1,5 @@
 # Cross-Service Request Flow: AI Lesson Generation
 
-
 ## Contents
 
 1. [Overview](#1-overview)
@@ -73,16 +72,16 @@ Three ideas explain most of the design:
 
 ## 2. Who owns what
 
-| Concern | Owner | Details |
-|---|---|---|
-| **Input validation** | User API (shape) and AI service (limits) | The user API validates with zod (`schemas/aiSchema.js`: `generateVideoSchema`). The AI service re-validates with pydantic (`LessonRequest`: length limits, `preferences` with `extra="forbid"`). The frontend only builds the payload. |
-| **Authentication** | User API | JWT in the `Authorization: Bearer` header, checked by `protect` (`middleware/authMiddleware.js`). The AI service has **no auth** and is assumed to be reachable only from the user API. |
-| **Authorization** | User API | `hasCourseAccess` in `aiRoutes.js`: the course must be in `user.purchasedCourses`, or the user is `admin` / `superadmin`. Applied to generate, status, transcript and video routes. |
-| **Rate limiting** | User API | `aiVideoLimiter`: 3 generations per 5 minutes per user. |
-| **Persistence** | User API + PostgreSQL | `AIVideo` rows (job state, URL, transcript cache) and the learner's `purchasedCourses[].progress.lessonData`. The AI service keeps only in-memory job state and local files. |
-| **Queueing** | User API (BullMQ + Redis) | Covers only the submit hop. The AI service runs its own work with FastAPI `BackgroundTasks`. |
-| **Generation** | AI service | Script (Gemini, Groq fallback), narration (edge-tts), video (D-ID, FFmpeg fallback), subtitles. |
-| **Final media delivery** | Cloudinary (preferred) or the user API proxy | The video URL normally points straight at Cloudinary. If upload fails, the user API streams the file from the AI service via `/api/ai/video/...`. |
+| Concern                  | Owner                                        | Details                                                                                                                                                                                                                                |
+| ------------------------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Input validation**     | User API (shape) and AI service (limits)     | The user API validates with zod (`schemas/aiSchema.js`: `generateVideoSchema`). The AI service re-validates with pydantic (`LessonRequest`: length limits, `preferences` with `extra="forbid"`). The frontend only builds the payload. |
+| **Authentication**       | User API                                     | JWT in the `Authorization: Bearer` header, checked by `protect` (`middleware/authMiddleware.js`). The AI service has **no auth** and is assumed to be reachable only from the user API.                                                |
+| **Authorization**        | User API                                     | `hasCourseAccess` in `aiRoutes.js`: the course must be in `user.purchasedCourses`, or the user is `admin` / `superadmin`. Applied to generate, status, transcript and video routes.                                                    |
+| **Rate limiting**        | User API                                     | `aiVideoLimiter`: 3 generations per 5 minutes per user.                                                                                                                                                                                |
+| **Persistence**          | User API + PostgreSQL                        | `AIVideo` rows (job state, URL, transcript cache) and the learner's `purchasedCourses[].progress.lessonData`. The AI service keeps only in-memory job state and local files.                                                           |
+| **Queueing**             | User API (BullMQ + Redis)                    | Covers only the submit hop. The AI service runs its own work with FastAPI `BackgroundTasks`.                                                                                                                                           |
+| **Generation**           | AI service                                   | Script (Gemini, Groq fallback), narration (edge-tts), video (D-ID, FFmpeg fallback), subtitles.                                                                                                                                        |
+| **Final media delivery** | Cloudinary (preferred) or the user API proxy | The video URL normally points straight at Cloudinary. If upload fails, the user API streams the file from the AI service via `/api/ai/video/...`.                                                                                      |
 
 ---
 
@@ -154,22 +153,22 @@ sequenceDiagram
 
 ### 3.3 Step by step
 
-| # | Step | Where | Notes |
-|---|---|---|---|
-| 1 | Learner applies a voice | `LearningPage.jsx`, `VoiceoverDialog` `onApply` | Sets `selectedCelebrity`, which triggers the generation effect. |
-| 2 | Saved content short-circuit | Effect in `LearningPage.jsx` | If `lessonData[lessonId].celebrity` equals the selection and an `aiVideoUrl` exists, no request is made. |
-| 3 | Submit | `getAIVideo` in `service/aiService.js` | `POST /api/ai/generate-video`. Celebrity is sent as the first word, lowercased (`"Salman Khan"` becomes `"salman"`). 30 s deadline. |
-| 4 | Gate | `router.post("/generate-video")` | `protect` then `aiVideoLimiter` then `validate(generateVideoSchema)` then `hasCourseAccess`. |
-| 5 | Dedupe and record | Same handler | Finds or creates the `AIVideo` row (unique on course, lesson, celebrity). See [Cache behavior](#6-cache-behavior). |
-| 6 | Look up titles | `getCourseAndLessonTitles` | Course and lesson titles become the AI service's `course` and `topic`. `404` if invalid. |
-| 7 | Load preferences | `Preferences.findOne` | The requesting user's saved learning preferences (if any) travel with the job. |
-| 8 | Enqueue | `getVideoQueue().add("generate-video", ...)` | `jobId = AIVideo.id`. Retries: 3 attempts, exponential backoff from 5 s. |
-| 9 | Worker kicks off generation | `processVideoJob` in `queues/videoQueue.js` | Sets `processing`, calls AI `POST /generate`, stores the AI service's `jobId` and `text_file`. The worker finishes as soon as the AI service acknowledges. |
-| 10 | AI pipeline | `process_lesson` in `ai_service/backend/api.py` | Script (about 50 words) then edge-tts MP3, then D-ID avatar (or FFmpeg with a stock celebrity video), then VTT/SRT, then Cloudinary upload, then `job_status = ready`. |
-| 11 | Poll | `pollAIVideoStatus` and `GET /api/ai/status/:jobId` | Express answers from the DB where it can, and proxies the AI service otherwise. See the status table in section 4.2. |
-| 12 | Publish | `publishVideo` in `LearningPage.jsx` | Sets the video URL, starts playback, loads the transcript. |
-| 13 | Transcript | `fetchTranscript` and `GET /api/ai/transcript/:name` | Express serves its DB copy or fetches from the AI service and caches it. |
-| 14 | Persist for next visit | `saveLessonData` and `PUT /api/users/course-progress` | Stores `{generatedTextContent, aiVideoUrl, celebrity}` under the lesson. See caveat 5. |
+| #   | Step                        | Where                                                 | Notes                                                                                                                                                                  |
+| --- | --------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Learner applies a voice     | `LearningPage.jsx`, `VoiceoverDialog` `onApply`       | Sets `selectedCelebrity`, which triggers the generation effect.                                                                                                        |
+| 2   | Saved content short-circuit | Effect in `LearningPage.jsx`                          | If `lessonData[lessonId].celebrity` equals the selection and an `aiVideoUrl` exists, no request is made.                                                               |
+| 3   | Submit                      | `getAIVideo` in `service/aiService.js`                | `POST /api/ai/generate-video`. Celebrity is sent as the first word, lowercased (`"Salman Khan"` becomes `"salman"`). 30 s deadline.                                    |
+| 4   | Gate                        | `router.post("/generate-video")`                      | `protect` then `aiVideoLimiter` then `validate(generateVideoSchema)` then `hasCourseAccess`.                                                                           |
+| 5   | Dedupe and record           | Same handler                                          | Finds or creates the `AIVideo` row (unique on course, lesson, celebrity). See [Cache behavior](#6-cache-behavior).                                                     |
+| 6   | Look up titles              | `getCourseAndLessonTitles`                            | Course and lesson titles become the AI service's `course` and `topic`. `404` if invalid.                                                                               |
+| 7   | Load preferences            | `Preferences.findOne`                                 | The requesting user's saved learning preferences (if any) travel with the job.                                                                                         |
+| 8   | Enqueue                     | `getVideoQueue().add("generate-video", ...)`          | `jobId = AIVideo.id`. Retries: 3 attempts, exponential backoff from 5 s.                                                                                               |
+| 9   | Worker kicks off generation | `processVideoJob` in `queues/videoQueue.js`           | Sets `processing`, calls AI `POST /generate`, stores the AI service's `jobId` and `text_file`. The worker finishes as soon as the AI service acknowledges.             |
+| 10  | AI pipeline                 | `process_lesson` in `ai_service/backend/api.py`       | Script (about 50 words) then edge-tts MP3, then D-ID avatar (or FFmpeg with a stock celebrity video), then VTT/SRT, then Cloudinary upload, then `job_status = ready`. |
+| 11  | Poll                        | `pollAIVideoStatus` and `GET /api/ai/status/:jobId`   | Express answers from the DB where it can, and proxies the AI service otherwise. See the status table in section 4.2.                                                   |
+| 12  | Publish                     | `publishVideo` in `LearningPage.jsx`                  | Sets the video URL, starts playback, loads the transcript.                                                                                                             |
+| 13  | Transcript                  | `fetchTranscript` and `GET /api/ai/transcript/:name`  | Express serves its DB copy or fetches from the AI service and caches it.                                                                                               |
+| 14  | Persist for next visit      | `saveLessonData` and `PUT /api/users/course-progress` | Stores `{generatedTextContent, aiVideoUrl, celebrity}` under the lesson. See caveat 5.                                                                                 |
 
 ---
 
@@ -199,17 +198,17 @@ AI service restricts it to `modi`, `owl`, `salman`, `srk` and falls back to `mod
 
 Responses:
 
-| Status | Body | Meaning |
-|---|---|---|
-| 200 | `{ "jobId": "<AIVideo.id>", "status": "processing", "message": "..." }` | Queued, or already in progress. Start polling. |
-| 200 | `{ "videoUrl", "transcriptName", "jobId", "meta", "cached": true }` | Reusable video exists. No polling needed. |
-| 400 | `VALIDATION_ERROR` | Body failed zod validation. |
-| 401 | `UNAUTHORIZED` | Missing or invalid token. |
-| 403 | `FORBIDDEN` "Course not purchased" | No access to the course. |
-| 404 | `NOT_FOUND` "Invalid course or lesson" | |
-| 409 | `CONFLICT` | Row state changed during claim. Retry. |
-| 429 | `{ "success": false, "error": "<message string>" }` | Rate limit (3 per 5 min). Note `error` is a plain string here. |
-| 500 | `INTERNAL_SERVER_ERROR` | |
+| Status | Body                                                                    | Meaning                                                        |
+| ------ | ----------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 200    | `{ "jobId": "<AIVideo.id>", "status": "processing", "message": "..." }` | Queued, or already in progress. Start polling.                 |
+| 200    | `{ "videoUrl", "transcriptName", "jobId", "meta", "cached": true }`     | Reusable video exists. No polling needed.                      |
+| 400    | `VALIDATION_ERROR`                                                      | Body failed zod validation.                                    |
+| 401    | `UNAUTHORIZED`                                                          | Missing or invalid token.                                      |
+| 403    | `FORBIDDEN` "Course not purchased"                                      | No access to the course.                                       |
+| 404    | `NOT_FOUND` "Invalid course or lesson"                                  |                                                                |
+| 409    | `CONFLICT`                                                              | Row state changed during claim. Retry.                         |
+| 429    | `{ "success": false, "error": "<message string>" }`                     | Rate limit (3 per 5 min). Note `error` is a plain string here. |
+| 500    | `INTERNAL_SERVER_ERROR`                                                 |                                                                |
 
 The frontend requires `cached === true` with a valid `videoUrl`, **or** a non-empty string `jobId`.
 Anything else is treated as `invalid_response`.
@@ -218,15 +217,15 @@ Anything else is treated as `invalid_response`.
 
 `:jobId` is the `AIVideo.id` returned above. Responses are chosen like this:
 
-| Condition (DB, then AI service) | Response |
-|---|---|
-| Row not found | `404` |
-| No course access | `403` |
-| `status = failed` | `{ "status": "failed", "error": "<message>" }` |
-| `status = completed` and has URL | `{ "status": "ready", "cloudinary_url": "<stored videoUrl>", "transcriptName", "jobId", "meta" }` |
-| `status = pending` | `{ "status": "processing", "message": "In queue..." }` |
-| `status = processing`, no AI job ID yet | `{ "status": "processing", "message": "Starting..." }` |
-| `status = processing`, AI job ID known | Proxies AI `GET /status/<aiJobId>`, see below |
+| Condition (DB, then AI service)         | Response                                                                                          |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Row not found                           | `404`                                                                                             |
+| No course access                        | `403`                                                                                             |
+| `status = failed`                       | `{ "status": "failed", "error": "<message>" }`                                                    |
+| `status = completed` and has URL        | `{ "status": "ready", "cloudinary_url": "<stored videoUrl>", "transcriptName", "jobId", "meta" }` |
+| `status = pending`                      | `{ "status": "processing", "message": "In queue..." }`                                            |
+| `status = processing`, no AI job ID yet | `{ "status": "processing", "message": "Starting..." }`                                            |
+| `status = processing`, AI job ID known  | Proxies AI `GET /status/<aiJobId>`, see below                                                     |
 
 When proxying, Express forwards the AI service's JSON and adds `jobId` (the DB id) and
 `transcript_name`. If the AI service reports `ready` with a URL, Express also updates the row to
@@ -260,7 +259,11 @@ Used to persist the result. Request (`courseProgressSchema`):
   "courseId": 12,
   "lessonData": {
     "lessonId": 87,
-    "data": { "generatedTextContent": "...", "aiVideoUrl": "https://res.cloudinary.com/...", "celebrity": "Salman Khan" }
+    "data": {
+      "generatedTextContent": "...",
+      "aiVideoUrl": "https://res.cloudinary.com/...",
+      "celebrity": "Salman Khan"
+    }
   },
   "currentLesson": { "lessonId": 87, "moduleTitle": "..." },
   "completedLesson": { "lessonId": 87 }
@@ -285,8 +288,11 @@ Called by the BullMQ worker.
   "topic": "Hooks",
   "celebrity": "salman",
   "preferences": {
-    "explanation_type": "...", "learning_style": "...", "teaching_pace": "...",
-    "example_type": "...", "focus_area": "..."
+    "explanation_type": "...",
+    "learning_style": "...",
+    "teaching_pace": "...",
+    "example_type": "...",
+    "focus_area": "..."
   }
 }
 ```
@@ -321,10 +327,17 @@ Returns the in-memory job record:
   "status": "queued | processing | ready | failed | not_found",
   "cloudinary_url": "https://res.cloudinary.com/... or null",
   "local_video_url": "/video-stream/<base>.mp4",
-  "subtitle_url": "...", "subtitle_vtt_url": "...", "subtitle_srt_url": "...",
+  "subtitle_url": "...",
+  "subtitle_vtt_url": "...",
+  "subtitle_srt_url": "...",
   "meta": {
-    "provider": "gemini | groq", "model": "...", "renderer": "did | ffmpeg_fallback",
-    "duration_ms": 0, "audio_seconds": 0, "word_count": 0, "media": {},
+    "provider": "gemini | groq",
+    "model": "...",
+    "renderer": "did | ffmpeg_fallback",
+    "duration_ms": 0,
+    "audio_seconds": 0,
+    "word_count": 0,
+    "media": {},
     "timestamps": { "queued_at": "", "started_at": "", "completed_at": "" }
   }
 }
@@ -350,16 +363,16 @@ user API uses `GET` (with `Range`) to proxy and `HEAD` to verify cached local vi
 
 ### 5.1 `AIVideo` (PostgreSQL, `models/AIVideo.js`)
 
-| Column | Notes |
-|---|---|
-| `id` (UUID, PK) | The ID the browser calls `jobId`. Also the BullMQ job ID. |
-| `courseId`, `lessonId`, `celebrity` | **Unique together.** One row per lesson per voice, shared by all users. |
-| `videoUrl` | Cloudinary URL, or the local proxy path `/api/ai/video/...`. Empty until ready. |
-| `transcriptName` | AI service file name (`<base>.txt`). |
-| `transcript` | Cached transcript text (filled on first transcript fetch). |
-| `jobId` | The **AI service's** job ID. Null until the worker has called `/generate`. |
-| `status` | `pending`, `processing`, `completed`, `failed`. |
-| `error`, `meta` | Failure message; generation metadata from the AI service. |
+| Column                              | Notes                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------- |
+| `id` (UUID, PK)                     | The ID the browser calls `jobId`. Also the BullMQ job ID.                       |
+| `courseId`, `lessonId`, `celebrity` | **Unique together.** One row per lesson per voice, shared by all users.         |
+| `videoUrl`                          | Cloudinary URL, or the local proxy path `/api/ai/video/...`. Empty until ready. |
+| `transcriptName`                    | AI service file name (`<base>.txt`).                                            |
+| `transcript`                        | Cached transcript text (filled on first transcript fetch).                      |
+| `jobId`                             | The **AI service's** job ID. Null until the worker has called `/generate`.      |
+| `status`                            | `pending`, `processing`, `completed`, `failed`.                                 |
+| `error`, `meta`                     | Failure message; generation metadata from the AI service.                       |
 
 ### 5.2 `AIVideo.status` lifecycle
 
@@ -382,7 +395,12 @@ rows can be claimed (atomically, via a conditional `UPDATE`).
 Stored in `Users.purchasedCourses[].progress.lessonData[lessonId]`:
 
 ```json
-{ "celebrity": "Salman Khan", "aiVideoUrl": "...", "generatedTextContent": "...", "watchHistory": { } }
+{
+  "celebrity": "Salman Khan",
+  "aiVideoUrl": "...",
+  "generatedTextContent": "...",
+  "watchHistory": {}
+}
 ```
 
 The frontend reads this on load to restore the selected voice, video and transcript.
@@ -393,13 +411,13 @@ The frontend reads this on load to restore the selected voice, video and transcr
 
 There are five layers. They are checked from the outside in.
 
-| Layer | Key | Lifetime | Behavior |
-|---|---|---|---|
-| **1. Learner's saved lesson data** | `lessonId` + voice name | Persistent (user record) | If the saved voice matches and an `aiVideoUrl` exists, the frontend makes **no** request. |
-| **2. `AIVideo` row** | course + lesson + celebrity (**not user**) | Persistent | `completed` with an `https://*.res.cloudinary.com` URL returns `cached: true` instantly. `pending`/`processing` returns the existing `jobId`. A `completed` local URL is verified with a `HEAD` to the AI service. `failed`, or an unverifiable local video, is reset and regenerated. |
-| **3. Transcript copy** | `transcriptName` | Persistent | `AIVideo.transcript` is filled on the first transcript fetch and served from the DB afterwards. |
-| **4. AI service dedupe** | SHA-256 of course, topic, celebrity, language, voice params, preferences | 1 hour, 1000 entries (in memory) | An identical request returns the existing `jobId` with `cached: true` instead of starting a new job. The entry is removed if the job fails. |
-| **5. BullMQ job ID** | `AIVideo.id` | Until the job completes | A second enqueue with the same ID is ignored. Jobs are removed on completion and on failure. |
+| Layer                              | Key                                                                      | Lifetime                         | Behavior                                                                                                                                                                                                                                                                               |
+| ---------------------------------- | ------------------------------------------------------------------------ | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1. Learner's saved lesson data** | `lessonId` + voice name                                                  | Persistent (user record)         | If the saved voice matches and an `aiVideoUrl` exists, the frontend makes **no** request.                                                                                                                                                                                              |
+| **2. `AIVideo` row**               | course + lesson + celebrity (**not user**)                               | Persistent                       | `completed` with an `https://*.res.cloudinary.com` URL returns `cached: true` instantly. `pending`/`processing` returns the existing `jobId`. A `completed` local URL is verified with a `HEAD` to the AI service. `failed`, or an unverifiable local video, is reset and regenerated. |
+| **3. Transcript copy**             | `transcriptName`                                                         | Persistent                       | `AIVideo.transcript` is filled on the first transcript fetch and served from the DB afterwards.                                                                                                                                                                                        |
+| **4. AI service dedupe**           | SHA-256 of course, topic, celebrity, language, voice params, preferences | 1 hour, 1000 entries (in memory) | An identical request returns the existing `jobId` with `cached: true` instead of starting a new job. The entry is removed if the job fails.                                                                                                                                            |
+| **5. BullMQ job ID**               | `AIVideo.id`                                                             | Until the job completes          | A second enqueue with the same ID is ignored. Jobs are removed on completion and on failure.                                                                                                                                                                                           |
 
 Two consequences are worth knowing:
 
@@ -413,14 +431,14 @@ Two consequences are worth knowing:
 
 ## 7. Generated media: storage and retrieval
 
-| Artifact | Created at | Stored in | Served how | Cleanup |
-|---|---|---|---|---|
-| Lesson script (`.txt`) | Start of pipeline | `ai_service/backend/outputs/text/<base>.txt` | `GET /transcript/<file>` through the user API, which also caches it in `AIVideo.transcript` | Not removed |
-| Narration (`.mp3`) | After script | `outputs/audio/<base>.mp3` | Not served to the browser | Removed after a successful Cloudinary upload |
-| Video (`.mp4`) | After narration | `outputs/video/<base>.mp4`, uploaded to Cloudinary folder `ai_mentor/videos` (public ID `<base>`) | **Preferred:** browser plays the Cloudinary `secure_url` directly. **Fallback:** `GET /api/ai/video/<courseId>/<AIVideo.id>.mp4` streams from `/video-stream` | Local file removed if Cloudinary succeeded; **kept** if upload failed |
-| Subtitles (`.vtt`, `.srt`) | After video | Local, plus Cloudinary `ai_mentor/subtitles` (raw) | URLs appear in the status payload, but the learner app does not use them. Captions are generated in the browser by splitting the transcript evenly across the video duration (`service/transcript.js`). | Removed if uploaded |
-| Stock celebrity videos | n/a | `ai_service/backend/input/{modi,salman,srk,owl}.mp4` (in the repo) | Input to the FFmpeg fallback renderer only | n/a |
-| Job state | Request time | AI service memory (`job_status`) and PostgreSQL (`AIVideo`) | Via `/status` | In-memory entries expire after 1 hour |
+| Artifact                   | Created at        | Stored in                                                                                         | Served how                                                                                                                                                                                              | Cleanup                                                               |
+| -------------------------- | ----------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Lesson script (`.txt`)     | Start of pipeline | `ai_service/backend/outputs/text/<base>.txt`                                                      | `GET /transcript/<file>` through the user API, which also caches it in `AIVideo.transcript`                                                                                                             | Not removed                                                           |
+| Narration (`.mp3`)         | After script      | `outputs/audio/<base>.mp3`                                                                        | Not served to the browser                                                                                                                                                                               | Removed after a successful Cloudinary upload                          |
+| Video (`.mp4`)             | After narration   | `outputs/video/<base>.mp4`, uploaded to Cloudinary folder `ai_mentor/videos` (public ID `<base>`) | **Preferred:** browser plays the Cloudinary `secure_url` directly. **Fallback:** `GET /api/ai/video/<courseId>/<AIVideo.id>.mp4` streams from `/video-stream`                                           | Local file removed if Cloudinary succeeded; **kept** if upload failed |
+| Subtitles (`.vtt`, `.srt`) | After video       | Local, plus Cloudinary `ai_mentor/subtitles` (raw)                                                | URLs appear in the status payload, but the learner app does not use them. Captions are generated in the browser by splitting the transcript evenly across the video duration (`service/transcript.js`). | Removed if uploaded                                                   |
+| Stock celebrity videos     | n/a               | `ai_service/backend/input/{modi,salman,srk,owl}.mp4` (in the repo)                                | Input to the FFmpeg fallback renderer only                                                                                                                                                              | n/a                                                                   |
+| Job state                  | Request time      | AI service memory (`job_status`) and PostgreSQL (`AIVideo`)                                       | Via `/status`                                                                                                                                                                                           | In-memory entries expire after 1 hour                                 |
 
 The `outputs/` directory is git-ignored. The renderer is D-ID first; if that fails or is not
 configured, the service merges the narration with the stock video for the chosen celebrity using
@@ -487,36 +505,36 @@ Every AI request depends on this chain:
 
 ## 10. Configuration and runtime requirements
 
-| Service | Variable | Purpose |
-|---|---|---|
-| Frontend | `VITE_API_BASE_URL` | User API origin (also the dev proxy target for `/api`). |
-| User API | `AI_SERVICE_URL` | AI service base URL (default `http://127.0.0.1:8000`). |
-| User API | `JWT_SECRET` | Verifies learner tokens. |
-| User API | `REDIS_HOST`, `REDIS_PORT` | BullMQ connection (defaults `127.0.0.1:6379`). **Redis is required**; without it jobs never run. |
-| AI service | `GEMINI_API_KEY` (required), `GEMINI_MODEL`, `LLM_TIMEOUT_SECONDS` | Primary script provider. |
-| AI service | `GROQ_API_KEY` (optional) | Fallback script provider. |
-| AI service | `CLOUDINARY_CLOUD_NAME` / `_API_KEY` / `_API_SECRET` (optional) | Media storage. Without them, videos stay local. |
-| AI service | `DID_API_KEY`, `DID_SOURCE_URL`, `DID_API_URL` (optional) | D-ID avatar. Without them, FFmpeg fallback is used. |
+| Service    | Variable                                                           | Purpose                                                                                          |
+| ---------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| Frontend   | `VITE_API_BASE_URL`                                                | User API origin (also the dev proxy target for `/api`).                                          |
+| User API   | `AI_SERVICE_URL`                                                   | AI service base URL (default `http://127.0.0.1:8000`).                                           |
+| User API   | `JWT_SECRET`                                                       | Verifies learner tokens.                                                                         |
+| User API   | `REDIS_HOST`, `REDIS_PORT`                                         | BullMQ connection (defaults `127.0.0.1:6379`). **Redis is required**; without it jobs never run. |
+| AI service | `GEMINI_API_KEY` (required), `GEMINI_MODEL`, `LLM_TIMEOUT_SECONDS` | Primary script provider.                                                                         |
+| AI service | `GROQ_API_KEY` (optional)                                          | Fallback script provider.                                                                        |
+| AI service | `CLOUDINARY_CLOUD_NAME` / `_API_KEY` / `_API_SECRET` (optional)    | Media storage. Without them, videos stay local.                                                  |
+| AI service | `DID_API_KEY`, `DID_SOURCE_URL`, `DID_API_URL` (optional)          | D-ID avatar. Without them, FFmpeg fallback is used.                                              |
 
 Also required on the AI service host: **FFmpeg**. Start order for local development: Redis,
 user API, AI service, frontend. See `initalSetup.md` for details.
 
 ## 11. Key files
 
-| Area | File |
-|---|---|
-| Trigger and orchestration | `frontend/src/pages/LearningPage.jsx` (generation effect, `publishVideo`, `saveLessonData`) |
-| Submit request | `frontend/src/service/aiService.js` (`getAIVideo`) |
-| Polling, timeouts, errors | `frontend/src/service/aiGeneration.js` |
-| API client and 401 handling | `frontend/src/lib/api.js` |
-| Voice picker | `frontend/src/components/learning/VoiceoverDialog.jsx` |
-| AI routes | `backend/routes/aiRoutes.js` |
-| Validation schema | `backend/schemas/aiSchema.js` |
-| Auth and rate limiting | `backend/middleware/authMiddleware.js`, `backend/middleware/rateLimiter.js` |
-| Queue and worker | `backend/queues/videoQueue.js` |
-| Job and cache model | `backend/models/AIVideo.js` |
-| Progress persistence | `backend/controllers/userController.js` (`updateCourseProgress`) |
-| AI service API and pipeline | `ai_service/backend/api.py` (`/generate`, `process_lesson`) |
-| AI service config | `ai_service/backend/config.py` |
-| Avatar rendering | `ai_service/backend/avatar_service.py` |
-| Subtitles and voices | `ai_service/backend/subtitles.py`, `ai_service/backend/voices.py` |
+| Area                        | File                                                                                        |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| Trigger and orchestration   | `frontend/src/pages/LearningPage.jsx` (generation effect, `publishVideo`, `saveLessonData`) |
+| Submit request              | `frontend/src/service/aiService.js` (`getAIVideo`)                                          |
+| Polling, timeouts, errors   | `frontend/src/service/aiGeneration.js`                                                      |
+| API client and 401 handling | `frontend/src/lib/api.js`                                                                   |
+| Voice picker                | `frontend/src/components/learning/VoiceoverDialog.jsx`                                      |
+| AI routes                   | `backend/routes/aiRoutes.js`                                                                |
+| Validation schema           | `backend/schemas/aiSchema.js`                                                               |
+| Auth and rate limiting      | `backend/middleware/authMiddleware.js`, `backend/middleware/rateLimiter.js`                 |
+| Queue and worker            | `backend/queues/videoQueue.js`                                                              |
+| Job and cache model         | `backend/models/AIVideo.js`                                                                 |
+| Progress persistence        | `backend/controllers/userController.js` (`updateCourseProgress`)                            |
+| AI service API and pipeline | `ai_service/backend/api.py` (`/generate`, `process_lesson`)                                 |
+| AI service config           | `ai_service/backend/config.py`                                                              |
+| Avatar rendering            | `ai_service/backend/avatar_service.py`                                                      |
+| Subtitles and voices        | `ai_service/backend/subtitles.py`, `ai_service/backend/voices.py`                           |
