@@ -44,3 +44,10 @@ export const aiVideoLimiter = createAiLimiter({
   message:
     "Video generation limit reached. You can generate up to 3 videos every 5 minutes. Please try again later.",
 });
+export {
+  aiGenerationLimiter,
+  videoGenerationLimiter,
+  syllabusGenerationLimiter,
+  createAIRateLimiter,
+  createRedisRateLimitStore,
+} from "./aiRateLimiter.js";
