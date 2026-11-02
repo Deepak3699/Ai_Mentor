@@ -21,6 +21,13 @@ export const createAbortError = () => {
 export const classifyGenerationError = (error) => {
   if (error instanceof AIGenerationError) return error;
   if (isAbortError(error)) return error;
+  if (error?.status === 429 || /rate limit|too many requests/i.test(error?.message || "")) {
+    return new AIGenerationError(
+      "rate_limit",
+      error.message || "Too many AI generation requests. Please try again later.",
+      { retryable: true, details: error },
+    );
+  }
   if (
     error instanceof TypeError ||
     /network|fetch failed|failed to fetch|offline/i.test(error?.message || "")
@@ -105,13 +112,24 @@ export const isVideoUrl = (value) => {
 export const httpGenerationError = (response) => {
   const status = response.status;
   let retryAfterMs = 0;
+  let retryAfterSeconds = null;
   const header = response.headers?.get?.("Retry-After");
   if (header) {
     const seconds = Number(header);
-    const delay = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(header) - Date.now();
-    if (Number.isFinite(delay)) retryAfterMs = Math.max(0, delay);
+    if (Number.isFinite(seconds)) {
+      retryAfterSeconds = seconds;
+      retryAfterMs = seconds * 1000;
+    } else {
+      const delay = Date.parse(header) - Date.now();
+      if (Number.isFinite(delay)) retryAfterMs = Math.max(0, delay);
+    }
   }
-  const details = { status, retryAfterMs, retryAt: Date.now() + retryAfterMs };
+  const details = {
+    status,
+    retryAfterMs,
+    retryAt: Date.now() + retryAfterMs,
+    retryAfter: retryAfterSeconds,
+  };
   if (status === 401)
     return new AIGenerationError(
       "authentication",
