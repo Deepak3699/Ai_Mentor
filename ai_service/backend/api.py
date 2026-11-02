@@ -806,7 +806,21 @@ def generate_quiz(data: QuizRequest):
             return validated_quiz
 
         except Exception as e:
-            log_event("WARN", "Quiz generation attempt failed", attempt=attempt + 1, error=short_error(e))
+            error_category = short_error(e)
+            if error_category == "timeout":
+                log_event(
+                    "WARN",
+                    "Quiz provider timed out; returning empty quiz",
+                    attempt=attempt + 1,
+                )
+                return {"questions": []}
+
+            log_event(
+                "WARN",
+                "Quiz generation attempt failed",
+                attempt=attempt + 1,
+                error=error_category,
+            )
 
             if attempt == 1:
                 return {"questions": []}
