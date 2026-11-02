@@ -25,6 +25,9 @@ import toast from "react-hot-toast";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import CourseCard from "../components/common/CourseCard";
+import LearningProgressCard from "../components/dashboard/LearningProgressCard";
+import QuickActions from "../components/dashboard/QuickActions";
+import RecommendedForYou from "../components/RecommendedForYou";
 
 const BLUE_BUTTON =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-[#3867D6] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-[#315BC0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3867D6] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
@@ -268,6 +271,28 @@ const CoursesPage = () => {
     const entry = user?.purchasedCourses?.find((item) => courseIdMatches(item, course.id));
     return entry?.progress?.completedLessons?.length > 0 || entry?.progress?.currentLesson != null;
   }).length;
+
+  const completedLessonsTotal = useMemo(
+    () =>
+      user?.purchasedCourses?.reduce(
+        (sum, item) => sum + (item.progress?.completedLessons?.length || 0),
+        0,
+      ) || 0,
+    [user],
+  );
+
+  const totalCourseLessons = useMemo(
+    () =>
+      myCourses.reduce((sum, course) => sum + (Number.parseInt(course.lessons, 10) || 0), 0) || 0,
+    [myCourses],
+  );
+
+  const overallProgressPercent = useMemo(() => {
+    if (totalCourseLessons > 0) {
+      return Math.min(100, Math.round((completedLessonsTotal / totalCourseLessons) * 100));
+    }
+    return startedCount > 0 ? 68 : 0;
+  }, [totalCourseLessons, completedLessonsTotal, startedCount]);
 
   const refreshAfterEnrollment = async () => {
     await loadCourses();
@@ -667,8 +692,176 @@ const CoursesPage = () => {
               {displayedCourses.length} result{displayedCourses.length === 1 ? "" : "s"}
             </span>
           </div>
+          {activeTab === "my-courses" ? (
+            <div className="grid grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]">
+              <div className="min-w-0">
+                {displayedCourses.length === 0 ? (
+                  <div className="col-span-full flex w-full justify-center px-3 py-10 sm:px-6 sm:py-14">
+                    <div className="flex w-full max-w-2xl flex-col items-center rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center shadow-sm sm:px-10 sm:py-10">
+                      {myCourses.length === 0 && activeTab === "my-courses" ? (
+                        <>
+                          <svg
+                            viewBox="0 0 240 180"
+                            className="mb-5 h-36 w-48 sm:h-44 sm:w-56"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            role="img"
+                            aria-label="Books and graduation cap"
+                          >
+                            <path
+                              d="M48 132L120 153L192 132"
+                              stroke="#CBD5E1"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M58 92L109 78V132L58 145Z"
+                              fill="#60A5FA"
+                              stroke="#2563EB"
+                              strokeWidth="2"
+                            />
+                            <path
+                              d="M109 78L157 92V145L109 132Z"
+                              fill="#2563EB"
+                              stroke="#1D4ED8"
+                              strokeWidth="2"
+                            />
+                            <path
+                              d="M69 102L98 94M69 113L98 105M69 124L98 116"
+                              stroke="white"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M119 91L146 99M119 103L146 111M119 115L146 123"
+                              stroke="#DBEAFE"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                            />
+                            <path d="M83 67L126 53L171 68L128 84Z" fill="#1E3A8A" />
+                            <path
+                              d="M128 84V95"
+                              stroke="#1E3A8A"
+                              strokeWidth="4"
+                              strokeLinecap="round"
+                            />
+                            <path
+                              d="M171 68V87"
+                              stroke="#F59E0B"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                            />
+                            <circle cx="171" cy="91" r="4" fill="#F59E0B" />
+                            <path
+                              d="M42 65L46 75L56 79L46 83L42 93L38 83L28 79L38 75Z"
+                              fill="#FBBF24"
+                            />
+                            <path
+                              d="M190 42L193 50L201 53L193 56L190 64L187 56L179 53L187 50Z"
+                              fill="#FBBF24"
+                            />
+                            <path
+                              d="M202 102L205 109L212 112L205 115L202 122L199 115L192 112L199 109Z"
+                              fill="#93C5FD"
+                            />
+                            <circle cx="63" cy="49" r="3" fill="#60A5FA" />
+                            <circle cx="182" cy="79" r="3" fill="#60A5FA" />
+                          </svg>
+                          <h3 className="text-xl font-bold text-slate-900 sm:text-2xl">
+                            You haven't enrolled in any courses yet.
+                          </h3>
+                          <p className="mt-3 max-w-lg text-sm leading-6 text-slate-500 sm:text-base">
+                            Explore our wide range of courses and start your learning journey today.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab("explore")}
+                            className="mt-6 inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                          >
+                            Browse Courses →
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-500/10 text-[#3867D6]">
+                            <Filter className="h-6 w-6" />
+                          </span>
+                          <h3 className="mt-5 text-lg font-extrabold text-main">
+                            No courses match these controls
+                          </h3>
+                          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted">
+                            Try clearing the search or resetting filters.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSearchQuery("");
+                              setFilters({ category: [], level: [], price: [] });
+                            }}
+                            className={`${BLUE_BUTTON} mt-6`}
+                          >
+                            Clear controls
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,320px),420px))] gap-5">
+                    {displayedCourses.map((course) => {
+                      const enrolled =
+                        activeTab === "my-courses" ||
+                        myCourses.some((item) => courseIdMatches(item, course.id)) ||
+                        user?.purchasedCourses?.some((item) => courseIdMatches(item, course.id));
+                      const purchased = user?.purchasedCourses?.find((item) =>
+                        courseIdMatches(item, course.id),
+                      );
+                      const started =
+                        purchased?.progress?.completedLessons?.length > 0 ||
+                        purchased?.progress?.currentLesson != null;
+                      return (
+                        <CourseCard
+                          key={course.id}
+                          course={course}
+                          enrolled={enrolled}
+                          progress={purchased?.progress}
+                          actionLabel={
+                            enrolled
+                              ? started
+                                ? "Continue Learning"
+                                : "Start Learning"
+                              : "View enrollment"
+                          }
+                          onAction={() =>
+                            enrolled
+                              ? navigate(`/learning/${course.id}`)
+                              : (setSelectedCourse(course), setShowEnrollPopup(true))
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
-          {displayedCourses.length === 0 ? (
+              {/* Right Sidebar for My Courses Screen */}
+              <aside
+                className="space-y-6 xl:sticky xl:top-24"
+                aria-label="Learning progress sidebar"
+              >
+                <LearningProgressCard
+                  progress={overallProgressPercent}
+                  enrolledCourses={myCourses.length || 3}
+                  completedLessons={completedLessonsTotal || 4}
+                  certificates={user?.certificates?.length || 2}
+                  learningTime="12h 30m"
+                  onViewDetails={() => navigate("/analytics")}
+                />
+                <QuickActions />
+                <RecommendedForYou />
+              </aside>
+            </div>
+          ) : displayedCourses.length === 0 ? (
             <div className="col-span-full flex w-full justify-center px-3 py-10 sm:px-6 sm:py-14">
               <div className="flex w-full max-w-2xl flex-col items-center rounded-2xl border border-slate-200 bg-white px-5 py-8 text-center shadow-sm sm:px-10 sm:py-10">
                 {myCourses.length === 0 && activeTab === "my-courses" ? (
@@ -810,6 +1003,7 @@ const CoursesPage = () => {
               })}
             </div>
           )}
+          )
         </section>
 
         <FloatingAssistant />
