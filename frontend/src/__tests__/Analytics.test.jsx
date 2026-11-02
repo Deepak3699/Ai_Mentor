@@ -76,6 +76,12 @@ describe("Analytics study hours bug fix (Issue #404)", () => {
               }),
           });
         }
+        if (url.includes("/api/certificate/list")) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve([]),
+          });
+        }
         return Promise.reject(new Error("Unknown route: " + url));
       }),
     );
@@ -133,6 +139,12 @@ describe("Analytics study hours bug fix (Issue #404)", () => {
                 }),
             });
           }
+          if (url.includes("/api/certificate/list")) {
+            return Promise.resolve({
+              ok: true,
+              json: () => Promise.resolve([]),
+            });
+          }
           return Promise.reject(new Error("Unknown route: " + url));
         }),
       );
@@ -160,6 +172,12 @@ describe("Analytics study hours bug fix (Issue #404)", () => {
           if (url.includes("/api/analytics")) {
             return Promise.resolve({
               json: () => Promise.resolve({ studySessions: [] }),
+            });
+          }
+          if (url.includes("/api/certificate/list")) {
+            return Promise.resolve({
+              ok: true,
+              json: () => Promise.resolve([]),
             });
           }
           return Promise.reject(new Error("Unknown route: " + url));
