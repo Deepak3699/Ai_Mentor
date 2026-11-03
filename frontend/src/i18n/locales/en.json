@@ -134,6 +134,12 @@
     "enroll": "Enroll"
   },
   "courses": {
+    "continueLearning": "Taking you to your course...",
+    "enrollmentFailed": "Enrollment could not be completed",
+    "enrolling": "Confirming your enrollment...",
+    "paymentSuccessful": "Enrollment confirmed",
+    "backToCourses": "Back to courses",
+    "paymentEnrollmentHelp": "Your payment may have succeeded, but your enrollment could not be confirmed. Please retry enrollment or contact support before making another payment.",
     "title": "Learning Hub",
     "subtitle": "Discover and continue your learning journey",
     "my_courses": "My Courses",

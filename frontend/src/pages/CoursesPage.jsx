@@ -45,11 +45,14 @@ const artworkFor = (title = "") => {
 };
 
 const normalizeCategory = (category) => (category === "Databases" ? "Database" : category);
-const isFreeCourse = (course) =>
-  Number(course?.priceValue || 0) === 0 ||
-  course?.price === "₹0" ||
-  course?.price === "Free" ||
-  !course?.price;
+const isFreeCourse = (course) => {
+  const priceValue = Number(course?.priceValue);
+
+  return (
+    Number.isFinite(priceValue) &&
+    priceValue === 0
+  );
+};
 const courseIdMatches = (entry, targetId) =>
   String(entry?.id ?? entry?.courseId ?? entry?.course?.id) === String(targetId);
 const formatLessonCount = (value) => {
@@ -277,26 +280,68 @@ const CoursesPage = () => {
     window.dispatchEvent(new Event("refreshNotifications"));
   };
 
-  const handleFreeEnrollment = async () => {
-    if (!selectedCourse || isPurchasing) return;
-    try {
-      setIsPurchasing(true);
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_BASE_URL}/api/users/purchase-course`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ courseId: selectedCourse.id, courseTitle: selectedCourse.title }),
-      });
-      if (!response.ok) throw new Error("Enrollment failed");
-      await refreshAfterEnrollment();
-      toast.success("Successfully enrolled!");
-    } catch (error) {
-      console.error("Enroll error:", error);
-      toast.error("Failed to enroll. Please try again.");
-    } finally {
-      setIsPurchasing(false);
+const handleFreeEnrollment = async () => {
+  if (!selectedCourse || isPurchasing) return;
+
+  try {
+    setIsPurchasing(true);
+
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login", { replace: true });
+      return;
     }
-  };
+
+    const response = await fetch(`${API_BASE_URL}/api/users/purchase-course`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        courseId: selectedCourse.id,
+        courseTitle: selectedCourse.title,
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (response.status === 401) {
+      navigate("/login", { replace: true });
+      return;
+    }
+
+    const alreadyEnrolled =
+      response.status === 409 &&
+      data?.error?.code === "CONFLICT" &&
+      data?.error?.message === "Already enrolled";
+
+    if (!response.ok && !alreadyEnrolled) {
+      throw new Error(
+        data?.message ||
+          data?.error?.message ||
+          "Enrollment could not be completed. Please try again.",
+      );
+    }
+
+    await refreshAfterEnrollment();
+
+    toast.success(
+      alreadyEnrolled
+        ? "You are already enrolled in this course."
+        : "Successfully enrolled!",
+    );
+  } catch (error) {
+    console.error("Enroll error:", error);
+    toast.error(
+      error.message || "Failed to enroll. Please try again.",
+    );
+  } finally {
+    setIsPurchasing(false);
+  }
+};
+
 
   const handleStripePayment = async () => {
     if (!selectedCourse || isPurchasing) return;
