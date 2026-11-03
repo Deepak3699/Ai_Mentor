@@ -26,6 +26,9 @@ ai_service/
 |   |-- config.py
 |   |-- graceful_server.py
 |   |-- avatar_service.py
+|   |-- voices.py
+|   |-- subtitles.py
+|   |-- job_shutdown.py
 |   |-- requirements.txt
 |   |-- .env.example
 |   `-- input/
@@ -86,6 +89,7 @@ Create `ai_service/backend/.env` from `ai_service/backend/.env.example`.
 | `DID_API_URL`           | Optional                                        | Uses the service default when omitted                                                |
 | `DID_SOURCE_URL`        | Optional                                        | D-ID rendering falls back to the local FFmpeg renderer                               |
 | `AI_SERVICE_LOG_LEVEL`  | Optional                                        | Uses `INFO` by default; supports `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL` |
+| `LLM_TIMEOUT_SECONDS`   | Optional                                        | Sets the LLM call timeout in seconds; defaults to `60` when omitted                  |
 
 Setup output reports only variable names and `<configured>` markers. Do not commit `.env` files or share credential values.
 
@@ -126,6 +130,8 @@ For direct debugging only, the underlying entry point is `ai_service/backend/gra
 | ------ | ------------------------------- | ---------------------------------------------------------------- |
 | `GET`  | `/`                             | Basic service response used for readiness checks                 |
 | `POST` | `/generate`                     | Queue lesson script, narration, video, and subtitle generation   |
+| `POST` | `/generate-quiz`                | Generate a multiple-choice quiz from lesson text                 |
+| `POST` | `/explain-code`                 | Explain, debug, or optimize submitted code                       |
 | `GET`  | `/status/{job_id}`              | Return generation status and generated asset metadata            |
 | `GET`  | `/transcript/{filename}`        | Return a generated transcript                                    |
 | `POST` | `/generate-syllabus`            | Generate a structured course syllabus                            |
