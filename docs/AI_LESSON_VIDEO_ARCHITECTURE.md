@@ -1,9 +1,11 @@
 # AI Lesson Video Generation Architecture
 
 ## Purpose
+
 This document describes how AI lesson-video generation is requested, processed, stored, and delivered in Ai_Mentor.
 
 ## System Overview
+
 The workflow spans the frontend, Node.js backend, Python AI service, and media storage.
 
 ```text
@@ -27,3 +29,4 @@ Store generated assets
   |
   v
 Return status and video to frontend
+```
