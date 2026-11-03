@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -11,8 +10,7 @@ const Success = () => {
   const { t } = useTranslation();
 
   const courseId = searchParams.get("courseId");
-  const courseTitle =
-    searchParams.get("title") || `Course ${courseId || ""}`;
+  const courseTitle = searchParams.get("title") || `Course ${courseId || ""}`;
 
   const [status, setStatus] = useState("loading");
   const [attempt, setAttempt] = useState(0);
@@ -24,11 +22,7 @@ const Success = () => {
     requestInFlight.current = true;
 
     try {
-      if (
-        !courseId ||
-        !Number.isFinite(Number(courseId)) ||
-        Number(courseId) <= 0
-      ) {
+      if (!courseId || !Number.isFinite(Number(courseId)) || Number(courseId) <= 0) {
         setStatus("error");
         setErrorMessage(t("courses.enrollmentFailed"));
         return;
@@ -43,20 +37,17 @@ const Success = () => {
       setStatus("loading");
       setErrorMessage("");
 
-      const response = await apiFetch(
-        `${API_BASE_URL}/api/users/purchase-course`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            courseId: Number(courseId),
-            courseTitle,
-          }),
-        }
-      );
+      const response = await apiFetch(`${API_BASE_URL}/api/users/purchase-course`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          courseId: Number(courseId),
+          courseTitle,
+        }),
+      });
 
       const data = await response.json().catch(() => null);
 
@@ -79,7 +70,7 @@ const Success = () => {
           response: { status: response.status, data },
           message: getErrorMessage(
             { response: { status: response.status, data } },
-            t("courses.paymentEnrollmentHelp")
+            t("courses.paymentEnrollmentHelp"),
           ),
         };
       }
@@ -88,9 +79,7 @@ const Success = () => {
       setStatus("success");
     } catch (error) {
       console.error("Error saving purchase:", error);
-      setErrorMessage(
-        getErrorMessage(error, t("courses.enrollmentFailed"))
-      );
+      setErrorMessage(getErrorMessage(error, t("courses.enrollmentFailed")));
       setStatus("error");
     } finally {
       requestInFlight.current = false;
@@ -122,13 +111,9 @@ const Success = () => {
   if (status === "error") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6 text-center">
-        <h1 className="text-xl font-bold text-red-600">
-          {t("courses.enrollmentFailed")}
-        </h1>
+        <h1 className="text-xl font-bold text-red-600">{t("courses.enrollmentFailed")}</h1>
         <p className="max-w-lg text-gray-500">{errorMessage}</p>
-        <p className="max-w-lg text-sm text-gray-500">
-          {t("courses.paymentEnrollmentHelp")}
-        </p>
+        <p className="max-w-lg text-sm text-gray-500">{t("courses.paymentEnrollmentHelp")}</p>
         <button
           type="button"
           onClick={() => setAttempt((current) => current + 1)}
@@ -149,12 +134,8 @@ const Success = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center flex-col gap-4">
-      <h1 className="text-xl font-bold text-green-600">
-        {t("courses.paymentSuccessful")}
-      </h1>
-      <p className="text-gray-500">
-        {t("courses.continueLearning")}
-      </p>
+      <h1 className="text-xl font-bold text-green-600">{t("courses.paymentSuccessful")}</h1>
+      <p className="text-gray-500">{t("courses.continueLearning")}</p>
     </div>
   );
 };

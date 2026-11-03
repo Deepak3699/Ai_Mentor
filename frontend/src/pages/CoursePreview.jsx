@@ -327,8 +327,8 @@ export default function CoursePreview() {
   const handleRazorpayPayment = async () => {
     if (!selectedCourse || isPurchasing || razorpayModalOpen.current) return;
     const token = localStorage.getItem("token");
-    if(!token){
-      navigate("/login", { replace:true });
+    if (!token) {
+      navigate("/login", { replace: true });
       return;
     }
     const priceValue = Number(selectedCourse.priceValue || 0);

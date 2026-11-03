@@ -345,12 +345,9 @@ const Dashboard = () => {
       navigate(`/course-preview/${course.id}`);
     } catch (error) {
       console.error("Enroll and preview error:", error);
-      toast.error(
-        error.message || "Enrollment failed. Please try again.",
-      );
+      toast.error(error.message || "Enrollment failed. Please try again.");
     }
   };
-
 
   if (loading) return <LoadingSpinner variant="inline" label="Loading dashboard..." />;
 
