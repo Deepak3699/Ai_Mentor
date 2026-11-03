@@ -672,15 +672,21 @@ const updateUserProfile = async (req, res, next) => {
       user.avatar_url = `/uploads/${req.file.filename}`;
     }
 
+    // Explicitly strip privileged fields that must never be changed via this
+    // endpoint. This is a defence-in-depth guard on top of the schema validation
+    // so that role / status cannot be mutated even if the schema check is bypassed.
+    // eslint-disable-next-line no-unused-vars
+    const { role: _role, status: _status, ...safeBody } = req.body;
+
     // Update text fields
-    user.firstName = req.body.firstName ?? user.firstName;
-    user.lastName = req.body.lastName ?? user.lastName;
+    user.firstName = safeBody.firstName ?? user.firstName;
+    user.lastName = safeBody.lastName ?? user.lastName;
     user.name = formatFullName(user.firstName, user.lastName);
     // Check email change
-    if (req.body.email && req.body.email.trim().toLowerCase() !== user.email.trim().toLowerCase()) {
+    if (safeBody.email && safeBody.email.trim().toLowerCase() !== user.email.trim().toLowerCase()) {
       const emailExists = await User.findOne({
         where: {
-          email: req.body.email.trim().toLowerCase(),
+          email: safeBody.email.trim().toLowerCase(),
         },
       });
       if (emailExists) {
@@ -689,9 +695,9 @@ const updateUserProfile = async (req, res, next) => {
         }
         return forwardError(next, res, new ConflictError("Email already in use"));
       }
-      user.email = req.body.email.trim().toLowerCase();
+      user.email = safeBody.email.trim().toLowerCase();
     }
-    user.bio = req.body.bio ?? user.bio;
+    user.bio = safeBody.bio ?? user.bio;
 
     await user.save();
 
