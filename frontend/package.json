@@ -22,7 +22,7 @@
     "i18next": "^25.8.17",
     "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^0.542.0",
-    "react": "^19.1.1",
+    "react": "^19.3.1",
     "react-dom": "^19.1.1",
     "react-helmet-async": "^3.0.0",
     "react-hot-toast": "^2.6.0",
