@@ -58,3 +58,10 @@ const createPaymentLimiter = () =>
 
 export const stripePaymentLimiter = createPaymentLimiter();
 export const razorpayPaymentLimiter = createPaymentLimiter();
+export {
+  aiGenerationLimiter,
+  videoGenerationLimiter,
+  syllabusGenerationLimiter,
+  createAIRateLimiter,
+  createRedisRateLimitStore,
+} from "./aiRateLimiter.js";

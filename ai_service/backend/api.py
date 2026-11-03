@@ -314,8 +314,12 @@ class LessonRequest(BaseModel):
     preferences: LessonPreferences | None = None
     voice_id: str | None = None
     gender: str | None = None
-    speech_rate: str | None = "+0%"
-    speech_pitch: str | None = "+0Hz"
+    speech_rate: str | None = Field(
+        "+0%", pattern=r"^[+-](?:[0-9]{1,2}|100)%$"
+    )
+    speech_pitch: str | None = Field(
+        "+0Hz", pattern=r"^[+-](?:[0-9]{1,2}|100)Hz$"
+    )
 
 class SyllabusRequest(BaseModel):
     course_title: str = Field(..., min_length=1, max_length=100)
@@ -806,7 +810,21 @@ def generate_quiz(data: QuizRequest):
             return validated_quiz
 
         except Exception as e:
-            log_event("WARN", "Quiz generation attempt failed", attempt=attempt + 1, error=short_error(e))
+            error_category = short_error(e)
+            if error_category == "timeout":
+                log_event(
+                    "WARN",
+                    "Quiz provider timed out; returning empty quiz",
+                    attempt=attempt + 1,
+                )
+                return {"questions": []}
+
+            log_event(
+                "WARN",
+                "Quiz generation attempt failed",
+                attempt=attempt + 1,
+                error=error_category,
+            )
 
             if attempt == 1:
                 return {"questions": []}
