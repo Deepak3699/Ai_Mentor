@@ -3,7 +3,6 @@ from pathlib import Path
 
 import pytest
 
-
 API_FILE = Path(__file__).resolve().parents[1] / "api.py"
 
 
@@ -59,9 +58,7 @@ def test_invalid_celebrity_falls_back_to_modi(celebrity_video_module, name):
     assert Path(result) == input_dir / "modi.mp4"
 
 
-def test_video_selection_does_not_print_paths(
-    celebrity_video_module, capsys
-):
+def test_video_selection_does_not_print_paths(celebrity_video_module, capsys):
     module, input_dir = celebrity_video_module
 
     result = module["get_celebrity_video"]("srk")
@@ -81,4 +78,3 @@ def test_missing_allowed_video_falls_back_to_modi(
     result = module["get_celebrity_video"]("srk")
 
     assert Path(result) == input_dir / "modi.mp4"
-

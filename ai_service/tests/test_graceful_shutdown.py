@@ -67,7 +67,10 @@ def test_shutdown_marks_unfinished_job_failed():
 
         assert "job-2" in failed_jobs
         assert job_status["job-2"]["status"] == "failed"
-        assert job_status["job-2"]["error"] == "Job stopped because service shutdown timed out."
+        assert (
+            job_status["job-2"]["error"]
+            == "Job stopped because service shutdown timed out."
+        )
         assert job_status["job-2"]["reason"] == job_status["job-2"]["error"]
         assert job_status["job-2"]["failure_code"] == "shutdown_timeout"
         assert job_status["job-2"]["meta"]["provider"] == "gemini"
@@ -151,8 +154,13 @@ def test_late_failure_preserves_shutdown_status_and_cleans_cache():
         assert api.job_status[job_id]["reason"] == shutdown_reason
         assert api.job_status[job_id]["failure_code"] == "shutdown_timeout"
         assert api.job_status[job_id]["meta"]["provider"] == "gemini"
-        assert api.job_status[job_id]["meta"]["timestamps"]["queued_at"] == "queued-time"
-        assert api.job_status[job_id]["meta"]["timestamps"]["failed_at"] == shutdown_timestamp
+        assert (
+            api.job_status[job_id]["meta"]["timestamps"]["queued_at"] == "queued-time"
+        )
+        assert (
+            api.job_status[job_id]["meta"]["timestamps"]["failed_at"]
+            == shutdown_timestamp
+        )
         assert not any(value == job_id for value in api.generation_cache.values())
     finally:
         api.active_jobs.discard(job_id)

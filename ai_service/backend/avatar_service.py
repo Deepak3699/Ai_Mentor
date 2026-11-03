@@ -62,26 +62,19 @@ def upload_audio(audio_path: str) -> str:
                 timeout=60,
             )
     except requests.RequestException as exc:
-        raise RuntimeError(
-            f"D-ID audio upload request failed: {exc}"
-        ) from exc
+        raise RuntimeError(f"D-ID audio upload request failed: {exc}") from exc
     except OSError as exc:
-        raise RuntimeError(
-            f"Could not read audio file: {audio_path}"
-        ) from exc
+        raise RuntimeError(f"Could not read audio file: {audio_path}") from exc
 
     if response.status_code != 201:
         raise RuntimeError(
-            f"D-ID audio upload failed: "
-            f"{response.status_code} {response.text}"
+            f"D-ID audio upload failed: " f"{response.status_code} {response.text}"
         )
 
     audio_url = response.json().get("url")
 
     if not audio_url:
-        raise RuntimeError(
-            "D-ID audio upload succeeded but returned no audio URL."
-        )
+        raise RuntimeError("D-ID audio upload succeeded but returned no audio URL.")
 
     return audio_url
 
@@ -122,14 +115,11 @@ async def create_avatar_video(audio_path: str) -> str:
             timeout=60,
         )
     except requests.RequestException as exc:
-        raise RuntimeError(
-            f"D-ID avatar creation request failed: {exc}"
-        ) from exc
+        raise RuntimeError(f"D-ID avatar creation request failed: {exc}") from exc
 
     if not 200 <= response.status_code < 300:
         raise RuntimeError(
-            f"D-ID avatar creation failed: "
-            f"{response.status_code} {response.text}"
+            f"D-ID avatar creation failed: " f"{response.status_code} {response.text}"
         )
 
     try:
@@ -161,9 +151,7 @@ async def _poll_for_video(talk_id: str) -> str:
                 timeout=30,
             )
         except requests.RequestException as exc:
-            raise RuntimeError(
-                f"D-ID status request failed: {exc}"
-            ) from exc
+            raise RuntimeError(f"D-ID status request failed: {exc}") from exc
 
         if response.status_code != 200:
             raise RuntimeError(
@@ -179,22 +167,13 @@ async def _poll_for_video(talk_id: str) -> str:
             video_url = result.get("result_url")
 
             if not video_url:
-                raise RuntimeError(
-                    "D-ID completed the job but returned no video URL."
-                )
+                raise RuntimeError("D-ID completed the job but returned no video URL.")
 
             return video_url
 
         if status == "error":
             error = result.get("error", {})
-            description = error.get(
-                "description",
-                "Unknown D-ID processing error."
-            )
-            raise RuntimeError(
-                f"D-ID avatar generation failed: {description}"
-            )
+            description = error.get("description", "Unknown D-ID processing error.")
+            raise RuntimeError(f"D-ID avatar generation failed: {description}")
 
-    raise RuntimeError(
-        "D-ID avatar generation timed out."
-    )
+    raise RuntimeError("D-ID avatar generation timed out.")

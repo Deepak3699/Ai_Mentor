@@ -39,7 +39,7 @@ def request_data():
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
-            ("  A lesson" + "\n" + " with   spacing  ", "A lesson with spacing"),
+        ("  A lesson" + "\n" + " with   spacing  ", "A lesson with spacing"),
         ("A valid narration.", "A valid narration."),
     ],
 )
@@ -60,8 +60,9 @@ def test_overlong_lesson_output_is_rejected():
 
 def test_valid_gemini_output_returns_normalized_script():
     with patch.object(
-        api, "_generate_gemini_content",
-            return_value=SimpleNamespace(text="  Gemini" + "\n" + " lesson  "),
+        api,
+        "_generate_gemini_content",
+        return_value=SimpleNamespace(text="  Gemini" + "\n" + " lesson  "),
     ) as gemini, patch.object(api, "_generate_groq_content") as groq:
         result = api.generate_lesson_script(request_data())
 
@@ -72,10 +73,15 @@ def test_valid_gemini_output_returns_normalized_script():
 
 def test_invalid_gemini_output_falls_back_to_groq_once():
     groq_response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content=" Groq" + "\n" + " lesson "))]
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(content=" Groq" + "\n" + " lesson ")
+            )
+        ]
     )
     with patch.object(
-        api, "_generate_gemini_content",
+        api,
+        "_generate_gemini_content",
         return_value=SimpleNamespace(text="   "),
     ) as gemini, patch.object(
         api, "_generate_groq_content", return_value=groq_response
@@ -94,17 +100,20 @@ def test_invalid_gemini_output_falls_back_to_groq_once():
         SimpleNamespace(),
         SimpleNamespace(choices=[]),
         SimpleNamespace(choices=[SimpleNamespace()]),
-        SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=None))]),
-        SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="  "))]),
+        SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=None))]
+        ),
+        SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="  "))]
+        ),
     ],
 )
 def test_malformed_groq_response_fails_safely(groq_response):
     with patch.object(
-        api, "_generate_gemini_content",
+        api,
+        "_generate_gemini_content",
         return_value=SimpleNamespace(text=""),
-    ), patch.object(
-        api, "_generate_groq_content", return_value=groq_response
-    ) as groq:
+    ), patch.object(api, "_generate_groq_content", return_value=groq_response) as groq:
         with pytest.raises(api.ProviderGenerationError):
             api.generate_lesson_script(request_data())
 
@@ -113,10 +122,12 @@ def test_malformed_groq_response_fails_safely(groq_response):
 
 def test_both_providers_failing_are_attempted_only_once():
     with patch.object(
-        api, "_generate_gemini_content",
+        api,
+        "_generate_gemini_content",
         return_value=SimpleNamespace(text=""),
     ) as gemini, patch.object(
-        api, "_generate_groq_content",
+        api,
+        "_generate_groq_content",
         side_effect=RuntimeError("private provider detail"),
     ) as groq:
         with pytest.raises(api.ProviderGenerationError):
@@ -134,14 +145,14 @@ async def test_invalid_outputs_fail_job_without_creating_output_files(
     private_text = "PRIVATE_GENERATED_CONTENT_" * 500
 
     with patch.object(
-        api, "_generate_gemini_content",
+        api,
+        "_generate_gemini_content",
         return_value=SimpleNamespace(text=private_text),
     ), patch.object(
-        api, "_generate_groq_content",
+        api,
+        "_generate_groq_content",
         return_value=SimpleNamespace(
-            choices=[SimpleNamespace(
-                message=SimpleNamespace(content=private_text)
-            )]
+            choices=[SimpleNamespace(message=SimpleNamespace(content=private_text))]
         ),
     ):
         await api.process_lesson(request_data(), "invalid-output-test")

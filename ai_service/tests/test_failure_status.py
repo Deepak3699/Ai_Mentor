@@ -20,7 +20,6 @@ if str(BACKEND_DIR) not in sys.path:
 
 import api
 
-
 SENSITIVE_EXCEPTION = (
     "token=private-token https://provider.invalid/resource?signature=private-signature "
     "C:\\private\\workspace\\input.mp4 request-body=private generated-output=private"
@@ -76,14 +75,20 @@ def test_failure_paths_update_status_cache_and_public_response(
     monkeypatch.setattr(
         api,
         "generate_lesson_script",
-        lambda _data: ("Generated lesson content must stay private.", "gemini", "test-model"),
+        lambda _data: (
+            "Generated lesson content must stay private.",
+            "gemini",
+            "test-model",
+        ),
     )
     monkeypatch.setattr(
         api,
         "create_avatar_video",
         AsyncMock(side_effect=RuntimeError(SENSITIVE_EXCEPTION)),
     )
-    monkeypatch.setattr(api, "get_celebrity_video", lambda _celebrity: str(tmp_path / "missing.mp4"))
+    monkeypatch.setattr(
+        api, "get_celebrity_video", lambda _celebrity: str(tmp_path / "missing.mp4")
+    )
     api.shutdown_failed_jobs.discard(job_id)
     api.generation_cache.clear()
     api.job_status[job_id] = {
@@ -109,7 +114,9 @@ def test_failure_paths_update_status_cache_and_public_response(
     elif scenario in {"ffmpeg_failure", "missing_output"}:
         source_video = tmp_path / "source.mp4"
         source_video.write_bytes(b"source")
-        monkeypatch.setattr(api, "get_celebrity_video", lambda _celebrity: str(source_video))
+        monkeypatch.setattr(
+            api, "get_celebrity_video", lambda _celebrity: str(source_video)
+        )
         returncode = 1 if scenario == "ffmpeg_failure" else 0
         diagnostic = SENSITIVE_EXCEPTION if returncode else ""
         monkeypatch.setattr(
@@ -118,7 +125,9 @@ def test_failure_paths_update_status_cache_and_public_response(
             AsyncMock(return_value=(returncode, diagnostic)),
         )
 
-    request = api.LessonRequest(course="Python", topic="Private topic", celebrity="modi")
+    request = api.LessonRequest(
+        course="Python", topic="Private topic", celebrity="modi"
+    )
     asyncio.run(api.process_lesson(request, job_id))
 
     status = api.job_status[job_id]
@@ -135,7 +144,9 @@ def test_failure_paths_update_status_cache_and_public_response(
     assert status["local_video_url"] == "/video-stream/previous.mp4"
     assert not any(value == job_id for value in api.generation_cache.values())
 
-    with patch.object(api, "check_ffmpeg", return_value=None), TestClient(api.app) as client:
+    with patch.object(api, "check_ffmpeg", return_value=None), TestClient(
+        api.app
+    ) as client:
         response = client.get(f"/status/{job_id}")
 
     assert response.status_code == 200

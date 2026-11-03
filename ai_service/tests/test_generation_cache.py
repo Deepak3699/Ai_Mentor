@@ -34,7 +34,6 @@ if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
 
-
 @pytest.fixture(autouse=True)
 def clear_generation_caches():
     api.generation_cache.clear()
@@ -127,10 +126,7 @@ def test_real_generation_failure_clears_cache_and_allows_retry():
     failed_job_id = first["jobId"]
 
     assert first["cached"] is False
-    assert any(
-        value == failed_job_id
-        for value in api.generation_cache.values()
-    )
+    assert any(value == failed_job_id for value in api.generation_cache.values())
 
     # Simulate both script-generation providers failing.
     with (
@@ -148,10 +144,7 @@ def test_real_generation_failure_clears_cache_and_allows_retry():
         asyncio.run(api.process_lesson(make_request(), failed_job_id))
 
     assert api.job_status[failed_job_id]["status"] == "failed"
-    assert not any(
-        value == failed_job_id
-        for value in api.generation_cache.values()
-    )
+    assert not any(value == failed_job_id for value in api.generation_cache.values())
 
     retry = generate(make_request())
     assert retry["cached"] is False
@@ -200,4 +193,3 @@ def test_long_topic_truncates_base_filename_and_cache():
     assert forced_result["jobId"].startswith("A" * 81 + "_")
     assert not forced_result["jobId"].startswith("A" * 82)
     assert len(forced_result["jobId"]) == 113
-

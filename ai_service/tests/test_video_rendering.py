@@ -19,9 +19,34 @@ def test_fallback_command_creates_landscape_canvas_without_stretching():
 
 
 def test_probe_video_metadata_returns_safe_normalized_values(monkeypatch):
-    payload = {"streams": [{"width": 1280, "height": 720, "codec_name": "h264", "avg_frame_rate": "30/1", "bit_rate": "1500000"}]}
-    monkeypatch.setattr(subprocess, "run", MagicMock(return_value=subprocess.CompletedProcess([], 0, stdout=json.dumps(payload), stderr="")))
-    assert api.probe_video_metadata("video.mp4") == {"width": 1280, "height": 720, "codec": "h264", "frame_rate": "30/1", "bit_rate": 1500000}
+    payload = {
+        "streams": [
+            {
+                "width": 1280,
+                "height": 720,
+                "codec_name": "h264",
+                "avg_frame_rate": "30/1",
+                "bit_rate": "1500000",
+            }
+        ]
+    }
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        MagicMock(
+            return_value=subprocess.CompletedProcess(
+                [], 0, stdout=json.dumps(payload), stderr=""
+            )
+        ),
+    )
+    assert api.probe_video_metadata("video.mp4") == {
+        "width": 1280,
+        "height": 720,
+        "codec": "h264",
+        "frame_rate": "30/1",
+        "bit_rate": 1500000,
+    }
+
 
 def test_avatar_normalization_preserves_audio_and_uses_landscape_filter():
     args = api.build_avatar_normalization_args("avatar-source.mp4", "lesson.mp4")
@@ -33,6 +58,7 @@ def test_avatar_normalization_preserves_audio_and_uses_landscape_filter():
     assert "-stream_loop" not in args
     assert args[args.index("-c:v") + 1] == "libx264"
     assert args[args.index("-movflags") + 1] == "+faststart"
+
 
 @pytest.mark.asyncio
 async def test_run_ffmpeg_command_returns_success_with_empty_diagnostics(monkeypatch):
