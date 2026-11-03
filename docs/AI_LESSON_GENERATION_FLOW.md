@@ -12,7 +12,7 @@
 8. [Frontend behavior](#8-frontend-behavior)
 9. [Supporting flow: authentication and course access](#9-supporting-flow-authentication-and-course-access)
 10. [Configuration and runtime requirements](#10-configuration-and-runtime-requirements)
-11. [Key files](#12-key-files)
+11. [Key files](#11-key-files)
 
 ---
 
@@ -538,3 +538,16 @@ user API, AI service, frontend. See `initalSetup.md` for details.
 | AI service config           | `ai_service/backend/config.py`                                                              |
 | Avatar rendering            | `ai_service/backend/avatar_service.py`                                                      |
 | Subtitles and voices        | `ai_service/backend/subtitles.py`, `ai_service/backend/voices.py`                           |
+## 12. Important implementation caveats
+
+### Caveat 1: Preferences validation
+The AI service accepts only five defined preference fields. Any additional or unknown field is rejected by its request validation.
+
+### Caveat 3: In-memory job state
+The AI service stores job status and deduplication data in memory with a one-hour TTL. This data is lost when the service restarts, so an older job may return `not_found`.
+
+### Caveat 5: Shared generation vs learner-specific progress
+The generated AIVideo record is shared across learners for the same course, lesson and celebrity. However, saved lesson progress (`generatedTextContent`, `aiVideoUrl` and `celebrity`) is stored separately for each learner.
+
+### Caveat 7: Optional voice parameters
+The AI service supports additional voice parameters such as `voice_id`, `speech_rate` and `speech_pitch`, but the current frontend request and backend worker do not forward these parameters.
