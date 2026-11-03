@@ -2,12 +2,7 @@ import subprocess
 
 import pytest
 
-from backend.subtitles import (
-    build_cues,
-    chunk_script,
-    get_audio_duration,
-    write_subtitles,
-)
+from backend.subtitles import build_cues, chunk_script, get_audio_duration, write_subtitles
 
 
 def test_chunk_script_normalizes_whitespace_and_limits_words():

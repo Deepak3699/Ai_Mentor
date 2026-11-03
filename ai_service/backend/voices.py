@@ -78,18 +78,16 @@ VOICE_REGISTRY = {
         "language": "French",
         "accent": "France",
         "description": "Clear French female voice.",
-    },
+    }
 }
 
 DEFAULT_VOICE_ID = "en-US-GuyNeural"
-
 
 def get_voice(voice_id: str) -> str:
     """Validate and return the correct voice_id, falling back to default if invalid."""
     if not voice_id or voice_id not in VOICE_REGISTRY:
         return DEFAULT_VOICE_ID
     return voice_id
-
 
 def get_all_voices(language: str | None = None, gender: str | None = None) -> list:
     """Return available voices with metadata, optionally filtered.
@@ -99,11 +97,7 @@ def get_all_voices(language: str | None = None, gender: str | None = None) -> li
     """
     result = list(VOICE_REGISTRY.values())
     if language:
-        result = [
-            v for v in result if v["language"].casefold() == language.strip().casefold()
-        ]
+        result = [v for v in result if v["language"].casefold() == language.strip().casefold()]
     if gender:
-        result = [
-            v for v in result if v["gender"].casefold() == gender.strip().casefold()
-        ]
+        result = [v for v in result if v["gender"].casefold() == gender.strip().casefold()]
     return result

@@ -36,14 +36,20 @@ if str(backend_dir) not in sys.path:
 from api import LessonRequest, process_lesson, job_status
 
 
+
 def test_process_lesson_is_async():
     """Verify that process_lesson is defined as an async coroutine function."""
     assert inspect.iscoroutinefunction(process_lesson)
 
 
+
 def test_tts_execution_awaited():
     """A. TTS execution: Verify that generate_tts is awaited directly without asyncio.run()."""
-    req = LessonRequest(course="Python", topic="Asyncio", celebrity="Modi")
+    req = LessonRequest(
+        course="Python",
+        topic="Asyncio",
+        celebrity="Modi"
+    )
     base_filename = "test_tts_123"
 
     mock_gemini_resp = MagicMock()
@@ -53,28 +59,26 @@ def test_tts_execution_awaited():
     mock_proc.returncode = 0
     mock_proc.communicate.return_value = (b"", b"")
 
-    with patch.object(
-        api.gemini_client.models, "generate_content", return_value=mock_gemini_resp
-    ), patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, patch(
-        "api.create_avatar_video", side_effect=Exception("D-ID disabled")
-    ), patch(
-        "os.path.exists", side_effect=lambda p: False if p.endswith(".mp3") else True
-    ), patch(
-        "os.remove"
-    ), patch(
-        "asyncio.create_subprocess_exec", return_value=mock_proc
-    ), patch(
-        "cloudinary.uploader.upload",
-        return_value={"secure_url": "http://cloudinary.com/test.mp4"},
-    ):
+    with patch.object(api.gemini_client.models, "generate_content", return_value=mock_gemini_resp), \
+         patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, \
+         patch("api.create_avatar_video", side_effect=Exception("D-ID disabled")), \
+         patch("os.path.exists", side_effect=lambda p: False if p.endswith(".mp3") else True), \
+         patch("os.remove"), \
+         patch("asyncio.create_subprocess_exec", return_value=mock_proc), \
+         patch("cloudinary.uploader.upload", return_value={"secure_url": "http://cloudinary.com/test.mp4"}):
 
         asyncio.run(process_lesson(req, base_filename))
         mock_tts.assert_awaited_once()
 
 
+
 def test_ffmpeg_execution_async_and_success():
     """B & C. FFmpeg execution & success: Verify FFmpeg is invoked asynchronously and preserves behavior on success."""
-    req = LessonRequest(course="Python", topic="Asyncio", celebrity="Modi")
+    req = LessonRequest(
+        course="Python",
+        topic="Asyncio",
+        celebrity="Modi"
+    )
     base_filename = "test_ffmpeg_success_123"
 
     mock_gemini_resp = MagicMock()
@@ -84,20 +88,13 @@ def test_ffmpeg_execution_async_and_success():
     mock_proc.returncode = 0
     mock_proc.communicate.return_value = (b"output", b"")
 
-    with patch.object(
-        api.gemini_client.models, "generate_content", return_value=mock_gemini_resp
-    ), patch("api.generate_tts", new_callable=AsyncMock), patch(
-        "api.create_avatar_video", side_effect=Exception("D-ID disabled")
-    ), patch(
-        "os.path.exists", side_effect=lambda p: False if p.endswith(".mp3") else True
-    ), patch(
-        "os.remove"
-    ), patch(
-        "asyncio.create_subprocess_exec", return_value=mock_proc
-    ) as mock_exec, patch(
-        "cloudinary.uploader.upload",
-        return_value={"secure_url": "http://cloudinary.com/test.mp4"},
-    ):
+    with patch.object(api.gemini_client.models, "generate_content", return_value=mock_gemini_resp), \
+         patch("api.generate_tts", new_callable=AsyncMock), \
+         patch("api.create_avatar_video", side_effect=Exception("D-ID disabled")), \
+         patch("os.path.exists", side_effect=lambda p: False if p.endswith(".mp3") else True), \
+         patch("os.remove"), \
+         patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec, \
+         patch("cloudinary.uploader.upload", return_value={"secure_url": "http://cloudinary.com/test.mp4"}):
 
         asyncio.run(process_lesson(req, base_filename))
 
@@ -121,9 +118,14 @@ def test_ffmpeg_execution_async_and_success():
         assert job_status[base_filename]["status"] == "ready"
 
 
+
 def test_ffmpeg_execution_failure():
     """D. FFmpeg failure: Simulate a non-zero return code and verify that the error is correctly handled."""
-    req = LessonRequest(course="Python", topic="Asyncio", celebrity="Modi")
+    req = LessonRequest(
+        course="Python",
+        topic="Asyncio",
+        celebrity="Modi"
+    )
     base_filename = "test_ffmpeg_failure_123"
 
     mock_gemini_resp = MagicMock()
@@ -133,23 +135,17 @@ def test_ffmpeg_execution_failure():
     mock_proc.returncode = 1
     mock_proc.communicate.return_value = (b"", b"FFmpeg error: Invalid input")
 
-    with patch.object(
-        api.gemini_client.models, "generate_content", return_value=mock_gemini_resp
-    ), patch("api.generate_tts", new_callable=AsyncMock), patch(
-        "api.create_avatar_video", side_effect=Exception("D-ID disabled")
-    ), patch(
-        "os.path.exists", side_effect=lambda p: False if p.endswith(".mp3") else True
-    ), patch(
-        "os.remove"
-    ), patch(
-        "asyncio.create_subprocess_exec", return_value=mock_proc
-    ):
+    with patch.object(api.gemini_client.models, "generate_content", return_value=mock_gemini_resp), \
+         patch("api.generate_tts", new_callable=AsyncMock), \
+         patch("api.create_avatar_video", side_effect=Exception("D-ID disabled")), \
+         patch("os.path.exists", side_effect=lambda p: False if p.endswith(".mp3") else True), \
+         patch("os.remove"), \
+         patch("asyncio.create_subprocess_exec", return_value=mock_proc):
 
         asyncio.run(process_lesson(req, base_filename))
 
         # Verify job status is set to failed on FFmpeg non-zero exit code
         assert job_status[base_filename]["status"] == "failed"
-
 
 def test_did_video_is_normalized_before_delivery():
     req = LessonRequest(course="Python", topic="Context", celebrity="Modi")
@@ -163,26 +159,16 @@ def test_did_video_is_normalized_before_delivery():
     mock_proc.returncode = 0
     mock_proc.communicate.return_value = (b"", b"")
 
-    with patch.object(
-        api.gemini_client.models, "generate_content", return_value=mock_gemini_resp
-    ), patch("api.generate_tts", new_callable=AsyncMock), patch(
-        "api.create_avatar_video", return_value="https://example.test/avatar.mp4"
-    ) as mock_avatar, patch(
-        "api.requests.get", return_value=mock_response
-    ), patch(
-        "os.path.exists", return_value=True
-    ), patch(
-        "os.remove"
-    ), patch(
-        "builtins.open", MagicMock()
-    ), patch(
-        "asyncio.create_subprocess_exec", return_value=mock_proc
-    ) as mock_exec, patch(
-        "cloudinary.uploader.upload",
-        return_value={"secure_url": "http://cloudinary.com/test.mp4"},
-    ), patch(
-        "api.probe_video_metadata", return_value={"width": 1280, "height": 720}
-    ):
+    with patch.object(api.gemini_client.models, "generate_content", return_value=mock_gemini_resp), \
+         patch("api.generate_tts", new_callable=AsyncMock), \
+         patch("api.create_avatar_video", return_value="https://example.test/avatar.mp4") as mock_avatar, \
+         patch("api.requests.get", return_value=mock_response), \
+         patch("os.path.exists", return_value=True), \
+         patch("os.remove"), \
+         patch("builtins.open", MagicMock()), \
+         patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec, \
+         patch("cloudinary.uploader.upload", return_value={"secure_url": "http://cloudinary.com/test.mp4"}), \
+         patch("api.probe_video_metadata", return_value={"width": 1280, "height": 720}):
         asyncio.run(process_lesson(req, base_filename))
 
     mock_avatar.assert_awaited_once()

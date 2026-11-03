@@ -8,11 +8,7 @@ TREE = ast.parse(SOURCE)
 
 def class_fields(name):
     node = next(n for n in TREE.body if isinstance(n, ast.ClassDef) and n.name == name)
-    return {
-        n.target.id
-        for n in node.body
-        if isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name)
-    }
+    return {n.target.id for n in node.body if isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name)}
 
 
 def route_map():
@@ -21,9 +17,7 @@ def route_map():
         if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             continue
         for decorator in node.decorator_list:
-            if isinstance(decorator, ast.Call) and isinstance(
-                decorator.func, ast.Attribute
-            ):
+            if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
                 owner = decorator.func.value
                 if isinstance(owner, ast.Name) and owner.id == "app" and decorator.args:
                     value = decorator.args[0]
@@ -34,25 +28,13 @@ def route_map():
 
 def test_request_models_expose_required_contract_fields():
     assert {"course", "topic", "celebrity"} <= class_fields("LessonRequest")
-    assert {
-        "preferences",
-        "voice_id",
-        "gender",
-        "language",
-        "speech_rate",
-        "speech_pitch",
-    } <= class_fields("LessonRequest")
+    assert {"preferences", "voice_id", "gender", "language", "speech_rate", "speech_pitch"} <= class_fields("LessonRequest")
     assert class_fields("SyllabusRequest") == {"course_title", "category"}
     assert class_fields("QuizRequest") == {"lesson"}
 
 
 def test_quiz_response_contract_is_defined():
-    assert class_fields("QuizQuestion") == {
-        "question",
-        "options",
-        "correct_index",
-        "explanation",
-    }
+    assert class_fields("QuizQuestion") == {"question", "options", "correct_index", "explanation"}
     assert class_fields("QuizResponse") == {"questions"}
 
 
@@ -72,9 +54,7 @@ def test_job_and_transcript_routes_remain_available():
 
 
 def test_api_uses_declared_config_model_for_primary_gemini_calls():
-    assert (
-        "model=GEMINI_MODEL" in SOURCE
-    ), "Primary Gemini calls should use the configured GEMINI_MODEL"
+    assert "model=GEMINI_MODEL" in SOURCE, "Primary Gemini calls should use the configured GEMINI_MODEL"
 
 
 def test_api_does_not_embed_secret_values():

@@ -1,7 +1,6 @@
 import os
 
 from dotenv import load_dotenv
-
 if not os.getenv("PYTEST_CURRENT_TEST"):
     load_dotenv(override=False)
 
@@ -27,15 +26,15 @@ DID_SOURCE_URL = os.getenv("DID_SOURCE_URL")
 
 GROQ_ENABLED = bool(GROQ_API_KEY)
 
-CLOUDINARY_ENABLED = all(
-    [
-        CLOUDINARY_CLOUD_NAME,
-        CLOUDINARY_API_KEY,
-        CLOUDINARY_API_SECRET,
-    ]
-)
+CLOUDINARY_ENABLED = all([
+    CLOUDINARY_CLOUD_NAME,
+    CLOUDINARY_API_KEY,
+    CLOUDINARY_API_SECRET,
+])
 
 
 def validate_config():
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is required for the AI service.")
+
+
