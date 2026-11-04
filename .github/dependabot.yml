@@ -1,0 +1,43 @@
+version: 2
+updates:
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Root npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Backend npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+
+  # Backend Admin npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/backendAdmin"
+    schedule:
+      interval: "weekly"
+
+  # Frontend npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+
+  # Frontend Admin npm dependencies
+  - package-ecosystem: "npm"
+    directory: "/frontendAdmin"
+    schedule:
+      interval: "weekly"
+
+  # Python AI service dependencies
+  - package-ecosystem: "pip"
+    directory: "/ai_service/backend"
+    schedule:
+      interval: "weekly"

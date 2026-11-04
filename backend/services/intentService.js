@@ -59,18 +59,6 @@ export const detectIntent = (message) => {
   }
 
   if (
-    text.includes("recommend") ||
-    text.includes("what should i study") ||
-    text.includes("next lesson") ||
-    text.includes("what next") ||
-    text.includes("suggest")
-  ) {
-    return {
-      type: "recommendation",
-    };
-  }
-
-  if (
     text.includes("current lesson") ||
     text.includes("where was i") ||
     text.includes("continue learning")

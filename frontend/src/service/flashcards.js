@@ -1,9 +1,16 @@
 import { apiFetch } from "../lib/api";
+import { getErrorMessage } from "../lib/errorHandling.js";
 
 async function readResponse(response) {
-  const data = await response.json();
+  const data = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(data.message || "Flashcard request failed");
+    throw {
+      response: { status: response.status, data },
+      message: getErrorMessage(
+        { response: { status: response.status, data } },
+        "Flashcard request failed",
+      ),
+    };
   }
   return data;
 }

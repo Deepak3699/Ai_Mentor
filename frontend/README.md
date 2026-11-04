@@ -183,3 +183,133 @@ proxy: {
 ```
 
 This means frontend calls to `/api/...` are transparently forwarded to the backend without CORS issues during development.
+
+---
+
+## 🧭 API Error Handling
+
+The frontend expects the backend error payload in the standardized shape:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Request validation failed",
+    "details": []
+  }
+}
+```
+
+The shared client and error utility in `frontend/src/lib/api.js` and `frontend/src/lib/errorHandling.js` normalize the backend contract before UI code displays it.
+
+### Error normalization flow
+
+The frontend utility extracts values in this priority order:
+
+- `error.response.data.error.code` / `error.response.data.error.message` / `error.response.data.error.details`
+- `error.response.data.code` / `error.response.data.message` / `error.response.data.details`
+- `error.code`, `error.message`, `error.details`
+
+This is implemented by `normalizeApiError()`, which returns an object shaped like:
+
+```js
+{
+  code: "VALIDATION_ERROR",
+  message: "Request validation failed",
+  details: [],
+  status: 400,
+  raw: { ... }
+}
+```
+
+The helper exports:
+
+- `normalizeApiError(error, fallbackMessage)`
+- `getErrorMessage(error, fallbackMessage)`
+- `getFieldErrors(error)`
+
+These helpers are used by the app to display safe UI messages and map validation errors into form fields when details include `field`, `path`, or `name` metadata.
+
+### Shared API client behavior
+
+The shared fetch wrapper in `frontend/src/lib/api.js` adds the stored bearer token for protected `/api/*` requests, preserves the original `Response`, and handles `401` responses by clearing the session when the token matches the current stored token and dispatching the `auth:session-expired` event.
+
+There is also an Axios response interceptor in the same module for Axios-based requests, and it performs the same session-expiration handling before rejecting the request.
+
+### User-facing handling
+
+A typical frontend flow looks like this:
+
+```js
+import { apiFetch } from "../lib/api";
+import { getErrorMessage, getFieldErrors } from "../lib/errorHandling.js";
+
+try {
+  const response = await apiFetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const error = { response: { data: payload, status: response.status } };
+    const fieldErrors = getFieldErrors(error);
+
+    if (Object.keys(fieldErrors).length > 0) {
+      // show field-level validation errors
+    }
+
+    throw error;
+  }
+
+  const data = await response.json();
+  return data;
+} catch (error) {
+  const code = normalizeApiError(error).code;
+
+  if (code === "UNAUTHORIZED") {
+    // show login or session message
+  } else if (code === "CONFLICT") {
+    // handle duplicate resource state
+  } else if (code === "VALIDATION_ERROR") {
+    // map details to inputs
+  } else {
+    // generic fallback
+  }
+
+  toast.error(getErrorMessage(error, "Something went wrong. Please try again."));
+}
+```
+
+This pattern keeps the UI logic away from brittle `error.response.data.message` checks and relies on stable codes instead of comparing strings.
+
+### Status and code handling
+
+The frontend is designed to handle the backend's major public error categories:
+
+| HTTP status | Error code(s)                                     | Typical frontend behavior                                                          |
+| ----------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `400`       | `BAD_REQUEST`, `VALIDATION_ERROR`, `INVALID_JSON` | Show validation message, map field details when available                          |
+| `401`       | `UNAUTHORIZED`                                    | Clear session only when the token is still current; redirect or show login message |
+| `403`       | `FORBIDDEN`                                       | Display authorization warning and keep the user on the safe route                  |
+| `404`       | `NOT_FOUND`, `ROUTE_NOT_FOUND`                    | Show a not-found message or route fallback                                         |
+| `409`       | `CONFLICT`                                        | Show duplicate conflict or state message                                           |
+| `413`       | `PAYLOAD_TOO_LARGE`                               | Show upload/size limit message                                                     |
+| `500`       | `INTERNAL_SERVER_ERROR`                           | Show generic error message without exposing server internals                       |
+
+### Network and malformed responses
+
+The normalization layer also handles edge cases:
+
+- Network failures / fetch exceptions → falls back to `DEFAULT_ERROR_MESSAGE`
+- Empty or malformed JSON bodies → returns a safe fallback message
+- Unexpected server responses → use `error.code` when present, otherwise the generic fallback
+- Timeout or connection issues → surfaced as a user-friendly message without leaking stack traces or internal details
+
+### Admin-specific note
+
+The learner frontend redirects authorized admins to the separate admin app. The error-handling pattern is the same: normalize the backend envelope, prefer stable error codes over string comparisons, and show safe public messages while preserving business flows and navigation behavior.
+
+---

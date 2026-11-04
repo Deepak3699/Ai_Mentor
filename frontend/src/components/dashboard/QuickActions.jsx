@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Award, Bot, ChevronRight, Compass, Users, Zap } from "lucide-react";
+import { Award, Bot, ChevronRight, Compass, Users, Zap, Code2 } from "lucide-react";
 
 export const OPEN_ASSISTANT_EVENT = "ai-mentor:open";
 
@@ -20,6 +20,14 @@ const actions = [
     icon: Bot,
     tone: "bg-violet-500/10 text-violet-500",
     assistant: true,
+  },
+  {
+    id: "ai-code-explainer",
+    title: "AI Code Explainer",
+    subtitle: "Analyze & debug code with AI",
+    icon: Code2,
+    tone: "bg-cyan-500/10 text-cyan-500",
+    to: "/code-explainer",
   },
   {
     id: "join-community",
@@ -68,7 +76,7 @@ const QuickActions = ({ className = "" }) => {
         </div>
       </header>
 
-      <div className="space-y-2.5">
+      <div className="space-y-3.5">
         {actions.map((action) => {
           const Icon = action.icon;
           return (
@@ -76,7 +84,7 @@ const QuickActions = ({ className = "" }) => {
               key={action.id}
               type="button"
               onClick={() => handleSelect(action)}
-              className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-canvas-alt p-3 text-left transition-colors duration-200 hover:border-[#3867D6]/30 hover:bg-[#3867D6]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3867D6]/40"
+              className="group flex w-full items-center gap-3 rounded-2xl border border-border bg-canvas-alt p-3.5 text-left transition-colors duration-200 hover:border-[#3867D6]/30 hover:bg-[#3867D6]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3867D6]/40"
             >
               <span
                 className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${action.tone}`}

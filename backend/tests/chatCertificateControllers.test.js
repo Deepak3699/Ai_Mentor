@@ -89,7 +89,14 @@ test("chat rejects empty messages before loading user data", async () => {
   const { state, res } = response();
   await chatWithAssistant({ user: { id: "u" }, body: { message: "   " } }, res);
   assert.equal(state.statusCode, 400);
-  assert.deepEqual(state.body, { message: "Message is required" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "BAD_REQUEST",
+      message: "Message is required",
+      details: [],
+    },
+  });
   assert.equal(lookups, 0);
 });
 
@@ -97,7 +104,14 @@ test("chat returns 404 when the authenticated user no longer exists", async () =
   const { state, res } = response();
   await chatWithAssistant({ user: { id: "missing" }, body: { message: "Open settings" } }, res);
   assert.equal(state.statusCode, 404);
-  assert.deepEqual(state.body, { message: "User not found" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "NOT_FOUND",
+      message: "User not found",
+      details: [],
+    },
+  });
 });
 
 test("chat navigation intent returns a route without external AI", async () => {
@@ -255,4 +269,12 @@ test("completed course generation returns a downloadable PDF", async () => {
   assert.equal(state.headers["Content-Disposition"], "attachment; filename=Certificate_1.pdf");
   assert.ok(Buffer.isBuffer(state.sent));
   assert.equal(state.sent.subarray(0, 5).toString("ascii"), "%PDF-");
+});
+
+test("invalid Gemini route is dropped while visible reply remains", async () => {
+  const source = await import("node:fs/promises").then(({ readFile }) =>
+    readFile(new URL("../controllers/chatController.js", import.meta.url), "utf8"),
+  );
+  assert.match(source, /Object\.values\(APP_ROUTES\)\.includes\(requestedRoute\)/);
+  assert.match(source, /I couldn't generate a response/);
 });

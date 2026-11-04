@@ -1,15 +1,24 @@
 import asyncio
+import os
 import sys
 from pathlib import Path
+
+import pytest
 
 BACKEND_DIR = Path(__file__).resolve().parents[1] / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 LESSON_ENDPOINT_PATH = (
     BACKEND_DIR / "api" / "v1" / "endpoints" / "lessons.py"
 )
-JOB_TRACKER_PATH = BACKEND_DIR / "services" / "job_tracker.py"
 
 from job_shutdown import wait_for_jobs_to_finish
+from backend.services import job_tracker
+
+os.environ.setdefault("GEMINI_API_KEY", "dummy_gemini_key")
+os.environ.setdefault("GROQ_API_KEY", "dummy_groq_key")
+os.environ.setdefault("CLOUDINARY_CLOUD_NAME", "dummy_cloud")
+os.environ.setdefault("CLOUDINARY_API_KEY", "dummy_key")
+os.environ.setdefault("CLOUDINARY_API_SECRET", "dummy_secret")
 
 
 def test_shutdown_waits_for_job_that_finishes():
@@ -42,8 +51,14 @@ def test_shutdown_waits_for_job_that_finishes():
 def test_shutdown_marks_unfinished_job_failed():
     async def scenario():
         active_jobs = {"job-2"}
-        job_status = {"job-2": {"status": "processing"}}
+        job_status = {
+            "job-2": {
+                "status": "processing",
+                "meta": {"provider": "gemini", "timestamps": {"queued_at": "queued"}},
+            }
+        }
         failed_jobs = set()
+        generation_cache = {"request-hash": "job-2", "other": "job-3"}
 
         await wait_for_jobs_to_finish(
             active_jobs,
@@ -51,11 +66,48 @@ def test_shutdown_marks_unfinished_job_failed():
             failed_jobs,
             timeout_seconds=0.02,
             poll_interval=0.002,
+            generation_cache=generation_cache,
         )
 
         assert "job-2" in failed_jobs
         assert job_status["job-2"]["status"] == "failed"
+        assert job_status["job-2"]["error"] == "Job stopped because service shutdown timed out."
+        assert job_status["job-2"]["reason"] == job_status["job-2"]["error"]
+        assert job_status["job-2"]["failure_code"] == "shutdown_timeout"
+        assert job_status["job-2"]["meta"]["provider"] == "gemini"
+        assert job_status["job-2"]["meta"]["timestamps"]["queued_at"] == "queued"
+        assert job_status["job-2"]["meta"]["timestamps"]["failed_at"]
+        assert generation_cache == {"other": "job-3"}
         assert "job-2" in active_jobs
+
+    asyncio.run(scenario())
+
+
+def test_shutdown_cleans_generation_cache_if_status_update_raises():
+    class BrokenJobStatus(dict):
+        def __getitem__(self, key):
+            if key == "broken-job":
+                raise RuntimeError("status store unavailable")
+            return super().__getitem__(key)
+
+    async def scenario():
+        job_id = "broken-job"
+        active_jobs = {job_id}
+        job_status = BrokenJobStatus({job_id: {"status": "processing"}})
+        failed_jobs = set()
+        generation_cache = {"request-hash": job_id}
+
+        with pytest.raises(RuntimeError, match="status store unavailable"):
+            await wait_for_jobs_to_finish(
+                active_jobs,
+                job_status,
+                failed_jobs,
+                timeout_seconds=0,
+                generation_cache=generation_cache,
+            )
+
+        assert job_id in failed_jobs
+        assert generation_cache == {}
 
     asyncio.run(scenario())
 
@@ -67,9 +119,47 @@ def test_api_rejects_new_jobs_during_shutdown():
     assert "status_code=503" in source
 
 
-def test_api_does_not_overwrite_shutdown_failed_job_as_ready():
-    source = JOB_TRACKER_PATH.read_text(encoding="utf-8")
+def test_late_failure_preserves_shutdown_status_and_cleans_cache():
+    job_id = "shutdown-job"
+    job_tracker.job_status[job_id] = {
+        "status": "processing",
+        "meta": {
+            "provider": "gemini",
+            "timestamps": {"queued_at": "queued-time"},
+        },
+    }
+    job_tracker.active_jobs.add(job_id)
+    job_tracker.shutdown_failed_jobs.discard(job_id)
+    job_tracker.generation_cache.clear()
+    job_tracker.generation_cache["request-hash"] = job_id
+    try:
+        asyncio.run(
+            wait_for_jobs_to_finish(
+                job_tracker.active_jobs,
+                job_tracker.job_status,
+                job_tracker.shutdown_failed_jobs,
+                timeout_seconds=0,
+                generation_cache=job_tracker.generation_cache,
+            )
+        )
+        shutdown_status = job_tracker.job_status[job_id]
+        shutdown_timestamp = shutdown_status["meta"]["timestamps"]["failed_at"]
+        shutdown_reason = shutdown_status["reason"]
 
-    assert (
-        "if base_filename not in shutdown_failed_jobs:" in source
-    )
+        job_tracker.mark_job_failed(job_id, RuntimeError("private diagnostic"))
+
+        assert job_tracker.job_status[job_id]["status"] == "failed"
+        assert job_tracker.job_status[job_id]["error"] == shutdown_reason
+        assert job_tracker.job_status[job_id]["reason"] == shutdown_reason
+        assert job_tracker.job_status[job_id]["failure_code"] == "shutdown_timeout"
+        assert job_tracker.job_status[job_id]["meta"]["provider"] == "gemini"
+        assert job_tracker.job_status[job_id]["meta"]["timestamps"]["queued_at"] == "queued-time"
+        assert job_tracker.job_status[job_id]["meta"]["timestamps"]["failed_at"] == shutdown_timestamp
+        assert not any(
+            value == job_id for value in job_tracker.generation_cache.values()
+        )
+    finally:
+        job_tracker.active_jobs.discard(job_id)
+        job_tracker.shutdown_failed_jobs.discard(job_id)
+        job_tracker.job_status.pop(job_id, None)
+        job_tracker.generation_cache.clear()

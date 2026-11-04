@@ -533,11 +533,17 @@ The backend follows REST principles.
 
 ```text
 GET    /api/courses
+GET    /api/courses/my-courses
 POST   /api/courses
 GET    /api/users/profile
 PUT    /api/users/profile
 DELETE /api/community/:id
 ```
+
+The authenticated `/api/courses/my-courses` response includes `duration` for each
+owned published course, calculated from its lesson durations (for example,
+`"1h 15m"`). It is `null` when lessons or usable durations are missing; the UI
+shows “Duration unavailable” instead of an estimated total.
 
 ---
 
