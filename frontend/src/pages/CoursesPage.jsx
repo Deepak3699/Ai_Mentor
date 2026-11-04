@@ -10,6 +10,13 @@ import {
   ChevronDown,
   BookOpen,
   SlidersHorizontal,
+  Clock3,
+  Play,
+  ArrowRight,
+  GraduationCap,
+  LayoutGrid,
+  Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -19,6 +26,7 @@ import toast from "react-hot-toast";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import CourseCard from "../components/common/CourseCard";
+import { useTranslation } from "react-i18next";
 
 const BLUE_BUTTON =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-[#3867D6] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-[#315BC0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3867D6] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
@@ -156,9 +164,23 @@ const ExploreCourseCard = ({ course, enrolled, progress, onAction, actionLabel }
 
 const CoursesPage = () => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const filterRef = useRef(null);
+  const scrollRef = useRef(null);
+
+const [filters, setFilters] = useState({
+  category: [],
+  level: [],
+  price: [],
+});
+const [showFilters, setShowFilters] = useState(false);
+const [showEnrollPopup, setShowEnrollPopup] = useState(false);
+const [selectedCourse, setSelectedCourse] = useState(null);
+const [isPurchasing, setIsPurchasing] = useState(false);
+
+
   const [activeTab, setActiveTab] = useState(
     location?.state?.activeTab === "explore" ? "explore" : "my-courses",
   );
@@ -176,6 +198,18 @@ const [courseSortBy, setCourseSortBy] = useState("latest");
   const [subType, setSubType] = useState("");
   const [reportType, setReportType] = useState("Select Issue Type");
   const [reportLoading, setReportLoading] = useState(false);
+
+const setScrollRef = (element) => {
+  scrollRef.current = element;
+};
+
+const scrollLeft = () => {
+  scrollRef.current?.scrollBy({ left: -300, behavior: "smooth" });
+};
+
+const scrollRight = () => {
+  scrollRef.current?.scrollBy({ left: 300, behavior: "smooth" });
+};
 
   const loadCourses = async () => {
     try {
@@ -234,7 +268,7 @@ const [courseSortBy, setCourseSortBy] = useState("latest");
     [exploreCourses],
   );
   const activeFilterCount = filters.category.length + filters.level.length + filters.price.length;
-
+  const availablePrices = ["Free","Paid"];
   const toggleFilter = (field, value) => {
     setFilters((current) => ({
       ...current,
@@ -244,20 +278,6 @@ const [courseSortBy, setCourseSortBy] = useState("latest");
     }));
   };
 
-  const matchesControls = (course) => {
-    const query = searchQuery.trim().toLowerCase();
-    const matchesSearch = !query || course.title?.toLowerCase().includes(query);
-    const matchesCategory =
-      filters.category.length === 0 ||
-      filters.category.includes(normalizeCategory(course.category));
-    const matchesLevel = filters.level.length === 0 || filters.level.includes(course.level);
-    const priceType = isFreeCourse(course) ? "Free" : "Paid";
-    const matchesPrice = filters.price.length === 0 || filters.price.includes(priceType);
-    return matchesSearch && matchesCategory && matchesLevel && matchesPrice;
-  };
-
-  const filteredMyCourses = myCourses.filter(matchesControls);
-  const filteredExploreCourses = exploreCourses.filter(matchesControls);
   const startedCount = myCourses.filter((course) => {
     const entry = user?.purchasedCourses?.find((item) => courseIdMatches(item, course.id));
     return entry?.progress?.completedLessons?.length > 0 || entry?.progress?.currentLesson != null;
@@ -399,51 +419,12 @@ const [courseSortBy, setCourseSortBy] = useState("latest");
     }
   };
 
-  if (!user) {
-    return (
-      <div className="flex min-h-full items-center justify-center bg-canvas-alt p-6 text-center">
-        <div>
-          <h1 className="text-2xl font-bold text-main">Please log in</h1>
-          <p className="mt-2 text-muted">You need an account to access courses.</p>
-        </div>
-      </div>
-    );
-  }
-  if (loading) return <LoadingSpinner label="Loading courses" />;
-
-  const filteredExploreCourses = exploreCourses
-    .filter((course) => !myCourses.some((c) => courseIdMatches(c, course.id)))
-    .filter((course) => {
-      if (searchQuery.trim() !== "") {
-        return course.title.toLowerCase().includes(searchQuery.toLowerCase());
-      }
-
-      const cat =
-        course.category === "Databases" ? "Database" : course.category;
-      const matchesCategory =
-        filters.category.length === 0 || filters.category.includes(cat);
-      const matchesLevel =
-        filters.level.length === 0 || filters.level.includes(course.level);
-
-      const isFree =
-        course.priceValue === 0 ||
-        course.price === "₹0" ||
-        course.price === "Free" ||
-        !course.price;
-      const type = isFree ? "Free" : "Paid";
-      const matchesPrice =
-        filters.price.length === 0 || filters.price.includes(type);
-
-      return matchesCategory && matchesLevel && matchesPrice;
-    });
-
   // Same filters as filteredExploreCourses but WITHOUT the enrollment exclusion,
   // so enrolled cards stay visible with the "Enrolled" button state.
   const allFilteredExploreCourses = exploreCourses.filter((course) => {
     if (searchQuery.trim() !== "") {
       return course.title.toLowerCase().includes(searchQuery.toLowerCase());
     }
-
     const cat = course.category === "Databases" ? "Database" : course.category;
     const matchesCategory =
       filters.category.length === 0 || filters.category.includes(cat);
@@ -461,6 +442,7 @@ const [courseSortBy, setCourseSortBy] = useState("latest");
 
     return matchesCategory && matchesLevel && matchesPrice;
   });
+  const displayedCourses = allFilteredExploreCourses;
 
    // Filter and sort My Courses
   const filteredMyCourses = useMemo(() => {
@@ -581,6 +563,19 @@ const [courseSortBy, setCourseSortBy] = useState("latest");
     filters,
     user,
   ]);
+
+    if (!user) {
+    return (
+      <div className="flex min-h-full items-center justify-center bg-canvas-alt p-6 text-center">
+        <div>
+          <h1 className="text-2xl font-bold text-main">Please log in</h1>
+          <p className="mt-2 text-muted">
+            You need an account to access courses.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -864,9 +859,9 @@ const [courseSortBy, setCourseSortBy] = useState("latest");
             <SlidersHorizontal className="h-4 w-4" />
             Filters
 
-            {getActiveFilterCount() > 0 && (
+            {activeFilterCount > 0 && (
               <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
-                {getActiveFilterCount()}
+                {activeFilterCount}
               </span>
             )}
 
@@ -895,7 +890,7 @@ const [courseSortBy, setCourseSortBy] = useState("latest");
               <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-[26rem] md:absolute md:top-full md:left-auto md:right-0 md:translate-x-0 md:translate-y-0 md:mt-4 max-h-[85vh] overflow-y-auto bg-black/60 md:bg-black/40 backdrop-blur-3xl border border-teal-500/20 rounded-3xl shadow-[0_30px_60px_-15px_rgba(13,148,136,0.3)] p-6 z-[100] animate-in fade-in zoom-in-95 md:slide-in-from-top-6 duration-300">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-3">
-                    {getActiveFilterCount() > 0 && (
+                    {activeFilterCount > 0 && (
                       <button
                         type="button"
                         onClick={() =>
@@ -1082,11 +1077,11 @@ const [courseSortBy, setCourseSortBy] = useState("latest");
       tabIndex="0"
       className="flex gap-4 overflow-x-auto pb-4 no-scrollbar snap-x snap-mandatory focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2DD4BF] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 rounded-3xl"
     >
-      {allFilteredExploreCourses.length === 0 && (
+      {displayedCourses.length === 0 && (
         <p className="text-slate-500">{t("courses.no_courses")}</p>
       )}
 
-      {allFilteredExploreCourses.map((course) => {
+        {displayedCourses.map((course) => {
         const isEnrolled =
           myCourses.some((c) => courseIdMatches(c, course.id)) ||
           user?.purchasedCourses?.some((c) =>
@@ -1177,6 +1172,7 @@ const [courseSortBy, setCourseSortBy] = useState("latest");
 )}
 
         </div>
+         </section>
         <FloatingAssistant />
       </main>
 
