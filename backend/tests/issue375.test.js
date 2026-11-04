@@ -60,7 +60,11 @@ test("[issue-375] updateProfileSchema accepts a fully valid profile payload", ()
     bio: "Full-stack developer",
   });
 
-  assert.equal(result.success, true, `Schema must accept valid profile data. Error: ${JSON.stringify(result.error?.issues)}`);
+  assert.equal(
+    result.success,
+    true,
+    `Schema must accept valid profile data. Error: ${JSON.stringify(result.error?.issues)}`,
+  );
 });
 
 test("[issue-375] updateProfileSchema accepts partial updates (all fields optional)", () => {
