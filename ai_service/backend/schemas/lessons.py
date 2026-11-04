@@ -21,8 +21,14 @@ class LessonRequest(BaseModel):
     preferences: LessonPreferences | None = None
     voice_id: str | None = None
     gender: str | None = None
-    speech_rate: str | None = "+0%"
-    speech_pitch: str | None = "+0Hz"
+    speech_rate: str | None = Field(
+        "+0%",
+        pattern=r"^[+-](?:100|[1-9]?\d)%$",
+    )
+    speech_pitch: str | None = Field(
+        "+0Hz",
+        pattern=r"^[+-](?:100|[1-9]?\d)Hz$",
+    )
 
 
 class SyllabusRequest(BaseModel):

@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+import backend.services.job_tracker as job_tracker
+import backend.services.lesson_pipeline as lesson_pipeline
 
 os.environ.setdefault("GEMINI_API_KEY", "dummy_gemini_key")
 os.environ.setdefault("GROQ_API_KEY", "dummy_groq_key")
@@ -33,16 +35,16 @@ def test_failure_cache_cleanup_runs_if_status_update_raises(monkeypatch):
             raise RuntimeError("status store unavailable")
 
     job_id = "status-store-failure"
-    original_status = api.job_status
-    api.job_status = BrokenJobStatus()
+    original_status = job_tracker.job_status
+    job_tracker.job_status = BrokenJobStatus()
     api.generation_cache.clear()
     api.generation_cache["request-hash"] = job_id
     try:
         with pytest.raises(RuntimeError, match="status store unavailable"):
-            api.mark_job_failed(job_id)
+            job_tracker.mark_job_failed(job_id)
         assert not any(value == job_id for value in api.generation_cache.values())
     finally:
-        api.job_status = original_status
+        job_tracker.job_status = original_status
         api.generation_cache.clear()
 
 
@@ -51,12 +53,10 @@ def clear_job_state():
     api.generation_cache.clear()
     api.job_status.clear()
     api.shutdown_failed_jobs.clear()
-    api.shutting_down = False
     yield
     api.generation_cache.clear()
     api.job_status.clear()
     api.shutdown_failed_jobs.clear()
-    api.shutting_down = False
 
 
 @pytest.mark.parametrize(
@@ -72,7 +72,7 @@ def test_failure_paths_update_status_cache_and_public_response(
     scenario, expected_code, expected_message, tmp_path, capsys, monkeypatch
 ):
     job_id = f"failure-{scenario}"
-    monkeypatch.setattr(api, "BASE_DIR", str(tmp_path))
+    monkeypatch.setattr(lesson_pipeline, "BASE_DIR", str(tmp_path))
     monkeypatch.setattr(
         api,
         "generate_lesson_script",
@@ -188,7 +188,7 @@ def test_successful_generation_reaches_ready_status(
 ):
     job_id = "successful-generation"
 
-    monkeypatch.setattr(api, "BASE_DIR", str(tmp_path))
+    monkeypatch.setattr(lesson_pipeline, "BASE_DIR", str(tmp_path))
     monkeypatch.setattr(
         api,
         "generate_lesson_script",

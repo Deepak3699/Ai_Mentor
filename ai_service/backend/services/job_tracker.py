@@ -100,27 +100,41 @@ def init_job_processing(base_filename: str) -> None:
         )
 
 
-def mark_job_failed(base_filename: str, error: Exception | str | None = None) -> None:
-    """Mark a job as failed, record timestamp and reason, and remove from generation cache."""
-    if base_filename not in shutdown_failed_jobs:
-        if base_filename in job_status:
-            job_status[base_filename]["status"] = "failed"
-            if error is not None:
-                failure_reason = str(error)
-                job_status[base_filename]["error"] = failure_reason
-                job_status[base_filename]["reason"] = failure_reason
+def mark_job_failed(
+    base_filename: str,
+    error: Exception | str | None = None,
+    *,
+    failure_code: str = "generation_failed",
+) -> None:
+    """Record a safe public failure state and always clear the generation cache."""
+    public_messages = {
+        "narration_failed": "Narration generation failed.",
+        "source_video_missing": "Video rendering failed.",
+        "ffmpeg_failed": "Video rendering failed.",
+        "output_missing": "Video rendering failed.",
+        "provider_failed": "AI provider generation failed.",
+        "generation_failed": "Lesson generation failed.",
+    }
+    if failure_code not in public_messages:
+        failure_code = "generation_failed"
 
-            if "meta" not in job_status[base_filename]:
-                job_status[base_filename]["meta"] = {"timestamps": {}}
+    try:
+        status = job_status.setdefault(base_filename, {})
+        if base_filename not in shutdown_failed_jobs:
+            message = public_messages[failure_code]
+            status["status"] = "failed"
+            status["error"] = message
+            status["reason"] = message
+            status["failure_code"] = failure_code
 
-            if "timestamps" not in job_status[base_filename]["meta"]:
-                job_status[base_filename]["meta"]["timestamps"] = {}
-
-            job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
-                datetime.datetime.now(datetime.timezone.utc).isoformat()
-            )
-
-    remove_failed_generation_cache(base_filename)
+        meta = status.setdefault("meta", {})
+        timestamps = meta.setdefault("timestamps", {})
+        timestamps.setdefault(
+            "failed_at",
+            datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        )
+    finally:
+        remove_failed_generation_cache(base_filename)
 
 
 def mark_job_ready(

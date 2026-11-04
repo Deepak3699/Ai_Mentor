@@ -174,7 +174,8 @@ def test_job_tracker_failure_clears_cache():
 
     mark_job_failed(job_id, error="Render crashed")
     assert job_status[job_id]["status"] == "failed"
-    assert job_status[job_id]["error"] == "Render crashed"
+    assert job_status[job_id]["error"] == "Lesson generation failed."
+    assert job_status[job_id]["failure_code"] == "generation_failed"
     assert cache_key not in generation_cache
 
 

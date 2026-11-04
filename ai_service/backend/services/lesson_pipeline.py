@@ -5,7 +5,6 @@ import datetime
 import os
 import sys
 import time
-import traceback
 from typing import Any
 from mutagen.mp3 import MP3
 import requests
@@ -16,11 +15,16 @@ from backend.schemas.lessons import LessonRequest
 from backend.services.job_tracker import (
     active_jobs,
     job_status,
+    mark_job_failed,
     shutdown_failed_jobs,
     remove_failed_generation_cache,
 )
 from backend.services import media_processor
 from backend.services.providers import manager as provider_manager
+from backend.services.providers.validation import (
+    ProviderGenerationError,
+    validate_lesson_script,
+)
 import backend.avatar_service as avatar_module
 import backend.voices as voices
 from backend.utils.logging_utils import log_event, short_error
@@ -118,6 +122,7 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
             "generate_lesson_script", provider_manager.generate_lesson_script
         )
         script, provider_used, model_used = script_generator(data)
+        script = validate_lesson_script(script)
         log_event("INFO", "Script prepared", words=len(script.split()))
 
         # 2️⃣ Create Output Folders
@@ -165,18 +170,11 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
 
         except Exception as e:
             log_event("ERROR", "Narration generation failed", error=short_error(e))
-            if base_filename not in shutdown_failed_jobs:
-                if base_filename in job_status:
-                    job_status[base_filename]["status"] = "failed"
-                    if "meta" not in job_status[base_filename]:
-                        job_status[base_filename]["meta"] = {"timestamps": {}}
-                    if "timestamps" not in job_status[base_filename]["meta"]:
-                        job_status[base_filename]["meta"]["timestamps"] = {}
-                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
-                        datetime.datetime.now(datetime.timezone.utc).isoformat()
-                    )
-
-            remove_failed_generation_cache(base_filename)
+            mark_job_failed(
+                base_filename,
+                e,
+                failure_code="narration_failed",
+            )
             return
 
         # 5️⃣ Try AI Avatar Video
@@ -265,18 +263,10 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
                     "Fallback source video not found",
                     file=os.path.basename(input_video),
                 )
-                if base_filename not in shutdown_failed_jobs:
-                    if base_filename in job_status:
-                        job_status[base_filename]["status"] = "failed"
-                        if "meta" not in job_status[base_filename]:
-                            job_status[base_filename]["meta"] = {"timestamps": {}}
-                        if "timestamps" not in job_status[base_filename]["meta"]:
-                            job_status[base_filename]["meta"]["timestamps"] = {}
-                        job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
-                            datetime.datetime.now(datetime.timezone.utc).isoformat()
-                        )
-
-                remove_failed_generation_cache(base_filename)
+                mark_job_failed(
+                    base_filename,
+                    failure_code="source_video_missing",
+                )
                 return
 
             log_event("RUN", "Rendering lesson video with FFmpeg")
@@ -299,32 +289,18 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
                     code=ffmpeg_returncode,
                     error=short_error(RuntimeError(error_msg)),
                 )
-                if base_filename in job_status:
-                    job_status[base_filename]["status"] = "failed"
-                    if "meta" not in job_status[base_filename]:
-                        job_status[base_filename]["meta"] = {"timestamps": {}}
-                    if "timestamps" not in job_status[base_filename]["meta"]:
-                        job_status[base_filename]["meta"]["timestamps"] = {}
-                    job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
-                        datetime.datetime.now(datetime.timezone.utc).isoformat()
-                    )
-                remove_failed_generation_cache(base_filename)
+                mark_job_failed(
+                    base_filename,
+                    failure_code="ffmpeg_failed",
+                )
                 return
 
             if not eff_os.path.exists(final_video):
                 log_event("ERROR", "FFmpeg completed without an output video")
-                if base_filename not in shutdown_failed_jobs:
-                    if base_filename in job_status:
-                        job_status[base_filename]["status"] = "failed"
-                        if "meta" not in job_status[base_filename]:
-                            job_status[base_filename]["meta"] = {"timestamps": {}}
-                        if "timestamps" not in job_status[base_filename]["meta"]:
-                            job_status[base_filename]["meta"]["timestamps"] = {}
-                        job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
-                            datetime.datetime.now(datetime.timezone.utc).isoformat()
-                        )
-
-                remove_failed_generation_cache(base_filename)
+                mark_job_failed(
+                    base_filename,
+                    failure_code="output_missing",
+                )
                 return
 
             log_event("OK", "FFmpeg video render completed")
@@ -478,23 +454,13 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
             log_event("INFO", "Local fallback files require later cleanup")
 
     except Exception as e:
-        if base_filename not in shutdown_failed_jobs:
-            if base_filename in job_status:
-                job_status[base_filename]["status"] = "failed"
-                failure_reason = str(e)
-                job_status[base_filename]["error"] = failure_reason
-                job_status[base_filename]["reason"] = failure_reason
-
-                if "meta" not in job_status[base_filename]:
-                    job_status[base_filename]["meta"] = {"timestamps": {}}
-
-                if "timestamps" not in job_status[base_filename]["meta"]:
-                    job_status[base_filename]["meta"]["timestamps"] = {}
-
-                job_status[base_filename]["meta"]["timestamps"]["failed_at"] = (
-                    datetime.datetime.now(datetime.timezone.utc).isoformat()
-                )
-
-        remove_failed_generation_cache(base_filename)
+        mark_job_failed(
+            base_filename,
+            e,
+            failure_code=(
+                "provider_failed"
+                if isinstance(e, ProviderGenerationError)
+                else "generation_failed"
+            ),
+        )
         log_event("ERROR", "Lesson generation failed", job=base_filename, error=short_error(e))
-        traceback.print_exc()

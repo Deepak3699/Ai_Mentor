@@ -32,6 +32,10 @@ from backend.services.providers.groq_provider import (
     get_groq_client,
 )
 from backend.utils.logging_utils import log_event, short_error
+from backend.services.providers.validation import (
+    ProviderGenerationError,
+    validate_lesson_script,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +47,8 @@ def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
     """Generate lesson script using Gemini, falling back to Groq upon failure."""
     gemini_failure = ""
     try:
-        return gemini_provider.generate_lesson_script(data)
+        script, provider, model = gemini_provider.generate_lesson_script(data)
+        return validate_lesson_script(script), provider, model
     except Exception as gemini_error:
         gemini_failure = short_error(gemini_error)
         log_event(
@@ -54,9 +59,10 @@ def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
 
     log_event("RUN", "Trying Groq fallback for lesson script")
     try:
-        return groq_provider.generate_lesson_script(data)
+        script, provider, model = groq_provider.generate_lesson_script(data)
+        return validate_lesson_script(script), provider, model
     except Exception as groq_error:
-        raise RuntimeError(
+        raise ProviderGenerationError(
             "LLM generation failed: primary provider (Gemini) failed: "
             f"{gemini_failure}; fallback provider (Groq) failed: "
             f"{short_error(groq_error)}"
@@ -132,12 +138,21 @@ def generate_quiz(data: QuizRequest) -> QuizResponse | dict[str, Any]:
                 log_event("WARN", "Gemini quiz generation failed", error=short_error(gemini_error))
                 log_event("RUN", "Trying Groq fallback")
 
-                groq_response = generate_groq_content(
-                    system_instruction,
-                    user_data,
-                    max_tokens=2000,
-                    timeout=LLM_TIMEOUT_SECONDS,
-                )
+                try:
+                    groq_response = generate_groq_content(
+                        system_instruction,
+                        user_data,
+                        max_tokens=2000,
+                        timeout=LLM_TIMEOUT_SECONDS,
+                    )
+                except Exception as groq_error:
+                    log_event(
+                        "WARN",
+                        "Quiz generation attempt failed",
+                        attempt=attempt + 1,
+                        error=short_error(groq_error),
+                    )
+                    return {"questions": []}
                 text = groq_response.choices[0].message.content.strip()
 
             if text.startswith("```json"):
