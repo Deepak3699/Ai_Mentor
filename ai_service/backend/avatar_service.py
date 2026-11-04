@@ -86,6 +86,7 @@ def upload_audio(audio_path: str) -> str:
     return audio_url
 
 
+
 async def create_avatar_video(audio_path: str) -> str:
     """
     Create a talking-avatar video from a local audio file.
@@ -96,10 +97,8 @@ async def create_avatar_video(audio_path: str) -> str:
     if not DID_SOURCE_URL:
         raise RuntimeError("DID_SOURCE_URL is not configured")
 
-    if inspect.iscoroutinefunction(upload_audio):
-        audio_url = await upload_audio(audio_path)
-    else:
-        audio_url = await asyncio.to_thread(upload_audio, audio_path)
+    # Run the synchronous audio upload outside the event loop.
+    audio_url = await asyncio.to_thread(upload_audio, audio_path)
 
     headers = {
         "Authorization": _get_auth_header(),
@@ -112,7 +111,6 @@ async def create_avatar_video(audio_path: str) -> str:
             "audio_url": audio_url,
         },
     }
-
     try:
         response = await asyncio.to_thread(
             requests.post,
@@ -135,15 +133,17 @@ async def create_avatar_video(audio_path: str) -> str:
     try:
         payload = response.json()
     except ValueError as exc:
-        raise RuntimeError("D-ID creation response was not valid JSON") from exc
+        raise RuntimeError(
+            "D-ID creation response was not valid JSON"
+        ) from exc
 
     talk_id = payload.get("id")
     if not talk_id:
-        raise RuntimeError("D-ID creation response did not return a talk ID")
+        raise RuntimeError(
+            "D-ID creation response did not return a talk ID"
+        )
 
-    video_url = await _poll_for_video(talk_id)
-
-    return video_url
+    return await _poll_for_video(talk_id)
 
 
 async def _poll_for_video(talk_id: str) -> str:

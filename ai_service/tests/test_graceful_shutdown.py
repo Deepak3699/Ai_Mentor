@@ -130,6 +130,7 @@ def test_late_failure_preserves_shutdown_status_and_cleans_cache():
     api.shutdown_failed_jobs.discard(job_id)
     api.generation_cache.clear()
     api.generation_cache["request-hash"] = job_id
+
     try:
         asyncio.run(
             wait_for_jobs_to_finish(
@@ -140,6 +141,7 @@ def test_late_failure_preserves_shutdown_status_and_cleans_cache():
                 generation_cache=api.generation_cache,
             )
         )
+
         shutdown_status = api.job_status[job_id]
         shutdown_timestamp = shutdown_status["meta"]["timestamps"]["failed_at"]
         shutdown_reason = shutdown_status["reason"]
@@ -153,9 +155,30 @@ def test_late_failure_preserves_shutdown_status_and_cleans_cache():
         assert api.job_status[job_id]["meta"]["provider"] == "gemini"
         assert api.job_status[job_id]["meta"]["timestamps"]["queued_at"] == "queued-time"
         assert api.job_status[job_id]["meta"]["timestamps"]["failed_at"] == shutdown_timestamp
-        assert not any(value == job_id for value in api.generation_cache.values())
+        assert not any(
+            value == job_id for value in api.generation_cache.values()
+        )
     finally:
         api.active_jobs.discard(job_id)
         api.shutdown_failed_jobs.discard(job_id)
         api.job_status.pop(job_id, None)
         api.generation_cache.clear()
+
+
+def test_shutdown_marks_queued_job_failed():
+    async def scenario():
+        active_jobs = {"job-queued"}
+        job_status = {"job-queued": {"status": "queued"}}
+        failed_jobs = set()
+
+        await wait_for_jobs_to_finish(
+            active_jobs,
+            job_status,
+            failed_jobs,
+            timeout_seconds=0,
+        )
+
+        assert "job-queued" in failed_jobs
+        assert job_status["job-queued"]["status"] == "failed"
+
+    asyncio.run(scenario())

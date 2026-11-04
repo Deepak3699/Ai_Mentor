@@ -243,4 +243,3 @@ async def test_create_avatar_video_awaited_in_running_event_loop_without_asyncio
     result = await avatar_service.create_avatar_video("voice.mp3")
     assert result == "https://media.test/avatar_result.mp4"
     assert type(result) is str
-
