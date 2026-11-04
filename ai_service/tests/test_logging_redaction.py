@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
+from backend.utils import logging_utils
+
 BACKEND_PATH = Path(__file__).resolve().parents[1] / "backend"
 sys.path.insert(0, str(BACKEND_PATH))
 
@@ -16,8 +18,8 @@ def test_log_event_does_not_emit_unapproved_sensitive_fields(caplog):
     secret_preferences = "PRIVATE_PREFERENCES_456"
     secret_error = "PRIVATE_PROVIDER_ERROR_789"
 
-    with caplog.at_level("INFO", logger=api.logger.name):
-        api.log_event(
+    with caplog.at_level("INFO", logger=logging_utils.logger.name):
+        logging_utils.log_event(
             "INFO",
             "Lesson generation started",
             job="safe-job-123",
@@ -33,8 +35,8 @@ def test_log_event_does_not_emit_unapproved_sensitive_fields(caplog):
 
 
 def test_log_event_preserves_safe_provider_metadata(caplog):
-    with caplog.at_level("INFO", logger=api.logger.name):
-        api.log_event(
+    with caplog.at_level("INFO", logger=logging_utils.logger.name):
+        logging_utils.log_event(
             "INFO",
             "Lesson script generated",
             provider="gemini",
@@ -65,7 +67,7 @@ async def test_provider_failures_do_not_leak_exception_messages(caplog):
             "api.groq_client.chat.completions.create",
             side_effect=Exception(private_groq_error),
         ),
-        caplog.at_level("INFO", logger=api.logger.name),
+        caplog.at_level("INFO", logger=logging_utils.logger.name),
     ):
         await api.process_lesson(request, job_id)
 
@@ -84,16 +86,16 @@ async def test_provider_failures_do_not_leak_exception_messages(caplog):
 def test_log_event_rejects_non_ascii_message(caplog):
     private_message = "PRIVATE_TOPIC_秘密"
 
-    with caplog.at_level("INFO", logger=api.logger.name):
-        api.log_event("INFO", private_message)
+    with caplog.at_level("INFO", logger=logging_utils.logger.name):
+        logging_utils.log_event("INFO", private_message)
 
     assert private_message not in caplog.text
     assert "Log event omitted: invalid message" in caplog.text
 
 
 def test_log_event_rejects_unsafe_approved_field_values(caplog):
-    with caplog.at_level("INFO", logger=api.logger.name):
-        api.log_event(
+    with caplog.at_level("INFO", logger=logging_utils.logger.name):
+        logging_utils.log_event(
             "INFO",
             "Lesson generation started",
             provider="PRIVATE_TOPIC_SENTINEL",
@@ -111,8 +113,8 @@ def test_log_event_rejects_unsafe_approved_field_values(caplog):
 def test_log_event_rejects_unapproved_model(caplog):
     private_model = "PRIVATE_MODEL_SENTINEL"
 
-    with caplog.at_level("INFO", logger=api.logger.name):
-        api.log_event("INFO", "Lesson script generated", model=private_model)
+    with caplog.at_level("INFO", logger=logging_utils.logger.name):
+        logging_utils.log_event("INFO", "Lesson script generated", model=private_model)
 
     assert private_model not in caplog.text
     assert "model=" not in caplog.text

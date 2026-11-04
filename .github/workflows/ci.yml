@@ -295,6 +295,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install --dry-run -r backend/requirements.txt
 
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Run tests
         working-directory: ai_service
         env:
