@@ -73,110 +73,25 @@ const Analytics = () => {
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
   // Fetch courses and analytics
-  // useEffect(() => {
-  //   const fetchData = async () => {
-  //     try {
-  //       const token = localStorage.getItem("token");
-  //       const headers = { Authorization: `Bearer ${token}` };
-
-  //       const coursesRes = await fetch("/api/courses", { headers });
-  //       const analyticsRes = await fetch("/api/analytics", { headers });
-
-  //       const coursesData = await coursesRes.json();
-  //       const analyticsData = await analyticsRes.json();
-
-  //       setCourses(coursesData);
-  //       setStudySessions(analyticsData.studySessions || []);
-  //     } catch (err) {
-  //       console.error(err);
-  //     } finally {
-  //       setPageLoading(false);
-  //     }
-  //   };
-
-  //   if (user) fetchData();
-  //   else setPageLoading(false);
-  // }, [user]);
-
-  // Fetch courses and analytics
-  //   useEffect(() => {
-  //     const fetchData = async () => {
-  //       try {
-  //         const token = localStorage.getItem("token");
-
-  // <<<<<<< HEAD
-  //         const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-  //         const [coursesRes, analyticsRes] = await Promise.all([
-  //           fetch("/api/courses", { headers }),
-  //           fetch("/api/analytics", { headers }),
-  //         ]);
-
-  //         if (!coursesRes.ok) {
-  //           throw new Error(`Courses API error: ${coursesRes.status}`);
-  //         }
-
-  //         if (!analyticsRes.ok) {
-  //           throw new Error(`Analytics API error: ${analyticsRes.status}`);
-  //         }
-  // =======
-  //         const coursesRes = await fetch("/api/courses", { headers });
-  //         const analyticsRes = await fetch("/api/analytics", { headers });
-  //         const certificateRes = await fetch("/api/certificate/list", { headers });
-  // >>>>>>> upstream/main
-
-  //         const coursesData = await coursesRes.json();
-  //         const analyticsData = await analyticsRes.json();
-  //         const certificateData = certificateRes.ok ? await certificateRes.json() : null;
-
-  //         console.log("Analytics API response:", analyticsData);
-
-  //         setCourses(coursesData);
-  //         setStudySessions(analyticsData.studySessions || []);
-  //         setCertificateData(certificateData);
-  //       } catch (err) {
-  //         console.error("Analytics fetch failed:", err);
-  //       } finally {
-  //         setPageLoading(false);
-  //       }
-  //     };
-
-  //     if (user) fetchData();
-  //     else setPageLoading(false);
-  //   }, [user]);
-
-  // Fetch courses and analytics
   useEffect(() => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem("token");
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+        const headers = { Authorization: `Bearer ${token}` };
 
-        const [coursesRes, analyticsRes, certificateRes] = await Promise.all([
-          fetch("/api/courses", { headers }),
-          fetch("/api/analytics", { headers }),
-          fetch("/api/certificate/list", { headers }),
-        ]);
-
-        if (!coursesRes.ok) {
-          throw new Error(`Courses API error: ${coursesRes.status}`);
-        }
-
-        if (!analyticsRes.ok) {
-          throw new Error(`Analytics API error: ${analyticsRes.status}`);
-        }
+        const coursesRes = await fetch("/api/courses", { headers });
+        const analyticsRes = await fetch("/api/analytics", { headers });
+        const certificateRes = await fetch("/api/certificate/list", { headers });
 
         const coursesData = await coursesRes.json();
         const analyticsData = await analyticsRes.json();
         const certificateData = certificateRes.ok ? await certificateRes.json() : null;
 
-        console.log("Analytics API response:", analyticsData);
-
         setCourses(coursesData);
         setStudySessions(analyticsData.studySessions || []);
         setCertificateData(certificateData);
       } catch (err) {
-        console.error("Analytics fetch failed:", err);
+        console.error(err);
       } finally {
         setPageLoading(false);
       }
@@ -325,17 +240,10 @@ const Analytics = () => {
   );
 
   // Calculate total study time
-  // Calculate total study time for the current month
-  const now = new Date();
-
-  const totalStudyTime = studySessions.reduce((total, session) => {
-    const sessionDate = new Date(session.date);
-
-    const isCurrentMonth =
-      sessionDate.getMonth() === now.getMonth() && sessionDate.getFullYear() === now.getFullYear();
-
-    return isCurrentMonth ? total + (Number(session.hours) || 0) : total;
-  }, 0);
+  const totalStudyTime = studySessions.reduce(
+    (acc, session) => acc + (session.hours || session.duration || 0),
+    0,
+  );
   const averageProgress =
     myCourses.length > 0
       ? Math.round(myCourses.reduce((acc, c) => acc + c.progress, 0) / myCourses.length)
@@ -454,7 +362,7 @@ const Analytics = () => {
               {t("analytics.total_study_time_label")}
             </div>
             <div className="text-xl font-bold text-[#ff6d34]">
-              {totalStudyTime.toFixed(1)} {t("analytics.hours_unit", { defaultValue: "hrs" })}
+              {Math.round(totalStudyTime)} {t("analytics.hours_unit", { defaultValue: "hrs" })}
             </div>
             <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">
               {t("analytics.this_month")}
