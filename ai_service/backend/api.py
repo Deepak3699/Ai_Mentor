@@ -52,16 +52,143 @@ if CLOUDINARY_ENABLED:
 # --------------------------
 # FastAPI App
 # --------------------------
+
 logger = logging.getLogger(__name__)
 
 
+
+def configure_logging():
+    """Configure application logging when explicitly called by the entry point."""
+    log_level = os.getenv("AI_SERVICE_LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+
+SAFE_LOG_FIELDS = {
+    "job",
+    "provider",
+    "model",
+    "stage",
+    "status",
+    "configured",
+    "words",
+    "duration",
+    "audio",
+    "delivery",
+    "attempt",
+    "code",
+}
+SAFE_LOG_VALUES = {
+    "provider": {"gemini", "groq"},
+    "stage": {"started", "completed", "failed"},
+    "status": {"queued", "processing", "completed", "failed"},
+    "configured": {"true", "false"},
+    "audio": {"true", "false"},
+    "delivery": {"success", "failed"},
+}
+
+
+
 def log_event(level: str, message: str, **details):
-    """Write compact, scan-friendly service logs without exposing payloads or URLs."""
-    suffix = ""
-    visible = [f"{key}={value}" for key, value in details.items() if value not in (None, "")]
-    if visible:
-        suffix = " | " + " | ".join(visible)
-    print(f"[{level}] {message}{suffix}", flush=True)
+    """Log approved operational metadata only."""
+    safe_messages = {
+        "Log event omitted: invalid message",
+        "Generation event",
+        "Preferences loaded",
+        "Script prepared",
+        "Lesson generation started",
+        "Lesson request accepted",
+        "Lesson script generated",
+        "Gemini lesson generation failed",
+        "Gemini quiz generation failed",
+        "Gemini syllabus generation failed; trying Groq",
+        "Gemini returned invalid syllabus JSON",
+        "Groq returned invalid syllabus JSON",
+        "Groq syllabus generation failed",
+        "Renderer source selected",
+        "Default renderer source selected",
+        "Switching to Groq fallback",
+        "Trying Gemini",
+        "Trying Groq fallback",
+        "Generating quiz",
+        "Quiz generated and validated",
+        "Quiz generation attempt failed",
+        "Gemini code analysis failed",
+        "Groq code analysis failed",
+        "Invalid AI response",
+    }
+
+    if not isinstance(message, str) or not message.isascii():
+        safe_message = "Log event omitted: invalid message"
+    elif message in safe_messages:
+        safe_message = message
+    else:
+        safe_message = "Generation event"
+
+    safe_details = {}
+
+    for key, value in details.items():
+        if key not in SAFE_LOG_FIELDS or value is None:
+            continue
+
+        if key in SAFE_LOG_VALUES:
+            if isinstance(value, bool):
+                normalized = str(value).lower()
+            elif isinstance(value, str):
+                normalized = value.lower()
+            else:
+                continue
+
+            if normalized in SAFE_LOG_VALUES[key]:
+                safe_details[key] = normalized
+
+        elif key in {"words", "attempt"}:
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                safe_details[key] = value
+
+        elif key == "duration":
+            if (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and 0 <= value <= 86400
+            ):
+                safe_details[key] = value
+
+        elif key == "job":
+            if (
+                isinstance(value, str)
+                and re.fullmatch(r"[A-Za-z0-9_-]{1,80}", value)
+            ):
+                safe_details[key] = value
+
+        elif key == "model":
+            if (
+                isinstance(value, str)
+                and value in {GEMINI_MODEL, "llama-3.3-70b-versatile"}
+            ):
+                safe_details[key] = value
+
+        elif key == "code":
+            if isinstance(value, int) and not isinstance(value, bool):
+                safe_details[key] = value
+
+    suffix = (
+        " | " + " | ".join(
+            f"{key}={value}" for key, value in safe_details.items()
+        )
+        if safe_details
+        else ""
+    )
+
+    log_method = getattr(
+        logger,
+        "warning" if level.lower() == "warn" else level.lower(),
+        logger.info,
+    )
+    log_method("%s%s", safe_message, suffix)
+
+
 
 
 def short_error(error: Exception) -> str:
@@ -269,6 +396,20 @@ UNTRUSTED_INPUT_INSTRUCTION = (
 )
 
 
+def validate_lesson_script(value: object) -> str:
+    """Normalize and validate generated lesson narration before saving."""
+    if not isinstance(value, str):
+        raise ValueError("Generated lesson must be text.")
+
+    script = " ".join(value.split())
+    if not script:
+        raise ValueError("Generated lesson is empty.")
+    if len(script) > 10000:
+        raise ValueError("Generated lesson exceeds the maximum length.")
+
+    return script
+
+
 def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
     system_instruction = f"""
     {UNTRUSTED_INPUT_INSTRUCTION}
@@ -295,8 +436,9 @@ def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
     try:
         log_event("RUN", "Trying Gemini for lesson script")
         response = _generate_gemini_content(system_instruction, user_data)
+        script = validate_lesson_script(getattr(response, "text", None))
         log_event("OK", "Gemini lesson script generated")
-        return response.text.strip().replace("\n", " "), "gemini", GEMINI_MODEL
+        return script, "gemini", GEMINI_MODEL
     except Exception as gemini_error:
         gemini_failure = short_error(gemini_error)
         log_event(
@@ -313,6 +455,14 @@ def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
             max_tokens=300,
             timeout=LLM_TIMEOUT_SECONDS,
         )
+
+        choices = getattr(groq_response, "choices", None)
+        if not choices:
+            raise ValueError("Generated lesson response is missing choices.")
+
+        message = getattr(choices[0], "message", None)
+        content = getattr(message, "content", None)
+        script = validate_lesson_script(content)
     except Exception as groq_error:
         raise ProviderGenerationError(
             "LLM generation failed: primary provider (Gemini) failed: "
@@ -321,11 +471,7 @@ def generate_lesson_script(data: LessonRequest) -> tuple[str, str, str]:
         ) from groq_error
 
     log_event("OK", "Groq fallback lesson script generated")
-    return (
-        groq_response.choices[0].message.content.strip().replace("\n", " "),
-        "groq",
-        "llama-3.3-70b-versatile",
-    )
+    return script, "groq", "llama-3.3-70b-versatile"
 
 # --------------------------
 # Helpers
@@ -361,11 +507,11 @@ def get_celebrity_video(celebrity_name: str) -> str:
         os.path.commonpath([input_video_dir, candidate]) == input_video_dir
         and os.path.isfile(candidate)
     ):
-        print(f"[INFO] Renderer source selected | source={name}", flush=True)
+
         return candidate
 
     fallback = os.path.realpath(os.path.join(input_video_dir, "modi.mp4"))
-    print("[INFO] Default renderer source selected | source=modi", flush=True)
+
     return fallback
 
 
@@ -618,7 +764,7 @@ def generate_quiz(data: QuizRequest):
                 text = response.text.strip()
 
             except Exception as gemini_error:
-                log_event("WARN", "Gemini quiz generation failed", error=short_error(gemini_error))
+                log_event("WARN", "Gemini quiz generation failed", provider="gemini")
                 log_event("RUN", "Trying Groq fallback")
 
                 groq_response = _generate_groq_content(
@@ -799,7 +945,7 @@ def explain_code(data: ExplainCodeRequest):
     """
 
     try:
-        print("Trying Gemini for code analysis...")
+        log_event("RUN", "Trying Gemini")
         response = gemini_client.models.generate_content(
             model="gemini-3.8-flash",
             contents=prompt,
@@ -807,7 +953,8 @@ def explain_code(data: ExplainCodeRequest):
         result_text = response.text.strip()
 
     except Exception as gemini_error:
-        print(f"Gemini failed ({short_error(gemini_error)}). Trying Groq...")
+        log_event("WARN", "Gemini code analysis failed", provider="gemini")
+        log_event("RUN", "Trying Groq fallback")
         try:
             groq_response = groq_client.chat.completions.create(
                 model="openai/gpt-oss-120b",
@@ -818,7 +965,7 @@ def explain_code(data: ExplainCodeRequest):
             result_text = groq_response.choices[0].message.content.strip()
 
         except Exception as groq_error:
-            print(f"Groq failed ({short_error(groq_error)})")
+            log_event("WARN", "Groq code analysis failed", provider="groq")
             raise HTTPException(
                 status_code=502,
                 detail="Both AI providers failed to analyze the code.",
@@ -850,7 +997,7 @@ def explain_code(data: ExplainCodeRequest):
         return result
 
     except (json.JSONDecodeError, ValueError) as error:
-        print(f"Invalid AI response ({short_error(error)})")
+        log_event("WARN", "Invalid AI response")
         raise HTTPException(
             status_code=502,
             detail="AI returned an invalid code analysis response.",

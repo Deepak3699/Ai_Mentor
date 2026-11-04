@@ -1,6 +1,7 @@
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
+import { errorHandler, notFoundMiddleware } from "../middleware/errorMiddleware.js";
 
 process.env.JWT_SECRET = "test-jwt-secret";
 process.env.NODE_ENV = "test";
@@ -60,6 +61,8 @@ before(async () => {
   const app = express();
   app.use(express.json());
   app.use("/api/users", userRoutes);
+  app.use(notFoundMiddleware);
+  app.use(errorHandler);
 
   server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, resolve));
@@ -114,15 +117,24 @@ test("the protected route rejects unauthenticated requests", async () => {
   const res = await postPurchase({ courseId: 1 });
   assert.equal(res.status, 401);
   const body = await res.json();
-  assert.match(body.message, /Not authorized/i);
+  assert.match(body.error.message, /Not authorized/i);
 });
 
 test("the Zod validation middleware rejects a request without a course id", async () => {
   const res = await postPurchase({}, tokenFor());
   assert.equal(res.status, 400);
   const body = await res.json();
-  assert.equal(body.message, "Validation failed");
-  assert.ok(Array.isArray(body.errors));
+  assert.equal(body.error.message, "Validation failed");
+  assert.ok(Array.isArray(body.error.details));
+});
+
+test("the Zod validation middleware rejects a blank course id", async () => {
+  const res = await postPurchase({ courseId: "" }, tokenFor());
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.message, "Validation failed");
+  assert.ok(Array.isArray(body.error.details));
+  assert.match(body.error.details[0].message, /Course ID is required|positive integer/i);
 });
 
 test("authenticated user enrolls in a free course through the real route", async () => {
@@ -143,7 +155,7 @@ test("authenticated user cannot enroll in a paid course without a successful pay
 
   assert.equal(res.status, 403);
   const body = await res.json();
-  assert.match(body.message, /Payment required/i);
+  assert.match(body.error.message, /Payment required/i);
   assert.equal(currentUser.purchasedCourses.length, 0);
   assert.equal(currentUser.saves, 0);
 });
@@ -235,9 +247,10 @@ test("the route rejects duplicate enrollment", async () => {
 
   const res = await postPurchase({ courseId: 1 }, tokenFor());
 
-  assert.equal(res.status, 400);
+  assert.equal(res.status, 409);
   const body = await res.json();
-  assert.equal(body.message, "Already enrolled");
+  assert.equal(body.error.message, "Already enrolled");
+  assert.equal(body.error.code, "CONFLICT");
   assert.equal(currentUser.purchasedCourses.length, 1);
   assert.equal(currentUser.saves, 0);
 });

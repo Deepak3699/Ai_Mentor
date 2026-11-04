@@ -143,7 +143,7 @@ test("simultaneous enrollments create exactly one access record", async () => {
 
   const statuses = [first.state.statusCode, second.state.statusCode].sort();
 
-  assert.deepEqual(statuses, [200, 400]);
+  assert.deepEqual(statuses, [200, 409]);
   assert.equal(db.snapshot().length, 1);
   assert.equal(db.snapshot().filter((c) => c.courseId === 1).length, 1);
   assert.equal(db.writeCount(), 1);
@@ -169,7 +169,7 @@ test("simultaneous enrollments for a paid course also stay unique", async () => 
 
   const statuses = [first.state.statusCode, second.state.statusCode].sort();
 
-  assert.deepEqual(statuses, [200, 400]);
+  assert.deepEqual(statuses, [200, 409]);
   assert.equal(db.snapshot().length, 1);
   assert.equal(db.writeCount(), 1);
 });
@@ -182,8 +182,9 @@ test("sequential enrollments remain idempotent", async () => {
   const second = response();
   await purchaseCourse({ user: { id: "user-1" }, body: { courseId: 1 } }, second.res);
 
-  assert.equal(second.state.statusCode, 400);
-  assert.equal(second.state.body.message, "Already enrolled");
+  assert.equal(second.state.statusCode, 409);
+  assert.equal(second.state.body.error.message, "Already enrolled");
+  assert.equal(second.state.body.error.code, "CONFLICT");
   assert.equal(db.snapshot().length, 1);
   assert.equal(db.writeCount(), 1);
 });

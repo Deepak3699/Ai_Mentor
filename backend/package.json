@@ -13,21 +13,22 @@
     "test": "node -e \"process.env.NODE_ENV='test'; import('node:child_process').then(({spawnSync}) => { const r = spawnSync(process.execPath, ['--test'], { stdio: 'inherit', env: process.env }); process.exit(r.status ?? 1); })\""
   },
   "dependencies": {
-    "@google/genai": "^2.7.0",
+    "@google/genai": "^2.31.0",
     "@google/generative-ai": "^0.24.1",
     "assert": "^2.1.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.77.6",
-    "cloudinary": "^2.9.0",
+    "cloudinary": "^2.11.0",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.5.2",
+    "express-rate-limit": "^8.7.1",
     "firebase-admin": "^13.10.0",
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.1.1",
+    "node-cron": "^4.6.0",
     "nodemailer": "^8.0.2",
     "pdf-lib": "^1.17.1",
     "pg": "^8.18.0",
@@ -36,11 +37,12 @@
     "razorpay": "^2.9.6",
     "sequelize": "^6.37.8",
     "stripe": "^21.0.1",
+    "xyz": "^5.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.1.0",
+    "eslint": "^10.13.0",
     "globals": "^17.4.0",
     "nodemon": "^3.1.11"
   }

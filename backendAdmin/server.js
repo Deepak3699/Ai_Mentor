@@ -1,11 +1,12 @@
 // backendAdmin/server.js
 import express from "express";
 import http from "node:http";
+import { createGracefulShutdown } from "../backend/gracefulShutdown.js";
 import dotenv from "dotenv";
 import cors from "cors";
 import healthRoutes from "./routes/healthRoutes.js";
 
-import { connectDB } from "./config/db.js";
+import { connectDB, sequelize } from "./config/db.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import { securityHeaders } from "./config/securityHeaders.js";
 import requestContext from "./middleware/requestContext.js";
@@ -13,6 +14,8 @@ import requestContext from "./middleware/requestContext.js";
 dotenv.config();
 
 const app = express();
+const shutdownController = new AbortController();
+app.locals.shutdownSignal = shutdownController.signal;
 
 const allowedOrigins = [
   process.env.FRONTEND_ADMIN_URL || "http://localhost:5174",
@@ -68,17 +71,38 @@ app.use((err, req, res, _next) => {
 // ================= SERVER STARTUP =================
 const PORT = process.env.PORT || 5001;
 
+const SHUTDOWN_TIMEOUT = 10_000;
+let server;
+const shutdown = createGracefulShutdown({
+  getServer: () => server,
+  database: sequelize,
+  timeoutMs: SHUTDOWN_TIMEOUT,
+  beforeClose: () => {
+    if (!shutdownController.signal.aborted) shutdownController.abort();
+  },
+});
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
+process.once("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+
 const startServer = async () => {
   try {
     console.log("[STARTING] Admin backend startup");
     console.log("[CHECK] Connecting to admin database...");
     await connectDB();
     console.log("[OK] Admin database connected");
-    const server = http.createServer(app);
+    server = http.createServer(app);
 
     server.requestTimeout = 120_000;
     server.headersTimeout = 65_000;
     server.keepAliveTimeout = 60_000;
+    server.on("error", () => {
+      console.error("[FAILED] Admin backend HTTP server error.");
+      process.exitCode = 1;
+    });
 
     server.listen(PORT, () => {
       console.log(`[READY] Admin backend: http://localhost:${PORT}`);

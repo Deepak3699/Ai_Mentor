@@ -14,6 +14,10 @@ test("intent detection prioritizes information requests before navigation", () =
   assert.deepEqual(detectIntent("How is my course progress?"), { type: "progress_info" });
   assert.deepEqual(detectIntent("Open settings"), { type: "navigation", route: "/settings" });
   assert.deepEqual(detectIntent("Explain closures"), { type: "ai" });
+  assert.deepEqual(detectIntent("Can you recommend beginner React projects?"), { type: "ai" });
+  assert.deepEqual(detectIntent("What should I study after completing Python?"), { type: "ai" });
+  assert.deepEqual(detectIntent("Suggest a study plan for machine learning"), { type: "ai" });
+  assert.deepEqual(detectIntent("What next?"), { type: "ai" });
 });
 
 test("intent navigation routes match the application paths", () => {

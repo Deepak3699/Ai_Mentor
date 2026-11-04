@@ -1,4 +1,4 @@
-import { apiFetch as fetch } from "../lib/api";
+import { apiFetch } from "../lib/api";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -25,9 +25,11 @@ import TodaysLearningPlan from "../components/dashboard/TodaysLearningPlan";
 import RecentActivityCard from "../components/dashboard/RecentActivityCard";
 import QuickActions from "../components/dashboard/QuickActions";
 import DashboardHero from "../components/DashboardHero";
+import AILessonBanner from "../components/AILessonBanner";
 import UpcomingLiveSession from "../components/UpcomingLiveSession";
 import RecommendedForYou from "../components/RecommendedForYou";
 import { Helmet } from "react-helmet-async";
+import toast from "react-hot-toast";
 
 const BLUE_BUTTON =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-[#3867D6] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-[#315BC0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3867D6] focus-visible:ring-offset-2";
@@ -48,8 +50,8 @@ const artworkFor = (title = "") => {
   return artwork[title] || "/AI_Tutor_New_UI/Dashboard/logo.png";
 };
 
-const parseLessonCount = (course) =>
-  Number(course?.lessonsCount) || Number.parseInt(String(course?.lessons || "0"), 10) || 0;
+import { parseLessonCount, selectEligibleAICourse } from "../utils/courseEligibility";
+
 const purchasedId = (entry) => entry?.id ?? entry?.courseId ?? entry?.course?.id;
 const matchesCourse = (entry, id) => String(purchasedId(entry)) === String(id);
 
@@ -59,7 +61,9 @@ const Dashboard = () => {
   const [courses, setCourses] = useState([]);
   const [certificateData, setCertificateData] = useState(null);
   const [analyticsData, setAnalyticsData] = useState(null);
+  const [statsCardsData, setStatsCardsData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [coursesLoadFailed, setCoursesLoadFailed] = useState(false);
   const [learningStreak] = useState(() => {
     const stored = Number.parseInt(localStorage.getItem("streak") || "0", 10);
     return Number.isFinite(stored) ? Math.max(0, stored) : 0;
@@ -76,22 +80,43 @@ const Dashboard = () => {
       try {
         const token = localStorage.getItem("token");
         const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
-        const [coursesResult, certificateResult, analyticsResult] = await Promise.allSettled([
-          fetch("/api/courses", { headers }),
-          fetch("/api/certificate/list", { headers }),
-          fetch("/api/analytics", { headers }),
-        ]);
+        const [coursesResult, certificateResult, analyticsResult, statsResult] =
+          await Promise.allSettled([
+            apiFetch("/api/courses", { headers }),
+            apiFetch("/api/certificate/list", { headers }),
+            apiFetch("/api/analytics", { headers }),
+            apiFetch("/api/courses/stats/cards", { headers }),
+          ]);
+
         if (coursesResult.status === "fulfilled" && coursesResult.value.ok) {
           setCourses(await coursesResult.value.json());
+        } else {
+          setCoursesLoadFailed(true);
         }
+
         if (certificateResult.status === "fulfilled" && certificateResult.value.ok) {
           setCertificateData(await certificateResult.value.json());
         }
+
         if (analyticsResult.status === "fulfilled" && analyticsResult.value.ok) {
           setAnalyticsData(await analyticsResult.value.json());
         }
+
+        // Real backend shape of /api/courses/stats/cards is:
+        // { totalCourses, completedCourses, hoursLearned, certificates }
+        // The course list must not depend on the stats request: if stats fail,
+        // courses and the AI lesson banner still operate correctly.
+        if (statsResult.status === "fulfilled" && statsResult.value.ok) {
+          try {
+            const stats = await statsResult.value.json();
+            setStatsCardsData(stats);
+          } catch (statsError) {
+            console.error("Error parsing dashboard stats:", statsError);
+          }
+        }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
+        setCoursesLoadFailed(true);
       } finally {
         setLoading(false);
       }
@@ -128,8 +153,12 @@ const Dashboard = () => {
   );
   const continueCourse = inProgress[0] || enrolledCourses[0];
   const certificateCount =
-    certificateData?.stats?.certificatesEarned ?? user?.analytics?.certificates ?? 0;
-  const totalHours = analyticsData?.totalHours ?? user?.analytics?.totalHours;
+    certificateData?.stats?.certificatesEarned ??
+    statsCardsData?.certificates ??
+    user?.analytics?.certificates ??
+    0;
+  const totalHours =
+    analyticsData?.totalHours ?? statsCardsData?.hoursLearned ?? user?.analytics?.totalHours;
 
   const weeklyActivity = useMemo(() => {
     if (
@@ -202,11 +231,77 @@ const Dashboard = () => {
     else navigate("/courses", { state: { activeTab: "explore" } });
   };
 
+  // AI lesson generation banner action (Issue #183)
+  const handleGenerateAILesson = async () => {
+    if (loading) {
+      toast("Courses are still loading. Please try again in a moment.");
+      return;
+    }
+
+    // 1. Select from locally resolved enrolled courses
+    let targetCourse = selectEligibleAICourse(enrolledCourses);
+
+    // If enrolled courses are present but none have eligible lessons:
+    if (!targetCourse && enrolledCourses.length > 0) {
+      toast.error("No eligible lessons available in your enrolled courses.");
+      return;
+    }
+
+    // 2. If no enrolled courses found from user.purchasedCourses, query my-courses API
+    if (!targetCourse && enrolledCourses.length === 0) {
+      try {
+        const response = await apiFetch("/api/courses/my-courses");
+        if (!response || !response.ok) {
+          throw new Error(`My courses API failed: ${response?.status}`);
+        }
+        const myEnrolled = await response.json();
+        if (Array.isArray(myEnrolled) && myEnrolled.length > 0) {
+          const mapped = myEnrolled.map((course) => {
+            const purchase = user?.purchasedCourses?.find((entry) =>
+              matchesCourse(entry, course.id),
+            );
+            const total = parseLessonCount(course);
+            const completed = purchase?.progress?.completedLessons?.length || 0;
+            return {
+              ...course,
+              total,
+              completed,
+            };
+          });
+          targetCourse = selectEligibleAICourse(mapped);
+          if (!targetCourse) {
+            toast.error("No eligible lessons available in your enrolled courses.");
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching enrolled courses:", error);
+        toast.error("Couldn't load your courses. Please try again.");
+        return;
+      }
+    }
+
+    if (targetCourse?.id) {
+      navigate(`/learning/${targetCourse.id}`, { state: { openAIVoiceover: true } });
+      return;
+    }
+
+    // 3. User has no enrolled courses: guide to explore
+    if (courses.length > 0) {
+      toast("Enroll in a course to try AI lessons.");
+      navigate("/courses", { state: { activeTab: "explore" } });
+    } else if (coursesLoadFailed) {
+      toast.error("Couldn't load courses. Please try again.");
+    } else {
+      toast.error("No courses are available right now. Check back soon!");
+    }
+  };
+
   const enrollAndPreview = async (course) => {
     if (!user) return navigate("/login");
     try {
       if (Number(course.priceValue || 0) === 0) {
-        await fetch("/api/users/purchase-course", {
+        await apiFetch("/api/users/purchase-course", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -271,6 +366,9 @@ const Dashboard = () => {
             </article>
           ))}
         </section>
+
+        {/* AI Generated Lessons promo (Issue #183) */}
+        <AILessonBanner onGenerate={handleGenerateAILesson} />
 
         <ContinueLearningCard
           course={continueCourse}
