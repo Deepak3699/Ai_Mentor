@@ -1,52 +1,9 @@
-import re
-import subprocess
-
-
-def get_audio_duration(audio_path: str) -> float:
-    result = subprocess.run(
-        [
-            "ffprobe", "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1",
-            audio_path,
-        ],
-        capture_output=True, text=True, check=True,
-    )
-    return float(result.stdout.strip())
-
-
-def chunk_script(text: str, max_words: int = 12) -> list[str]:
-    text = re.sub(r"\s+", " ", text).strip()
-    if not text:
-        return []
-    chunks = []
-    for sentence in re.split(r"(?<=[.!?])\s+", text):
-        words = sentence.split()
-        for i in range(0, len(words), max_words):
-            chunks.append(" ".join(words[i:i + max_words]))
-    return chunks
-
-
-def build_cues(script: str, duration: float) -> list[tuple[float, float, str]]:
-    chunks = chunk_script(script)
-    total_words = sum(len(c.split()) for c in chunks)
-    if total_words == 0:
-        return []
-    cues, current = [], 0.0
-    for index, chunk in enumerate(chunks):
-        share = len(chunk.split()) / total_words * duration
-        end = duration if index == len(chunks) - 1 else current + share
-        cues.append((current, end, chunk))
-        current = end
-    return cues
-
-
-def _fmt(seconds: float, sep: str) -> str:
-    ms = int(round(seconds * 1000))
-    h, ms = divmod(ms, 3_600_000)
-    m, ms = divmod(ms, 60_000)
-    s, ms = divmod(ms, 1000)
-    return f"{h:02}:{m:02}:{s:02}{sep}{ms:03}"
+from backend.utils.subtitles import (
+    build_cues,
+    chunk_script,
+    get_audio_duration,
+    _fmt,
+)
 
 
 def write_subtitles(script: str, audio_path: str, out_base: str) -> tuple[str, str]:
@@ -67,3 +24,11 @@ def write_subtitles(script: str, audio_path: str, out_base: str) -> tuple[str, s
             f.write(f"{i}\n{_fmt(start, ',')} --> {_fmt(end, ',')}\n{text}\n\n")
 
     return vtt_path, srt_path
+
+
+__all__ = [
+    "get_audio_duration",
+    "chunk_script",
+    "build_cues",
+    "write_subtitles",
+]

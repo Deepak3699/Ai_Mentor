@@ -7,6 +7,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+import backend.services.job_tracker as job_tracker
+import backend.services.lesson_pipeline as lesson_pipeline
 
 os.environ.setdefault("GEMINI_API_KEY", "dummy_gemini_key")
 os.environ.setdefault("GROQ_API_KEY", "dummy_groq_key")
@@ -33,16 +35,16 @@ def test_failure_cache_cleanup_runs_if_status_update_raises(monkeypatch):
             raise RuntimeError("status store unavailable")
 
     job_id = "status-store-failure"
-    original_status = api.job_status
-    api.job_status = BrokenJobStatus()
+    original_status = job_tracker.job_status
+    job_tracker.job_status = BrokenJobStatus()
     api.generation_cache.clear()
     api.generation_cache["request-hash"] = job_id
     try:
         with pytest.raises(RuntimeError, match="status store unavailable"):
-            api.mark_job_failed(job_id)
+            job_tracker.mark_job_failed(job_id)
         assert not any(value == job_id for value in api.generation_cache.values())
     finally:
-        api.job_status = original_status
+        job_tracker.job_status = original_status
         api.generation_cache.clear()
 
 
@@ -51,12 +53,10 @@ def clear_job_state():
     api.generation_cache.clear()
     api.job_status.clear()
     api.shutdown_failed_jobs.clear()
-    api.shutting_down = False
     yield
     api.generation_cache.clear()
     api.job_status.clear()
     api.shutdown_failed_jobs.clear()
-    api.shutting_down = False
 
 
 @pytest.mark.parametrize(
@@ -72,7 +72,7 @@ def test_failure_paths_update_status_cache_and_public_response(
     scenario, expected_code, expected_message, tmp_path, capsys, monkeypatch
 ):
     job_id = f"failure-{scenario}"
-    monkeypatch.setattr(api, "BASE_DIR", str(tmp_path))
+    monkeypatch.setattr(lesson_pipeline, "BASE_DIR", str(tmp_path))
     monkeypatch.setattr(
         api,
         "generate_lesson_script",
@@ -157,3 +157,91 @@ def test_failure_paths_update_status_cache_and_public_response(
 
     api.job_status.pop(job_id, None)
     api.generation_cache.clear()
+
+
+@pytest.mark.parametrize(
+    ("field", "invalid_value"),
+    [
+        ("speech_rate", "fast"),
+        ("speech_rate", "+150%"),
+        ("speech_rate", "10%"),
+        ("speech_pitch", "high"),
+        ("speech_pitch", "+150Hz"),
+        ("speech_pitch", "10Hz"),
+    ],
+)
+def test_invalid_speech_settings_return_422(field, invalid_value):
+    payload = {
+        "course": "Python",
+        "topic": "Testing",
+        field: invalid_value,
+    }
+
+    with patch.object(api, "check_ffmpeg", return_value=None), TestClient(api.app) as client:
+        response = client.post("/generate", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_successful_generation_reaches_ready_status(
+    tmp_path, monkeypatch
+):
+    job_id = "successful-generation"
+
+    monkeypatch.setattr(lesson_pipeline, "BASE_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        api,
+        "generate_lesson_script",
+        lambda _data: ("A successful test lesson.", "gemini", "test-model"),
+    )
+
+    async def fake_tts(_text, output_file, **_kwargs):
+        Path(output_file).write_bytes(b"test audio")
+
+    monkeypatch.setattr(api, "generate_tts", fake_tts)
+
+    # Force the existing FFmpeg fallback path without external services.
+    monkeypatch.setattr(
+        api,
+        "create_avatar_video",
+        AsyncMock(side_effect=RuntimeError("avatar unavailable")),
+    )
+
+    source_video = tmp_path / "source.mp4"
+    source_video.write_bytes(b"test source")
+    monkeypatch.setattr(
+        api, "get_celebrity_video", lambda _celebrity: str(source_video)
+    )
+
+    async def fake_ffmpeg(command):
+        Path(command[-1]).write_bytes(b"test video")
+        return 0, ""
+
+    monkeypatch.setattr(api, "run_ffmpeg_command", fake_ffmpeg)
+    monkeypatch.setattr(api, "write_subtitles", lambda *_args: (None, None))
+    monkeypatch.setattr(api, "probe_video_metadata", lambda *_args: {})
+
+    def fail_upload(*_args, **_kwargs):
+        raise RuntimeError("Cloud upload unavailable")
+
+    monkeypatch.setattr(api.cloudinary.uploader, "upload", fail_upload)
+
+    request = api.LessonRequest(
+        course="Python",
+        topic="Testing",
+        celebrity="modi",
+    )
+
+    asyncio.run(api.process_lesson(request, job_id))
+
+    status = api.job_status[job_id]
+    assert status["status"] == "ready"
+    assert status["local_video_url"] == f"/video-stream/{job_id}.mp4"
+    assert status["meta"]["timestamps"]["completed_at"]
+
+    with patch.object(api, "check_ffmpeg", return_value=None), TestClient(api.app) as client:
+        response = client.get(f"/status/{job_id}")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready"
+    assert response.json()["local_video_url"] == f"/video-stream/{job_id}.mp4"

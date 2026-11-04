@@ -1,11 +1,20 @@
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
 import { sequelize } from "../config/db.js";
+import { sendServerError, logServerError, dependencyFailure } from "../utils/apiError.js";
 import { courseDuration } from "../utils/courseDuration.js";
 import { AppError, ForbiddenError, NotFoundError, forwardError } from "../utils/error.js";
 
 /* =========================
    HELPERS
 ========================= */
+
+// Stable client message for any AI/syllabus failure (details go to logs only)
+const syllabusUnavailable = (req, res) =>
+  res.status(500).json({
+    success: false,
+    message: "Syllabus generation is temporarily unavailable",
+    requestId: req.id,
+  });
 
 const parseLessonsCount = (lessons) => {
   if (typeof lessons !== "string") return 0;
@@ -351,17 +360,7 @@ const addCourse = async (req, res, next) => {
     });
     res.status(201).json(course);
   } catch (error) {
-    return forwardError(
-      next,
-      res,
-      new AppError(
-        "Internal Server Error",
-        500,
-        "INTERNAL_SERVER_ERROR",
-        [],
-        error?.message || "Failed to add course",
-      ),
-    );
+    return sendServerError(req, res, error, "courseController.addCourse");
   }
 };
 
@@ -373,17 +372,7 @@ const deleteCourse = async (req, res, next) => {
     }
     res.json({ message: "Course deleted successfully" });
   } catch (error) {
-    return forwardError(
-      next,
-      res,
-      new AppError(
-        "Internal Server Error",
-        500,
-        "INTERNAL_SERVER_ERROR",
-        [],
-        error?.message || "Failed to delete course",
-      ),
-    );
+    return sendServerError(req, res, error, "courseController.deleteCourse");
   }
 };
 
@@ -409,17 +398,72 @@ const addSubtopics = async (_req, _res, next) => {
   );
 };
 
+const hasValidTitledItems = (items) =>
+  Array.isArray(items) &&
+  items.every(
+    (item) =>
+      item !== null &&
+      typeof item === "object" &&
+      !Array.isArray(item) &&
+      typeof item.title === "string" &&
+      item.title.trim().length > 0,
+  ) &&
+  new Set(items.map((item) => item.title.trim().toLowerCase())).size === items.length;
+
+const hasValidLessons = (lessons) =>
+  hasValidTitledItems(lessons) &&
+  lessons.every(
+    (lesson) =>
+      (lesson.duration === undefined || typeof lesson.duration === "string") &&
+      (lesson.type === undefined || typeof lesson.type === "string"),
+  );
+
 const addLessons = async (req, res, next) => {
   try {
     const { courseId, moduleId } = req.params;
-    const { lessons } = req.body;
+    const lessons = req.body?.lessons;
 
-    // Ensure the module belongs to the course in the URL.
-    const module = await Module.findOne({
-      where: { id: moduleId, courseId },
+    if (!hasValidLessons(lessons)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "BAD_REQUEST", message: "Invalid lessons payload", details: [] },
+      });
+    }
+
+    const createdLessons = await sequelize.transaction(async (transaction) => {
+      const module = await Module.findOne({
+        where: { id: moduleId, courseId },
+        transaction,
+        lock: true,
+      });
+
+      if (!module) return null;
+
+      const maxOrder =
+        (await Lesson.max("order", {
+          where: { moduleId },
+          transaction,
+        })) || 0;
+
+      const results = [];
+      for (const [index, lesson] of lessons.entries()) {
+        results.push(
+          await Lesson.create(
+            {
+              moduleId,
+              title: lesson.title.trim(),
+              duration: lesson.duration || "5 mins",
+              type: lesson.type || "video",
+              order: maxOrder + index + 1,
+            },
+            { transaction },
+          ),
+        );
+      }
+      return results;
     });
 
-    if (!module) {
+    if (createdLessons === null) {
       return forwardError(
         next,
         res,
@@ -427,32 +471,8 @@ const addLessons = async (req, res, next) => {
       );
     }
 
-    const createdLessons = await sequelize.transaction(async (transaction) => {
-      const maxOrder =
-        (await Lesson.max("order", {
-          where: { moduleId },
-          transaction,
-        })) || 0;
-
-      return Promise.all(
-        lessons.map((lesson, index) =>
-          Lesson.create(
-            {
-              moduleId,
-              title: lesson.title,
-              duration: lesson.duration || "5 mins",
-              type: lesson.type || "video",
-              order: maxOrder + index + 1,
-            },
-            { transaction },
-          ),
-        ),
-      );
-    });
-
     return res.status(201).json(createdLessons);
   } catch (error) {
-    console.error("ADD LESSONS ERROR:", error);
     return forwardError(
       next,
       res,
@@ -470,21 +490,50 @@ const addLessons = async (req, res, next) => {
 const addModules = async (req, res, next) => {
   try {
     const { courseId } = req.params;
-    const { modules } = req.body;
+    const modules = req.body?.modules;
 
-    const maxOrder = (await Module.max("order", { where: { courseId } })) || 0;
+    if (!hasValidTitledItems(modules)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "BAD_REQUEST", message: "Invalid modules payload", details: [] },
+      });
+    }
 
-    const createdModules = await Promise.all(
-      modules.map((m, index) =>
-        Module.create({
-          courseId,
-          title: m.title,
-          order: maxOrder + index + 1,
-        }),
-      ),
-    );
+    const createdModules = await sequelize.transaction(async (transaction) => {
+      const course = await Course.findByPk(courseId, {
+        transaction,
+        lock: true,
+      });
 
-    res.status(201).json(createdModules);
+      if (!course) return null;
+
+      const maxOrder =
+        (await Module.max("order", {
+          where: { courseId },
+          transaction,
+        })) || 0;
+
+      const results = [];
+      for (const [index, module] of modules.entries()) {
+        results.push(
+          await Module.create(
+            {
+              courseId,
+              title: module.title.trim(),
+              order: maxOrder + index + 1,
+            },
+            { transaction },
+          ),
+        );
+      }
+      return results;
+    });
+
+    if (createdModules === null) {
+      return forwardError(next, res, new NotFoundError("Course not found"));
+    }
+
+    return res.status(201).json(createdModules);
   } catch (error) {
     return forwardError(
       next,
@@ -514,35 +563,30 @@ const generateCourseSyllabusWithAI = async (req, res, next) => {
         course_title: course.title,
         category: course.category,
       }),
-    });
+    }).catch(() => null);
 
+    // fetch failed (service down, connection refused): log a fixed code, never the error text
+    if (!aiResponse) {
+      logServerError(req, dependencyFailure("AI_SERVICE_UNREACHABLE"), "generateSyllabus.provider");
+      return syllabusUnavailable(req, res);
+    }
     if (!aiResponse.ok) {
-      return forwardError(
-        next,
-        res,
-        new AppError(
-          "AI Service failed to generate syllabus",
-          aiResponse.status || 502,
-          "AI_SERVICE_ERROR",
-          [],
-          "AI Service failed to generate syllabus",
-        ),
+      logServerError(
+        req,
+        dependencyFailure("AI_SERVICE_BAD_STATUS", aiResponse.status),
+        "generateSyllabus.provider",
       );
+      return syllabusUnavailable(req, res);
     }
 
     const data = await aiResponse.json();
     if (data.error) {
-      return forwardError(
-        next,
-        res,
-        new AppError(
-          "Internal Server Error",
-          500,
-          "INTERNAL_SERVER_ERROR",
-          [],
-          data.error || "AI syllabus generation failed",
-        ),
+      logServerError(
+        req,
+        dependencyFailure("AI_SERVICE_ERROR_PAYLOAD"),
+        "generateSyllabus.provider",
       );
+      return syllabusUnavailable(req, res);
     }
 
     // 2. Insert into DB
@@ -568,18 +612,7 @@ const generateCourseSyllabusWithAI = async (req, res, next) => {
 
     res.json({ message: "Syllabus generated successfully", data: data });
   } catch (error) {
-    console.error("GENERATE SYLLABUS ERROR:", error);
-    return forwardError(
-      next,
-      res,
-      new AppError(
-        "Internal Server Error",
-        500,
-        "INTERNAL_SERVER_ERROR",
-        [],
-        error?.message || "Server error",
-      ),
-    );
+    return sendServerError(req, res, error, "courseController.generateSyllabus");
   }
 };
 

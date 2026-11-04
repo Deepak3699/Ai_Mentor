@@ -113,6 +113,10 @@ router.post("/create-order", protect, paymentLimiter, async (req, res) => {
       amount,
       currency,
       receipt: `receipt_order_${courseRecord.id}_${Date.now()}`,
+      notes: {
+        courseId: courseRecord.id.toString(),
+        courseTitle,
+      },
     };
 
     log.info({ courseTitle, userId }, "Initiating Razorpay payment");
@@ -189,8 +193,7 @@ router.post("/verify", protect, async (req, res) => {
   const orderIdForLog = req.body?.razorpay_order_id || "unknown";
 
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, courseId, courseTitle } =
-      req.body;
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, courseId } = req.body;
 
     // Always take the user ID from the authenticated token.
     const userId = req.user.id;
@@ -331,7 +334,7 @@ router.post("/verify", protect, async (req, res) => {
 
       // Use the database record as the source of truth.
       enrolledCourseId = Number(payment.courseId ?? courseId);
-      enrolledCourseTitle = payment.courseTitle ?? courseTitle ?? "Course";
+      enrolledCourseTitle = payment.courseTitle?.trim() || "Course";
 
       // Confirm the user exists before updating payment status.
       user = await User.findByPk(userId, { transaction });

@@ -2,12 +2,11 @@
 import User from "../models/User.js";
 import CommunityPost from "../models/CommunityPost.js";
 import Notifications from "../models/Notification.js";
-import jwt from "jsonwebtoken";
 import { Transaction } from "sequelize";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 import path from "path";
-import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
+import { formatFullName } from "../utils/userUtils.js";
 import { createNotification } from "./notificationController.js";
 import { Course } from "../models/modelAssociations.js";
 import Payment from "../models/Payment.js";
@@ -22,114 +21,7 @@ import {
   forwardError,
 } from "../utils/error.js";
 
-// Generate JWT Token
-const generateToken = (id) => {
-  if (!process.env.JWT_SECRET) {
-    throw new Error("JWT_SECRET not configured");
-  }
-
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: "30d",
-  });
-};
-
-// @desc Register user
-const registerUser = async (req, res, next) => {
-  try {
-    const { firstName, lastName, email, password } = req.body;
-    const name = `${firstName} ${lastName}`.trim();
-
-    const userExists = await User.findOne({ where: { email } });
-    if (userExists) {
-      return forwardError(next, res, new ConflictError("User already exists"));
-    }
-
-    const user = await User.create({
-      firstName,
-      lastName,
-      name,
-      email,
-      password,
-    });
-
-    res.status(201).json({
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      bio: user.bio,
-      avatar_url: user.avatar_url,
-      isProfileComplete: user.isProfileComplete,
-      purchasedCourses: user.purchasedCourses,
-      isNewUser: true,
-      token: generateToken(user.id),
-    });
-  } catch (error) {
-    console.error("REGISTER ERROR:", error.message);
-    return forwardError(
-      next,
-      res,
-      new AppError(
-        "Internal Server Error",
-        500,
-        "INTERNAL_SERVER_ERROR",
-        [],
-        error?.message || "Server error",
-      ),
-    );
-  }
-};
-
 // Centralized logic moved to userUtils.js
-
-// @desc Login user
-const loginUser = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await User.findOne({ where: { email } });
-
-    if (!user || !(await user.matchPassword(password))) {
-      return forwardError(next, res, new UnauthorizedError("Invalid credentials"));
-    }
-
-    // ✅ Run completeness check on every login
-    await ensureProfileCompleteness(user);
-
-    res.json({
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      bio: user.bio,
-      avatar_url: user.avatar_url,
-      isProfileComplete: user.isProfileComplete,
-      isGoogleUser: !!user.googleId,
-      googleId: user.googleId,
-      hasPassword: !!user.password,
-      purchasedCourses: user.purchasedCourses,
-      isNewUser: false,
-      token: generateToken(user.id),
-    });
-  } catch (error) {
-    console.error("LOGIN ERROR:", error.message);
-    return forwardError(
-      next,
-      res,
-      new AppError(
-        "Internal Server Error",
-        500,
-        "INTERNAL_SERVER_ERROR",
-        [],
-        error?.message || "Server error",
-      ),
-    );
-  }
-};
 
 // @desc Change Password
 const changePassword = async (req, res, next) => {
@@ -925,8 +817,6 @@ const completeProfile = async (req, res, next) => {
 
 // EXPORTS
 export {
-  registerUser,
-  loginUser,
   getUserProfile,
   purchaseCourse,
   updateCourseProgress,
