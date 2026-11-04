@@ -38,6 +38,48 @@ def test_config_custom_llm_timeout(monkeypatch):
     assert config.LLM_TIMEOUT_SECONDS == 45
 
 
+def test_invalid_llm_timeout_falls_back_to_default(monkeypatch):
+    for value in ("not-a-number", "0", "-5", ""):
+        monkeypatch.setenv("LLM_TIMEOUT_SECONDS", value)
+        config = import_config(monkeypatch)
+        assert config.LLM_TIMEOUT_SECONDS == 60
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("1", 1),
+        ("4", 4),
+        ("0", 2),
+        ("-2", 2),
+        ("not-a-number", 2),
+        ("999", 5),
+        ("", 2),
+    ],
+)
+def test_llm_max_attempts_is_validated(monkeypatch, raw, expected):
+    monkeypatch.setenv("LLM_MAX_ATTEMPTS", raw)
+    config = import_config(monkeypatch)
+    assert config.LLM_MAX_ATTEMPTS == expected
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("0", 0.0),
+        ("1.5", 1.5),
+        ("-1", 0.5),
+        ("not-a-number", 0.5),
+        ("9999", 10.0),
+        ("", 0.5),
+    ],
+)
+def test_llm_retry_base_delay_is_validated(monkeypatch, raw, expected):
+    monkeypatch.setenv("LLM_RETRY_BASE_DELAY_SECONDS", raw)
+    config = import_config(monkeypatch)
+    assert config.LLM_RETRY_BASE_DELAY_SECONDS == expected
+
+
 def test_validate_config_reports_missing_gemini_key_first(monkeypatch):
     config = import_config(monkeypatch)
     with pytest.raises(ValueError, match="GEMINI_API_KEY"):
