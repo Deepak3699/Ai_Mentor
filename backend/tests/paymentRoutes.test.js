@@ -562,6 +562,10 @@ test("Razorpay order creates, caches, and updates a payment", async () => {
   assert.equal(createdData.userId, "owner-rzp");
   assert.equal(createdData.amount, 25000);
   assert.equal(gatewayOptions.amount, 25000);
+  assert.deepEqual(gatewayOptions.notes, {
+    courseId: "9",
+    courseTitle: "Razorpay Course",
+  });
   assert.equal(updatedData.status, "processing");
   assert.equal(updatedData.razorpayOrderId, "order-rzp");
 });
@@ -915,6 +919,15 @@ const verifyRequest = ({ userId = "owner-1", ...overrides } = {}) =>
     },
   });
 
+test("Razorpay verification uses a fixed fallback and never a client-supplied title", async () => {
+  const payment = makeStoredPayment({ courseTitle: null });
+  const state = setupVerify(payment);
+  const res = await verifyRequest({ courseTitle: "Client supplied title" });
+  assert.equal(res.status, 200);
+  assert.equal(state.transaction.finished, "commit");
+  assert.equal(state.user.purchasedCourses.length, 1);
+  assert.equal(state.user.purchasedCourses[0].courseTitle, "Course");
+});
 test("Razorpay verify enrolls the stored course and ignores the client-supplied title", async () => {
   const payment = makeStoredPayment();
   const state = setupVerify(payment);

@@ -224,3 +224,18 @@ test("classifies browser Failed to fetch errors as connectivity failures", () =>
   );
   assert.equal(failure.retryable, true);
 });
+
+test("429 responses produce a distinct retryable rate_limit error", () => {
+  const error = classifyGenerationError(
+    Object.assign(new Error("Too many requests"), { status: 429, retryAfter: 900 }),
+  );
+  assert.equal(error.type, "rate_limit");
+  assert.equal(error.retryable, true);
+  assert.equal(error.details.retryAfter, 900);
+});
+
+test("rate limit messages are categorized as rate_limit", () => {
+  const error = classifyGenerationError(new Error("Rate limit exceeded"));
+  assert.equal(error.type, "rate_limit");
+  assert.equal(error.retryable, true);
+});
