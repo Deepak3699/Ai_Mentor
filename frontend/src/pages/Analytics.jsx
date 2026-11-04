@@ -43,7 +43,6 @@ const Analytics = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const searchQuery = "";
 
-
   const statusEmojis = {
     Completed: "✅",
     Ongoing: "🔄",
@@ -231,7 +230,6 @@ const Analytics = () => {
   return (
     <>
       <main className="p-4 md:p-6 lg:p-8">
-
         {/* Welcome Section */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-[#2D3436] dark:text-white">
