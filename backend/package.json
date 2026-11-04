@@ -30,7 +30,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.5.0",
     "node-cron": "^4.6.0",
-    "nodemailer": "^10.1.4",
+    "nodemailer": "^10.3.1",
     "pdf-lib": "^1.17.1",
     "pg": "^8.18.0",
     "pg-hstore": "^2.3.4",
