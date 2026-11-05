@@ -80,20 +80,20 @@ Frontend Application
 
 # Tech Stack
 
-| Category             | Technology            |
-| -------------------- | --------------------- |
-| Framework            | React 19              |
-| Build Tool           | Vite 7                |
-| Routing              | React Router DOM      |
-| Styling              | Tailwind CSS          |
-| State Management     | React Context API     |
-| HTTP Communication   | Native fetch, apiFetch|
-|                      | helper, and Axios     |
-| Authentication       | Firebase Google OAuth |
-| Charts               | Recharts              |
-| Icons                | Lucide React          |
-| Notifications        | React Hot Toast       |
-| Internationalization | i18next               |
+| Category             | Technology             |
+| -------------------- | ---------------------- |
+| Framework            | React 19               |
+| Build Tool           | Vite 7                 |
+| Routing              | React Router DOM       |
+| Styling              | Tailwind CSS           |
+| State Management     | React Context API      |
+| HTTP Communication   | Native fetch, apiFetch |
+|                      | helper, and Axios      |
+| Authentication       | Firebase Google OAuth  |
+| Charts               | Recharts               |
+| Icons                | Lucide React           |
+| Notifications        | React Hot Toast        |
+| Internationalization | i18next                |
 
 ---
 
@@ -266,6 +266,7 @@ localStorage
     v
 Protected Routes
 ```
+
 ---
 
 # AuthContext
@@ -274,21 +275,21 @@ Protected Routes
 
 Responsibilities:
 
-* Store the authenticated user
-* Store authentication state
-* Persist the JWT token and user information in `localStorage`
-* Provide login and logout functions
-* Restore authentication state from `localStorage`
-* Fetch the authenticated user's profile
-* Update user information
-* Integrate Firebase sign-out during logout
+- Store the authenticated user
+- Store authentication state
+- Persist the JWT token and user information in `localStorage`
+- Provide login and logout functions
+- Restore authentication state from `localStorage`
+- Fetch the authenticated user's profile
+- Update user information
+- Integrate Firebase sign-out during logout
 
 ## Authentication Persistence
 
 On application initialization, `AuthContext` checks for:
 
-* `token` in `localStorage`
-* `user` in `localStorage`
+- `token` in `localStorage`
+- `user` in `localStorage`
 
 When both are available, the frontend restores the authenticated state.
 
@@ -320,6 +321,7 @@ Updated User Data
     v
 React State + localStorage
 ```
+
 ---
 
 # Google OAuth Flow
@@ -327,6 +329,7 @@ React State + localStorage
 The frontend integrates Firebase Google authentication.
 
 Google authentication uses Firebase for the Google sign-in popup. After Firebase returns an ID token, the frontend sends that token to the backend using a native `fetch` request.
+
 ```text
 Google Sign-In
     │
@@ -354,6 +357,7 @@ AuthContext.login()
     ▼
 Protected Routes
 ```
+
 ---
 
 # ProtectedRoute Component
@@ -411,8 +415,8 @@ The component performs the following checks:
 1. If the user is not authenticated, redirect to `/login`.
 2. If the authenticated user has not yet loaded, display a loading state.
 3. Only users with one of the following roles are allowed:
-   * `admin`
-   * `superadmin`
+   - `admin`
+   - `superadmin`
 4. Other authenticated users are redirected to `/`.
 
 ## Admin Route Access Logic
@@ -967,6 +971,7 @@ apiFetch()      fetch()       Axios
                   v
            Backend REST APIs
 ```
+
 - Base URL configuration
 - Token attachment
 - Error interception
@@ -1048,6 +1053,7 @@ All required values must be configured according to the validation rules in `fro
 ---
 
 # API Proxy System
+
 During local development, Vite can proxy matching relative `/api` requests to the configured backend.
 
 ```text
@@ -1162,11 +1168,11 @@ The current `frontend` application defines admin routes protected by `AdminRoute
 
 Current routes:
 
-| Route | Description |
-|---|---|
-| `/admin` | Redirects to the admin dashboard at `/dashboard` |
-| `/admin/users` | Redirects to user management at `/users` |
-| `/admin/courses` | Redirects to course management at `/courses` |
+| Route            | Description                                      |
+| ---------------- | ------------------------------------------------ |
+| `/admin`         | Redirects to the admin dashboard at `/dashboard` |
+| `/admin/users`   | Redirects to user management at `/users`         |
+| `/admin/courses` | Redirects to course management at `/courses`     |
 
 These routes hand off to the separate `frontendAdmin` application. Access is controlled by the learner frontend's admin route protection.
 These routes demonstrate the current routing and role-based access control (RBAC) structure. However, they should not be described as fully implemented admin dashboard pages.
@@ -1192,6 +1198,7 @@ Frontend validates:
 cd frontend
 npm install
 ```
+
 ## Vite API Proxy
 
 Vite is configured with a development proxy for requests beginning with `/api`.
