@@ -606,7 +606,7 @@ const scrollRight = () => {
                   <Sparkles className="h-3.5 w-3.5" /> Your learning space
                 </span>
                 <h1 className="text-3xl font-extrabold tracking-tight text-main sm:text-4xl">
-                  Keep learning, {user?.firstName || user?.name?.split(" ")[0] || "Learner"}
+                  Continue learning
                 </h1>
                 <p className="mt-3 max-w-xl text-sm leading-6 text-muted sm:text-base">
                   Continue enrolled courses, monitor activity, or discover the next skill to add to
@@ -822,7 +822,7 @@ const scrollRight = () => {
               <div className="mt-4">
                 <button
                   onClick={() => navigate(`/learning/${course.id}`)}
-                  className="w-full rounded-lg bg-[#2DD4BF] py-2 text-xs font-semibold text-white"
+                  className="w-full rounded-lg bg-[#3867D6] py-2 text-xs font-semibold text-white"
                 >
                   {hasStarted
                     ? t("common.continue_learning")
@@ -1155,7 +1155,7 @@ const scrollRight = () => {
                   className={`px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${
                     isEnrolled
                       ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 cursor-default"
-                      : "bg-[#2DD4BF] text-white hover:bg-teal-500"
+                      : "bg-[#3867D6] text-white hover:bg-[#315BC0]"
                   }`}
                 >
                   {isEnrolled
