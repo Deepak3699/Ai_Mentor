@@ -1,17 +1,10 @@
 import { Course, AdminNotification, Module, Lesson, User } from "../models/index.js";
 import { Op, Sequelize } from "sequelize";
-import { logServerError, sendServerError } from "../utils/apiError.js";
+import { generateCourseSyllabus } from "./syllabusController.js";
+import { sendServerError } from "../utils/apiError.js";
 
 // Valid status values
 const VALID_STATUSES = ["published", "disabled", "deleted"];
-
-// Stable client message for any AI/syllabus failure (details go to logs only)
-const syllabusUnavailable = (req, res) =>
-  res.status(500).json({
-    success: false,
-    message: "Syllabus generation is temporarily unavailable",
-    requestId: req.id,
-  });
 
 /**
  * @desc    Get all courses (admin sees ALL statuses)
@@ -321,77 +314,4 @@ export const getCourseSyllabus = async (req, res) => {
   }
 };
 
-/**
- * @desc    Generate Course Syllabus with AI
- * @route   POST /api/admin/courses/:id/generate-syllabus
- * @access  Private
- */
-export const generateCourseSyllabusWithAI = async (req, res) => {
-  try {
-    const courseId = req.params.id;
-    const course = await Course.findByPk(courseId);
-
-    if (!course) {
-      return res.status(404).json({ message: "Course not found" });
-    }
-
-    // Call Python AI Service
-    const aiUrl = `${process.env.AI_SERVICE_URL}/generate-syllabus`;
-    const aiResponse = await fetch(aiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        course_title: course.title,
-        category: course.category,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      logServerError(
-        req,
-        new Error(`AI service responded ${aiResponse.status}`),
-        "generateSyllabus.provider",
-      );
-      return syllabusUnavailable(req, res);
-    }
-
-    const data = await aiResponse.json();
-    if (data.error) {
-      logServerError(
-        req,
-        new Error(`AI service error: ${String(data.error)}`),
-        "generateSyllabus.provider",
-      );
-      return syllabusUnavailable(req, res);
-    }
-
-    // Insert into DB
-    let moduleOrder = 1;
-    for (const mod of data.modules) {
-      const newModule = await Module.create({
-        courseId: course.id,
-        title: mod.title,
-        order: moduleOrder++,
-      });
-
-      let lessonOrder = 1;
-      for (const les of mod.lessons) {
-        await Lesson.create({
-          moduleId: newModule.id,
-          title: les.title,
-          duration: les.duration || "5 mins",
-          type: les.type || "video",
-          order: lessonOrder++,
-        });
-      }
-    }
-
-    res.json({ message: "Syllabus generated successfully", data: data });
-  } catch (error) {
-    if (error.cause?.code === "ECONNREFUSED") {
-      logServerError(req, error, "generateSyllabus.aiUnreachable");
-      return syllabusUnavailable(req, res);
-    }
-    return sendServerError(req, res, error, "courseController.generateSyllabus");
-  }
-};
+export { generateCourseSyllabus };

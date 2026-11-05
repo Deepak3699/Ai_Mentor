@@ -1,240 +1,130 @@
-# Contributing to AI Mentor
+# Contributing
 
-New to the project? Start here.
+Please read and understand this guide carefully before contributing to AI Mentor. It outlines the steps to prepare, validate, and submit your changes effectively.
+## Get started
 
----
+1. Fork [Deepak3699/Ai_Mentor](https://github.com/Deepak3699/Ai_Mentor) and clone your fork:
 
-# 1. Fork the repository
+   ```bash
+   git clone https://github.com/<your-username>/Ai_Mentor.git
+   cd Ai_Mentor
+   ```
 
-First, fork the repository to your own GitHub account:
+2. Add the original repository as the `upstream` remote:
 
-https://github.com/Deepak3699/Ai_Mentor
+   ```bash
+   git remote add upstream https://github.com/Deepak3699/Ai_Mentor.git
+   git remote -v
+   ```
 
-Click the **Fork** button in the top-right corner and create a fork under your GitHub account.
+3. Keep your local base branch up to date with upstream. Fetch and integrate the latest changes daily, and always do this before starting new work. Replace `<base-branch>` with the branch you are contributing against, such as `main` or `dev`:
 
-# 2. Clone your fork
+   ```bash
+   git fetch upstream
+   git switch <base-branch>
+   git pull --ff-only upstream <base-branch>
+   git push origin <base-branch>
+   ```
 
-Clone **your forked repository**, not the original repository:
+   If the fast-forward update fails, your local branch may have diverged. Resolve that before continuing; do not force-push to the upstream repository.
 
-    git clone https://github.com/<your-github-username>/Ai_Mentor.git
-    cd Ai_Mentor
+4. Install project dependencies:
 
-Replace `<your-github-username>` with your GitHub username.
+   ```bash
+   npm run setup
+   ```
 
-# 3. Follow the detailed environment setup
+5. Configure the required environment variables using the `.env.example` files and [`initalSetup.md`](initalSetup.md). Never commit `.env` files or credentials.
 
-    # Read initalSetup.md (Neon database + .env files)
+## Make changes
 
-# 4. Install dependencies and run locally
+- Create a descriptive branch from the updated base branch, such as `feat/course-search` or `fix/login-validation`.
+- Keep each change focused and consistent with the conventions of the service you are editing.
+- Include or update tests and documentation when relevant.
+- Avoid unrelated formatting changes and generated files.
 
-From the repository root:
+## Validate your changes
 
-```bash
-npm run setup
-```
-
-Configure the five `.env` files as described in `initalSetup.md`, then use the root commands:
-
-```bash
-npm run dev          # User and Admin API/WEB services
-npm run dev:user     # User API + User WEB
-npm run dev:admin    # Admin API + Admin WEB
-```
-
-Use `npm run dev:backend`, `npm run dev:frontend`, `npm run dev:backend-admin`, or `npm run dev:frontend-admin` for one service. The runner checks backend health before starting a frontend and safely reuses healthy services already running in another terminal.
-
-The Python AI service still runs separately:
-
-```bash
-cd ai_service/backend
-python graceful_server.py
-```
-
-`Ctrl+C` stops only processes started by the current runner. Reused services remain running in their original terminal.
-
-### Formatting
-
-Use the project-local Prettier installation before committing frontend, JavaScript, JSON, Markdown, CSS, or HTML changes:
+Run the checks relevant to your changes before opening a pull request:
 
 ```bash
-npm run format
 npm run format:check
+npm run lint
+npm test
 ```
 
-Do not use an unpinned global or temporary Prettier version. Keep functional changes separate from repository-wide formatting changes so pull-request diffs remain reviewable.
-
-## How to work on a task
+For AI service changes, run the Python tests from `ai_service/`:
 
 ```bash
-# 1. Always start from the latest code
-git checkout main
-git pull origin main
-
-# 2. Create your own branch
-git checkout -b fix/short-description
-
-# 3. Write code, run it locally, test it
-
-# 4. Run the linter, otherwise CI will fail
-npm run lint                  # from the repo root — checks all four Node/React services
-npm run lint:backend-admin    # Backend Admin only
-
-# 5. Commit
-git add .
-git commit -m "fix: admin panel pointing to wrong port"
-
-# 6. Push
-git push origin fix/short-description
-
-# 7. Open a pull request on GitHub
+cd ai_service
+python -m pytest
 ```
 
----
-
-## Rules
-
-### Do
-
-- One pull request does one thing — keep it under roughly 400 changed lines
-- Run the service locally before you push
-- `npm run lint` must pass
-- Attach screenshots for any UI change
-- Use the commit format `type: description` (see below)
-- Try on your own for 30 minutes before asking for help
-
-### Do not
-
-- Push directly to `main`
-- Commit a `.env` file — ever
-- Put API keys or passwords in the code
-- Merge someone else's pull request without being asked
-- Leave `console.log` statements behind
-- Bundle five unrelated changes into one pull request
-
----
-
-## Secret scanning
-
-CI job **Check for committed secrets** does two things:
-
-1. Fails if any file named `.env` is tracked by git.
-2. Runs [gitleaks](https://github.com/gitleaks/gitleaks) over the full commit history and file content, looking for API keys, tokens, private keys, webhook URLs and passwords inside database connection strings, whatever the file is called. Findings are redacted in the logs.
-
-Run it locally before you push (install gitleaks first):
-
-    gitleaks git . --config .gitleaks.toml --redact --no-banner
-    scripts/test-secret-scan.sh        # self-test with fake credentials
-
-### If the scan fails
-
-- **It is a real secret:** rotate it at the provider first. Removing it from the code is not enough, because it stays in git history.
-- **It is a false positive:** keep the exception as narrow as possible.
-  1. Run the scan with `--report-format json --report-path report.json` and copy the `Fingerprint` of the finding.
-  2. Add it to `.gitleaksignore` with a comment line above it saying why it is safe.
-  3. Only for a whole test fixture file, add its exact path to `[allowlist]` in `.gitleaks.toml` instead.
-  4. Open the pull request. Changes to these files need Team Lead review (see `.github/CODEOWNERS`). Never allowlist something you have not confirmed is fake.
-
-Use obvious placeholders in docs and examples (`your_password`, `xxxxx`), which the scanner ignores.
-
----
-
-## Review and smoke-test scripts
+For frontend changes, run the production build for the affected application:
 
 ```bash
-scripts/review-pr.sh 123          # check a PR (needs gh; run npm run setup first)
-scripts/smoke-test.sh             # is the local stack alive? (--quick = services only)
-scripts/test-review-scripts.sh    # self-test of both scripts (also runs in CI)
+npm run build --prefix frontend
+npm run build --prefix frontendAdmin
 ```
 
-Both scripts list exactly which checks passed, failed, or were skipped. Neither runs the automated test suites (CI does), so a pass means "the listed checks passed", not "this change is correct".
+If a check cannot be run, explain why in your pull request. Confirm that your changes do not include credentials, environment files, generated media, or build output.
 
-`review-pr.sh` stops before switching branches if you have uncommitted or untracked files (ignored files such as `node_modules` are fine), and it restores your branch when it finishes or is interrupted. It fetches the base branch first and prints the exact base commit: `upstream/main` if you have an `upstream` remote, otherwise `origin/main`. Use `BASE_REF=<remote>/<branch>` to pick another base, or `NO_FETCH=1` to skip the fetch (the result then carries a warning).
+## Commit messages
 
-`smoke-test.sh` treats only HTTP 400, 401, 403 and 404 as a safe rejection in the transcript checks. A 5xx fails, and no response, a redirect or any other status warns.
+Use short, descriptive commit messages in the `type: description` format:
 
-| Exit code | Meaning                                                                                     |
-| --------- | ------------------------------------------------------------------------------------------- |
-| `0`       | Every required check ran and passed, no warnings                                            |
-| `1`       | A check failed, or the script could not run (bad input, local work in the way, `curl` gone) |
-| `2`       | Warnings, or a required check was skipped (for example `node_modules` missing)              |
-
-Exit code `2` is never a safe-to-merge result. Install what is missing and run the script again.
-
----
-
-## Commit message format
-
-```
-type: short description (lowercase, present tense)
+```text
+feat: add course search
+fix: handle expired login tokens
+docs: update setup instructions
+test: cover course enrollment
 ```
 
-| Type       | When to use it                |
-| ---------- | ----------------------------- |
-| `feat`     | A new feature                 |
-| `fix`      | A bug fix                     |
-| `docs`     | Documentation only            |
-| `style`    | Formatting, no logic change   |
-| `refactor` | Better code, same behaviour   |
-| `test`     | Adding tests                  |
-| `chore`    | Dependencies or configuration |
+Common types include `feat`, `fix`, `docs`, `test`, `refactor`, and `chore`. Keep commits coherent and avoid combining unrelated changes.
 
-Examples:
+## Submit a pull request
 
-```
-feat: add certificate download button
-fix: point admin frontend to port 5001
-docs: add backendAdmin setup to README
-chore: bump express to v5
-```
+A pull request (PR) presents your proposed changes for review. A clear description and a focused, well-tested change help reviewers understand your work and make review more efficient.
 
----
+Before submitting:
 
-## Review process
+1. Write code that is clear and consistent with the surrounding project.
+2. Organize your work into coherent commits that make the change easy to follow.
+3. Review your own changes for correctness, scope, and accidental files.
+4. Run the relevant tests, linters, formatters, and builds.
+5. Open a PR against the appropriate project branch.
 
-1. Open your pull request and fill in the template
-2. Automated checks run (lint and build, about three minutes)
-3. Red cross? Click "Details", read the error, fix it, push again
-4. Green checks plus one approval — then merge
-5. Delete your branch after merging
+In your PR description:
 
----
+- Summarize the problem and the reason for the change.
+- Explain the approach and any important design decisions.
+- Mention differences from the original plan, if applicable.
+- Call out open questions or areas where you would like reviewer input.
+- Include screenshots or recordings for user-facing changes. For UI changes, show the relevant updated screens and note any important interaction changes.
+- List the checks you ran and their results. Be accurate about anything you did not test.
 
-## Project structure (five services)
+Use GitHub Markdown to keep the description easy to read. Put questions about specific code in a review comment on the relevant lines when possible. Respond to feedback constructively and update the PR description if the scope or validation changes.
 
-```
-Ai_Mentor/
-├── frontend/        Learner app      React 19 + Vite + Tailwind      :5173
-├── backend/         Main API         Express 4 + Sequelize + Postgres :5000
-├── frontendAdmin/   Admin panel      React 19 + Vite + Tailwind      :5174
-├── backendAdmin/    Admin API        Express 5 + Sequelize            :5001
-└── ai_service/      AI video         FastAPI + Gemini + FFmpeg        :8000
-```
+## AI use policy and guidelines
 
-`backend` and `backendAdmin` share the **same PostgreSQL database**.
+AI tools may help you understand the codebase, write code, or improve wording. You are responsible for every change you submit, whether or not you used an AI tool. You must understand the changes, explain why they are appropriate, and verify them with relevant tests. Do not submit AI-generated code that you have not personally reviewed and tested.
 
----
+### Using AI as a coding assistant
 
-## Stuck?
+- Become familiar with the relevant part of the project before asking an AI tool to suggest or change code.
+- Verify AI-generated explanations against project documentation and source code. AI tools can be wrong about how the project works.
+- Treat generated code, commands, and recommendations as suggestions. Check their correctness, compatibility, security, and behavior before using them.
+- Break work into focused, reviewable changes and coherent commits, even if a tool produces a large change at once.
+- Avoid comments that merely restate what the code already makes clear. Keep necessary comments concise and accurate.
 
-1. Try on your own first — give it 30 minutes and read the error carefully
-2. Search Google or Stack Overflow with the exact error message
-3. Still stuck? Ask in the team group, and include:
-   - What you already tried
-   - The full error message (screenshot or pasted text)
-   - Which service and which file
+### Using AI for project communication
 
-Asking for help is fine. Just do not ask with "it is not working" — nobody can
-help you from that alone.
+Use your own judgment and words when communicating with maintainers. AI tools may help with spelling, grammar, or translation, but read and verify all generated text before posting it. Do not paste generic AI-generated responses to review feedback; explain your reasoning directly.
 
----
+PR descriptions should focus on the motivation, important design choices, and validation rather than repeating details already visible in the diff. Keep communication concise and accurate, and complete any PR template without replacing its checklist or requested information with generated text.
 
-## Further reading
+## Security
 
-- `initalSetup.md` — environment setup
-- `backend/BACKEND_DOCUMENTATION.md` — the most detailed backend reference
-- `ai_service/README.md` — the AI video pipeline
+Never commit passwords, API keys, tokens, private keys, or other sensitive information. If a real secret is exposed, rotate it with the relevant provider and notify the maintainers. Do not report security vulnerabilities in public issues; contact the project maintainers privately.
 
----
-
-Questions? Ask the team lead. If you spot a mistake in these rules, send a pull
-request, this file should improve too.
+For local setup and project-service details, see [`README.md`](README.md) and [`initalSetup.md`](initalSetup.md).

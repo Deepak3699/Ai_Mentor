@@ -18,6 +18,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
+import { getErrorMessage } from "../lib/errorHandling.js";
 
 const CertificatesPage = () => {
   const { user } = useAuth();
@@ -93,7 +94,12 @@ const CertificatesPage = () => {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        setNameError(errData.message || "Failed to generate certificate");
+        setNameError(
+          getErrorMessage(
+            { response: { status: res.status, data: errData } },
+            "Failed to generate certificate",
+          ),
+        );
         return;
       }
 

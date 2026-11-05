@@ -14,6 +14,7 @@ const { default: AdminNotification } = await import("../models/AdminNotification
 const { default: Notification } = await import("../models/Notification.js");
 const { sequelize } = await import("../config/db.js");
 const { default: reportRoutes } = await import("../routes/reportRoutes.js");
+const { default: requestContext } = await import("../middleware/requestContext.js");
 const { MODERATOR_ROLES, createReport } = await import("../controllers/reportController.js");
 
 const REPORTER_ID = "11111111-1111-1111-1111-111111111111";
@@ -154,13 +155,15 @@ const seedUsers = () => {
 
 // ---------------------------------------------------------------------------
 // HTTP harness: the real route module with the real protect + validate +
-// controller chain, mounted the same way server.js mounts it.
+// controller chain, mounted the same way server.js mounts it (requestContext
+// first, so every response carries a request id).
 // ---------------------------------------------------------------------------
 let server;
 let baseUrl;
 
 before(async () => {
   const app = express();
+  app.use(requestContext);
   app.use(express.json());
   app.use("/api/course-reports", reportRoutes);
   server = http.createServer(app);
@@ -230,9 +233,12 @@ test("moderator roles are valid values of the User.role enum", () => {
 // ---------------------------------------------------------------------------
 test("rejects a request without a token and writes nothing", async () => {
   const res = await postReport(validBody(), { token: null });
+  const body = await res.json();
 
   assert.equal(res.status, 401);
-  assert.equal((await res.json()).message, "Not authorized, no token");
+  assert.equal(body.success, false);
+  assert.equal(body.error.code, "UNAUTHORIZED");
+  assert.equal(body.error.message, "Not authorized, no token");
   assert.equal(transactions.length, 0);
   assertNothingPersisted();
 });
@@ -249,9 +255,12 @@ test("rejects a token for a user that no longer exists", async () => {
   const res = await postReport(validBody(), {
     token: tokenFor("99999999-9999-9999-9999-999999999999"),
   });
+  const body = await res.json();
 
   assert.equal(res.status, 401);
-  assert.equal((await res.json()).message, "User not found");
+  assert.equal(body.success, false);
+  assert.equal(body.error.code, "UNAUTHORIZED");
+  assert.equal(body.error.message, "User not found");
   assertNothingPersisted();
 });
 
@@ -287,7 +296,9 @@ test("controller refuses a request that has no authenticated user", async () => 
   await createReport({ body: validBody() }, res);
 
   assert.equal(status, 401);
-  assert.equal(body.message, "User not authenticated");
+  assert.equal(body.success, false);
+  assert.equal(body.error.code, "UNAUTHORIZED");
+  assert.equal(body.error.message, "User not authenticated");
   assert.equal(transactions.length, 0);
   assertNothingPersisted();
 });
@@ -317,10 +328,12 @@ for (const [label, body, field] of invalidBodies) {
     const payload = await res.json();
 
     assert.equal(res.status, 400);
-    assert.equal(payload.message, "Validation failed");
+    assert.equal(payload.success, false);
+    assert.equal(payload.error.code, "VALIDATION_ERROR");
+    assert.equal(payload.error.message, "Validation failed");
     assert.ok(
-      payload.errors.some((issue) => issue.path === field),
-      `expected an error for "${field}", got ${JSON.stringify(payload.errors)}`,
+      payload.error.details.some((issue) => issue.path === field),
+      `expected an error for "${field}", got ${JSON.stringify(payload.error.details)}`,
     );
     assert.equal(transactions.length, 0);
     assertNothingPersisted();
@@ -431,17 +444,25 @@ test("runs every write in one committed transaction", async () => {
 });
 
 // ---------------------------------------------------------------------------
-// Failure handling: any failure rolls everything back and answers 500
+// Failure handling: any failure rolls everything back and answers a generic 500
 // ---------------------------------------------------------------------------
 const assertRolledBack = async (res) => {
   const body = await res.json();
   assert.equal(res.status, 500);
-  assert.equal(body.message, "Failed to submit report");
+  assert.equal(body.success, false);
+  assert.equal(body.message, "Internal server error");
+  // `error` is a deprecated mirror of `message`; if present it must be identical
+  if ("error" in body) assert.equal(body.error, body.message);
+  assert.ok(body.requestId, "response must carry a request id");
+  assert.equal(body.requestId, res.headers.get("x-request-id"));
   assert.ok(!JSON.stringify(body).includes("injected"), "internal error text must not leak");
   assert.equal(transactions.length, 1);
   assert.equal(transactions[0].state, "rolled_back");
   assertNothingPersisted();
   assert.ok(console.error.mock.callCount() > 0, "failure must be logged");
+  const logged = console.error.mock.calls.map((c) => c.arguments.join(" ")).join("\n");
+  assert.ok(logged.includes(body.requestId), "log must carry the request id");
+  assert.ok(!logged.includes("injected"), "internal error text must not reach the logs");
 };
 
 test("report creation failure rolls back and sends no notifications", async () => {

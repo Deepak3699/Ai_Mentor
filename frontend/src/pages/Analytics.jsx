@@ -23,12 +23,14 @@ import {
   Users,
   Flame,
 } from "lucide-react";
+import { apiFetch as fetch } from "../lib/api";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
+import AchievementsCard from "../components/dashboard/AchievementsCard";
 import StatCard from "../components/StatCard";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
@@ -36,6 +38,7 @@ const Analytics = () => {
 
   const [courses, setCourses] = useState([]);
   const [studySessions, setStudySessions] = useState([]);
+  const [certificateData, setCertificateData] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [tasks, setTasks] = useState({});
@@ -78,12 +81,15 @@ const Analytics = () => {
 
         const coursesRes = await fetch("/api/courses", { headers });
         const analyticsRes = await fetch("/api/analytics", { headers });
+        const certificateRes = await fetch("/api/certificate/list", { headers });
 
         const coursesData = await coursesRes.json();
         const analyticsData = await analyticsRes.json();
+        const certificateData = certificateRes.ok ? await certificateRes.json() : null;
 
         setCourses(coursesData);
         setStudySessions(analyticsData.studySessions || []);
+        setCertificateData(certificateData);
       } catch (err) {
         console.error(err);
       } finally {
@@ -219,6 +225,13 @@ const Analytics = () => {
       };
     }) || [];
 
+  const certificateCount = certificateData?.stats?.certificatesEarned || 0;
+
+  const certificateCourseTitle =
+    certificateData?.courses?.find((course) => course.isCompleted)?.courseTitle ||
+    myCourses.find((course) => course.progress >= 100)?.title ||
+    "";
+
   // Filter courses based on search
   const filteredCourses = myCourses.filter(
     (course) =>
@@ -227,7 +240,10 @@ const Analytics = () => {
   );
 
   // Calculate total study time
-  const totalStudyTime = studySessions.reduce((acc, session) => acc + (session.duration || 0), 0);
+  const totalStudyTime = studySessions.reduce(
+    (acc, session) => acc + (session.hours || session.duration || 0),
+    0,
+  );
   const averageProgress =
     myCourses.length > 0
       ? Math.round(myCourses.reduce((acc, c) => acc + c.progress, 0) / myCourses.length)
@@ -346,7 +362,7 @@ const Analytics = () => {
               {t("analytics.total_study_time_label")}
             </div>
             <div className="text-xl font-bold text-[#ff6d34]">
-              {Math.round(totalStudyTime / 60)} {t("analytics.hours_unit", { defaultValue: "hrs" })}
+              {Math.round(totalStudyTime)} {t("analytics.hours_unit", { defaultValue: "hrs" })}
             </div>
             <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">
               {t("analytics.this_month")}
@@ -369,6 +385,16 @@ const Analytics = () => {
           </div>
         </div>
 
+        {/* Achievements Card */}
+        <div className="mb-8">
+          <AchievementsCard
+            myCourses={myCourses}
+            streak={streak}
+            certificateCount={certificateCount}
+            certificateCourseTitle={certificateCourseTitle}
+            t={t}
+          />
+        </div>
         {/* Tab Navigation */}
         <div className="flex gap-2 mb-6 border-b border-[#CCCCCC] dark:border-gray-700">
           <button

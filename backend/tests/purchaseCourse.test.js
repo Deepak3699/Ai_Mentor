@@ -1,6 +1,5 @@
 import { after, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
-
 process.env.NODE_ENV = "test";
 
 const { default: User } = await import("../models/User.js");
@@ -91,7 +90,8 @@ test("rejects requests without an authenticated user", async () => {
   const { state, res } = response();
   await purchaseCourse({ body: { courseId: 1 } }, res);
   assert.equal(state.statusCode, 401);
-  assert.equal(state.body.message, "Not authorized");
+  assert.equal(state.body.error.message, "Not authorized");
+  assert.equal(state.body.error.code, "UNAUTHORIZED");
 });
 
 test("rejects a missing or non-numeric course id without hitting the database", async () => {
@@ -105,7 +105,8 @@ test("rejects a missing or non-numeric course id without hitting the database", 
     const { state, res } = response();
     await purchaseCourse({ user: { id: "user-1" }, body: { courseId } }, res);
     assert.equal(state.statusCode, 400);
-    assert.equal(state.body.message, "Course ID is required");
+    assert.equal(state.body.error.message, "Course ID is required");
+    assert.equal(state.body.error.code, "BAD_REQUEST");
   }
 
   assert.equal(courseLookups, 0);
@@ -119,7 +120,8 @@ test("returns 404 when the course does not exist", async () => {
   await purchaseCourse({ user: { id: "user-1" }, body: { courseId: 99 } }, res);
 
   assert.equal(state.statusCode, 404);
-  assert.equal(state.body.message, "Course not found");
+  assert.equal(state.body.error.message, "Course not found");
+  assert.equal(state.body.error.code, "NOT_FOUND");
 });
 
 test("treats a deleted course as not found and blocks a disabled course", async () => {
@@ -188,7 +190,8 @@ test("blocks a paid course when no successful payment exists", async () => {
   await purchaseCourse({ user: { id: "user-1" }, body: { courseId: "1" } }, res);
 
   assert.equal(state.statusCode, 403);
-  assert.match(state.body.message, /Payment required/i);
+  assert.match(state.body.error.message, /Payment required/i);
+  assert.equal(state.body.error.code, "FORBIDDEN");
   assert.deepEqual(user.purchasedCourses, []);
   assert.equal(user.saves, 0);
   assert.equal(lastTransaction.finished, "rollback");
@@ -224,8 +227,9 @@ test("rejects duplicate enrollment without saving again", async () => {
   const { state, res } = response();
   await purchaseCourse({ user: { id: "user-1" }, body: { courseId: "1" } }, res);
 
-  assert.equal(state.statusCode, 400);
-  assert.equal(state.body.message, "Already enrolled");
+  assert.equal(state.statusCode, 409);
+  assert.equal(state.body.error.message, "Already enrolled");
+  assert.equal(state.body.error.code, "CONFLICT");
   assert.equal(user.purchasedCourses.length, 1);
   assert.equal(user.saves, 0);
   assert.equal(lastTransaction.finished, "rollback");
@@ -239,5 +243,6 @@ test("returns 404 when the authenticated user no longer exists", async () => {
   await purchaseCourse({ user: { id: "user-1" }, body: { courseId: "1" } }, res);
 
   assert.equal(state.statusCode, 404);
-  assert.equal(state.body.message, "User not found");
+  assert.equal(state.body.error.message, "User not found");
+  assert.equal(state.body.error.code, "NOT_FOUND");
 });

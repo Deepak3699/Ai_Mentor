@@ -46,6 +46,9 @@ frontend/.vite
 .DS_Store
 Thumbs.db
 .vscode/
+!.vscode/
+.vscode/*
+!.vscode/settings.json
 .idea/
 
 # =====================
@@ -74,3 +77,6 @@ start_ai.bat
 
 # Local Python virtual environment
 ai_service/.venv/
+
+# Update plan
+update.md

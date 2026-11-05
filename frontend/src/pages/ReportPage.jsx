@@ -4,6 +4,7 @@ import { Flag, Mail, Phone, FileText, Award, CheckCircle2, AlertCircle } from "l
 import API_BASE_URL from "../lib/api";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
+import { getErrorMessage } from "../lib/errorHandling.js";
 
 const ReportPage = () => {
   const [form, setForm] = useState({
@@ -65,14 +66,20 @@ const ReportPage = () => {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data?.message || "Failed to submit report. Please try again.");
+        const data = await response.json().catch(() => null);
+        throw {
+          response: { status: response.status, data },
+          message: getErrorMessage(
+            { response: { status: response.status, data } },
+            "Failed to submit report. Please try again.",
+          ),
+        };
       }
 
       setSuccess(true);
       setForm({ email: "", phone: "", description: "" });
     } catch (err) {
-      setError(err.message);
+      setError(getErrorMessage(err, "Failed to submit report. Please try again."));
     } finally {
       setSubmitting(false);
     }

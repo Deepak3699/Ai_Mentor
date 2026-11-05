@@ -149,6 +149,7 @@ export const changePassword = async (req, res) => {
     }
 
     admin.password = newPassword;
+    admin.passwordChangedAt = new Date();
 
     await admin.save();
 
