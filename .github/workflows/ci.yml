@@ -121,6 +121,13 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Debug React versions
+        working-directory: frontend
+        run: |
+          npm ls react react-dom
+          node -p "require('react/package.json').version"
+          node -p "require('react-dom/package.json').version"
+
       - name: Run ESLint
         working-directory: frontend
         run: npm run lint
