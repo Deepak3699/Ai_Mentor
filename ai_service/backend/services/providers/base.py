@@ -139,8 +139,7 @@ class BaseAIProvider(ABC):
 
     def generate_lesson_script(self, data: LessonRequest) -> tuple[str, str, str]:
         """Generate lesson script text returning (script, provider, model)."""
-        system_instruction = dedent(
-            f"""
+        system_instruction = dedent(f"""
             {UNTRUSTED_INPUT_INSTRUCTION}
 
             Create an educational explanation of the topic in the course. Write about
@@ -149,8 +148,7 @@ class BaseAIProvider(ABC):
             pace, example type, and focus area to the supplied preferences when present.
             The requested narration inspiration may guide high-level delivery only;
             do not claim to be the named person. Return only the explanation.
-            """
-        ).strip()
+            """).strip()
         user_data = {
             "course": data.course,
             "topic": data.topic,
@@ -170,8 +168,7 @@ class BaseAIProvider(ABC):
 
     def generate_syllabus(self, data: SyllabusRequest) -> dict[str, Any]:
         """Generate structured course syllabus."""
-        system_instruction = dedent(
-            f"""
+        system_instruction = dedent(f"""
             {UNTRUSTED_INPUT_INSTRUCTION}
 
             Create a highly structured course syllabus for the course title and category
@@ -190,8 +187,7 @@ class BaseAIProvider(ABC):
 
             Create exactly 3 modules, each with exactly 2 lessons. All lesson types
             must be "video".
-            """
-        ).strip()
+            """).strip()
         user_data = {
             "course_title": data.course_title,
             "category": data.category or "General Education",
@@ -207,8 +203,7 @@ class BaseAIProvider(ABC):
 
     def generate_quiz(self, data: QuizRequest) -> QuizResponse:
         """Generate 4-question quiz from lesson text."""
-        system_instruction = dedent(
-            f"""
+        system_instruction = dedent(f"""
             {UNTRUSTED_INPUT_INSTRUCTION}
 
             Generate a multiple-choice quiz based on the lesson text provided in the
@@ -232,8 +227,7 @@ class BaseAIProvider(ABC):
 
             Generate exactly 4 questions. Each question must have exactly 4 options,
             a correct_index from 0 to 3, and a clear explanation.
-            """
-        ).strip()
+            """).strip()
         user_data = {"lesson": data.lesson}
 
         log_event("RUN", f"Trying {self.provider_name} for quiz")
@@ -258,8 +252,7 @@ class BaseAIProvider(ABC):
 
     def generate_flashcards(self, data: FlashcardRequest) -> list[Flashcard]:
         """Generate study flashcards from transcript."""
-        system_instruction = dedent(
-            f"""
+        system_instruction = dedent(f"""
             {UNTRUSTED_INPUT_INSTRUCTION}
 
             Create the requested number of study flashcards from the lesson transcript
@@ -269,8 +262,7 @@ class BaseAIProvider(ABC):
             containing objects with id, front, back, and hint fields. Each card must
             have a unique question and useful hint. Number IDs from 1 through the
             requested count.
-            """
-        ).strip()
+            """).strip()
         user_data = {
             "count": data.count,
             "transcript": data.transcript,
@@ -298,8 +290,7 @@ class BaseAIProvider(ABC):
     def explain_code(self, data: ExplainCodeRequest) -> dict[str, Any]:
         """Analyze programming code with explanation, issues, and complexity."""
         task = CODE_MODE_INSTRUCTIONS[data.mode]
-        system_instruction = dedent(
-            f"""
+        system_instruction = dedent(f"""
             {UNTRUSTED_INPUT_INSTRUCTION}
 
             You are an experienced programming tutor.
@@ -336,8 +327,7 @@ class BaseAIProvider(ABC):
 
             Use empty arrays when there are no explanations or issues to report.
             Do not invent bugs or complexity estimates when they cannot be determined.
-            """
-        ).strip()
+            """).strip()
         user_data = {
             "language": data.language,
             "mode": data.mode,
@@ -353,7 +343,9 @@ class BaseAIProvider(ABC):
             temperature=0.2,
             max_tokens=4000,
         )
-        if not isinstance(result, dict) or not EXPLAIN_CODE_REQUIRED_KEYS.issubset(result):
+        if not isinstance(result, dict) or not EXPLAIN_CODE_REQUIRED_KEYS.issubset(
+            result
+        ):
             raise ValueError("AI response is missing required fields.")
 
         return result

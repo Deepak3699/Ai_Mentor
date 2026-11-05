@@ -32,6 +32,33 @@ def get_gemini_client():
     return gemini_client
 
 
+def generate_gemini_content(
+    system_instruction: str,
+    user_data: dict[str, Any],
+    model: str = GEMINI_MODEL,
+    **kwargs: Any,
+) -> Any:
+    """Generate content with Gemini and return the SDK response."""
+    client = get_gemini_client()
+    if client is None:
+        raise RuntimeError("Gemini client is not configured.")
+
+    timeout_seconds = kwargs.get("timeout") or LLM_TIMEOUT_SECONDS
+    config_options: dict[str, Any] = {
+        "system_instruction": system_instruction,
+        "http_options": types.HttpOptions(timeout=int(timeout_seconds * 1000)),
+    }
+    temperature = kwargs.get("temperature")
+    if temperature is not None:
+        config_options["temperature"] = temperature
+
+    return client.models.generate_content(
+        model=model,
+        contents=serialize_user_data(user_data),
+        config=types.GenerateContentConfig(**config_options),
+    )
+
+
 class GeminiProvider(BaseAIProvider):
     """Primary AI provider implementation utilizing Google Gemini."""
 
@@ -59,24 +86,9 @@ class GeminiProvider(BaseAIProvider):
         ``max_tokens`` is intentionally ignored: output-token caps can truncate
         Gemini thinking models, so the model's own limits apply.
         """
-        client = get_gemini_client()
-        if client is None:
-            raise RuntimeError("Gemini client is not configured.")
-
-        model = kwargs.get("model") or self.model_name
-        timeout_seconds = kwargs.get("timeout") or LLM_TIMEOUT_SECONDS
-
-        config_options: dict[str, Any] = {
-            "system_instruction": system_instruction,
-            "http_options": types.HttpOptions(timeout=int(timeout_seconds * 1000)),
-        }
-        temperature = kwargs.get("temperature")
-        if temperature is not None:
-            config_options["temperature"] = temperature
-
-        response = client.models.generate_content(
-            model=model,
-            contents=serialize_user_data(user_data),
-            config=types.GenerateContentConfig(**config_options),
+        response = generate_gemini_content(
+            system_instruction,
+            user_data,
+            **kwargs,
         )
         return response.text or ""

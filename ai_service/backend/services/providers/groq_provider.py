@@ -34,6 +34,31 @@ def get_groq_client():
     return groq_client
 
 
+def generate_groq_content(
+    system_instruction: str,
+    user_data: dict[str, Any],
+    **kwargs: Any,
+) -> Any:
+    """Generate content with Groq and return the SDK response."""
+    client = get_groq_client()
+    if client is None:
+        raise RuntimeError("Groq client is not configured.")
+
+    temperature = kwargs.get("temperature")
+    return client.chat.completions.create(
+        model=kwargs.get("model") or GROQ_DEFAULT_MODEL,
+        messages=[
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": serialize_user_data(user_data)},
+        ],
+        temperature=(
+            GROQ_DEFAULT_TEMPERATURE if temperature is None else temperature
+        ),
+        max_tokens=kwargs.get("max_tokens") or GROQ_DEFAULT_MAX_TOKENS,
+        timeout=kwargs.get("timeout") or LLM_TIMEOUT_SECONDS,
+    )
+
+
 class GroqProvider(BaseAIProvider):
     """Fallback AI provider implementation utilizing Groq."""
 
@@ -59,23 +84,9 @@ class GroqProvider(BaseAIProvider):
 
         Honored kwargs: ``model``, ``temperature``, ``max_tokens``, ``timeout``.
         """
-        client = get_groq_client()
-        if client is None:
-            raise RuntimeError("Groq client is not configured.")
-
-        temperature = kwargs.get("temperature")
-        max_tokens = kwargs.get("max_tokens")
-
-        response = client.chat.completions.create(
-            model=kwargs.get("model") or self.model_name,
-            messages=[
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": serialize_user_data(user_data)},
-            ],
-            temperature=(
-                GROQ_DEFAULT_TEMPERATURE if temperature is None else temperature
-            ),
-            max_tokens=max_tokens or GROQ_DEFAULT_MAX_TOKENS,
-            timeout=kwargs.get("timeout") or LLM_TIMEOUT_SECONDS,
+        response = generate_groq_content(
+            system_instruction,
+            user_data,
+            **kwargs,
         )
         return response.choices[0].message.content or ""
