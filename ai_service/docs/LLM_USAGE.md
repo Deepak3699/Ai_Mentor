@@ -5,12 +5,12 @@ parameters, prompt construction, output validation, timeout and retry behavior, 
 
 ## 0. Scope and source of truth
 
-| Item | Value |
-| --- | --- |
-| Repository | `Deepak3699/Ai_Mentor` |
-| Source of truth | Commit `0e2f2c7d031e93e310fd9a9d2612f10b90668de6` (`origin/main`) |
-| Method | Static reading at that commit, after `git fetch` confirmed `origin/main` resolves to it; modules were read at that SHA. No live request was made to either provider |
-| Scope | `ai_service` only. The Node.js backend and both frontends call this service, not a model directly |
+| Item            | Value                                                                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository      | `Deepak3699/Ai_Mentor`                                                                                                                                              |
+| Source of truth | Commit `0e2f2c7d031e93e310fd9a9d2612f10b90668de6` (`origin/main`)                                                                                                   |
+| Method          | Static reading at that commit, after `git fetch` confirmed `origin/main` resolves to it; modules were read at that SHA. No live request was made to either provider |
+| Scope           | `ai_service` only. The Node.js backend and both frontends call this service, not a model directly                                                                   |
 
 This document describes the **refactored** layout. The former single module `ai_service/backend/api.py`
 no longer exists at this commit; endpoint handlers, provider clients, schemas and the job pipeline are
@@ -32,13 +32,13 @@ FFmpeg.
 Routing is split by concern: `backend/api/v1/endpoints/*.py` hold thin FastAPI routers that delegate to
 `backend/services/providers/manager.py`, which owns provider selection, fallback and validation.
 
-| Route | Router module | Orchestrator | Execution |
-| --- | --- | --- | --- |
-| `POST /generate` | `backend/api/v1/endpoints/lessons.py` → `generate_lesson` | `manager.generate_lesson_script` | Replies immediately; generation runs in a background task |
-| `POST /generate-syllabus` | `backend/api/v1/endpoints/syllabus.py` → `generate_syllabus` | `manager.generate_syllabus` | Synchronous, inside the request |
-| `POST /generate-quiz` | `backend/api/v1/endpoints/quiz.py` → `generate_quiz` | `manager.generate_quiz` | Synchronous, inside the request |
-| `POST /generate-flashcards` | `backend/api/v1/endpoints/flashcards.py` → `generate_flashcards` | `manager.generate_flashcards` | Synchronous, inside the request |
-| `POST /explain-code` | `backend/api/v1/endpoints/code.py` → `explain_code` | `manager.explain_code` | Synchronous, inside the request |
+| Route                       | Router module                                                    | Orchestrator                     | Execution                                                 |
+| --------------------------- | ---------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------- |
+| `POST /generate`            | `backend/api/v1/endpoints/lessons.py` → `generate_lesson`        | `manager.generate_lesson_script` | Replies immediately; generation runs in a background task |
+| `POST /generate-syllabus`   | `backend/api/v1/endpoints/syllabus.py` → `generate_syllabus`     | `manager.generate_syllabus`      | Synchronous, inside the request                           |
+| `POST /generate-quiz`       | `backend/api/v1/endpoints/quiz.py` → `generate_quiz`             | `manager.generate_quiz`          | Synchronous, inside the request                           |
+| `POST /generate-flashcards` | `backend/api/v1/endpoints/flashcards.py` → `generate_flashcards` | `manager.generate_flashcards`    | Synchronous, inside the request                           |
+| `POST /explain-code`        | `backend/api/v1/endpoints/code.py` → `explain_code`              | `manager.explain_code`           | Synchronous, inside the request                           |
 
 The `/api/v1` directory is a naming convention only: `backend/api/v1/router.py` mounts every router
 without a `prefix`, and `backend/main.py` mounts that router on the app without one either. The public
@@ -52,22 +52,22 @@ their provider calls.
 
 ### 2.1 Module map
 
-| Module | Responsibility |
-| --- | --- |
-| `backend/main.py` | `create_app()` factory, lifespan, static mounts, `include_router(api_v1_router)` |
-| `backend/api/v1/router.py` | `api_v1_router`; includes eight sub-routers, no prefix |
-| `backend/api/v1/endpoints/` | `lessons`, `syllabus`, `quiz`, `flashcards`, `code`, `home`, `voices`, `jobs` |
-| `backend/services/providers/manager.py` | Provider selection, fallback, retry, output validation |
-| `backend/services/providers/base.py` | `BaseAIProvider` ABC, `UNTRUSTED_INPUT_INSTRUCTION`, `serialize_user_data` |
+| Module                                          | Responsibility                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `backend/main.py`                               | `create_app()` factory, lifespan, static mounts, `include_router(api_v1_router)`      |
+| `backend/api/v1/router.py`                      | `api_v1_router`; includes eight sub-routers, no prefix                                |
+| `backend/api/v1/endpoints/`                     | `lessons`, `syllabus`, `quiz`, `flashcards`, `code`, `home`, `voices`, `jobs`         |
+| `backend/services/providers/manager.py`         | Provider selection, fallback, retry, output validation                                |
+| `backend/services/providers/base.py`            | `BaseAIProvider` ABC, `UNTRUSTED_INPUT_INSTRUCTION`, `serialize_user_data`            |
 | `backend/services/providers/gemini_provider.py` | `gemini_client`, `get_gemini_client()`, `generate_gemini_content()`, `GeminiProvider` |
-| `backend/services/providers/groq_provider.py` | `groq_client`, `get_groq_client()`, `generate_groq_content()`, `GroqProvider` |
-| `backend/services/providers/validation.py` | `ProviderGenerationError`, `validate_lesson_script` |
-| `backend/schemas/lessons.py` | Request and response models for all five endpoints |
-| `backend/schemas/provider.py` | `ProviderScriptResult`, `CodeExplanationResponse`, `SyllabusResponse` |
-| `backend/services/job_tracker.py` | Job state, cache, `mark_job_failed`, `mark_job_ready` |
-| `backend/services/lesson_pipeline.py` | `process_lesson`, `run_tracked_lesson` |
-| `backend/utils/logging_utils.py` | `log_event`, `short_error` |
-| `backend/config.py` | Environment variables |
+| `backend/services/providers/groq_provider.py`   | `groq_client`, `get_groq_client()`, `generate_groq_content()`, `GroqProvider`         |
+| `backend/services/providers/validation.py`      | `ProviderGenerationError`, `validate_lesson_script`                                   |
+| `backend/schemas/lessons.py`                    | Request and response models for all five endpoints                                    |
+| `backend/schemas/provider.py`                   | `ProviderScriptResult`, `CodeExplanationResponse`, `SyllabusResponse`                 |
+| `backend/services/job_tracker.py`               | Job state, cache, `mark_job_failed`, `mark_job_ready`                                 |
+| `backend/services/lesson_pipeline.py`           | `process_lesson`, `run_tracked_lesson`                                                |
+| `backend/utils/logging_utils.py`                | `log_event`, `short_error`                                                            |
+| `backend/config.py`                             | Environment variables                                                                 |
 
 ### 2.2 Provider classes and client helpers
 
@@ -76,13 +76,13 @@ their provider calls.
 `provider_name` property. Both `GeminiProvider` and `GroqProvider` implement the full interface, but
 **the manager only uses the classes for three of the operations**:
 
-| Operation | Path used by `manager.py` |
-| --- | --- |
-| Lesson script | `gemini_provider.generate_lesson_script()` then `groq_provider.generate_lesson_script()` |
-| Syllabus | `gemini_provider.generate_syllabus()` then `groq_provider.generate_syllabus()` |
-| Explain code | `gemini_provider.explain_code()` then `groq_provider.explain_code()` |
-| Quiz | Module-level `generate_gemini_content()` then `generate_groq_content()` — **provider methods bypassed** |
-| Flashcards | Module-level `generate_gemini_content()` then `generate_groq_content()` — **provider methods bypassed** |
+| Operation     | Path used by `manager.py`                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------- |
+| Lesson script | `gemini_provider.generate_lesson_script()` then `groq_provider.generate_lesson_script()`                |
+| Syllabus      | `gemini_provider.generate_syllabus()` then `groq_provider.generate_syllabus()`                          |
+| Explain code  | `gemini_provider.explain_code()` then `groq_provider.explain_code()`                                    |
+| Quiz          | Module-level `generate_gemini_content()` then `generate_groq_content()` — **provider methods bypassed** |
+| Flashcards    | Module-level `generate_gemini_content()` then `generate_groq_content()` — **provider methods bypassed** |
 
 `GeminiProvider.generate_quiz` / `.generate_flashcards` and the Groq equivalents exist with duplicated
 prompts and validation but are unreachable from the HTTP surface.
@@ -94,58 +94,58 @@ Both clients are module-level singletons created at import:
 
 ### 2.3 What triggers the fallback
 
-| Endpoint | Gemini raises | Gemini returns unusable output |
-| --- | --- | --- |
-| `/generate` | Groq is called | Groq is called — validation sits inside the same `try` in `manager.generate_lesson_script` |
-| `/generate-syllabus` | Groq is called | Groq is called — JSON parsing happens inside the provider, so a parse error propagates and triggers fallback |
-| `/generate-quiz` | Groq is called in the same attempt | The attempt repeats, starting with Gemini again |
-| `/generate-flashcards` | Groq is called in the same attempt | The attempt repeats, starting with Gemini again |
-| `/explain-code` | Groq is called | Groq is called — the provider raises on invalid JSON, so the manager treats it as a provider failure |
+| Endpoint               | Gemini raises                      | Gemini returns unusable output                                                                               |
+| ---------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `/generate`            | Groq is called                     | Groq is called — validation sits inside the same `try` in `manager.generate_lesson_script`                   |
+| `/generate-syllabus`   | Groq is called                     | Groq is called — JSON parsing happens inside the provider, so a parse error propagates and triggers fallback |
+| `/generate-quiz`       | Groq is called in the same attempt | The attempt repeats, starting with Gemini again                                                              |
+| `/generate-flashcards` | Groq is called in the same attempt | The attempt repeats, starting with Gemini again                                                              |
+| `/explain-code`        | Groq is called                     | Groq is called — the provider raises on invalid JSON, so the manager treats it as a provider failure         |
 
 ## 3. Endpoint comparison
 
 Temperature and Max Tokens list the Gemini value first and the Groq value second. "Not set" means the
 request omits the parameter, so the provider default applies.
 
-| Endpoint | Primary Provider | Primary Model | Fallback Provider | Fallback Model | Temperature | Max Tokens | Output Validation | Failure Behavior |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `POST /generate` | Gemini | `GEMINI_MODEL` (default `gemini-2.5-flash`) | Groq, when `GROQ_API_KEY` is set | `llama-3.3-70b-versatile` | Gemini: not set. Groq: `0.7` | Gemini: not set. Groq: `300` | Provider normalizes newlines; `manager` applies `validate_lesson_script` (text, whitespace-collapsed, non-empty, at most 10,000 characters); `process_lesson` re-validates | `ProviderGenerationError` → job `failed` with `failure_code=provider_failed`; the request already returned `200` |
-| `POST /generate-syllabus` | Gemini | `GEMINI_MODEL` (default `gemini-2.5-flash`) | Groq, when configured | `llama-3.3-70b-versatile` | Gemini: not set. Groq: `0.7` | Gemini: not set. Groq: `1000` | Code-fence strip, then `json.loads`. No schema or count validation | `503`, detail `Failed to generate syllabus` |
-| `POST /generate-quiz` | Gemini | `GEMINI_MODEL` (default `gemini-2.5-flash`) | Groq, when configured | `llama-3.3-70b-versatile` | Gemini: not set. Groq: `0.7` | Gemini: not set. Groq: `2000` | Code-fence strip, `json.loads`, `QuizResponse` validation, exactly 4 questions, 4 options each, `correct_index` 0-3 | `200` with `{"questions": []}` |
-| `POST /generate-flashcards` | Gemini | `GEMINI_MODEL` (default `gemini-2.5-flash`) | Groq, when configured | `llama-3.3-70b-versatile` | Gemini: not set. Groq: `0.4` | Gemini: not set. Groq: `3000` | Code-fence strip, `json.loads`, list of exactly `count`, `Flashcard` validation, unique `front`, ids renumbered | `503`, detail `Failed to generate flashcards` |
-| `POST /explain-code` | Gemini | `gemini-3.8-flash` (hard-coded) | Groq, when configured | `openai/gpt-oss-120b` | Gemini: not set. Groq: `0.2` | Gemini: not set. Groq: `4000` | Code-fence strip, `json.loads`, object containing six required keys. Nested shapes unchecked | `502`, detail `Both AI providers failed to analyze the code.` |
+| Endpoint                    | Primary Provider | Primary Model                               | Fallback Provider                | Fallback Model            | Temperature                  | Max Tokens                    | Output Validation                                                                                                                                                          | Failure Behavior                                                                                                 |
+| --------------------------- | ---------------- | ------------------------------------------- | -------------------------------- | ------------------------- | ---------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `POST /generate`            | Gemini           | `GEMINI_MODEL` (default `gemini-2.5-flash`) | Groq, when `GROQ_API_KEY` is set | `llama-3.3-70b-versatile` | Gemini: not set. Groq: `0.7` | Gemini: not set. Groq: `300`  | Provider normalizes newlines; `manager` applies `validate_lesson_script` (text, whitespace-collapsed, non-empty, at most 10,000 characters); `process_lesson` re-validates | `ProviderGenerationError` → job `failed` with `failure_code=provider_failed`; the request already returned `200` |
+| `POST /generate-syllabus`   | Gemini           | `GEMINI_MODEL` (default `gemini-2.5-flash`) | Groq, when configured            | `llama-3.3-70b-versatile` | Gemini: not set. Groq: `0.7` | Gemini: not set. Groq: `1000` | Code-fence strip, then `json.loads`. No schema or count validation                                                                                                         | `503`, detail `Failed to generate syllabus`                                                                      |
+| `POST /generate-quiz`       | Gemini           | `GEMINI_MODEL` (default `gemini-2.5-flash`) | Groq, when configured            | `llama-3.3-70b-versatile` | Gemini: not set. Groq: `0.7` | Gemini: not set. Groq: `2000` | Code-fence strip, `json.loads`, `QuizResponse` validation, exactly 4 questions, 4 options each, `correct_index` 0-3                                                        | `200` with `{"questions": []}`                                                                                   |
+| `POST /generate-flashcards` | Gemini           | `GEMINI_MODEL` (default `gemini-2.5-flash`) | Groq, when configured            | `llama-3.3-70b-versatile` | Gemini: not set. Groq: `0.4` | Gemini: not set. Groq: `3000` | Code-fence strip, `json.loads`, list of exactly `count`, `Flashcard` validation, unique `front`, ids renumbered                                                            | `503`, detail `Failed to generate flashcards`                                                                    |
+| `POST /explain-code`        | Gemini           | `gemini-3.8-flash` (hard-coded)             | Groq, when configured            | `openai/gpt-oss-120b`     | Gemini: not set. Groq: `0.2` | Gemini: not set. Groq: `4000` | Code-fence strip, `json.loads`, object containing six required keys. Nested shapes unchecked                                                                               | `502`, detail `Both AI providers failed to analyze the code.`                                                    |
 
 ### 3.1 Gemini call parameters
 
-| Endpoint | Model argument | Separate system instruction | Per-call timeout | Temperature | Max output tokens |
-| --- | --- | --- | --- | --- | --- |
-| `/generate` | `GEMINI_MODEL` | Yes | `LLM_TIMEOUT_SECONDS * 1000` ms | Not set | Not set |
-| `/generate-syllabus` | `GEMINI_MODEL` | Yes | `LLM_TIMEOUT_SECONDS * 1000` ms | Not set | Not set |
-| `/generate-quiz` | `GEMINI_MODEL` | Yes | `LLM_TIMEOUT_SECONDS * 1000` ms | Not set | Not set |
-| `/generate-flashcards` | `GEMINI_MODEL` | Yes | `LLM_TIMEOUT_SECONDS * 1000` ms | Not set | Not set |
-| `/explain-code` | Literal `gemini-3.8-flash` | No | Not set per call; the client-level timeout applies | Not set | Not set |
+| Endpoint               | Model argument             | Separate system instruction | Per-call timeout                                   | Temperature | Max output tokens |
+| ---------------------- | -------------------------- | --------------------------- | -------------------------------------------------- | ----------- | ----------------- |
+| `/generate`            | `GEMINI_MODEL`             | Yes                         | `LLM_TIMEOUT_SECONDS * 1000` ms                    | Not set     | Not set           |
+| `/generate-syllabus`   | `GEMINI_MODEL`             | Yes                         | `LLM_TIMEOUT_SECONDS * 1000` ms                    | Not set     | Not set           |
+| `/generate-quiz`       | `GEMINI_MODEL`             | Yes                         | `LLM_TIMEOUT_SECONDS * 1000` ms                    | Not set     | Not set           |
+| `/generate-flashcards` | `GEMINI_MODEL`             | Yes                         | `LLM_TIMEOUT_SECONDS * 1000` ms                    | Not set     | Not set           |
+| `/explain-code`        | Literal `gemini-3.8-flash` | No                          | Not set per call; the client-level timeout applies | Not set     | Not set           |
 
 ### 3.2 Groq call parameters
 
-| Endpoint | Model argument | `temperature` | `max_tokens` | `timeout` source |
-| --- | --- | --- | --- | --- |
-| `/generate` | `llama-3.3-70b-versatile` | `0.7` (helper default) | `300` | Explicit `LLM_TIMEOUT_SECONDS` |
-| `/generate-syllabus` | `llama-3.3-70b-versatile` | `0.7` (helper default) | `1000` | Explicit `LLM_TIMEOUT_SECONDS` |
-| `/generate-quiz` | `llama-3.3-70b-versatile` | `0.7` (helper default) | `2000` | Explicit `LLM_TIMEOUT_SECONDS` |
-| `/generate-flashcards` | `llama-3.3-70b-versatile` | `0.4` | `3000` | Helper default `LLM_TIMEOUT_SECONDS` |
-| `/explain-code` | `openai/gpt-oss-120b` | `0.2` | `4000` | Not passed per call; the client-level timeout applies |
+| Endpoint               | Model argument            | `temperature`          | `max_tokens` | `timeout` source                                      |
+| ---------------------- | ------------------------- | ---------------------- | ------------ | ----------------------------------------------------- |
+| `/generate`            | `llama-3.3-70b-versatile` | `0.7` (helper default) | `300`        | Explicit `LLM_TIMEOUT_SECONDS`                        |
+| `/generate-syllabus`   | `llama-3.3-70b-versatile` | `0.7` (helper default) | `1000`       | Explicit `LLM_TIMEOUT_SECONDS`                        |
+| `/generate-quiz`       | `llama-3.3-70b-versatile` | `0.7` (helper default) | `2000`       | Explicit `LLM_TIMEOUT_SECONDS`                        |
+| `/generate-flashcards` | `llama-3.3-70b-versatile` | `0.4`                  | `3000`       | Helper default `LLM_TIMEOUT_SECONDS`                  |
+| `/explain-code`        | `openai/gpt-oss-120b`     | `0.2`                  | `4000`       | Not passed per call; the client-level timeout applies |
 
 ### 3.3 Provider reference for the model IDs above (external)
 
 Repository behavior above is fixed at commit `0e2f2c7`. The provider facts below are external, checked
 on 2026-11-05, and can change independently of this repository.
 
-| Model ID | Provider | Documented status on 2026-11-05 | Documented limits |
-| --- | --- | --- | --- |
-| `gemini-2.5-flash` | Google | Deprecated; no longer selectable in AI Studio. API access is limited to projects that have previously used 2.5 models. Requests reroute to `gemini-3.5-flash-lite` from 2026-12-01; Google lists these dates as earliest possible and communicates exact dates in advance | Default temperature `1.0`; 65,536 maximum output tokens |
-| `gemini-3.8-flash` | Google | Stable and generally available (released 2026-09-02); no shutdown date announced | Default temperature `1.0`; 65,536 maximum output tokens |
-| `llama-3.3-70b-versatile` | Groq | Shut down on 2026-08-16 for free and developer tiers. Still listed for enterprise customers with a committed-spend contract, which the notice explicitly exempts | 131,072-token context; 32,768 maximum completion tokens |
-| `openai/gpt-oss-120b` | Groq | Current production model | 131,072-token context; 65,536 maximum completion tokens |
+| Model ID                  | Provider | Documented status on 2026-11-05                                                                                                                                                                                                                                           | Documented limits                                       |
+| ------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `gemini-2.5-flash`        | Google   | Deprecated; no longer selectable in AI Studio. API access is limited to projects that have previously used 2.5 models. Requests reroute to `gemini-3.5-flash-lite` from 2026-12-01; Google lists these dates as earliest possible and communicates exact dates in advance | Default temperature `1.0`; 65,536 maximum output tokens |
+| `gemini-3.8-flash`        | Google   | Stable and generally available (released 2026-09-02); no shutdown date announced                                                                                                                                                                                          | Default temperature `1.0`; 65,536 maximum output tokens |
+| `llama-3.3-70b-versatile` | Groq     | Shut down on 2026-08-16 for free and developer tiers. Still listed for enterprise customers with a committed-spend contract, which the notice explicitly exempts                                                                                                          | 131,072-token context; 32,768 maximum completion tokens |
+| `openai/gpt-oss-120b`     | Groq     | Current production model                                                                                                                                                                                                                                                  | 131,072-token context; 65,536 maximum completion tokens |
 
 Sources: [Gemini models](https://ai.google.dev/gemini-api/docs/models),
 [Gemini deprecations](https://ai.google.dev/gemini-api/docs/deprecations),
@@ -267,12 +267,12 @@ exists but is unused.
 
 Defined in `ai_service/backend/config.py`, templated in `ai_service/backend/.env.example`.
 
-| Variable | Default | Used by | Behavior when absent or invalid |
-| --- | --- | --- | --- |
-| `GEMINI_API_KEY` | none | `gemini_provider.gemini_client` construction | Client becomes `None`; every primary call raises `AttributeError`, treated as a provider failure. Startup does not fail |
-| `GEMINI_MODEL` | `gemini-2.5-flash` | `/generate`, `/generate-syllabus`, `/generate-quiz`, `/generate-flashcards` via the `model` default of `generate_gemini_content` | Falls back to the default. Not used by `/explain-code` |
-| `LLM_TIMEOUT_SECONDS` | `60` | Both clients and every per-call timeout | Empty value becomes `60`; a non-numeric value raises `ValueError` at import, aborting startup; `0` is accepted and yields an effectively immediate timeout |
-| `GROQ_API_KEY` | none | `GROQ_ENABLED` and `groq_provider.groq_client` construction | Fallback disabled; `get_groq_client()` returns `None` |
+| Variable              | Default            | Used by                                                                                                                          | Behavior when absent or invalid                                                                                                                            |
+| --------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`      | none               | `gemini_provider.gemini_client` construction                                                                                     | Client becomes `None`; every primary call raises `AttributeError`, treated as a provider failure. Startup does not fail                                    |
+| `GEMINI_MODEL`        | `gemini-2.5-flash` | `/generate`, `/generate-syllabus`, `/generate-quiz`, `/generate-flashcards` via the `model` default of `generate_gemini_content` | Falls back to the default. Not used by `/explain-code`                                                                                                     |
+| `LLM_TIMEOUT_SECONDS` | `60`               | Both clients and every per-call timeout                                                                                          | Empty value becomes `60`; a non-numeric value raises `ValueError` at import, aborting startup; `0` is accepted and yields an effectively immediate timeout |
+| `GROQ_API_KEY`        | none               | `GROQ_ENABLED` and `groq_provider.groq_client` construction                                                                      | Fallback disabled; `get_groq_client()` returns `None`                                                                                                      |
 
 `validate_config()` is still defined in `backend/config.py` and **still has no production call site** —
 only `tests/test_config.py` and `backend/tests/test_optional_config.py` invoke it, and `backend/main.py`
@@ -303,12 +303,12 @@ provider's dedicated system instruction:
 Caller-controlled values are delivered separately through `serialize_user_data()`, which is
 `json.dumps(..., ensure_ascii=False)`.
 
-| Endpoint | Task given to the model | Requested output | User payload keys |
-| --- | --- | --- | --- |
-| `/generate` | A 45-60 word classroom explanation of the topic within the course, adapted to preferences, without impersonating the named person | Plain text only | `course`, `topic`, `celebrity`, `language`, `preferences` |
-| `/generate-syllabus` | A structured syllabus for the given title and category | JSON object with `title` and `lessons[]` as the example shows, while the instruction asks for exactly 3 modules of 2 lessons, all type `video` | `course_title`, `category` |
-| `/generate-quiz` | A multiple-choice quiz grounded in the lesson text | JSON object with `questions[]`; exactly 4 questions of 4 options, `correct_index` 0-3, plus an explanation | `lesson` |
-| `/generate-flashcards` | Flashcards on distinct concepts, introducing no facts absent from the transcript | JSON array of `id`, `front`, `back`, `hint` objects | `count`, `transcript` |
+| Endpoint               | Task given to the model                                                                                                           | Requested output                                                                                                                               | User payload keys                                         |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `/generate`            | A 45-60 word classroom explanation of the topic within the course, adapted to preferences, without impersonating the named person | Plain text only                                                                                                                                | `course`, `topic`, `celebrity`, `language`, `preferences` |
+| `/generate-syllabus`   | A structured syllabus for the given title and category                                                                            | JSON object with `title` and `lessons[]` as the example shows, while the instruction asks for exactly 3 modules of 2 lessons, all type `video` | `course_title`, `category`                                |
+| `/generate-quiz`       | A multiple-choice quiz grounded in the lesson text                                                                                | JSON object with `questions[]`; exactly 4 questions of 4 options, `correct_index` 0-3, plus an explanation                                     | `lesson`                                                  |
+| `/generate-flashcards` | Flashcards on distinct concepts, introducing no facts absent from the transcript                                                  | JSON array of `id`, `front`, `back`, `hint` objects                                                                                            | `count`, `transcript`                                     |
 
 Two prompt defects persist: the syllabus example shows one module of one lesson while the instruction
 demands three of two, and the flashcard prompt names the fields without showing the array shape.
@@ -327,13 +327,13 @@ corrected code; `optimize` asks for readability and efficiency improvements plus
 
 ## 7. Output validation rules
 
-| Endpoint | Normalization | Structural checks | Rejection outcome |
-| --- | --- | --- | --- |
-| `/generate` | Provider: `.strip().replace("\n", " ")`. `manager`/`pipeline`: `" ".join(value.split())` | `validate_lesson_script`: must be a string, non-empty after collapsing, at most 10,000 characters | Treated as a Gemini failure, so Groq is tried; then `ProviderGenerationError` |
-| `/generate-syllabus` | Strip, leading fence, trailing fence | `json.loads` only | Groq is tried, then `503` |
-| `/generate-quiz` | Strip, leading fence, trailing fence | `json.loads`, `QuizResponse` validation, exactly 4 questions, 4 options each, `correct_index` 0-3 | Attempt repeated, then `200 {"questions": []}` |
-| `/generate-flashcards` | Drop the first line when the text starts with a fence; trim trailing fence | `json.loads`, list of exactly `count`, `Flashcard` validation, unique `front` | Attempt repeated, then `503` |
-| `/explain-code` | Strip, leading fence, trailing fence | `json.loads`, dictionary with six required keys | Provider raises, so the other provider is tried; then `502` |
+| Endpoint               | Normalization                                                                            | Structural checks                                                                                 | Rejection outcome                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `/generate`            | Provider: `.strip().replace("\n", " ")`. `manager`/`pipeline`: `" ".join(value.split())` | `validate_lesson_script`: must be a string, non-empty after collapsing, at most 10,000 characters | Treated as a Gemini failure, so Groq is tried; then `ProviderGenerationError` |
+| `/generate-syllabus`   | Strip, leading fence, trailing fence                                                     | `json.loads` only                                                                                 | Groq is tried, then `503`                                                     |
+| `/generate-quiz`       | Strip, leading fence, trailing fence                                                     | `json.loads`, `QuizResponse` validation, exactly 4 questions, 4 options each, `correct_index` 0-3 | Attempt repeated, then `200 {"questions": []}`                                |
+| `/generate-flashcards` | Drop the first line when the text starts with a fence; trim trailing fence               | `json.loads`, list of exactly `count`, `Flashcard` validation, unique `front`                     | Attempt repeated, then `503`                                                  |
+| `/explain-code`        | Strip, leading fence, trailing fence                                                     | `json.loads`, dictionary with six required keys                                                   | Provider raises, so the other provider is tried; then `502`                   |
 
 Lesson narration is validated three times — in `manager.generate_lesson_script` after each provider
 call, again inside `process_lesson` immediately after the script generator returns, and implicitly by
@@ -344,12 +344,12 @@ word allowance, so it is far looser than the instruction it enforces.
 
 ### 8.1 Where timeouts are configured
 
-| Layer | Setting | Value | Scope |
-| --- | --- | --- | --- |
-| Gemini client | `types.HttpOptions(timeout=...)` | `LLM_TIMEOUT_SECONDS * 1000` ms | Every Gemini request through the client |
+| Layer           | Setting                                                           | Value                           | Scope                                                                       |
+| --------------- | ----------------------------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------- |
+| Gemini client   | `types.HttpOptions(timeout=...)`                                  | `LLM_TIMEOUT_SECONDS * 1000` ms | Every Gemini request through the client                                     |
 | Gemini per call | `GenerateContentConfig.http_options` in `generate_gemini_content` | `LLM_TIMEOUT_SECONDS * 1000` ms | `/generate`, `/generate-syllabus`, `/generate-quiz`, `/generate-flashcards` |
-| Groq client | `Groq(timeout=...)` | `LLM_TIMEOUT_SECONDS` seconds | Every Groq request |
-| Groq per call | `create(..., timeout=...)` | `LLM_TIMEOUT_SECONDS` | Lesson, syllabus and quiz explicitly; flashcards via the helper default |
+| Groq client     | `Groq(timeout=...)`                                               | `LLM_TIMEOUT_SECONDS` seconds   | Every Groq request                                                          |
+| Groq per call   | `create(..., timeout=...)`                                        | `LLM_TIMEOUT_SECONDS`           | Lesson, syllabus and quiz explicitly; flashcards via the helper default     |
 
 `GeminiProvider.explain_code` sends no config object, so only the client-level timeout applies.
 `GroqProvider.explain_code` passes no `timeout`, so the client-level value applies there too. There is no
@@ -363,13 +363,13 @@ category, so a timeout is handled exactly like any other failure and cannot shor
 
 ### 8.3 Retry behavior
 
-| Endpoint | Attempts | Retry unit | Worst-case provider calls |
-| --- | --- | --- | --- |
-| `/generate` | 1 | — | 2 (Gemini, then Groq) |
-| `/generate-syllabus` | 1 | — | 2 |
-| `/generate-quiz` | 2 | Full chain, unless the Groq fallback itself raises (immediate empty result) | 4 |
-| `/generate-flashcards` | 2 | Full chain: Gemini, then Groq if Gemini raised | 4 |
-| `/explain-code` | 1 | — | 2 |
+| Endpoint               | Attempts | Retry unit                                                                  | Worst-case provider calls |
+| ---------------------- | -------- | --------------------------------------------------------------------------- | ------------------------- |
+| `/generate`            | 1        | —                                                                           | 2 (Gemini, then Groq)     |
+| `/generate-syllabus`   | 1        | —                                                                           | 2                         |
+| `/generate-quiz`       | 2        | Full chain, unless the Groq fallback itself raises (immediate empty result) | 4                         |
+| `/generate-flashcards` | 2        | Full chain: Gemini, then Groq if Gemini raised                              | 4                         |
+| `/explain-code`        | 1        | —                                                                           | 2                         |
 
 Worst-case wall clock is two `LLM_TIMEOUT_SECONDS` intervals for three endpoints and four for quiz and
 flashcards. With the default of 60 seconds a quiz or flashcard request can hold a worker thread for
@@ -380,13 +380,13 @@ re-contacted on every request.
 
 ### 9.1 Response matrix
 
-| Endpoint | Status | Body | Where the failure surfaces |
-| --- | --- | --- | --- |
-| `/generate` | `200` at request time | Job accepted; job later `failed` | `GET /status/{job_id}` |
-| `/generate-syllabus` | `503` | `{"detail": "Failed to generate syllabus"}` | Response |
-| `/generate-quiz` | `200` | `{"questions": []}` | Server log only |
-| `/generate-flashcards` | `503` | `{"detail": "Failed to generate flashcards"}` | Response |
-| `/explain-code` | `502` | `{"detail": "Both AI providers failed to analyze the code."}` | Response |
+| Endpoint               | Status                | Body                                                          | Where the failure surfaces |
+| ---------------------- | --------------------- | ------------------------------------------------------------- | -------------------------- |
+| `/generate`            | `200` at request time | Job accepted; job later `failed`                              | `GET /status/{job_id}`     |
+| `/generate-syllabus`   | `503`                 | `{"detail": "Failed to generate syllabus"}`                   | Response                   |
+| `/generate-quiz`       | `200`                 | `{"questions": []}`                                           | Server log only            |
+| `/generate-flashcards` | `503`                 | `{"detail": "Failed to generate flashcards"}`                 | Response                   |
+| `/explain-code`        | `502`                 | `{"detail": "Both AI providers failed to analyze the code."}` | Response                   |
 
 `422` comes from FastAPI request validation. `/generate` also returns `503` while the service is
 shutting down.
@@ -470,23 +470,23 @@ provider module's behavior depends on whether that package happens to be importe
 
 ### 10.2 Defects and gaps
 
-| # | Finding | Location | Impact |
-| --- | --- | --- | --- |
-| 1 | `/explain-code` hard-codes `gemini-3.8-flash` instead of using `GEMINI_MODEL` | `backend/services/providers/gemini_provider.py: GeminiProvider.explain_code` | Model rollouts and cost controls applied through configuration silently skip this endpoint |
-| 2 | `/explain-code` omits `UNTRUSTED_INPUT_INSTRUCTION` and interpolates raw code into a fence | both `GeminiProvider.explain_code` and `GroqProvider.explain_code` | Weakest injection posture of the five endpoints; a payload containing a backtick fence can escape the code block |
-| 3 | The Groq fallback model is unavailable to free and developer tier keys since 2026-08-16 (external fact) | `generate_groq_content` default `model` | The fallback silently degrades to "always fails" for non-enterprise keys while appearing configured |
-| 4 | The default `GEMINI_MODEL` names a deprecated, access-restricted model scheduled to reroute on 2026-12-01 (external fact) | `config.py: GEMINI_MODEL` | A new deployment that omits the variable inherits a model whose behavior and cost are scheduled to change with no repository change, and a project that has never used 2.5 models may be unable to call it at all |
-| 5 | `/generate-quiz` returns `200 {"questions": []}` for provider failure | `manager.generate_quiz` | Callers cannot distinguish an outage from an empty quiz, so failure is invisible to status-code monitoring |
-| 6 | Failure reasons are dropped by the logging allow-list | `backend/utils/logging_utils.py: SAFE_LOG_FIELDS` | `error` is not permitted, so no failure diagnostic reaches the logs |
-| 7 | Raw exceptions bypass redaction | `manager.generate_flashcards` (`logger.warning`), `manager.explain_code` (`print`) | Provider messages may reach logs and stdout unfiltered while other paths are redacted |
-| 8 | `validate_config()` is never called from production code | `backend/config.py`, `backend/main.py`; only the tests invoke it | A missing `GEMINI_API_KEY` surfaces as a provider outage rather than a startup error |
-| 9 | Quiz and flashcard provider methods are unreachable | `GeminiProvider` / `GroqProvider` | Prompts and validation are duplicated three ways and can drift |
-| 10 | `/generate-syllabus` has no structural validation and no `response_model` | `manager.generate_syllabus`, `backend/api/v1/endpoints/syllabus.py` | Any parseable JSON returns `200`, including shapes that would break a consumer |
-| 11 | The syllabus prompt's example contradicts its own instruction | `GeminiProvider.generate_syllabus`, `GroqProvider.generate_syllabus` | One module of one lesson is shown while three modules of two are demanded |
-| 12 | Fence stripping uses two different rules; flashcards drops everything before the first newline | `manager.generate_flashcards` | A response continuing the array on the fence line is mangled |
-| 13 | `/explain-code` validates only the presence of six top-level keys | both providers' `explain_code` | `backend/schemas/provider.py: CodeExplanationResponse` describes a contract nothing enforces |
-| 14 | `mark_job_failed` accepts `error` and ignores it | `backend/services/job_tracker.py` | Callers appear to pass diagnostics that are silently discarded |
-| 15 | `AI_SERVICE_LOG_LEVEL` is documented but not read by the backend | `ai_service/README.md`, `ai_service/docs/LOGGING.md`; the reader was removed with the former `api.py` | Two documents tell operators to set a variable that no module reads, so log-verbosity changes appear to apply but have no effect |
+| #   | Finding                                                                                                                   | Location                                                                                              | Impact                                                                                                                                                                                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `/explain-code` hard-codes `gemini-3.8-flash` instead of using `GEMINI_MODEL`                                             | `backend/services/providers/gemini_provider.py: GeminiProvider.explain_code`                          | Model rollouts and cost controls applied through configuration silently skip this endpoint                                                                                                                        |
+| 2   | `/explain-code` omits `UNTRUSTED_INPUT_INSTRUCTION` and interpolates raw code into a fence                                | both `GeminiProvider.explain_code` and `GroqProvider.explain_code`                                    | Weakest injection posture of the five endpoints; a payload containing a backtick fence can escape the code block                                                                                                  |
+| 3   | The Groq fallback model is unavailable to free and developer tier keys since 2026-08-16 (external fact)                   | `generate_groq_content` default `model`                                                               | The fallback silently degrades to "always fails" for non-enterprise keys while appearing configured                                                                                                               |
+| 4   | The default `GEMINI_MODEL` names a deprecated, access-restricted model scheduled to reroute on 2026-12-01 (external fact) | `config.py: GEMINI_MODEL`                                                                             | A new deployment that omits the variable inherits a model whose behavior and cost are scheduled to change with no repository change, and a project that has never used 2.5 models may be unable to call it at all |
+| 5   | `/generate-quiz` returns `200 {"questions": []}` for provider failure                                                     | `manager.generate_quiz`                                                                               | Callers cannot distinguish an outage from an empty quiz, so failure is invisible to status-code monitoring                                                                                                        |
+| 6   | Failure reasons are dropped by the logging allow-list                                                                     | `backend/utils/logging_utils.py: SAFE_LOG_FIELDS`                                                     | `error` is not permitted, so no failure diagnostic reaches the logs                                                                                                                                               |
+| 7   | Raw exceptions bypass redaction                                                                                           | `manager.generate_flashcards` (`logger.warning`), `manager.explain_code` (`print`)                    | Provider messages may reach logs and stdout unfiltered while other paths are redacted                                                                                                                             |
+| 8   | `validate_config()` is never called from production code                                                                  | `backend/config.py`, `backend/main.py`; only the tests invoke it                                      | A missing `GEMINI_API_KEY` surfaces as a provider outage rather than a startup error                                                                                                                              |
+| 9   | Quiz and flashcard provider methods are unreachable                                                                       | `GeminiProvider` / `GroqProvider`                                                                     | Prompts and validation are duplicated three ways and can drift                                                                                                                                                    |
+| 10  | `/generate-syllabus` has no structural validation and no `response_model`                                                 | `manager.generate_syllabus`, `backend/api/v1/endpoints/syllabus.py`                                   | Any parseable JSON returns `200`, including shapes that would break a consumer                                                                                                                                    |
+| 11  | The syllabus prompt's example contradicts its own instruction                                                             | `GeminiProvider.generate_syllabus`, `GroqProvider.generate_syllabus`                                  | One module of one lesson is shown while three modules of two are demanded                                                                                                                                         |
+| 12  | Fence stripping uses two different rules; flashcards drops everything before the first newline                            | `manager.generate_flashcards`                                                                         | A response continuing the array on the fence line is mangled                                                                                                                                                      |
+| 13  | `/explain-code` validates only the presence of six top-level keys                                                         | both providers' `explain_code`                                                                        | `backend/schemas/provider.py: CodeExplanationResponse` describes a contract nothing enforces                                                                                                                      |
+| 14  | `mark_job_failed` accepts `error` and ignores it                                                                          | `backend/services/job_tracker.py`                                                                     | Callers appear to pass diagnostics that are silently discarded                                                                                                                                                    |
+| 15  | `AI_SERVICE_LOG_LEVEL` is documented but not read by the backend                                                          | `ai_service/README.md`, `ai_service/docs/LOGGING.md`; the reader was removed with the former `api.py` | Two documents tell operators to set a variable that no module reads, so log-verbosity changes appear to apply but have no effect                                                                                  |
 
 ### 10.3 Remaining verification limitations
 
