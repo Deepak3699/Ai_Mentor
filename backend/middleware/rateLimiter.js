@@ -44,6 +44,20 @@ export const aiVideoLimiter = createAiLimiter({
   message:
     "Video generation limit reached. You can generate up to 3 videos every 5 minutes. Please try again later.",
 });
+
+// 4 payment attempts per 15 minutes per IP, shared by the Stripe and Razorpay create routes
+const createPaymentLimiter = () =>
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 3,
+    message: { error: "Too many payment attempts. Try again after 15 minutes." },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: () => process.env.NODE_ENV === "test",
+  });
+
+export const stripePaymentLimiter = createPaymentLimiter();
+export const razorpayPaymentLimiter = createPaymentLimiter();
 export {
   aiGenerationLimiter,
   videoGenerationLimiter,
