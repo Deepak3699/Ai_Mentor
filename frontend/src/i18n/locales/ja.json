@@ -331,6 +331,21 @@
       "streak_description": "継続して学習",
       "certificate_title": "初めての修了証",
       "empty": "最初の実績を獲得するには、コースを修了するか、3日連続で学習してください。"
+    },
+    "hours_unit": "時間",
+    "this_week": "今週",
+    "completion_breakdown": {
+      "title": "完了状況の内訳",
+      "completed": "完了",
+      "completed_courses": "完了したコース",
+      "in_progress": "受講中",
+      "not_started": "未開始",
+      "empty_state_message": "進捗状況を確認するにはコースに登録してください",
+      "aria_summary": "コース完了状況: {{completed}}件完了、{{inProgress}}件受講中、{{notStarted}}件未開始",
+      "table_caption": "コース完了状況の内訳",
+      "status_header": "ステータス",
+      "count_header": "コース数",
+      "percentage_header": "割合"
     }
   },
   "discussions": {
