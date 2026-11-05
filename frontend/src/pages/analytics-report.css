@@ -1,0 +1,106 @@
+.analytics-report__meta {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: auto;
+    margin: 12mm;
+  }
+
+  html:has(.analytics-report),
+  body:has(.analytics-report) {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  body:has(.analytics-report) #root,
+  body:has(.analytics-report) #root > *,
+  body:has(.analytics-report) .app-route-scroll {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  body:has(.analytics-report) .app-route-scroll {
+    margin: 0 !important;
+  }
+
+  body:has(.analytics-report) .analytics-page {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  body:has(.analytics-report) #root header,
+  body:has(.analytics-report) #root aside,
+  body:has(.analytics-report) .analytics-non-report,
+  .analytics-report .analytics-report__screen-heading,
+  .analytics-report .analytics-report__actions {
+    display: none !important;
+  }
+
+  .analytics-report {
+    width: 100% !important;
+    max-width: none !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .analytics-report .analytics-report__meta {
+    display: block !important;
+  }
+
+  .analytics-report,
+  .analytics-report * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .analytics-report .grid > *,
+  .analytics-report [class*="rounded-2xl"],
+  .analytics-report [class*="rounded-xl"] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .analytics-report svg,
+  .analytics-report canvas {
+    max-width: 100% !important;
+  }
+
+  .analytics-report .recharts-wrapper,
+  .analytics-report .recharts-surface {
+    overflow: visible !important;
+  }
+
+  .analytics-report .recharts-wrapper *,
+  .analytics-report canvas {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .analytics-report [class*="dark:bg-[#1A1A1A]"],
+  .analytics-report [class*="dark:bg-[#27272A]"],
+  .analytics-report [class*="dark:bg-slate-900"] {
+    background-color: #ffffff !important;
+  }
+
+  .analytics-report [class*="dark:text-white"],
+  .analytics-report [class*="dark:text-gray-"],
+  .analytics-report [class*="dark:text-slate-"] {
+    color: #111827 !important;
+  }
+
+  .analytics-report [class*="dark:border-slate-800"],
+  .analytics-report [class*="dark:border-gray-"] {
+    border-color: #d1d5db !important;
+  }
+}

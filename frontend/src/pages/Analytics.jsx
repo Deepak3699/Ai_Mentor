@@ -29,7 +29,9 @@ import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
+import ExportReportButton from "../components/ExportReportButton";
 import StatCard from "../components/StatCard";
+import "./analytics-report.css";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -233,6 +235,14 @@ const Analytics = () => {
       ? Math.round(myCourses.reduce((acc, c) => acc + c.progress, 0) / myCourses.length)
       : 0;
 
+  const displayName = user?.name || t("analytics.report_default_student");
+  const reportDateRange = t("analytics.report_default_range");
+  const reportCreatedDate = new Date().toLocaleDateString(i18n.language, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
   // Calculate ongoing courses (courses with progress > 0)
   if (pageLoading) {
     return <LoadingSpinner label={t("analytics.loading")} />;
@@ -240,9 +250,9 @@ const Analytics = () => {
 
   return (
     <>
-      <main className="p-4 md:p-6 lg:p-8">
+      <main className="analytics-page analytics-report p-4 md:p-6 lg:p-8">
         {/* Dark Mode Toggle Button */}
-        <div className="fixed bottom-6 right-6 z-50">
+        <div className="analytics-non-report fixed bottom-6 right-6 z-50">
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
             className="p-3 rounded-full bg-white dark:bg-[#1A1A1A] shadow-lg hover:shadow-xl transition-all duration-300 border border-[#CCCCCC] dark:border-gray-700"
@@ -256,13 +266,34 @@ const Analytics = () => {
         </div>
 
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#2D3436] dark:text-white">
-            {t("analytics.welcome_back_user", { name: user?.name || "Learner" })}
-          </h1>
-          <p className="text-[#2D3436]/70 dark:text-gray-400 mt-2 text-lg">
-            {t("analytics.analytics_subtitle")}
-          </p>
+        <div className="analytics-report__screen-heading mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold text-[#2D3436] dark:text-white">
+              {t("analytics.welcome_back_user", { name: user?.name || "Learner" })}
+            </h1>
+            <p className="text-[#2D3436]/70 dark:text-gray-400 mt-2 text-lg">
+              {t("analytics.analytics_subtitle")}
+            </p>
+          </div>
+          <div className="analytics-report__actions mt-2 w-full sm:mt-0 sm:w-auto">
+            <ExportReportButton />
+          </div>
+        </div>
+
+        <div className="analytics-report__meta mb-6">
+          <h2 className="text-2xl font-bold text-[#2D3436] dark:text-white">
+            {t("analytics.report_heading", { name: displayName })}
+          </h2>
+          <div className="mt-3 flex flex-wrap gap-x-8 gap-y-2 text-sm text-[#2D3436]/70 dark:text-gray-400">
+            <p>
+              <span className="font-semibold">{t("analytics.report_date_range")}:</span>{" "}
+              {reportDateRange}
+            </p>
+            <p>
+              <span className="font-semibold">{t("analytics.report_created")}:</span>{" "}
+              {reportCreatedDate}
+            </p>
+          </div>
         </div>
 
         {/* METRICS CARDS */}
@@ -370,7 +401,7 @@ const Analytics = () => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex gap-2 mb-6 border-b border-[#CCCCCC] dark:border-gray-700">
+        <div className="analytics-non-report flex gap-2 mb-6 border-b border-[#CCCCCC] dark:border-gray-700">
           <button
             onClick={() => setActiveTab("courses")}
             className={`px-4 py-2 font-medium transition-colors relative ${
@@ -400,7 +431,7 @@ const Analytics = () => {
         </div>
 
         {activeTab === "courses" && (
-          <div className="mb-8">
+          <div className="analytics-non-report mb-8">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-[#2D3436] dark:text-white flex items-center gap-2">
                 <BookOpen className="w-6 h-6 text-[#00bea3]" />
@@ -570,7 +601,7 @@ const Analytics = () => {
         )}
 
         {activeTab === "calendar" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+          <div className="analytics-non-report grid grid-cols-1 lg:grid-cols-3 gap-2">
             {/* CALENDAR */}
             <div className="lg:col-span-2 bg-white dark:bg-[#1A1A1A] rounded-2xl p-3 shadow-lg">
               {/* Month Navigation */}
@@ -945,7 +976,10 @@ const Analytics = () => {
             </div>
           </div>
         )}
-        <FloatingAssistant />
+
+        <div className="analytics-non-report">
+          <FloatingAssistant />
+        </div>
       </main>
 
       <style>{`

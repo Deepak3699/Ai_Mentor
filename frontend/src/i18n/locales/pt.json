@@ -320,7 +320,14 @@
     "status_ongoing": "Em andamento",
     "status_upcoming": "Próximo",
     "delete_task_confirm": "Tem certeza que deseja excluir esta tarefa?",
-    "task_exists_error": "Já existe uma tarefa para esta data."
+    "task_exists_error": "Já existe uma tarefa para esta data.",
+    "export_report": "Exportar relatório",
+    "export_report_error": "Não foi possível abrir a caixa de diálogo de impressão. Tente novamente.",
+    "report_heading": "Relatório de análise: {{name}}",
+    "report_date_range": "Período",
+    "report_default_range": "Últimos 30 dias",
+    "report_created": "Criado em",
+    "report_default_student": "Estudante"
   },
   "discussions": {
     "title": "Discussões",

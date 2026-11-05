@@ -320,7 +320,14 @@
     "status_ongoing": "En cours",
     "status_upcoming": "À venir",
     "delete_task_confirm": "Êtes-vous sûr de vouloir supprimer cette tâche ?",
-    "task_exists_error": "La tâche existe déjà pour cette date."
+    "task_exists_error": "La tâche existe déjà pour cette date.",
+    "export_report": "Exporter le rapport",
+    "export_report_error": "Impossible d'ouvrir la boîte de dialogue d'impression. Veuillez réessayer.",
+    "report_heading": "Rapport d'analyse : {{name}}",
+    "report_date_range": "Période",
+    "report_default_range": "30 derniers jours",
+    "report_created": "Créé le",
+    "report_default_student": "Apprenant"
   },
   "discussions": {
     "title": "Discussions",

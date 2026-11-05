@@ -320,7 +320,14 @@
     "status_ongoing": "进行中",
     "status_upcoming": "即将到来",
     "delete_task_confirm": "您确定要删除此任务吗？",
-    "task_exists_error": "该日期的任务已存在。"
+    "task_exists_error": "该日期的任务已存在。",
+    "export_report": "导出报告",
+    "export_report_error": "无法打开打印对话框。请重试。",
+    "report_heading": "分析报告：{{name}}",
+    "report_date_range": "日期范围",
+    "report_default_range": "过去 30 天",
+    "report_created": "创建于",
+    "report_default_student": "学员"
   },
   "discussions": {
     "title": "讨论",

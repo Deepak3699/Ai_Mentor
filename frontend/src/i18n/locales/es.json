@@ -320,7 +320,14 @@
     "status_ongoing": "En curso",
     "status_upcoming": "Próximo",
     "delete_task_confirm": "¿Estás seguro de que deseas eliminar esta tarea?",
-    "task_exists_error": "La tarea ya existe para esta fecha."
+    "task_exists_error": "La tarea ya existe para esta fecha.",
+    "export_report": "Exportar informe",
+    "export_report_error": "No se pudo abrir el diálogo de impresión. Inténtalo de nuevo.",
+    "report_heading": "Informe de analíticas: {{name}}",
+    "report_date_range": "Rango de fechas",
+    "report_default_range": "Últimos 30 días",
+    "report_created": "Creado el",
+    "report_default_student": "Estudiante"
   },
   "discussions": {
     "title": "Discusiones",

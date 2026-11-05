@@ -320,7 +320,14 @@
     "status_ongoing": "В процессе",
     "status_upcoming": "Предстоит",
     "delete_task_confirm": "Вы уверены, что хотите удалить эту задачу?",
-    "task_exists_error": "Задача на эту дату уже существует."
+    "task_exists_error": "Задача на эту дату уже существует.",
+    "export_report": "Экспортировать отчёт",
+    "export_report_error": "Не удалось открыть диалоговое окно печати. Попробуйте ещё раз.",
+    "report_heading": "Аналитический отчёт: {{name}}",
+    "report_date_range": "Диапазон дат",
+    "report_default_range": "Последние 30 дней",
+    "report_created": "Создано",
+    "report_default_student": "Учащийся"
   },
   "discussions": {
     "title": "Обсуждения",

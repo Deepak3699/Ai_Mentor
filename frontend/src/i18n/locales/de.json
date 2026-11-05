@@ -320,7 +320,14 @@
     "status_ongoing": "Laufend",
     "status_upcoming": "Bevorstehend",
     "delete_task_confirm": "Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?",
-    "task_exists_error": "Aufgabe für dieses Datum existiert bereits."
+    "task_exists_error": "Aufgabe für dieses Datum existiert bereits.",
+    "export_report": "Bericht exportieren",
+    "export_report_error": "Der Druckdialog konnte nicht geöffnet werden. Bitte versuche es erneut.",
+    "report_heading": "Analysebericht: {{name}}",
+    "report_date_range": "Zeitraum",
+    "report_default_range": "Letzte 30 Tage",
+    "report_created": "Erstellt am",
+    "report_default_student": "Lernender"
   },
   "discussions": {
     "title": "Diskussionen",

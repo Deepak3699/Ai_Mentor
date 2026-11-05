@@ -320,7 +320,14 @@
     "status_ongoing": "جاري",
     "status_upcoming": "قادم",
     "delete_task_confirm": "هل أنت متأكد أنك تريد حذف هذه المهمة؟",
-    "task_exists_error": "المهمة موجودة بالفعل لهذا التاريخ."
+    "task_exists_error": "المهمة موجودة بالفعل لهذا التاريخ.",
+    "export_report": "تصدير التقرير",
+    "export_report_error": "تعذّر فتح مربع حوار الطباعة. يرجى المحاولة مرة أخرى.",
+    "report_heading": "تقرير التحليلات: {{name}}",
+    "report_date_range": "نطاق التاريخ",
+    "report_default_range": "آخر 30 يومًا",
+    "report_created": "تم الإنشاء في",
+    "report_default_student": "متعلّم"
   },
   "discussions": {
     "title": "النقاشات",

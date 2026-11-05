@@ -320,7 +320,14 @@
     "status_ongoing": "進行中",
     "status_upcoming": "予定",
     "delete_task_confirm": "このタスクを削除してもよろしいですか？",
-    "task_exists_error": "この日付のタスクは既に存在します。"
+    "task_exists_error": "この日付のタスクは既に存在します。",
+    "export_report": "レポートをエクスポート",
+    "export_report_error": "印刷ダイアログを開けませんでした。もう一度お試しください。",
+    "report_heading": "分析レポート: {{name}}",
+    "report_date_range": "期間",
+    "report_default_range": "過去30日間",
+    "report_created": "作成日",
+    "report_default_student": "学習者"
   },
   "discussions": {
     "title": "ディスカッション",

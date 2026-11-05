@@ -320,7 +320,14 @@
     "status_ongoing": "चल रहा है",
     "status_upcoming": "आगामी",
     "delete_task_confirm": "क्या आप वाकई इस कार्य को हटाना चाहते हैं?",
-    "task_exists_error": "इस तारीख के लिए कार्य पहले से मौजूद है।"
+    "task_exists_error": "इस तारीख के लिए कार्य पहले से मौजूद है।",
+    "export_report": "रिपोर्ट निर्यात करें",
+    "export_report_error": "प्रिंट डायलॉग नहीं खोला जा सका। कृपया पुनः प्रयास करें।",
+    "report_heading": "एनालिटिक्स रिपोर्ट: {{name}}",
+    "report_date_range": "तिथि सीमा",
+    "report_default_range": "पिछले 30 दिन",
+    "report_created": "बनाया गया",
+    "report_default_student": "छात्र"
   },
   "discussions": {
     "title": "चर्चा",
