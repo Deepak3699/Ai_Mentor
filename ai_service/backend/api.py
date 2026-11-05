@@ -169,9 +169,19 @@ groq_client = Groq(
 # --------------------------
 # Request Model
 # --------------------------
-class LessonPreferences(BaseModel):
+class APIRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    @field_validator("*", mode="before")
+    @classmethod
+    def reject_blank_strings(cls, value):
+        if isinstance(value, str) and not value.strip():
+            raise ValueError("Field must not be empty or whitespace-only")
+        return value
+
+
+class LessonPreferences(APIRequest):
+    model_config = ConfigDict(extra="forbid")
     explanation_type: str | None = Field(None, max_length=100)
     learning_style: str | None = Field(None, max_length=100)
     teaching_pace: str | None = Field(None, max_length=100)
@@ -179,7 +189,7 @@ class LessonPreferences(BaseModel):
     focus_area: str | None = Field(None, max_length=100)
 
 
-class LessonRequest(BaseModel):
+class LessonRequest(APIRequest):
     course: str = Field(..., min_length=1, max_length=100)
     topic: str = Field(..., min_length=1, max_length=200)
     celebrity: str = Field("modi", min_length=1, max_length=50)
@@ -189,29 +199,18 @@ class LessonRequest(BaseModel):
     gender: str | None = None
     speech_rate: str | None = "+0%"
     speech_pitch: str | None = "+0Hz"
-    @field_validator("course", "topic")
-    @classmethod
-    def reject_blank_text(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("Field must not be empty or whitespace-only")
-        return value
-class SyllabusRequest(BaseModel):
+
+
+class SyllabusRequest(APIRequest):
     course_title: str = Field(..., min_length=1, max_length=100)
     category: str | None = Field(None, max_length=100)
 
-class ExplainCodeRequest(BaseModel):
+class ExplainCodeRequest(APIRequest):
     code: str = Field(..., min_length=1, max_length=20000)
     language: str = Field(..., min_length=1, max_length=50)
     mode: str = Field(..., pattern="^(explain|debug|optimize)$")
-class InferenceRequest(BaseModel):
-    prompt: str = Field(..., min_length=1, max_length=20000)
-    @field_validator("prompt")
-    @classmethod
-    def validate_prompt(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("Prompt is required and must not be empty")
-        return value
-class QuizRequest(BaseModel):
+
+class QuizRequest(APIRequest):
     lesson: str = Field(..., min_length=1, max_length=30000)
 
 
@@ -226,7 +225,7 @@ class QuizResponse(BaseModel):
     questions: list[QuizQuestion]
 
 
-class FlashcardRequest(BaseModel):
+class FlashcardRequest(APIRequest):
     transcript: str = Field(..., min_length=1, max_length=30000)
     count: int = Field(5, ge=5, le=10)
 
@@ -935,51 +934,7 @@ def mark_job_failed(
     finally:
         remove_failed_generation_cache(base_filename)
 
-@app.post("/inference")
-def inference(data: InferenceRequest):
-    system_instruction = (
-        f"{UNTRUSTED_INPUT_INSTRUCTION}\n"
-        "Answer the user's prompt clearly and helpfully."
-    )
-    user_data = {"prompt": data.prompt}
 
-    try:
-        response = _generate_gemini_content(
-            system_instruction, user_data
-        )
-        answer = getattr(response, "text", None)
-        if isinstance(answer, str) and answer.strip():
-            return {"response": answer.strip()}
-    except Exception as gemini_error:
-        log_event(
-            "WARN",
-            "Gemini inference failed",
-            error=short_error(gemini_error),
-        )
-
-    try:
-        response = _generate_groq_content(
-            system_instruction,
-            user_data,
-            max_tokens=1000,
-        )
-        choices = getattr(response, "choices", None)
-        answer = (
-            getattr(
-                getattr(choices[0], "message", None),
-                "content",
-                None,
-            )
-            if choices
-            else None
-        )
-        if isinstance(answer, str) and answer.strip():
-            return {"response": answer.strip()}
-        raise ValueError("Generated response is empty.")
-    except Exception as groq_error:
-        raise ProviderGenerationError(
-            "Inference failed for both Gemini and Groq."
-        ) from groq_error
 @app.post("/generate")
 def generate_lesson(
     data: LessonRequest,
