@@ -52,9 +52,7 @@ def test_invalid_celebrity_falls_back_to_modi(celebrity_video_module, name):
     assert Path(result) == input_dir / "modi.mp4"
 
 
-def test_video_selection_does_not_print_paths(
-    celebrity_video_module, capsys
-):
+def test_video_selection_does_not_print_paths(celebrity_video_module, capsys):
     select_video, input_dir = celebrity_video_module
 
     result = select_video("srk")

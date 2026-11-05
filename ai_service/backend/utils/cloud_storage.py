@@ -47,7 +47,9 @@ def upload_video(
         log_event("OK", "Lesson video uploaded")
         return url
     except Exception as error:
-        log_event("WARN", "Video upload failed; using local proxy", error=short_error(error))
+        log_event(
+            "WARN", "Video upload failed; using local proxy", error=short_error(error)
+        )
         return None
 
 
@@ -67,7 +69,11 @@ def upload_subtitle(
         )
         return upload_result.get("secure_url")
     except Exception as error:
-        log_event("WARN", "Subtitle upload failed; using local files", error=short_error(error))
+        log_event(
+            "WARN",
+            "Subtitle upload failed; using local files",
+            error=short_error(error),
+        )
         return None
 
 
@@ -96,6 +102,10 @@ def upload_subtitles(
             ).get("secure_url")
             log_event("OK", "Subtitle files uploaded")
         except Exception as sub_up_err:
-            log_event("WARN", "Subtitle upload failed; using local files", error=short_error(sub_up_err))
+            log_event(
+                "WARN",
+                "Subtitle upload failed; using local files",
+                error=short_error(sub_up_err),
+            )
 
     return vtt_url, srt_url
