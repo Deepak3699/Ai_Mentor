@@ -5,7 +5,6 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import { SidebarProvider } from "../context/SidebarContext";
 
-// Replace Header and Sidebar with simple dummy placeholders
 vi.mock("../components/Header", () => ({
   default: () => <div data-testid="mock-header">Header</div>,
 }));
@@ -14,7 +13,6 @@ vi.mock("../components/Sidebar", () => ({
   default: () => <div data-testid="mock-sidebar">Sidebar</div>,
 }));
 
-// Route component that never resolves, keeping the boundary suspended
 const HangingPage = lazy(() => new Promise(() => {}));
 
 describe("DashboardLayout Suspense Boundary", () => {
