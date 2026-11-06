@@ -5,41 +5,20 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import DashboardLayout from "../components/DashboardLayout";
 import { SidebarProvider } from "../context/SidebarContext";
 
-// Mock dependencies required by Header & Sidebar inside DashboardLayout
-vi.mock("../context/AuthContext", () => ({
-  useAuth: () => ({
-    user: { name: "Test User", email: "test@example.com" },
-    isAuthenticated: true,
-    logout: vi.fn(),
-  }),
+// Replace Header and Sidebar with simple dummy placeholders
+vi.mock("../components/Header", () => ({
+  default: () => <div data-testid="mock-header">Header</div>,
 }));
 
-vi.mock("../context/ThemeContext", () => ({
-  useTheme: () => ({
-    theme: "dark",
-    isDark: true,
-    setTheme: vi.fn(),
-  }),
+vi.mock("../components/Sidebar", () => ({
+  default: () => <div data-testid="mock-sidebar">Sidebar</div>,
 }));
 
-vi.mock("../service/notificationService", () => ({
-  fetchNotifications: vi.fn().mockResolvedValue([]),
-  markNotificationAsRead: vi.fn().mockResolvedValue({}),
-}));
-
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({
-    t: (key) => key,
-    i18n: { language: "en" },
-  }),
-}));
-
-// Component that stays suspended indefinitely
+// Route component that never resolves, keeping the boundary suspended
 const HangingPage = lazy(() => new Promise(() => {}));
 
 describe("DashboardLayout Suspense Boundary", () => {
   beforeEach(() => {
-    // jsdom does not implement scrollTo on div containers
     window.HTMLElement.prototype.scrollTo = vi.fn();
   });
 
@@ -56,7 +35,6 @@ describe("DashboardLayout Suspense Boundary", () => {
       </SidebarProvider>,
     );
 
-    // LoadingSpinner contains "Loading page..." text inside a role="status" container
     const loadingText = screen.getByText(/loading page/i);
     expect(loadingText).toBeTruthy();
 
