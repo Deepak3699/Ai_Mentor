@@ -6,13 +6,13 @@ Understand how the five AI Mentor applications work together before starting the
 
 AI Mentor consists of five separate applications that work together to provide the full platform. Each application has its own requirements and connections to other services.
 
-| Application | Folder | Default address | What it does |
-|---|---|---|---|
-| User API | `backend/` | `http://localhost:5000` | Handles learner accounts, courses, payments, and other learner-side requests |
-| Learner frontend | `frontend/` | `http://localhost:5173` | The website learners use |
-| Admin API | `backendAdmin/` | `http://localhost:5001` | Handles admin-side requests |
-| Admin frontend | `frontendAdmin/` | `http://localhost:5174` | The website administrators use |
-| Python AI service | `ai_service/backend/` | `http://127.0.0.1:8000` | Generates AI content and media |
+| Application       | Folder                | Default address         | What it does                                                                 |
+| ----------------- | --------------------- | ----------------------- | ---------------------------------------------------------------------------- |
+| User API          | `backend/`            | `http://localhost:5000` | Handles learner accounts, courses, payments, and other learner-side requests |
+| Learner frontend  | `frontend/`           | `http://localhost:5173` | The website learners use                                                     |
+| Admin API         | `backendAdmin/`       | `http://localhost:5001` | Handles admin-side requests                                                  |
+| Admin frontend    | `frontendAdmin/`      | `http://localhost:5174` | The website administrators use                                               |
+| Python AI service | `ai_service/backend/` | `http://127.0.0.1:8000` | Generates AI content and media                                               |
 
 The two frontends communicate with their matching APIs. Both APIs connect to PostgreSQL, while the User API also communicates with the Python AI service for AI-related features.
 
@@ -79,17 +79,17 @@ The User API also communicates with the Python AI service for AI-related feature
 
 Some applications need tools or services outside the repository. Make sure the required ones are available before using the related features.
 
-| Dependency | Used by | Purpose |
-|---|---|---|
-| PostgreSQL / Neon | User API and Admin API | Stores application data through Sequelize. |
-| Redis | User API | Used by BullMQ to manage video-generation jobs. |
-| Python 3.10+ | AI service | Runs the Python-based AI application. |
-| FFmpeg | AI service | Processes videos and combines generated audio with video. |
-| FFprobe | AI service | Reads video metadata during processing. |
-| Gemini API | AI service | Provides AI-powered content generation. |
-| Groq | AI service | Optional AI provider integration. |
-| Cloudinary | AI service | Optional cloud storage for generated media. |
-| D-ID | AI service | Optional avatar video generation integration. |
+| Dependency        | Used by                | Purpose                                                   |
+| ----------------- | ---------------------- | --------------------------------------------------------- |
+| PostgreSQL / Neon | User API and Admin API | Stores application data through Sequelize.                |
+| Redis             | User API               | Used by BullMQ to manage video-generation jobs.           |
+| Python 3.10+      | AI service             | Runs the Python-based AI application.                     |
+| FFmpeg            | AI service             | Processes videos and combines generated audio with video. |
+| FFprobe           | AI service             | Reads video metadata during processing.                   |
+| Gemini API        | AI service             | Provides AI-powered content generation.                   |
+| Groq              | AI service             | Optional AI provider integration.                         |
+| Cloudinary        | AI service             | Optional cloud storage for generated media.               |
+| D-ID              | AI service             | Optional avatar video generation integration.             |
 
 **Important notes:**
 
@@ -97,7 +97,6 @@ Some applications need tools or services outside the repository. Make sure the r
 - FFmpeg is checked when the Python AI service starts. FFprobe is used for video metadata but is not checked by that startup check.
 - Set `GEMINI_API_KEY` for Gemini-powered generation.
 - Groq, Cloudinary, and D-ID are optional integrations.
-
 
 ## 3. Startup Order
 
@@ -160,7 +159,6 @@ These frontend-only commands check whether their matching API is available befor
 
 **Note:** Starting the APIs before the frontends is recommended because the frontends need their respective APIs for application features. The combined development commands do not wait for API readiness before starting the frontends.
 
-
 ## 4. Using the Root Development Runner
 
 The root development runner starts the applications selected by the command.
@@ -188,25 +186,24 @@ Press `Ctrl + C` to stop the processes started by that runner. Services that wer
 
 Use these addresses to check the applications:
 
-| Application | Address |
-|---|---|
-| User API liveness | `http://localhost:5000/health/live` |
-| User API readiness | `http://localhost:5000/health/ready` |
-| Admin API liveness | `http://localhost:5001/health/live` |
+| Application         | Address                              |
+| ------------------- | ------------------------------------ |
+| User API liveness   | `http://localhost:5000/health/live`  |
+| User API readiness  | `http://localhost:5000/health/ready` |
+| Admin API liveness  | `http://localhost:5001/health/live`  |
 | Admin API readiness | `http://localhost:5001/health/ready` |
-| Learner frontend | `http://localhost:5173` |
-| Admin frontend | `http://localhost:5174` |
-| Python AI service | `http://127.0.0.1:8000/` |
-| Python AI API docs | `http://127.0.0.1:8000/docs` |
-
+| Learner frontend    | `http://localhost:5173`              |
+| Admin frontend      | `http://localhost:5174`              |
+| Python AI service   | `http://127.0.0.1:8000/`             |
+| Python AI API docs  | `http://127.0.0.1:8000/docs`         |
 
 ### API health checks
 
 Both APIs provide these endpoints:
 
-| Endpoint | Meaning |
-|---|---|
-| `/health/live` | Confirms that the API process is running. |
+| Endpoint        | Meaning                                             |
+| --------------- | --------------------------------------------------- |
+| `/health/live`  | Confirms that the API process is running.           |
 | `/health/ready` | Checks whether the API can connect to its database. |
 
 A successful `/health/ready` response returns HTTP `200`. If the database connection fails, it returns HTTP `503`.
@@ -233,7 +230,6 @@ Video generation is a good example of why the services need to connect correctly
 This flow needs the User API, PostgreSQL, Redis, and Python AI service to be available. The Python service also needs its configured AI provider and the media tools required by the generation process.
 
 The frontend communicates with the User API rather than sending video-generation requests directly to the Python service.
-
 
 ## 7. Before You Start Working
 
