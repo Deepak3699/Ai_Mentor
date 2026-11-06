@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from "react";
+import React, { Suspense, useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import { useSidebar } from "../context/SidebarContext";
+import LoadingSpinner from "./common/LoadingSpinner";
 
 const routeToPage = {
   "/dashboard": "dashboard",
@@ -43,7 +44,9 @@ const DashboardLayout = () => {
           isDesktop ? (sidebarCollapsed ? "ml-18" : "ml-61.25") : ""
         }`}
       >
-        <Outlet />
+        <Suspense fallback={<LoadingSpinner />}>
+          <Outlet />
+        </Suspense>
       </div>
     </div>
   );
