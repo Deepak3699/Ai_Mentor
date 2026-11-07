@@ -27,6 +27,7 @@ from config import (
 import voices
 validate_config()
 from avatar_service import create_avatar_video
+from oauth_auth import OAuth2Middleware
 # --------------------------
 # Cloudinary Config
 # --------------------------
@@ -41,10 +42,11 @@ cloudinary.config(
 # FastAPI App
 # --------------------------
 app = FastAPI(title="AI Lesson Generator")
+app.add_middleware(OAuth2Middleware)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=os.getenv("CORS_ALLOWED_ORIGINS", "").split(","),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -434,7 +436,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
         except Exception as gemini_error:
             print(f"❌ Gemini failed: {gemini_error}")
     
-                  try:
+            try:
                 print("⚡ Switching to Groq fallback...")
     
                 groq_response = groq_client.chat.completions.create(
@@ -462,7 +464,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
     
                 return
     
-                    return
+                return
     
             print(f"📝 Generated text: {script}")
     

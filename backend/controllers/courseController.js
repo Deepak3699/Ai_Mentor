@@ -1,3 +1,4 @@
+import { getAccessToken } from "../utils/oauthClient.js";
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
 
 /* =========================
@@ -363,10 +364,15 @@ const generateCourseSyllabusWithAI = async (req, res) => {
     const course = await Course.findByPk(id);
     if (!course) return res.status(404).json({ message: "Course not found" });
 
-    // 1. Call Python AI Service
+    // 1. Get OAuth2 service token and call Python AI Service
+    const accessToken = await getAccessToken();
+
     const aiResponse = await fetch(`${process.env.AI_SERVICE_URL}/generate-syllabus`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`
+      },
       body: JSON.stringify({
         course_title: course.title,
         category: course.category
