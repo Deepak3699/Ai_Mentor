@@ -1,9 +1,11 @@
 import asyncio
 import base64
+import inspect
+import os
 
 import requests
 
-from config import DID_API_KEY, DID_API_URL, DID_SOURCE_URL
+from backend.config import DID_API_KEY, DID_API_URL, DID_SOURCE_URL
 
 POLL_INTERVAL = 5
 MAX_POLL_ATTEMPTS = 60
@@ -52,7 +54,7 @@ def upload_audio(audio_path: str) -> str:
                 headers=headers,
                 files={
                     "audio": (
-                        audio_path.split("/")[-1],
+                        os.path.basename(str(audio_path).replace("\\", "/")),
                         audio_file,
                         "audio/mpeg",
                     )
@@ -84,7 +86,7 @@ def upload_audio(audio_path: str) -> str:
     return audio_url
 
 
-def create_avatar_video(audio_path: str) -> str:
+async def create_avatar_video(audio_path: str) -> str:
     """
     Create a talking-avatar video from a local audio file.
 
@@ -92,12 +94,17 @@ def create_avatar_video(audio_path: str) -> str:
         Public URL of the generated MP4 video.
     """
     if not DID_SOURCE_URL:
-        raise RuntimeError(
-            "DID_SOURCE_URL is not configured."
-        )
+        raise RuntimeError("DID_SOURCE_URL is not configured")
 
-    audio_url = upload_audio(audio_path)
+    if inspect.iscoroutinefunction(upload_audio):
+        audio_url = await upload_audio(audio_path)
+    else:
+        audio_url = await asyncio.to_thread(upload_audio, audio_path)
 
+    headers = {
+        "Authorization": _get_auth_header(),
+        "Content-Type": "application/json",
+    }
     payload = {
         "source_url": DID_SOURCE_URL,
         "script": {
@@ -107,31 +114,36 @@ def create_avatar_video(audio_path: str) -> str:
     }
 
     try:
-        response = requests.post(
+        response = await asyncio.to_thread(
+            requests.post,
             f"{DID_API_URL}/talks",
-            headers=_get_headers(),
+            headers=headers,
             json=payload,
-            timeout=30,
+            timeout=60,
         )
     except requests.RequestException as exc:
         raise RuntimeError(
-            f"D-ID avatar request failed: {exc}"
+            f"D-ID avatar creation request failed: {exc}"
         ) from exc
 
-    if response.status_code != 201:
+    if not 200 <= response.status_code < 300:
         raise RuntimeError(
-            f"D-ID avatar request failed: "
+            f"D-ID avatar creation failed: "
             f"{response.status_code} {response.text}"
         )
 
-    talk_id = response.json().get("id")
+    try:
+        payload = response.json()
+    except ValueError as exc:
+        raise RuntimeError("D-ID creation response was not valid JSON") from exc
 
+    talk_id = payload.get("id")
     if not talk_id:
-        raise RuntimeError(
-            "D-ID did not return a talk ID."
-        )
+        raise RuntimeError("D-ID creation response did not return a talk ID")
 
-    return asyncio.run(_poll_for_video(talk_id))
+    video_url = await _poll_for_video(talk_id)
+
+    return video_url
 
 
 async def _poll_for_video(talk_id: str) -> str:
@@ -161,7 +173,7 @@ async def _poll_for_video(talk_id: str) -> str:
 
         result = response.json()
         status = result.get("status")
-        print(f"🔄 D-ID status: {status}")
+        print(f"[INFO] D-ID status | state={status}", flush=True)
 
         if status == "done":
             video_url = result.get("result_url")
@@ -174,14 +186,14 @@ async def _poll_for_video(talk_id: str) -> str:
             return video_url
 
         if status == "error":
-           error = result.get("error", {})
-           description = error.get(
-        "description",
-        "Unknown D-ID processing error."
-    )
-    raise RuntimeError(
-        f"D-ID avatar generation failed: {description}"
-    )
+            error = result.get("error", {})
+            description = error.get(
+                "description",
+                "Unknown D-ID processing error."
+            )
+            raise RuntimeError(
+                f"D-ID avatar generation failed: {description}"
+            )
 
     raise RuntimeError(
         "D-ID avatar generation timed out."

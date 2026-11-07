@@ -14,6 +14,10 @@ test("intent detection prioritizes information requests before navigation", () =
   assert.deepEqual(detectIntent("How is my course progress?"), { type: "progress_info" });
   assert.deepEqual(detectIntent("Open settings"), { type: "navigation", route: "/settings" });
   assert.deepEqual(detectIntent("Explain closures"), { type: "ai" });
+  assert.deepEqual(detectIntent("Can you recommend beginner React projects?"), { type: "ai" });
+  assert.deepEqual(detectIntent("What should I study after completing Python?"), { type: "ai" });
+  assert.deepEqual(detectIntent("Suggest a study plan for machine learning"), { type: "ai" });
+  assert.deepEqual(detectIntent("What next?"), { type: "ai" });
 });
 
 test("intent navigation routes match the application paths", () => {
@@ -50,7 +54,15 @@ test("user context summarizes courses, progress, preferences, language, and them
       interested_topics: ["APIs", "Databases"],
     },
   );
-  for (const expected of ["Learner", "Intermediate", "Backend", "JavaScript, Node", "Completed Lessons:\n3", "Language:\nhi", "Theme:\ndark"]) {
+  for (const expected of [
+    "Learner",
+    "Intermediate",
+    "Backend",
+    "JavaScript, Node",
+    "Completed Lessons:\n3",
+    "Language:\nhi",
+    "Theme:\ndark",
+  ]) {
     assert.match(context, new RegExp(expected));
   }
 });
@@ -65,7 +77,11 @@ test("user context supplies safe defaults for missing optional information", () 
 });
 
 test("certificate template produces a valid PDF for ordinary input", async () => {
-  const bytes = await generateCertificatePDF("Neeraj Kumar Saini", "Backend Engineering", "October 5, 2026");
+  const bytes = await generateCertificatePDF(
+    "Neeraj Kumar Saini",
+    "Backend Engineering",
+    "October 5, 2026",
+  );
   assert.ok(bytes instanceof Uint8Array);
   assert.equal(Buffer.from(bytes).subarray(0, 5).toString("ascii"), "%PDF-");
   assert.ok(bytes.length > 1000);

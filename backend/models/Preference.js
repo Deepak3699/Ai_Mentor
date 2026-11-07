@@ -41,7 +41,7 @@ Preference.init(
     modelName: "Preference",
     tableName: "Preferences",
     timestamps: true,
-  }
+  },
 );
 
 export default Preference;

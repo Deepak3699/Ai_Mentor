@@ -92,11 +92,7 @@
           "Navigation Patterns & Interaction Models",
           "Sketching Techniques"
         ],
-        "tools": [
-          "Figma",
-          "Miro",
-          "Whimsical (AI for quick flows)"
-        ],
+        "tools": ["Figma", "Miro", "Whimsical (AI for quick flows)"],
         "activity": "Build a wireframe using Figma & AI plugin"
       }
     ]

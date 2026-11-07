@@ -1,8 +1,8 @@
-import React from 'react';
+import React from "react";
 
 const DocHeading = ({ id, title, level = 2 }) => {
   const HeadingTag = `h${level}`;
-  
+
   const styles = {
     1: "text-4xl font-black tracking-tight text-main mb-6 mt-12",
     2: "text-3xl font-black tracking-tight text-main mb-6 mt-12 pb-2 border-b border-border/50",

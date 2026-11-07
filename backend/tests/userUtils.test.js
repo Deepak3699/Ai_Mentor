@@ -1,9 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  ensureProfileCompleteness,
-  formatFullName,
-} from "../utils/userUtils.js";
+import { ensureProfileCompleteness, formatFullName } from "../utils/userUtils.js";
 
 test("formatFullName handles missing values", () => {
   assert.equal(formatFullName("Neeraj", "Saini"), "Neeraj Saini");

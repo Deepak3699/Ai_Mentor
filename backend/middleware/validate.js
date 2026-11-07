@@ -1,30 +1,63 @@
+import { sendServerError } from "../utils/apiError.js";
+import fs from "fs";
+
 const validate = (schema) => (req, res, next) => {
   if (!schema) {
-    console.error("❌ Validation Error: No schema provided to validate middleware");
-    return res.status(500).json({ message: "Internal Server Error: No schema provided" });
+    return sendServerError(
+      req,
+      res,
+      new Error("validate middleware called without a schema"),
+      "VALIDATE_NO_SCHEMA",
+    );
   }
-try {
+
+  try {
     const validationResult = schema.safeParse(req.body);
+
     if (!validationResult.success) {
+      if (req.file?.path) {
+        fs.unlink(req.file.path, () => {});
+      }
+
       const issues = validationResult.error.issues;
-      console.error("❌ Validation Failed for body:", JSON.stringify(req.body, null, 2));
-      console.error("❌ Issues:", JSON.stringify(issues, null, 2));
-      
+
+      // Log field paths and codes only, never the request body.
+      console.warn(
+        JSON.stringify({
+          level: "warn",
+          requestId: req.id,
+          context: "VALIDATION_FAILED",
+          route: req.originalUrl?.split("?")[0],
+          issues: issues.map((issue) => ({
+            path: issue.path.join("."),
+            code: issue.code,
+          })),
+        }),
+      );
+
+      const details = issues.map((issue) => ({
+        path: issue.path.join("."),
+        message: issue.message,
+      }));
+
       return res.status(400).json({
-        message: "Validation failed",
-        errors: issues.map((err) => ({
-          path: err.path.join('.'),
-          message: err.message,
-        })),
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: "Validation failed",
+          details,
+        },
+        requestId: req.id,
       });
     }
-    next();
+
+    return next();
   } catch (error) {
-    console.error("❌ Validation Middleware Internal Error:", error);
-    return res.status(500).json({ 
-      message: "Internal Server Error during validation",
-      details: error.message || "Unknown error"
-    });
+    if (req.file?.path) {
+      fs.unlink(req.file.path, () => {});
+    }
+
+    return sendServerError(req, res, error, "VALIDATE_MIDDLEWARE", next);
   }
 };
 

@@ -29,6 +29,13 @@ def test_config_imports_without_external_credentials(monkeypatch):
     assert not config.GEMINI_API_KEY
     assert not config.GROQ_API_KEY
     assert config.GEMINI_MODEL == "gemini-2.5-flash"
+    assert config.LLM_TIMEOUT_SECONDS == 60
+
+
+def test_config_custom_llm_timeout(monkeypatch):
+    monkeypatch.setenv("LLM_TIMEOUT_SECONDS", "45")
+    config = import_config(monkeypatch)
+    assert config.LLM_TIMEOUT_SECONDS == 45
 
 
 def test_validate_config_reports_missing_gemini_key_first(monkeypatch):
@@ -37,19 +44,16 @@ def test_validate_config_reports_missing_gemini_key_first(monkeypatch):
         config.validate_config()
 
 
-def test_validate_config_reports_missing_groq_key(monkeypatch):
+def test_validate_config_allows_missing_groq_key(monkeypatch):
     config = import_config(monkeypatch)
     config.GEMINI_API_KEY = "gemini-test"
-    with pytest.raises(ValueError, match="GROQ_API_KEY"):
-        config.validate_config()
+    assert config.validate_config() is None
 
 
-def test_validate_config_reports_missing_cloudinary_credentials(monkeypatch):
+def test_validate_config_allows_missing_cloudinary_credentials(monkeypatch):
     config = import_config(monkeypatch)
     config.GEMINI_API_KEY = "gemini-test"
-    config.GROQ_API_KEY = "groq-test"
-    with pytest.raises(ValueError, match="Cloudinary credentials missing"):
-        config.validate_config()
+    assert config.validate_config() is None
 
 
 def test_validate_config_accepts_complete_configuration(monkeypatch):
@@ -60,3 +64,5 @@ def test_validate_config_accepts_complete_configuration(monkeypatch):
     config.CLOUDINARY_API_KEY = "key"
     config.CLOUDINARY_API_SECRET = "secret"
     assert config.validate_config() is None
+
+

@@ -1,4 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import SpeedMenu from "./SpeedMenu";
+import CaptionsGlyph from "./CaptionsGlyph";
+import GenerationFailure from "./GenerationFailure";
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Play,
   Pause,
@@ -6,21 +10,24 @@ import {
   VolumeX,
   Maximize,
   Minimize,
-  Subtitles,
+  LoaderCircle,
+  RotateCcw,
+  RotateCw,
 } from "lucide-react";
+import "../learning/learning-workspace.css";
 
-const VideoPlayer = ({
-  currentLesson,
-  aiVideoUrl,
+export default function VideoPlayer({
+    title,
+  moduleTitle,
+aiVideoUrl,
   selectedCelebrity,
-  celebrityVideoMap,
   activeCaption,
   playerContainerRef,
   videoRef,
   handleProgress,
   isAIVideoLoading,
   isPlaying,
-  volume,
+  volume = 1,
   isMuted,
   progress,
   isFullscreen,
@@ -29,193 +36,295 @@ const VideoPlayer = ({
   togglePlay,
   handleVolumeChange,
   toggleMute,
-  handleSeek,
   toggleFullscreen,
   formatTime,
   onEnded,
-}) => {
-  const [isBuffering, setIsBuffering] = useState(false);
-  const [showCaptions, setShowCaptions] = useState(true);
-  const [showControls, setShowControls] = useState(true);
-  const controlsTimeoutRef = useRef(null);
-
-  // Handle buffering states
-  useEffect(() => {
-    const v = videoRef?.current;
-    if (!v) return;
-
-    const onWaiting = () => setIsBuffering(true);
-    const onCanPlay = () => setIsBuffering(false);
-    const onLoadedData = () => setIsBuffering(false);
-    const onLoadStart = () => setIsBuffering(true);
-    const onError = () => setIsBuffering(false);
-
-    v.addEventListener("waiting", onWaiting);
-    v.addEventListener("canplay", onCanPlay);
-    v.addEventListener("loadeddata", onLoadedData);
-    v.addEventListener("loadstart", onLoadStart);
-    v.addEventListener("error", onError);
-
-    return () => {
-      v.removeEventListener("waiting", onWaiting);
-      v.removeEventListener("canplay", onCanPlay);
-      v.removeEventListener("loadeddata", onLoadedData);
-      v.removeEventListener("loadstart", onLoadStart);
-      v.removeEventListener("error", onError);
-    };
-  }, [videoRef]);
-
-  // Sync play/pause state with video element
-  useEffect(() => {
-    const v = videoRef?.current;
-    if (!v) return;
-
-    if (isPlaying) {
-      const p = v.play();
-      if (p && typeof p.then === "function") {
-        p.catch((err) => console.warn("Autoplay blocked:", err));
+  onCancelGeneration,
+  onPlaybackChange,
+  generationError,
+  onRetryGeneration,
+  playbackBlocked = false,
+}) {
+  const { t } = useTranslation();
+  const [media, setMedia] = useState({
+    source: null,
+    buffering: false,
+    failed: false,
+    buffered: 0,
+  });
+  const CAPTION_PREFERENCES_KEY = "ai-mentor-caption-preferences";
+  const defaultCaptionPreferences={fontSize:100,fontFamily:"default",textColor:"#ffffff",backgroundOpacity:75};
+  const [captions,setCaptions]=useState(true);
+  const [captionPreferences,setCaptionPreferences]=useState(()=>{try{return {...defaultCaptionPreferences,...JSON.parse(localStorage.getItem(CAPTION_PREFERENCES_KEY)||"{}")} }catch{return defaultCaptionPreferences}});
+  const [controls, setControls] = useState(true);
+  const [rate, setRate] = useState(1);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  useEffect(()=>{localStorage.setItem(CAPTION_PREFERENCES_KEY,JSON.stringify(captionPreferences))},[captionPreferences]);
+  const captionFont={default:"inherit",sans:"Arial, Helvetica, sans-serif",serif:"Georgia, 'Times New Roman', serif",mono:"Consolas, 'Courier New', monospace"}[captionPreferences.fontFamily]||"inherit";
+  const captionStyle={"--lw-caption-scale":captionPreferences.fontSize/100,"--lw-caption-font":captionFont,"--lw-caption-color":captionPreferences.textColor,"--lw-caption-background-opacity":captionPreferences.backgroundOpacity/100};
+  const timer = useRef(null);
+  const source = selectedCelebrity ? aiVideoUrl : null;
+  const generating = !!isAIVideoLoading && !source;
+  const failed = !!source && media.source === source && media.failed;
+  const buffering = !!source && media.source === source && media.buffering && !failed;
+  const showControls = controls || !isPlaying || buffering || settingsOpen;
+  const position = Math.max(0, Math.min(100, progress || 0));
+  const buffered = media.source === source ? Math.max(position, media.buffered) : position;
+  const reveal = () => {
+    setControls(true);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      if (!settingsOpen && !playerContainerRef.current?.contains(document.activeElement)) {
+        setControls(false);
       }
-    } else {
-      v.pause();
-    }
-  }, [isPlaying, aiVideoUrl]);
-
-  // Unified loading state
-  const showLoading = isAIVideoLoading || isBuffering;
-
-  // Auto-hide controls
-  const resetControlsTimeout = () => {
-    setShowControls(true);
-    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
-    controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) setShowControls(false);
-    }, 3000);
+    }, 2500);
   };
-
+  const updateMedia = (values) =>
+    setMedia((previous) => ({
+      ...(previous.source === source
+        ? previous
+        : { source, buffering: false, failed: false, buffered: 0 }),
+      ...values,
+    }));
+  useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
+    const video = videoRef?.current;
+    if (!video || !source) return undefined;
+    let active = true;
+    if (isPlaying && !playbackBlocked && !generating) {
+      video.play()?.catch((error) => {
+        if (!active) return;
+        console.warn("Playback unavailable:", error);
+        onPlaybackChange?.(false);
+      });
+    } else video.pause();
     return () => {
-      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+      active = false;
     };
-  }, []);
-
+  }, [isPlaying, source, videoRef, onPlaybackChange, playbackBlocked, generating]);
+  const seekTo = (seconds) => {
+    const video = videoRef.current;
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    video.currentTime = Math.max(0, Math.min(video.duration, seconds));
+    handleProgress?.();
+    reveal();
+  };
+  const syncBuffered = (event) => {
+    const video = event.currentTarget;
+    if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+    let end = 0;
+    for (let i = 0; i < video.buffered.length; i++) {
+      if (video.buffered.start(i) <= video.currentTime) end = video.buffered.end(i);
+    }
+    updateMedia({ buffered: Math.max(0, Math.min(100, (end / video.duration) * 100)) });
+  };
+  const control = (label, action, icon, extra = {}) => (
+    <button type="button" aria-label={label} title={label} onClick={action} {...extra}>
+      {icon}
+    </button>
+  );
   return (
     <div
       ref={playerContainerRef}
-      className="relative bg-black rounded-lg overflow-hidden shadow-lg mb-6 aspect-video"
-      onMouseMove={resetControlsTimeout}
-      onMouseLeave={() => isPlaying && setShowControls(false)}
+      className="lw-player"
+      data-controls={showControls}
+      data-playing={isPlaying ? "true" : "false"}
+      data-settings-open={settingsOpen ? "true" : "false"}
+      onPointerMove={reveal}
+      onPointerDown={reveal}
+      onMouseLeave={() => {
+        if (isPlaying && !playerContainerRef.current?.contains(document.activeElement))
+          setControls(false);
+      }}
+      onBlurCapture={reveal}
+      onFocusCapture={() => {
+        clearTimeout(timer.current);
+        setControls(true);
+      }}
     >
-      {/* Video — key prop forces reload when source changes */}
       <video
-        key={aiVideoUrl || selectedCelebrity || currentLesson?.id}
         ref={videoRef}
-        src={
-          aiVideoUrl ||
-          (selectedCelebrity
-            ? celebrityVideoMap[selectedCelebrity]?.video
-            : currentLesson?.videoUrl)
-        }
-        className="w-full h-full object-contain"
+        src={source || undefined}
         preload="metadata"
-        controls={false}
         playsInline
         onClick={togglePlay}
-        onEnded={onEnded}
+        onLoadStart={() => updateMedia({ buffering: !!source, failed: false, buffered: 0 })}
+        onEnded={(event) => {
+          onPlaybackChange?.(false);
+          onEnded?.(event);
+        }}
+        onPlay={() => {
+          if (playbackBlocked || generating) videoRef.current?.pause();
+          else onPlaybackChange?.(true);
+        }}
+        onPause={() => onPlaybackChange?.(false)}
         onTimeUpdate={handleProgress}
-        onLoadedMetadata={handleProgress}
+        onLoadedMetadata={(event) => {
+          event.currentTarget.playbackRate = rate;
+          handleProgress?.();
+          syncBuffered(event);
+        }}
+        onProgress={syncBuffered}
+        onWaiting={() => updateMedia({ buffering: true })}
+        onCanPlay={() => updateMedia({ buffering: false })}
+        onPlaying={() => updateMedia({ buffering: false })}
+        onLoadedData={() => updateMedia({ buffering: false })}
+        onError={() => {
+          if (!source) return;
+          updateMedia({ buffering: false, failed: true });
+          onPlaybackChange?.(false);
+        }}
       />
-
-      {/* Loading Overlay */}
-      {showLoading && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
-          <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
-            <p className="text-white mt-2 text-sm">Loading video...</p>
-          </div>
+      <GenerationFailure error={generationError} onRetry={onRetryGeneration} />
+      {(title || moduleTitle) && !generating && !failed && (
+        <div className="lw-player-title" aria-hidden="true">
+          {title && <strong>{title}</strong>}
+          {moduleTitle && <span>{moduleTitle}</span>}
         </div>
       )}
-
-      {/* Caption Overlay */}
-      {activeCaption && showCaptions && (
-        <div className="absolute bottom-20 left-0 right-0 flex justify-center px-4">
-          <div className="bg-black/80 text-white px-4 py-2 rounded-lg text-center max-w-3xl text-sm leading-snug shadow-xl">
-            {activeCaption}
-          </div>
+      {(!source || !isPlaying) && !generating && !failed && !buffering && !generationError && (
+        <div className={`lw-player-idle ${source ? "lw-player-idle--paused" : ""}`}>
+          <button
+            type="button"
+            className="lw-play-button"
+            onClick={togglePlay}
+            aria-label={t("learning.workspace.play")}
+            title={t("learning.workspace.play")}
+          >
+            <Play size={30} fill="currentColor" aria-hidden="true" />
+          </button>
         </div>
       )}
-
-      {/* Controls */}
-      <div
-        className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 transition-opacity duration-300 ${showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-          }`}
-      >
-        {/* Progress Bar */}
+      {failed && (
+        <div className="lw-player-placeholder" role="alert">
+          <p>{t("learning.workspace.video_error")}</p>
+          <button
+            type="button"
+            className="lw-player-retry"
+            onClick={() => {
+              updateMedia({ failed: false, buffering: true });
+              videoRef.current?.load();
+            }}
+          >
+            {t("learning.workspace.retry")}
+          </button>
+        </div>
+      )}
+      {(generating || buffering) && (
+        <div className="lw-player-loading" role="status">
+          <LoaderCircle className="motion-safe:animate-spin" aria-hidden="true" size={25} />
+          <p>{t(generating ? "learning.workspace.generating" : "learning.player.loading_video")}</p>
+          {generating && onCancelGeneration && (
+            <button type="button" className="lw-cancel-generation" onClick={onCancelGeneration}>
+              {t("learning.workspace.cancel_generation")}
+            </button>
+          )}
+        </div>
+      )}
+      {activeCaption && captions && !generating && !failed && (
+        <div className="lw-player-caption" style={captionStyle}>{activeCaption}</div>
+      )}
+      {!!source && !failed && (
         <div
-          className="w-full bg-gray-600 rounded-full h-1.5 cursor-pointer mb-3 hover:h-2 transition-all"
-          onClick={handleSeek}
+          className="lw-player-controls"
+          style={{ opacity: showControls ? 1 : 0, pointerEvents: showControls ? "auto" : "none" }}
         >
-          <div
-            className="bg-blue-600 h-full rounded-full transition-all pointer-events-none"
-            style={{ width: `${progress}%` }}
+          <input
+            type="range"
+            className="lw-seek"
+            min={0}
+            max={100}
+            step={0.1}
+            value={position}
+            style={{ "--lw-position": `${position}%`, "--lw-buffered": `${buffered}%` }}
+            aria-label={t("learning.workspace.seek")}
+            aria-valuetext={`${formatTime(currentTime)} / ${formatTime(duration)}`}
+            onChange={(event) =>
+              seekTo((Number(event.target.value) / 100) * (videoRef.current?.duration || 0))
+            }
+            data-shortcuts-ignore
           />
-        </div>
-
-        {/* Bottom Controls */}
-        <div className="flex items-center justify-between text-white">
-          {/* Left Controls */}
-          <div className="flex items-center gap-4">
-            {/* Play/Pause */}
-            <button onClick={togglePlay} className="hover:text-blue-400 transition-colors">
-              {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
-            </button>
-
-            {/* Volume */}
-            <div className="flex items-center gap-2">
-              <button onClick={toggleMute} className="hover:text-blue-400 transition-colors">
-                {isMuted || volume === 0 ? (
-                  <VolumeX className="w-5 h-5" />
-                ) : (
-                  <Volume2 className="w-5 h-5" />
+          <div className="lw-player-bottom">
+            <div className="lw-player-left">
+              {control(
+                t(isPlaying ? "learning.workspace.pause" : "learning.workspace.play_pause"),
+                togglePlay,
+                isPlaying ? <Pause size={20} /> : <Play size={20} />,
+              )}
+              {control(
+                t("learning.player.rewind"),
+                () => seekTo((videoRef.current?.currentTime || 0) - 10),
+                <RotateCcw size={18} />,
+                { className: "lw-skip" },
+              )}
+              {control(
+                t("learning.player.forward"),
+                () => seekTo((videoRef.current?.currentTime || 0) + 10),
+                <RotateCw size={18} />,
+                { className: "lw-skip" },
+              )}
+              <div className="lw-player-audio">
+                {control(
+                  t(isMuted ? "learning.workspace.unmute" : "learning.workspace.mute"),
+                  toggleMute,
+                  isMuted || volume === 0 ? <VolumeX size={18} /> : <Volume2 size={18} />,
+                  { "aria-pressed": !!isMuted },
                 )}
-              </button>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                value={volume}
-                onChange={handleVolumeChange}
-                className="w-20 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                <input
+                  type="range"
+                  className="lw-player-volume"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={isMuted ? 0 : volume}
+                  style={{ "--lw-position": `${(isMuted ? 0 : volume) * 100}%` }}
+                  onChange={handleVolumeChange}
+                  aria-label={t("learning.workspace.volume")}
+                  data-shortcuts-ignore
+                />
+              </div>
+              <span className="lw-player-time">
+                {formatTime(currentTime)} <span>/ {formatTime(duration)}</span>
+              </span>
+            </div>
+            <div className="lw-player-right">
+              <SpeedMenu
+                value={rate}
+                containerRef={playerContainerRef}
+                onOpenChange={(open) => {
+                  setSettingsOpen(open);
+                  if (open) reveal();
+                }}
+                captionsEnabled={captions}
+                onCaptionsChange={setCaptions}
+                captionLanguage="English"
+                audioLanguage="English"
+                captionPreferences={captionPreferences}
+                onCaptionPreferencesChange={setCaptionPreferences}
+                onChange={(next) => {
+                  setRate(next);
+                  if (videoRef.current) videoRef.current.playbackRate = next;
+                }}
               />
+              {control(
+                t("learning.workspace.captions"),
+                () => setCaptions((value) => !value),
+                <CaptionsGlyph active={captions} />,
+                { "aria-pressed": captions, className: "lw-captions-toggle" },
+              )}
+              {control(
+                t(
+                  isFullscreen
+                    ? "learning.workspace.exit_fullscreen"
+                    : "learning.workspace.fullscreen",
+                ),
+                toggleFullscreen,
+                isFullscreen ? <Minimize size={19} /> : <Maximize size={19} />,
+              )}
             </div>
-
-            {/* Timer */}
-            <div className="text-sm">
-              {formatTime(currentTime)} / {formatTime(duration)}
-            </div>
-          </div>
-
-          {/* Right Controls */}
-          <div className="flex items-center gap-4">
-            {/* Captions toggle */}
-            <button
-              onClick={() => setShowCaptions((prev) => !prev)}
-              className={`transition-colors ${showCaptions ? "text-blue-400" : "text-gray-400 hover:text-white"
-                }`}
-              title={showCaptions ? "Hide captions" : "Show captions"}
-            >
-              <Subtitles className="w-6 h-6" />
-            </button>
-
-            {/* Fullscreen */}
-            <button onClick={toggleFullscreen} className="hover:text-blue-400 transition-colors">
-              {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-            </button>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
-};
-
-export default VideoPlayer;
+}

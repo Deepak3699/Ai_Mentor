@@ -1,6 +1,14 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 
-import { Plus, X, ChevronDown, SlidersHorizontal, ArrowUpDown, Check, BookOpen } from "lucide-react";
+import {
+  Plus,
+  X,
+  ChevronDown,
+  SlidersHorizontal,
+  ArrowUpDown,
+  Check,
+  BookOpen,
+} from "lucide-react";
 import { callApi } from "../utils/api";
 import CourseStatusDropdown from "../components/CourseStatusDropdown";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal";
@@ -13,7 +21,9 @@ function MultiSelectDropdown({ label, options, selected, onChange }) {
   const ref = useRef(null);
 
   useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
@@ -29,9 +39,10 @@ function MultiSelectDropdown({ label, options, selected, onChange }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={`h-9 pl-3.5 pr-2.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 whitespace-nowrap
-          ${count > 0
-            ? "border-teal-500 bg-teal-500/10 text-teal-600 dark:text-teal-400"
-            : "border-border bg-canvas hover:bg-canvas-alt text-muted hover:text-main"
+          ${
+            count > 0
+              ? "border-teal-500 bg-teal-500/10 text-teal-600 dark:text-teal-400"
+              : "border-border bg-canvas hover:bg-canvas-alt text-muted hover:text-main"
           }`}
       >
         <span>{label}</span>
@@ -40,7 +51,9 @@ function MultiSelectDropdown({ label, options, selected, onChange }) {
             {count}
           </span>
         )}
-        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`w-3 h-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
@@ -85,7 +98,9 @@ function SortDropdown({ value, onChange }) {
   const ref = useRef(null);
 
   useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
@@ -98,15 +113,18 @@ function SortDropdown({ value, onChange }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={`h-9 pl-3.5 pr-2.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all duration-200 whitespace-nowrap
-          ${value !== "newest"
-            ? "border-teal-500 bg-teal-500/10 text-teal-600 dark:text-teal-400"
-            : "border-border bg-canvas hover:bg-canvas-alt text-muted hover:text-main"
+          ${
+            value !== "newest"
+              ? "border-teal-500 bg-teal-500/10 text-teal-600 dark:text-teal-400"
+              : "border-border bg-canvas hover:bg-canvas-alt text-muted hover:text-main"
           }`}
       >
         <ArrowUpDown className="w-3 h-3" />
         <span className="hidden sm:inline">{current?.label ?? "Sort"}</span>
         <span className="sm:hidden">Sort</span>
-        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`w-3 h-3 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open && (
@@ -116,7 +134,10 @@ function SortDropdown({ value, onChange }) {
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => { onChange(opt.value); setOpen(false); }}
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150
                   ${value === opt.value ? "bg-teal-500/10 text-teal-600 dark:text-teal-400" : "hover:bg-canvas-alt text-main"}`}
               >
@@ -154,7 +175,12 @@ function CoursesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newCourse, setNewCourse] = useState({ title: "", category: "", priceValue: "", currency: "INR" });
+  const [newCourse, setNewCourse] = useState({
+    title: "",
+    category: "",
+    priceValue: "",
+    currency: "INR",
+  });
   const [submitting, setSubmitting] = useState(false);
 
   const [deleteModal, setDeleteModal] = useState({
@@ -168,23 +194,22 @@ function CoursesPage() {
   const [builderCourse, setBuilderCourse] = useState(null);
 
   // ── Enrollment Modal ──────────────────────────────────────────────────────
-const [enrollmentModal, setEnrollmentModal] = useState({
-  open: false,
-  courseId: null,
-  courseTitle: "",
-  enrolledUsers: [],
-  enrolledCount: 0,
-  currentPage: 1,
-  totalPages: 1,
-  loading: false,
-});
+  const [enrollmentModal, setEnrollmentModal] = useState({
+    open: false,
+    courseId: null,
+    courseTitle: "",
+    enrolledUsers: [],
+    enrolledCount: 0,
+    currentPage: 1,
+    totalPages: 1,
+    loading: false,
+  });
 
   // ── Filter panel toggle ───────────────────────────────────────────────────
   const [showFilters, setShowFilters] = useState(false);
 
   // ── Search Hooks ──────────────────────────────────────────────────────────
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   // ── Filter state ──────────────────────────────────────────────────────────
   const [selectedCategories, setSelectedCategories] = useState([]);
@@ -197,15 +222,15 @@ const [enrollmentModal, setEnrollmentModal] = useState({
   // ── Derived option lists from real API data ───────────────────────────────
   const categories = useMemo(
     () => [...new Set(courses.map((c) => c.category).filter(Boolean))].sort(),
-    [courses]
+    [courses],
   );
 
   // ── Fetch ─────────────────────────────────────────────────────────────────
   const fetchCourses = async (searchQuery = "") => {
     try {
       setLoading(true);
-      const endpoint = searchQuery 
-        ? `/admin/courses?search=${encodeURIComponent(searchQuery)}` 
+      const endpoint = searchQuery
+        ? `/admin/courses?search=${encodeURIComponent(searchQuery)}`
         : "/admin/courses";
       const response = await callApi(endpoint);
       const coursesList = Array.isArray(response?.data)
@@ -221,30 +246,29 @@ const [enrollmentModal, setEnrollmentModal] = useState({
     }
   };
 
-      // Debounce effect logic loop
-      // Initial load on mount
-useEffect(() => {
-  fetchCourses("");
-}, []);
+  // Debounce effect logic loop
+  // Initial load on mount
+  useEffect(() => {
+    fetchCourses("");
+  }, []);
 
-// Debounce effect for search
-    useEffect(() => {
-      if (search === "") {
-        fetchCourses("");
-        return;
-      }
+  // Debounce effect for search
+  useEffect(() => {
+    if (search === "") {
+      fetchCourses("");
+      return;
+    }
 
-      // Clear immediately and show spinner
-      setCourses([]);
-      setLoading(true);
+    // Clear immediately and show spinner
+    setCourses([]);
+    setLoading(true);
 
-      const timer = setTimeout(() => {
-        setDebouncedSearch(search);
-        fetchCourses(search);
-      }, 500);
+    const timer = setTimeout(() => {
+      fetchCourses(search);
+    }, 500);
 
-      return () => clearTimeout(timer);
-    }, [search]);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // ── Filtered + sorted courses ─────────────────────────────────────────────
   const filteredCourses = useMemo(() => {
@@ -255,9 +279,7 @@ useEffect(() => {
 
     // Status filter
     if (selectedStatuses.length > 0) {
-      result = result.filter((c) =>
-        selectedStatuses.includes(c.status || "Published")
-      );
+      result = result.filter((c) => selectedStatuses.includes(c.status || "Published"));
     }
 
     // Paid price range filter
@@ -267,11 +289,9 @@ useEffect(() => {
 
         if (price === 0) return false;
 
-        const meetsMin =
-          minPrice === "" || price >= Number(minPrice);
+        const meetsMin = minPrice === "" || price >= Number(minPrice);
 
-        const meetsMax =
-          maxPrice === "" || price <= Number(maxPrice);
+        const meetsMax = maxPrice === "" || price <= Number(maxPrice);
 
         return meetsMin && meetsMax;
       });
@@ -298,25 +318,37 @@ useEffect(() => {
 
   // ── Active chips ──────────────────────────────────────────────────────────
   const chips = [
-    ...selectedCategories.map((v) => ({ label: v, onRemove: () => setSelectedCategories((p) => p.filter((x) => x !== v)) })),
-    ...selectedPriceTypes.map((v) => ({ label: v, onRemove: () => setSelectedPriceTypes((p) => p.filter((x) => x !== v)) })),
+    ...selectedCategories.map((v) => ({
+      label: v,
+      onRemove: () => setSelectedCategories((p) => p.filter((x) => x !== v)),
+    })),
+    ...selectedPriceTypes.map((v) => ({
+      label: v,
+      onRemove: () => setSelectedPriceTypes((p) => p.filter((x) => x !== v)),
+    })),
     ...selectedStatuses.map((v) => ({
       label: v,
-      onRemove: () =>
-        setSelectedStatuses((p) =>
-          p.filter((x) => x !== v)
-        ),
+      onRemove: () => setSelectedStatuses((p) => p.filter((x) => x !== v)),
     })),
     ...(minPrice || maxPrice
-      ? [{
-        label: `₹${minPrice || 0} - ₹${maxPrice || "∞"}`,
-        onRemove: () => {
-          setMinPrice("");
-          setMaxPrice("");
-        }
-      }]
+      ? [
+          {
+            label: `₹${minPrice || 0} - ₹${maxPrice || "∞"}`,
+            onRemove: () => {
+              setMinPrice("");
+              setMaxPrice("");
+            },
+          },
+        ]
       : []),
-    ...(sortBy !== "newest" ? [{ label: SORT_OPTIONS.find((o) => o.value === sortBy)?.label, onRemove: () => setSortBy("newest") }] : []),
+    ...(sortBy !== "newest"
+      ? [
+          {
+            label: SORT_OPTIONS.find((o) => o.value === sortBy)?.label,
+            onRemove: () => setSortBy("newest"),
+          },
+        ]
+      : []),
   ];
 
   const hasActiveFilters = chips.length > 0;
@@ -360,209 +392,196 @@ useEffect(() => {
     }
   };
 
- // Ref always holds the latest courses — prevents stale closures in callbacks
-const coursesRef = useRef(courses);
+  // Ref always holds the latest courses — prevents stale closures in callbacks
+  const coursesRef = useRef(courses);
 
-useEffect(() => {
-  coursesRef.current = courses;
-}, [courses]);
+  useEffect(() => {
+    coursesRef.current = courses;
+  }, [courses]);
 
-/**
- * Optimistic status update with rollback on failure.
- */
-const handleStatusChange = useCallback(async (courseId, newStatus) => {
-  const prevCourses = [...coursesRef.current];
+  /**
+   * Optimistic status update with rollback on failure.
+   */
+  const handleStatusChange = useCallback(
+    async (courseId, newStatus) => {
+      const prevCourses = [...coursesRef.current];
 
-  // Optimistic update
-  setCourses((prev) =>
-    prev.map((c) =>
-      c.id === courseId
-        ? { ...c, status: newStatus, deletedAt: null }
-        : c
-    )
+      // Optimistic update
+      setCourses((prev) =>
+        prev.map((c) => (c.id === courseId ? { ...c, status: newStatus, deletedAt: null } : c)),
+      );
+
+      try {
+        await callApi(`/admin/courses/${courseId}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({ status: newStatus }),
+        });
+      } catch (err) {
+        // Rollback on failure
+        setCourses(prevCourses);
+        showToast("Failed to update status: " + err.message, "error");
+      }
+    },
+    [showToast],
   );
 
-  try {
-    await callApi(`/admin/courses/${courseId}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: newStatus }),
-    });
-  } catch (err) {
-    // Rollback on failure
-    setCourses(prevCourses);
-    showToast("Failed to update status: " + err.message, "error");
-  }
-}, []);
+  /**
+   * Opens the delete confirmation modal.
+   */
+  const handleDeleteRequest = useCallback(async (courseId) => {
+    const course = coursesRef.current.find((c) => c.id === courseId);
 
-/**
- * Opens the delete confirmation modal.
- */
-const handleDeleteRequest = useCallback(async (courseId) => {
-  const course = coursesRef.current.find((c) => c.id === courseId);
+    if (!course) return;
 
-  if (!course) return;
+    let enrolledCount = 0;
 
-  let enrolledCount = 0;
+    try {
+      const data = await callApi(`/admin/courses/${courseId}/enrollments`);
 
-  try {
-    const data = await callApi(
-      `/admin/courses/${courseId}/enrollments`
-    );
-
-    enrolledCount = data.enrolledCount || 0;
-  } catch {
-    // Ignore fetch failure
-  }
-
-  setDeleteModal({
-    open: true,
-    courseId,
-    courseTitle: course.title || "Untitled Course",
-    enrolledCount,
-    isDeleting: false,
-  });
-}, []);
-
-/**
- * Permanently delete a course.
- */
-const handleConfirmDelete = useCallback(async () => {
-  const { courseId } = deleteModal;
-
-  if (!courseId) return;
-
-  setDeleteModal((prev) => ({
-    ...prev,
-    isDeleting: true,
-  }));
-
-  try {
-    await callApi(`/admin/courses/${courseId}?force=true`, {
-      method: "DELETE",
-    });
-
-    // Remove from local state
-    setCourses((prev) =>
-      prev.filter((c) => c.id !== courseId)
-    );
+      enrolledCount = data.enrolledCount || 0;
+    } catch {
+      // Ignore fetch failure
+    }
 
     setDeleteModal({
-      open: false,
-      courseId: null,
-      courseTitle: "",
-      enrolledCount: 0,
+      open: true,
+      courseId,
+      courseTitle: course.title || "Untitled Course",
+      enrolledCount,
       isDeleting: false,
     });
-  } catch (err) {
-    showToast("Failed to delete course: " + err.message, "error");
+  }, []);
+
+  /**
+   * Permanently delete a course.
+   */
+  const handleConfirmDelete = useCallback(async () => {
+    const { courseId } = deleteModal;
+
+    if (!courseId) return;
 
     setDeleteModal((prev) => ({
       ...prev,
-      isDeleting: false,
+      isDeleting: true,
     }));
-  }
-}, [deleteModal]);
 
-const closeDeleteModal = useCallback(() => {
-  if (!deleteModal.isDeleting) {
-    setDeleteModal({
-      open: false,
-      courseId: null,
-      courseTitle: "",
-      enrolledCount: 0,
-      isDeleting: false,
-    });
-  }
-}, [deleteModal.isDeleting]);
+    try {
+      await callApi(`/admin/courses/${courseId}?force=true`, {
+        method: "DELETE",
+      });
 
-/**
- * Fetches a specific page of enrolled students for the currently-open modal.
- */
-const loadEnrollmentPage = useCallback(async (courseId, page) => {
-  setEnrollmentModal((prev) => ({ ...prev, loading: true }));
-  try {
-    const data = await callApi(
-      `/admin/courses/${courseId}/enrollments?page=${page}&limit=10`
-    );
-    setEnrollmentModal((prev) => ({
-      ...prev,
-      enrolledUsers: data.enrolledUsers || [],
-      enrolledCount: data.enrolledCount || 0,
-      currentPage: data.currentPage || page,
-      totalPages: data.totalPages || 1,
-      loading: false,
-    }));
-  } catch (err) {
-    showToast("Failed to load enrollments: " + err.message, "error");
-    setEnrollmentModal((prev) => ({ ...prev, loading: false }));
-  }
-}, []);
+      // Remove from local state
+      setCourses((prev) => prev.filter((c) => c.id !== courseId));
 
-/**
- * Opens enrollment details modal for a course (always starts at page 1).
- */
-const handleViewEnrollments = useCallback(async (course) => {
-  // Open modal immediately with loading state
-  setEnrollmentModal({
-    open: true,
-    courseId: course.id,
-    courseTitle: course.title,
-    enrolledUsers: [],
-    enrolledCount: 0,
-    currentPage: 1,
-    totalPages: 1,
-    loading: true,
-  });
+      setDeleteModal({
+        open: false,
+        courseId: null,
+        courseTitle: "",
+        enrolledCount: 0,
+        isDeleting: false,
+      });
+    } catch (err) {
+      showToast("Failed to delete course: " + err.message, "error");
 
-  try {
-    const data = await callApi(
-      `/admin/courses/${course.id}/enrollments?page=1&limit=10`
-    );
-    setEnrollmentModal((prev) => ({
-      ...prev,
-      enrolledUsers: data.enrolledUsers || [],
-      enrolledCount: data.enrolledCount || 0,
-      currentPage: data.currentPage || 1,
-      totalPages: data.totalPages || 1,
-      loading: false,
-    }));
-  } catch (err) {
-    showToast("Failed to load enrollments: " + err.message, "error");
-    setEnrollmentModal((prev) => ({ ...prev, loading: false }));
-  }
-}, []);
+      setDeleteModal((prev) => ({
+        ...prev,
+        isDeleting: false,
+      }));
+    }
+  }, [deleteModal, showToast]);
 
-/**
- * Status badge color helper.
- */
-const getRowClass = (status) => {
-  if (status === "deleted") return "opacity-50";
-  if (status === "disabled") return "opacity-75";
-  return "";
-};
+  const closeDeleteModal = useCallback(() => {
+    if (!deleteModal.isDeleting) {
+      setDeleteModal({
+        open: false,
+        courseId: null,
+        courseTitle: "",
+        enrolledCount: 0,
+        isDeleting: false,
+      });
+    }
+  }, [deleteModal.isDeleting]);
 
-if (loading && courses.length === 0 && search === "")
-  return (
-    <div className="p-10 text-center text-muted">
-      Loading courses...
-    </div>
+  /**
+   * Fetches a specific page of enrolled students for the currently-open modal.
+   */
+  const loadEnrollmentPage = useCallback(
+    async (courseId, page) => {
+      setEnrollmentModal((prev) => ({ ...prev, loading: true }));
+      try {
+        const data = await callApi(`/admin/courses/${courseId}/enrollments?page=${page}&limit=10`);
+        setEnrollmentModal((prev) => ({
+          ...prev,
+          enrolledUsers: data.enrolledUsers || [],
+          enrolledCount: data.enrolledCount || 0,
+          currentPage: data.currentPage || page,
+          totalPages: data.totalPages || 1,
+          loading: false,
+        }));
+      } catch (err) {
+        showToast("Failed to load enrollments: " + err.message, "error");
+        setEnrollmentModal((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [showToast],
   );
 
-if (error && courses.length === 0)
-  return (
-    <div className="p-10 text-center text-red-500">
-      Error: {error}
-    </div>
+  /**
+   * Opens enrollment details modal for a course (always starts at page 1).
+   */
+  const handleViewEnrollments = useCallback(
+    async (course) => {
+      // Open modal immediately with loading state
+      setEnrollmentModal({
+        open: true,
+        courseId: course.id,
+        courseTitle: course.title,
+        enrolledUsers: [],
+        enrolledCount: 0,
+        currentPage: 1,
+        totalPages: 1,
+        loading: true,
+      });
+
+      try {
+        const data = await callApi(`/admin/courses/${course.id}/enrollments?page=1&limit=10`);
+        setEnrollmentModal((prev) => ({
+          ...prev,
+          enrolledUsers: data.enrolledUsers || [],
+          enrolledCount: data.enrolledCount || 0,
+          currentPage: data.currentPage || 1,
+          totalPages: data.totalPages || 1,
+          loading: false,
+        }));
+      } catch (err) {
+        showToast("Failed to load enrollments: " + err.message, "error");
+        setEnrollmentModal((prev) => ({ ...prev, loading: false }));
+      }
+    },
+    [showToast],
   );
 
-return (
-  <>
-    {/* ── Header ──────────────────────────────────────────────────────────── */}
-    <div className="border-b border-border px-4 py-4 sm:px-6 md:px-8 sm:py-6 flex flex-wrap gap-3 items-center justify-between">
+  /**
+   * Status badge color helper.
+   */
+  const getRowClass = (status) => {
+    if (status === "deleted") return "opacity-50";
+    if (status === "disabled") return "opacity-75";
+    return "";
+  };
+
+  if (loading && courses.length === 0 && search === "")
+    return <div className="p-10 text-center text-muted">Loading courses...</div>;
+
+  if (error && courses.length === 0)
+    return <div className="p-10 text-center text-red-500">Error: {error}</div>;
+
+  return (
+    <>
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <div className="border-b border-border px-4 py-4 sm:px-6 md:px-8 sm:py-6 flex flex-wrap gap-3 items-center justify-between">
         <div className="flex flex-col gap-1 flex-1 min-w-[240px]">
-          <h2 className="text-2xl sm:text-3xl font-semibold">
-            Active Courses
-          </h2>
+          <h2 className="text-2xl sm:text-3xl font-semibold">Active Courses</h2>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
@@ -576,8 +595,8 @@ return (
               className="h-9 sm:h-10 w-full sm:w-64 pl-4 pr-8 rounded-xl border border-border bg-canvas text-xs font-medium text-main focus:border-teal-500 outline-none transition-all"
             />
             {search && (
-              <button 
-                onClick={() => setSearch("")} 
+              <button
+                onClick={() => setSearch("")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-red-500 transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
@@ -600,9 +619,10 @@ return (
             type="button"
             onClick={() => setShowFilters((s) => !s)}
             className={`h-9 sm:h-10 px-3 sm:px-4 rounded-xl border font-semibold text-sm flex items-center gap-2 transition-all duration-200
-              ${showFilters || activeFilterCount > 0
-                ? "border-teal-500 bg-teal-500/10 text-teal-600 dark:text-teal-400"
-                : "border-border hover:bg-canvas-alt text-muted hover:text-main"
+              ${
+                showFilters || activeFilterCount > 0
+                  ? "border-teal-500 bg-teal-500/10 text-teal-600 dark:text-teal-400"
+                  : "border-border hover:bg-canvas-alt text-muted hover:text-main"
               }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
@@ -629,10 +649,8 @@ return (
           ${showFilters ? "max-h-[400px] opacity-100" : "max-h-0 opacity-0 overflow-hidden border-b-0"}`}
       >
         <div className="px-4 sm:px-6 md:px-8 py-3 sm:py-4 bg-canvas-alt/40 space-y-3">
-
           {/* Filter controls row */}
           <div className="flex flex-wrap lg:flex-nowrap gap-2 items-center">
-
             <MultiSelectDropdown
               label="Category"
               options={categories}
@@ -680,9 +698,7 @@ return (
           {/* Active chips + Clear All */}
           {(hasActiveFilters || search) && (
             <div className="flex flex-wrap gap-1.5 items-center">
-              {search && (
-                <FilterChip label={`Search: ${search}`} onRemove={() => setSearch("")} />
-              )}
+              {search && <FilterChip label={`Search: ${search}`} onRemove={() => setSearch("")} />}
               {chips.map((chip, i) => (
                 <FilterChip key={i} label={chip.label} onRemove={chip.onRemove} />
               ))}
@@ -730,26 +746,28 @@ return (
                   className={`border-b border-border hover:bg-canvas-alt transition-colors group ${getRowClass(course.status)}`}
                 >
                   <td className="p-5">
-                    <div className={`font-semibold text-main group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors ${course.status === "deleted" ? "line-through opacity-70" : ""}`}>
+                    <div
+                      className={`font-semibold text-main group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors ${course.status === "deleted" ? "line-through opacity-70" : ""}`}
+                    >
                       {course.title}
                     </div>
                     <div className="text-muted text-[10px] uppercase tracking-tighter mt-0.5 flex gap-2 items-center">
-                    <span>ID: {course.id}</span>
-                    <span>•</span>
-                    <button
-                      onClick={() => setBuilderCourse(course)}
-                      className="text-purple-500 hover:text-purple-600 font-bold transition-colors"
-                    >
-                      Builder
-                    </button>
-                    <span>•</span>
-                    <button
-                      onClick={() => handleViewEnrollments(course)}
-                      className="text-teal-500 hover:text-teal-600 font-bold transition-colors"
-                    >
-                      Students
-                    </button>
-                  </div>
+                      <span>ID: {course.id}</span>
+                      <span>•</span>
+                      <button
+                        onClick={() => setBuilderCourse(course)}
+                        className="text-purple-500 hover:text-purple-600 font-bold transition-colors"
+                      >
+                        Builder
+                      </button>
+                      <span>•</span>
+                      <button
+                        onClick={() => handleViewEnrollments(course)}
+                        className="text-teal-500 hover:text-teal-600 font-bold transition-colors"
+                      >
+                        Students
+                      </button>
+                    </div>
                   </td>
                   <td className="pr-4">
                     <span className="px-2.5 py-1 rounded-lg bg-canvas-alt border border-border text-[11px] font-bold uppercase tracking-tight text-muted">
@@ -758,12 +776,20 @@ return (
                   </td>
                   <td className="pr-4 font-black text-main tracking-tight">
                     {course.priceValue != null && course.priceValue !== "" ? (
-                      Number(course.priceValue) === 0
-                        ? <span className="text-teal-500 text-[11px] font-black uppercase tracking-widest">Free</span>
-                        : course.priceValue
-                    ) : "—"}
+                      Number(course.priceValue) === 0 ? (
+                        <span className="text-teal-500 text-[11px] font-black uppercase tracking-widest">
+                          Free
+                        </span>
+                      ) : (
+                        course.priceValue
+                      )
+                    ) : (
+                      "—"
+                    )}
                   </td>
-                  <td className="pr-4 text-muted font-bold text-[11px]">{course.currency || "INR"}</td>
+                  <td className="pr-4 text-muted font-bold text-[11px]">
+                    {course.currency || "INR"}
+                  </td>
                   <td className="pr-4 text-muted text-[11px] font-medium">
                     {new Date(course.createdAt).toLocaleDateString()}
                   </td>
@@ -795,8 +821,12 @@ return (
             <div key={course.id} className="px-4 py-4 hover:bg-canvas-alt transition-colors">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-semibold text-main text-sm leading-tight truncate">{course.title}</p>
-                  <p className="text-muted text-[10px] uppercase tracking-tighter mt-0.5">ID: {course.id}</p>
+                  <p className="font-semibold text-main text-sm leading-tight truncate">
+                    {course.title}
+                  </p>
+                  <p className="text-muted text-[10px] uppercase tracking-tighter mt-0.5">
+                    ID: {course.id}
+                  </p>
                 </div>
                 <span className="text-teal-500 font-black text-[9px] uppercase tracking-widest shrink-0 mt-0.5">
                   {course.status || "published"}
@@ -808,11 +838,14 @@ return (
                     {course.category}
                   </span>
                 )}
-                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest
-                  ${Number(course.priceValue) === 0
-                    ? "bg-teal-500/10 text-teal-600 dark:text-teal-400"
-                    : "bg-canvas-alt border border-border text-muted"
-                  }`}>
+                <span
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest
+                  ${
+                    Number(course.priceValue) === 0
+                      ? "bg-teal-500/10 text-teal-600 dark:text-teal-400"
+                      : "bg-canvas-alt border border-border text-muted"
+                  }`}
+                >
                   {Number(course.priceValue) === 0
                     ? "Free"
                     : `${course.priceValue} ${course.currency || "INR"}`}
@@ -833,7 +866,9 @@ return (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-card border border-border w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
             <div className="p-5 sm:p-6 border-b border-border flex items-center justify-between bg-gradient-to-r from-teal-500/5 to-transparent">
-              <h3 className="text-lg sm:text-xl font-bold text-main tracking-tight uppercase">Add New Course</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-main tracking-tight uppercase">
+                Add New Course
+              </h3>
               <button
                 onClick={() => setShowAddModal(false)}
                 className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
@@ -852,9 +887,7 @@ return (
                   className="w-full h-12 px-5 rounded-2xl bg-canvas border border-border focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all font-medium text-main"
                   placeholder="e.g. Advanced React Architecture"
                   value={newCourse.title}
-                  onChange={(e) =>
-                    setNewCourse({ ...newCourse, title: e.target.value })
-                  }
+                  onChange={(e) => setNewCourse({ ...newCourse, title: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -867,9 +900,7 @@ return (
                   className="w-full h-12 px-5 rounded-2xl bg-canvas border border-border focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all font-medium text-main"
                   placeholder="e.g. Web Development"
                   value={newCourse.category}
-                  onChange={(e) =>
-                    setNewCourse({ ...newCourse, category: e.target.value })
-                  }
+                  onChange={(e) => setNewCourse({ ...newCourse, category: e.target.value })}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -883,9 +914,7 @@ return (
                     className="w-full h-12 px-5 rounded-2xl bg-canvas border border-border focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all font-bold text-main"
                     placeholder="0"
                     value={newCourse.priceValue}
-                    onChange={(e) =>
-                      setNewCourse({ ...newCourse, priceValue: e.target.value })
-                    }
+                    onChange={(e) => setNewCourse({ ...newCourse, priceValue: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -895,9 +924,7 @@ return (
                   <select
                     className="w-full h-12 px-5 rounded-2xl bg-canvas border border-border focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all font-bold text-main appearance-none"
                     value={newCourse.currency}
-                    onChange={(e) =>
-                      setNewCourse({ ...newCourse, currency: e.target.value })
-                    }
+                    onChange={(e) => setNewCourse({ ...newCourse, currency: e.target.value })}
                   >
                     <option value="INR">INR</option>
                     <option value="USD">USD</option>
@@ -938,17 +965,13 @@ return (
 
       {/* Course Builder Modal */}
       {builderCourse && (
-        <CourseBuilderModal
-          course={builderCourse}
-          onClose={() => setBuilderCourse(null)}
-        />
+        <CourseBuilderModal course={builderCourse} onClose={() => setBuilderCourse(null)} />
       )}
 
       {/* ── Enrollment Details Modal ─────────────────────────────────────────── */}
       {enrollmentModal.open && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-card border border-border w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            
             {/* Header */}
             <div className="p-6 border-b border-border flex items-center justify-between bg-gradient-to-r from-teal-500/5 to-transparent">
               <div>
@@ -982,15 +1005,19 @@ return (
               {enrollmentModal.loading ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-3 opacity-50">
                   <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-xs font-black uppercase tracking-widest text-muted">Loading students...</p>
+                  <p className="text-xs font-black uppercase tracking-widest text-muted">
+                    Loading students...
+                  </p>
                 </div>
               ) : enrollmentModal.enrolledUsers.length > 0 ? (
                 <div className="divide-y divide-border">
                   {enrollmentModal.enrolledUsers.map((user, index) => {
-                    const globalIndex =
-                      (enrollmentModal.currentPage - 1) * 10 + index + 1;
+                    const globalIndex = (enrollmentModal.currentPage - 1) * 10 + index + 1;
                     return (
-                      <div key={user.id} className="px-6 py-4 flex items-center gap-3 hover:bg-canvas-alt transition-colors">
+                      <div
+                        key={user.id}
+                        className="px-6 py-4 flex items-center gap-3 hover:bg-canvas-alt transition-colors"
+                      >
                         <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-500 flex items-center justify-center font-black text-[11px] uppercase shrink-0">
                           {user.name?.charAt(0) || "?"}
                         </div>
@@ -1022,10 +1049,7 @@ return (
                   type="button"
                   disabled={enrollmentModal.currentPage <= 1 || enrollmentModal.loading}
                   onClick={() =>
-                    loadEnrollmentPage(
-                      enrollmentModal.courseId,
-                      enrollmentModal.currentPage - 1
-                    )
+                    loadEnrollmentPage(enrollmentModal.courseId, enrollmentModal.currentPage - 1)
                   }
                   className="h-8 px-3 rounded-lg border border-border text-[11px] font-bold uppercase tracking-widest text-muted hover:text-main hover:bg-canvas-alt transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 >
@@ -1033,9 +1057,7 @@ return (
                 </button>
 
                 <span className="text-[11px] font-black text-muted uppercase tracking-widest">
-                  Page{" "}
-                  <span className="text-teal-500">{enrollmentModal.currentPage}</span>
-                  {" "}of{" "}
+                  Page <span className="text-teal-500">{enrollmentModal.currentPage}</span> of{" "}
                   <span className="text-main">{enrollmentModal.totalPages}</span>
                 </span>
 
@@ -1046,10 +1068,7 @@ return (
                     enrollmentModal.loading
                   }
                   onClick={() =>
-                    loadEnrollmentPage(
-                      enrollmentModal.courseId,
-                      enrollmentModal.currentPage + 1
-                    )
+                    loadEnrollmentPage(enrollmentModal.courseId, enrollmentModal.currentPage + 1)
                   }
                   className="h-8 px-3 rounded-lg border border-border text-[11px] font-bold uppercase tracking-widest text-muted hover:text-main hover:bg-canvas-alt transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                 >
@@ -1057,7 +1076,6 @@ return (
                 </button>
               </div>
             )}
-
           </div>
         </div>
       )}
@@ -1066,14 +1084,16 @@ return (
 }
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
-function EmptyState({ onClear, loading }) {
+function EmptyState({ loading }) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-4 gap-4 text-center opacity-50 animate-in fade-in duration-200">
         {/* Animated Teal Spinner */}
         <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
         {/* Verbatim Matching Text Styling */}
-        <p className="text-sm font-black uppercase tracking-widest text-muted italic">Searching...</p>
+        <p className="text-sm font-black uppercase tracking-widest text-muted italic">
+          Searching...
+        </p>
       </div>
     );
   }
@@ -1085,7 +1105,9 @@ function EmptyState({ onClear, loading }) {
       </div>
       <div>
         <p className="text-main font-bold">No courses match your filters</p>
-        <p className="text-muted text-sm mt-1">Try adjusting or clearing the active filters or search phrases above.</p>
+        <p className="text-muted text-sm mt-1">
+          Try adjusting or clearing the active filters or search phrases above.
+        </p>
       </div>
     </div>
   );

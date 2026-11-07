@@ -9,7 +9,8 @@ process.env.FRONTEND_URL = "http://frontend.test";
 const { default: User } = await import("../models/User.js");
 const { default: Notification } = await import("../models/Notification.js");
 const { authServices } = await import("../services/authExternalServices.js");
-const { forgotPassword, googleLogin, resetPassword } = await import("../controllers/authController.js");
+const { forgotPassword, googleLogin, resetPassword } =
+  await import("../controllers/authController.js");
 
 const originals = {
   findOne: User.findOne,
@@ -25,8 +26,14 @@ const response = () => {
   return {
     state,
     res: {
-      status(code) { state.statusCode = code; return this; },
-      json(body) { state.body = body; return this; },
+      status(code) {
+        state.statusCode = code;
+        return this;
+      },
+      json(body) {
+        state.body = body;
+        return this;
+      },
     },
   };
 };
@@ -34,15 +41,25 @@ const response = () => {
 const quietErrors = async (callback) => {
   const original = console.error;
   console.error = () => {};
-  try { return await callback(); } finally { console.error = original; }
+  try {
+    return await callback();
+  } finally {
+    console.error = original;
+  }
 };
 
 beforeEach(() => {
   User.findOne = async () => null;
-  User.create = async () => { throw new Error("unexpected User.create"); };
+  User.create = async () => {
+    throw new Error("unexpected User.create");
+  };
   Notification.create = async (data) => ({ id: "notification", ...data });
-  authServices.verifyGoogleIdToken = async () => { throw new Error("invalid token"); };
-  authServices.uploadAvatar = async () => { throw new Error("unexpected avatar upload"); };
+  authServices.verifyGoogleIdToken = async () => {
+    throw new Error("invalid token");
+  };
+  authServices.uploadAvatar = async () => {
+    throw new Error("unexpected avatar upload");
+  };
   authServices.sendEmail = async () => ({ messageId: "test-message" });
 });
 
@@ -67,9 +84,17 @@ test("forgot password returns the same response for an unknown account", async (
 test("forgot password stores a hashed token and sends a reset link", async () => {
   let saves = 0;
   let emailOptions;
-  const user = { email: "user@example.com", async save() { saves += 1; } };
+  const user = {
+    email: "user@example.com",
+    async save() {
+      saves += 1;
+    },
+  };
   User.findOne = async () => user;
-  authServices.sendEmail = async (options) => { emailOptions = options; return { messageId: "sent" }; };
+  authServices.sendEmail = async (options) => {
+    emailOptions = options;
+    return { messageId: "sent" };
+  };
   const { state, res } = response();
   await forgotPassword({ body: { email: user.email } }, res);
   assert.equal(state.statusCode, 200);
@@ -83,13 +108,27 @@ test("forgot password stores a hashed token and sends a reset link", async () =>
 
 test("forgot password clears reset fields when email delivery fails", async () => {
   let saves = 0;
-  const user = { email: "user@example.com", async save() { saves += 1; } };
+  const user = {
+    email: "user@example.com",
+    async save() {
+      saves += 1;
+    },
+  };
   User.findOne = async () => user;
-  authServices.sendEmail = async () => { throw new Error("SMTP unavailable"); };
+  authServices.sendEmail = async () => {
+    throw new Error("SMTP unavailable");
+  };
   const { state, res } = response();
   await quietErrors(() => forgotPassword({ body: { email: user.email } }, res));
   assert.equal(state.statusCode, 500);
-  assert.deepEqual(state.body, { message: "Email could not be sent" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Internal Server Error",
+      details: [],
+    },
+  });
   assert.equal(user.resetPasswordToken, null);
   assert.equal(user.resetPasswordExpires, null);
   assert.equal(saves, 2);
@@ -99,7 +138,14 @@ test("reset password rejects an invalid or expired token", async () => {
   const { state, res } = response();
   await resetPassword({ params: { token: "invalid" }, body: { password: "NewPass1!" } }, res);
   assert.equal(state.statusCode, 400);
-  assert.deepEqual(state.body, { message: "Invalid or expired token" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "BAD_REQUEST",
+      message: "Invalid or expired token",
+      details: [],
+    },
+  });
 });
 
 test("reset password updates credentials, clears reset fields, and timestamps the change", async () => {
@@ -107,7 +153,15 @@ test("reset password updates credentials, clears reset fields, and timestamps th
   const expectedHash = crypto.createHash("sha256").update(rawToken).digest("hex");
   let setCall;
   let saves = 0;
-  const user = { id: "user-1", set(field, value) { setCall = [field, value]; }, async save() { saves += 1; } };
+  const user = {
+    id: "user-1",
+    set(field, value) {
+      setCall = [field, value];
+    },
+    async save() {
+      saves += 1;
+    },
+  };
   User.findOne = async ({ where }) => {
     assert.equal(where.resetPasswordToken, expectedHash);
     assert.ok(where.resetPasswordExpires);
@@ -130,13 +184,27 @@ test("Google login rejects invalid tokens and unverified email", async () => {
   let outcome = response();
   await quietErrors(() => googleLogin({ body: { idToken: "bad" } }, outcome.res));
   assert.equal(outcome.state.statusCode, 401);
-  assert.deepEqual(outcome.state.body, { message: "Invalid Google token" });
+  assert.deepEqual(outcome.state.body, {
+    success: false,
+    error: {
+      code: "UNAUTHORIZED",
+      message: "Invalid Google token",
+      details: [],
+    },
+  });
 
   authServices.verifyGoogleIdToken = async () => ({ email_verified: false });
   outcome = response();
   await googleLogin({ body: { idToken: "valid" } }, outcome.res);
   assert.equal(outcome.state.statusCode, 401);
-  assert.deepEqual(outcome.state.body, { message: "Google email not verified" });
+  assert.deepEqual(outcome.state.body, {
+    success: false,
+    error: {
+      code: "UNAUTHORIZED",
+      message: "Google email not verified",
+      details: [],
+    },
+  });
 });
 
 test("Google login rejects a blocked existing user", async () => {
@@ -150,7 +218,14 @@ test("Google login rejects a blocked existing user", async () => {
   const { state, res } = response();
   await googleLogin({ body: { idToken: "valid" } }, res);
   assert.equal(state.statusCode, 403);
-  assert.deepEqual(state.body, { message: "Account suspended" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "FORBIDDEN",
+      message: "Account suspended",
+      details: [],
+    },
+  });
 });
 
 test("Google login creates a new user and rehosts the avatar through the isolated service", async () => {
@@ -170,9 +245,15 @@ test("Google login creates a new user and rehosts the avatar through the isolate
     id: "new-user",
     role: "user",
     purchasedCourses: [],
-    async save() { saves += 1; },
+    async save() {
+      saves += 1;
+    },
   };
-  User.create = async (data) => { createdData = data; Object.assign(user, data); return user; };
+  User.create = async (data) => {
+    createdData = data;
+    Object.assign(user, data);
+    return user;
+  };
   authServices.uploadAvatar = async (url, options) => {
     assert.equal(url, "https://images.test/avatar.png");
     uploadOptions = options;

@@ -1,0 +1,203 @@
+import asyncio
+import os
+import sys
+from pathlib import Path
+
+import pytest
+from unittest.mock import patch
+from fastapi import BackgroundTasks
+
+# Preserve environment state while importing api with dummy configuration.
+_dummy_env = {
+    "GEMINI_API_KEY": "dummy_gemini_key",
+    "GROQ_API_KEY": "dummy_groq_key",
+    "CLOUDINARY_CLOUD_NAME": "dummy_cloud",
+    "CLOUDINARY_API_KEY": "dummy_key",
+    "CLOUDINARY_API_SECRET": "dummy_secret",
+}
+_original_env = {key: os.environ.get(key) for key in _dummy_env}
+
+for key, value in _dummy_env.items():
+    os.environ.setdefault(key, value)
+
+try:
+    import api
+finally:
+    for key, value in _original_env.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+backend_dir = Path(__file__).resolve().parent.parent / "backend"
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
+
+
+@pytest.fixture(autouse=True)
+def clear_generation_caches():
+    api.generation_cache.clear()
+    api.job_status.clear()
+    yield
+    api.generation_cache.clear()
+    api.job_status.clear()
+
+
+def make_request(**overrides):
+    values = {
+        "course": "Python",
+        "topic": "Asyncio cache regression",
+        "celebrity": "Modi",
+        "language": "English",
+        "voice_id": "voice-a",
+        "gender": "male",
+        "speech_rate": "+0%",
+        "speech_pitch": "+0Hz",
+        "preferences": {
+            "explanation_type": "concise",
+            "focus_area": "asyncio",
+        },
+    }
+    values.update(overrides)
+    return api.LessonRequest(**values)
+
+
+def generate(req):
+    return api.generate_lesson(req, BackgroundTasks())
+
+
+def test_identical_requests_reuse_cached_job():
+    first = generate(make_request())
+    second = generate(make_request())
+
+    assert first["cached"] is False
+    assert second["cached"] is True
+    assert second["jobId"] == first["jobId"]
+
+
+def test_nested_preferences_are_canonicalized_for_cache_key():
+    first = generate(
+        make_request(
+            preferences={
+                "explanation_type": "concise",
+                "focus_area": "asyncio",
+            }
+        )
+    )
+    second = generate(
+        make_request(
+            preferences={
+                "focus_area": "asyncio",
+                "explanation_type": "concise",
+            }
+        )
+    )
+
+    assert second["cached"] is True
+    assert second["jobId"] == first["jobId"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"voice_id": "voice-b"},
+        {"gender": "female"},
+        {"speech_rate": "+15%"},
+        {"speech_pitch": "+5Hz"},
+        {
+            "preferences": {
+                "explanation_type": "detailed",
+                "focus_area": "asyncio",
+            }
+        },
+    ],
+)
+def test_output_affecting_options_create_distinct_jobs(change):
+    first = generate(make_request())
+    second = generate(make_request(**change))
+
+    assert first["cached"] is False
+    assert second["cached"] is False
+    assert second["jobId"] != first["jobId"]
+
+
+def test_real_generation_failure_clears_cache_and_allows_retry():
+    first = generate(make_request())
+    failed_job_id = first["jobId"]
+
+    assert first["cached"] is False
+    assert any(
+        value == failed_job_id
+        for value in api.generation_cache.values()
+    )
+
+    # Simulate both script-generation providers failing.
+    with (
+        patch.object(
+            api.gemini_client.models,
+            "generate_content",
+            side_effect=RuntimeError("Gemini unavailable"),
+        ),
+        patch.object(
+            api.groq_client.chat.completions,
+            "create",
+            side_effect=RuntimeError("Groq unavailable"),
+        ),
+    ):
+        asyncio.run(api.process_lesson(make_request(), failed_job_id))
+
+    assert api.job_status[failed_job_id]["status"] == "failed"
+    assert not any(
+        value == failed_job_id
+        for value in api.generation_cache.values()
+    )
+
+    retry = generate(make_request())
+    assert retry["cached"] is False
+    assert retry["jobId"] != failed_job_id
+
+
+def test_force_regeneration_does_not_replace_normal_cache_entry():
+    normal = generate(make_request())
+    forced = api.generate_lesson(
+        make_request(),
+        BackgroundTasks(),
+        force=True,
+    )
+    cached = generate(make_request())
+
+    assert forced["cached"] is False
+    assert forced["jobId"] != normal["jobId"]
+    assert cached["cached"] is True
+    assert cached["jobId"] == normal["jobId"]
+
+
+def test_long_topic_truncates_base_filename_and_cache():
+    long_topic = "A" * 200
+    req = make_request(topic=long_topic)
+
+    # First request: generates a new job and filename
+    result = generate(req)
+    assert result["cached"] is False
+
+    job_id = result["jobId"]
+    assert job_id.startswith("A" * 81 + "_")
+    assert not job_id.startswith("A" * 82)
+    assert len(job_id) == 113
+    assert result["filename"] == f"{job_id}.mp4"
+
+    # Cached request: reuses the truncated base_filename
+    cached_result = generate(req)
+    assert cached_result["cached"] is True
+    assert cached_result["jobId"] == job_id
+    assert cached_result["filename"] == f"{job_id}.mp4"
+
+    # Forced regeneration: also produces truncated filename
+    forced_result = api.generate_lesson(req, BackgroundTasks(), force=True)
+    assert forced_result["cached"] is False
+    assert forced_result["jobId"] != job_id
+    assert forced_result["jobId"].startswith("A" * 81 + "_")
+    assert not forced_result["jobId"].startswith("A" * 82)
+    assert len(forced_result["jobId"]) == 113
+

@@ -3,7 +3,7 @@ import { DataTypes, Model } from "sequelize";
 import bcrypt from "bcrypt";
 import { sequelize } from "../config/db.js";
 
-class User extends Model { }
+class User extends Model {}
 
 User.init(
   {
@@ -140,21 +140,21 @@ User.init(
 
         // Dynamically calculate isProfileComplete on EVERY save for ALL users
         const hasBio = user.bio && user.bio.trim().length > 0;
-        const hasAvatar = user.avatar_url && user.avatar_url.trim().length > 0;
+        // Profile images are optional. Removing one must not invalidate the account.
         const hasFirstName = user.firstName && user.firstName.trim().length > 0;
         const hasLastName = user.lastName && user.lastName.trim().length > 0;
         const hasPassword = user.password && user.password.trim().length > 0;
-        
+
         // Google users MUST have a password to be "complete".
         // Email users are "complete" if Bio, Avatar, and Names are present.
         if (user.googleId) {
-          user.isProfileComplete = Boolean(hasBio && hasAvatar && hasFirstName && hasLastName && hasPassword);
+          user.isProfileComplete = Boolean(hasBio && hasFirstName && hasLastName && hasPassword);
         } else {
-          user.isProfileComplete = Boolean(hasBio && hasAvatar && hasFirstName && hasLastName);
+          user.isProfileComplete = Boolean(hasBio && hasFirstName && hasLastName);
         }
       },
     },
-  }
+  },
 );
 
 User.prototype.matchPassword = async function (enteredPassword) {

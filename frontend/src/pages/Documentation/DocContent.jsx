@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
-import DocHeading from '../../components/common/DocElements/DocHeading';
-import DocSection from '../../components/common/DocElements/DocSection';
+import React from "react";
+import DocHeading from "../../components/common/DocElements/DocHeading";
+import DocSection from "../../components/common/DocElements/DocSection";
 
 const DocContent = ({ docData }) => {
   return (
@@ -8,7 +8,7 @@ const DocContent = ({ docData }) => {
       {docData.map((category) => (
         <div key={category.id} className="mb-20">
           <DocHeading id={category.id} title={category.title} level={1} />
-          
+
           <div className="mt-8 space-y-16">
             {category.sections.map((section) => (
               <div key={section.id} className="scroll-mt-24" id={section.id}>

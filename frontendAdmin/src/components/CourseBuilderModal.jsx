@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { X, Sparkles, BookOpen, Clock, Loader2 } from "lucide-react";
 import { callApi } from "../utils/api";
 import { useToast } from "../context/ToastContext";
@@ -9,30 +9,31 @@ export default function CourseBuilderModal({ course, onClose }) {
   const [generating, setGenerating] = useState(false);
   const [modules, setModules] = useState([]);
 
-  useEffect(() => {
-    fetchSyllabus();
-  }, [course.id]);
-
-  const fetchSyllabus = async () => {
+  const fetchSyllabus = useCallback(async () => {
     try {
       setLoading(true);
       // We use the learning endpoint which returns modules and lessons
       const response = await callApi(`/admin/courses/${course.id}/learning`);
       setModules(response.modules || []);
-    } catch (err) {
+    } catch {
       // If no modules exist yet, it might return 404 or empty, which is fine
       setModules([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [course.id]);
+
+  useEffect(() => {
+    fetchSyllabus();
+  }, [fetchSyllabus]);
 
   const handleGenerateAI = async () => {
-    if (!window.confirm("This will use AI to generate a syllabus. It may take a minute. Continue?")) return;
+    if (!window.confirm("This will use AI to generate a syllabus. It may take a minute. Continue?"))
+      return;
     try {
       setGenerating(true);
-      const res = await callApi(`/admin/courses/${course.id}/generate-syllabus`, {
-        method: "POST"
+      await callApi(`/admin/courses/${course.id}/generate-syllabus`, {
+        method: "POST",
       });
       showToast("Syllabus generated successfully!", "success");
       // refresh syllabus
@@ -47,7 +48,6 @@ export default function CourseBuilderModal({ course, onClose }) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
       <div className="bg-card border border-border w-full max-w-4xl max-h-[90vh] flex flex-col rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-        
         {/* Header */}
         <div className="p-6 border-b border-border flex items-center justify-between bg-canvas-alt">
           <div>
@@ -86,18 +86,26 @@ export default function CourseBuilderModal({ course, onClose }) {
             <div className="text-center py-16 border-2 border-dashed border-border rounded-2xl bg-canvas-alt/50">
               <BookOpen className="w-12 h-12 text-muted mx-auto mb-3 opacity-50" />
               <p className="text-main font-medium">No content added yet</p>
-              <p className="text-sm text-muted mt-1">Use the Magic AI button to automatically generate a syllabus.</p>
+              <p className="text-sm text-muted mt-1">
+                Use the Magic AI button to automatically generate a syllabus.
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
               {modules.map((mod, idx) => (
-                <div key={mod.id || idx} className="border border-border rounded-2xl bg-card overflow-hidden">
+                <div
+                  key={mod.id || idx}
+                  className="border border-border rounded-2xl bg-card overflow-hidden"
+                >
                   <div className="px-5 py-4 bg-canvas-alt/50 border-b border-border font-bold text-main">
                     {mod.title}
                   </div>
                   <div className="divide-y divide-border">
                     {mod.lessons?.map((les, lidx) => (
-                      <div key={les.id || lidx} className="px-5 py-3 flex items-center justify-between hover:bg-canvas-alt/30 transition-colors">
+                      <div
+                        key={les.id || lidx}
+                        className="px-5 py-3 flex items-center justify-between hover:bg-canvas-alt/30 transition-colors"
+                      >
                         <div className="flex items-center gap-3">
                           <div className="w-6 h-6 rounded-full bg-teal-500/10 text-teal-500 flex items-center justify-center text-xs font-bold">
                             {lidx + 1}
@@ -105,13 +113,19 @@ export default function CourseBuilderModal({ course, onClose }) {
                           <span className="text-sm font-medium text-main">{les.title}</span>
                         </div>
                         <div className="flex items-center gap-4 text-xs text-muted font-medium">
-                          <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {les.duration}</span>
-                          <span className="uppercase px-2 py-0.5 rounded bg-border text-main">{les.type}</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" /> {les.duration}
+                          </span>
+                          <span className="uppercase px-2 py-0.5 rounded bg-border text-main">
+                            {les.type}
+                          </span>
                         </div>
                       </div>
                     ))}
                     {(!mod.lessons || mod.lessons.length === 0) && (
-                      <div className="px-5 py-3 text-sm text-muted italic">No lessons in this module.</div>
+                      <div className="px-5 py-3 text-sm text-muted italic">
+                        No lessons in this module.
+                      </div>
                     )}
                   </div>
                 </div>
@@ -119,7 +133,6 @@ export default function CourseBuilderModal({ course, onClose }) {
             </div>
           )}
         </div>
-
       </div>
     </div>
   );

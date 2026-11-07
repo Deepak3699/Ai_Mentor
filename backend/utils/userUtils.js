@@ -4,7 +4,8 @@
 
 /**
  * Ensures that a user's isProfileComplete flag is synchronized with their data.
- * Criteria: firstName, lastName, bio, avatar_url, and password (for Google-linked accounts)
+ * Criteria: firstName, lastName, bio, and password (for Google-linked accounts).
+ * Profile images are optional.
  * @param {Object} user - The user model instance
  */
 export const ensureProfileCompleteness = async (user) => {
@@ -14,8 +15,7 @@ export const ensureProfileCompleteness = async (user) => {
     user.firstName?.trim() &&
     user.lastName?.trim() &&
     user.bio?.trim() &&
-    user.avatar_url?.trim() &&
-    (user.googleId ? user.password?.trim() : true)
+    (user.googleId ? user.password?.trim() : true),
   );
 
   if (user.isProfileComplete !== isComplete) {
@@ -24,14 +24,14 @@ export const ensureProfileCompleteness = async (user) => {
       await user.save();
     }
   }
-  
+
   return isComplete;
 };
 
 /**
  * Standardizes user name generation from firstName and lastName.
- * @param {string} firstName 
- * @param {string} lastName 
+ * @param {string} firstName
+ * @param {string} lastName
  * @returns {string} - The trimmed full name
  */
 export const formatFullName = (firstName, lastName) => {

@@ -1,9 +1,21 @@
 import { getAccessToken } from "../utils/oauthClient.js";
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
+import { sequelize } from "../config/db.js";
+import { sendServerError, logServerError, dependencyFailure } from "../utils/apiError.js";
+import { courseDuration } from "../utils/courseDuration.js";
+import { AppError, ForbiddenError, NotFoundError, forwardError } from "../utils/error.js";
 
 /* =========================
    HELPERS
 ========================= */
+
+// Stable client message for any AI/syllabus failure (details go to logs only)
+const syllabusUnavailable = (req, res) =>
+  res.status(500).json({
+    success: false,
+    message: "Syllabus generation is temporarily unavailable",
+    requestId: req.id,
+  });
 
 const parseLessonsCount = (lessons) => {
   if (typeof lessons !== "string") return 0;
@@ -39,11 +51,11 @@ const formatCourse = (course) => ({
   isBookmarked: course.isBookmarked,
 });
 
-const getCourses = async (req, res) => {
+const getCourses = async (req, res, next) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
-    
+
     const sanitizedPage = page > 0 ? page : 1;
     const sanitizedLimit = limit > 0 ? limit : 10;
     const offset = (sanitizedPage - 1) * sanitizedLimit;
@@ -57,32 +69,51 @@ const getCourses = async (req, res) => {
 
     // Directly return the mapped array so the frontend doesn't break
     res.json(rows.map(formatCourse));
-    
   } catch (error) {
     console.error("GET COURSES ERROR:", error);
-    res.status(500).json({ message: "Failed to load courses" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to load courses",
+      ),
+    );
   }
 };
 
-const getCourseById = async (req, res) => {
+const getCourseById = async (req, res, next) => {
   try {
     const courseId = String(req.params.id);
 
     const course = await Course.findByPk(courseId);
 
     if (!course) {
-      return res.status(404).json({ message: "Course not found" });
+      return forwardError(next, res, new NotFoundError("Course not found"));
     }
 
     // Block access to disabled/deleted courses — NO exceptions
     if (course.status !== "published") {
-      return res.status(403).json({ message: "This course is not currently available." });
+      return forwardError(next, res, new ForbiddenError("This course is not currently available."));
     }
 
     res.json(formatCourse(course));
   } catch (error) {
     console.error("GET COURSE BY ID ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to load course",
+      ),
+    );
   }
 };
 
@@ -95,8 +126,7 @@ const getMyCourses = async (req, res) => {
       return res.json([]);
     }
 
-    const purchasedIds =
-      req.user.purchasedCourses?.map((c) => String(c.courseId)) || [];
+    const purchasedIds = req.user.purchasedCourses?.map((c) => String(c.courseId)) || [];
 
     if (purchasedIds.length === 0) {
       return res.json([]);
@@ -108,6 +138,14 @@ const getMyCourses = async (req, res) => {
         status: "published",
       },
       order: [["createdAt", "ASC"]],
+      include: [
+        {
+          model: Module,
+          as: "modules",
+          attributes: ["id"],
+          include: [{ model: Lesson, as: "lessons", attributes: ["id", "duration"] }],
+        },
+      ],
     });
 
     res.json(
@@ -119,7 +157,8 @@ const getMyCourses = async (req, res) => {
         lessons: course.lessons,
         lessonsCount: course.lessonsCount ?? parseLessonsCount(course.lessons),
         image: course.image,
-      }))
+        duration: courseDuration(course.modules),
+      })),
     );
   } catch (error) {
     console.error("MY COURSES ERROR:", error);
@@ -133,43 +172,47 @@ const getMyCourses = async (req, res) => {
 /* =========================
    GET COURSE LEARNING DATA (DB)
 ========================= */
-const getCourseLearningData = async (req, res) => {
+const getCourseLearningData = async (req, res, next) => {
   try {
     const courseId = String(req.params.id);
 
     const course = await Course.findByPk(courseId);
 
     if (!course) {
-      return res.status(404).json({ message: "Learning data not found" });
+      return forwardError(next, res, new NotFoundError("Learning data not found"));
     }
 
     // Disabled = completely blocked for ALL users, including enrolled
     if (course.status === "disabled") {
-      return res.status(403).json({ message: "This course is currently disabled." });
+      return forwardError(next, res, new ForbiddenError("This course is currently disabled."));
     }
 
     // Deleted = not found
     if (course.status === "deleted") {
-      return res.status(404).json({ message: "Learning data not found" });
+      return forwardError(next, res, new NotFoundError("Learning data not found"));
     }
-// Check if user purchased/enrolled in the course
-const purchasedCourses =
-  req.user.purchasedCourses?.map((c) => String(c.courseId)) || [];
+    // Check if user purchased/enrolled in the course
+    const purchasedCourses = req.user.purchasedCourses?.map((c) => String(c.courseId)) || [];
 
-const hasAccess = purchasedCourses.includes(String(course.id));
+    const hasAccess = purchasedCourses.includes(String(course.id));
 
-const priceValue = parseFloat(course.priceValue) || 0;
-const isFreeOrOne = priceValue <= 1;
+    const priceValue = parseFloat(course.priceValue) || 0;
+    const isFree = priceValue === 0;
 
-if (!hasAccess && req.user.role !== "admin" && !isFreeOrOne) {
-  return res.status(403).json({
-    message: "Access denied. Please purchase/enroll in this course.",
-  });
-}
- 
+    if (!hasAccess && req.user.role !== "admin" && !isFree) {
+      return forwardError(
+        next,
+        res,
+        new ForbiddenError("Access denied. Please purchase/enroll in this course."),
+      );
+    }
+
     const modules = await Module.findAll({
       where: { courseId },
-      order: [["order", "ASC"], ["createdAt", "ASC"]],
+      order: [
+        ["order", "ASC"],
+        ["createdAt", "ASC"],
+      ],
     });
 
     const formattedModules = await Promise.all(
@@ -183,7 +226,10 @@ if (!hasAccess && req.user.role !== "admin" && !isFreeOrOne) {
               required: false,
             },
           ],
-          order: [["order", "ASC"], ["createdAt", "ASC"]],
+          order: [
+            ["order", "ASC"],
+            ["createdAt", "ASC"],
+          ],
         });
 
         return {
@@ -200,13 +246,13 @@ if (!hasAccess && req.user.role !== "admin" && !isFreeOrOne) {
             videoUrl: lesson.videoUrl,
             content: lesson.content
               ? {
-                introduction: lesson.content.introduction,
-                keyConcepts: lesson.content.keyConcepts,
-              }
+                  introduction: lesson.content.introduction,
+                  keyConcepts: lesson.content.keyConcepts,
+                }
               : undefined,
           })),
         };
-      })
+      }),
     );
 
     let currentLesson = null;
@@ -235,7 +281,17 @@ if (!hasAccess && req.user.role !== "admin" && !isFreeOrOne) {
     });
   } catch (error) {
     console.error("GET COURSE LEARNING DATA ERROR:", error);
-    res.status(500).json({ message: "Failed to load learning data" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to load learning data",
+      ),
+    );
   }
 };
 
@@ -244,10 +300,16 @@ if (!hasAccess && req.user.role !== "admin" && !isFreeOrOne) {
 ===================================== */
 const getCourseAndLessonTitles = async (courseId, lessonId) => {
   try {
-    const course = await Course.findByPk((courseId));
-    const lesson = await Lesson.findByPk((lessonId));
+    const course = await Course.findByPk(courseId);
+    const lesson = await Lesson.findByPk(lessonId);
 
     if (!course || !lesson) return null;
+
+    const module = await Module.findOne({
+      where: { id: lesson.moduleId, courseId: course.id },
+    });
+
+    if (!module) return null;
 
     return {
       courseTitle: course.title || null,
@@ -262,7 +324,7 @@ const getCourseAndLessonTitles = async (courseId, lessonId) => {
 /* =========================
    GET STATS CARDS (DB)
 ========================= */
-const getStatsCards = async (req, res) => {
+const getStatsCards = async (req, res, next) => {
   try {
     const totalCourses = await Course.count({ where: { status: "published" } });
 
@@ -274,14 +336,24 @@ const getStatsCards = async (req, res) => {
     });
   } catch (error) {
     console.error("GET STATS CARDS ERROR:", error);
-    res.status(500).json({ message: "Failed to load stats" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to load stats",
+      ),
+    );
   }
 };
 
 /* =========================
    ADMIN STUBS (UNCHANGED)
 ========================= */
-const addCourse = async (req, res) => {
+const addCourse = async (req, res, next) => {
   try {
     const course = await Course.create({
       ...req.body,
@@ -289,80 +361,200 @@ const addCourse = async (req, res) => {
     });
     res.status(201).json(course);
   } catch (error) {
-    res.status(500).json({ message: "Failed to add course", error: error.message });
+    return sendServerError(req, res, error, "courseController.addCourse");
   }
 };
 
-const deleteCourse = async (req, res) => {
+const deleteCourse = async (req, res, next) => {
   try {
     const deletedCount = await Course.destroy({ where: { id: req.params.id } });
     if (deletedCount === 0) {
-      return res.status(404).json({ message: "Course not found" });
+      return forwardError(next, res, new NotFoundError("Course not found"));
     }
     res.json({ message: "Course deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Failed to delete course" });
+    return sendServerError(req, res, error, "courseController.deleteCourse");
   }
 };
 
-const updateLessonVideo = async (req, res) => {
-  res.status(501).json({ message: "updateLessonVideo not implemented" });
+const updateLessonVideo = async (_req, _res, next) => {
+  return forwardError(
+    next,
+    _res,
+    new AppError(
+      "Not Implemented",
+      501,
+      "NOT_IMPLEMENTED",
+      [],
+      "updateLessonVideo not implemented",
+    ),
+  );
 };
 
-const addSubtopics = async (req, res) => {
-  res.status(501).json({ message: "addSubtopics not implemented" });
+const addSubtopics = async (_req, _res, next) => {
+  return forwardError(
+    next,
+    _res,
+    new AppError("Not Implemented", 501, "NOT_IMPLEMENTED", [], "addSubtopics not implemented"),
+  );
 };
 
-const addLessons = async (req, res) => {
+const hasValidTitledItems = (items) =>
+  Array.isArray(items) &&
+  items.every(
+    (item) =>
+      item !== null &&
+      typeof item === "object" &&
+      !Array.isArray(item) &&
+      typeof item.title === "string" &&
+      item.title.trim().length > 0,
+  ) &&
+  new Set(items.map((item) => item.title.trim().toLowerCase())).size === items.length;
+
+const hasValidLessons = (lessons) =>
+  hasValidTitledItems(lessons) &&
+  lessons.every(
+    (lesson) =>
+      (lesson.duration === undefined || typeof lesson.duration === "string") &&
+      (lesson.type === undefined || typeof lesson.type === "string"),
+  );
+
+const addLessons = async (req, res, next) => {
   try {
     const { courseId, moduleId } = req.params;
-    const { lessons } = req.body;
-    
-    // Auto-increment order
-    const maxOrder = await Lesson.max('order', { where: { moduleId } }) || 0;
-    
-    const createdLessons = await Promise.all(lessons.map((l, index) => 
-      Lesson.create({
-        moduleId,
-        title: l.title,
-        duration: l.duration || "5 mins",
-        type: l.type || "video",
-        order: maxOrder + index + 1
-      })
-    ));
+    const lessons = req.body?.lessons;
 
-    res.status(201).json(createdLessons);
+    if (!hasValidLessons(lessons)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "BAD_REQUEST", message: "Invalid lessons payload", details: [] },
+      });
+    }
+
+    const createdLessons = await sequelize.transaction(async (transaction) => {
+      const module = await Module.findOne({
+        where: { id: moduleId, courseId },
+        transaction,
+        lock: true,
+      });
+
+      if (!module) return null;
+
+      const maxOrder =
+        (await Lesson.max("order", {
+          where: { moduleId },
+          transaction,
+        })) || 0;
+
+      const results = [];
+      for (const [index, lesson] of lessons.entries()) {
+        results.push(
+          await Lesson.create(
+            {
+              moduleId,
+              title: lesson.title.trim(),
+              duration: lesson.duration || "5 mins",
+              type: lesson.type || "video",
+              order: maxOrder + index + 1,
+            },
+            { transaction },
+          ),
+        );
+      }
+      return results;
+    });
+
+    if (createdLessons === null) {
+      return forwardError(
+        next,
+        res,
+        new NotFoundError("Module not found for the specified course"),
+      );
+    }
+
+    return res.status(201).json(createdLessons);
   } catch (error) {
-    res.status(500).json({ message: "Failed to add lessons" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to add lessons",
+      ),
+    );
   }
 };
 
-const addModules = async (req, res) => {
+const addModules = async (req, res, next) => {
   try {
     const { courseId } = req.params;
-    const { modules } = req.body;
+    const modules = req.body?.modules;
 
-    const maxOrder = await Module.max('order', { where: { courseId } }) || 0;
+    if (!hasValidTitledItems(modules)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: "BAD_REQUEST", message: "Invalid modules payload", details: [] },
+      });
+    }
 
-    const createdModules = await Promise.all(modules.map((m, index) => 
-      Module.create({
-        courseId,
-        title: m.title,
-        order: maxOrder + index + 1
-      })
-    ));
+    const createdModules = await sequelize.transaction(async (transaction) => {
+      const course = await Course.findByPk(courseId, {
+        transaction,
+        lock: true,
+      });
 
-    res.status(201).json(createdModules);
+      if (!course) return null;
+
+      const maxOrder =
+        (await Module.max("order", {
+          where: { courseId },
+          transaction,
+        })) || 0;
+
+      const results = [];
+      for (const [index, module] of modules.entries()) {
+        results.push(
+          await Module.create(
+            {
+              courseId,
+              title: module.title.trim(),
+              order: maxOrder + index + 1,
+            },
+            { transaction },
+          ),
+        );
+      }
+      return results;
+    });
+
+    if (createdModules === null) {
+      return forwardError(next, res, new NotFoundError("Course not found"));
+    }
+
+    return res.status(201).json(createdModules);
   } catch (error) {
-    res.status(500).json({ message: "Failed to add modules" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to add modules",
+      ),
+    );
   }
 };
 
-const generateCourseSyllabusWithAI = async (req, res) => {
+const generateCourseSyllabusWithAI = async (req, res, next) => {
   try {
     const { id } = req.params;
     const course = await Course.findByPk(id);
-    if (!course) return res.status(404).json({ message: "Course not found" });
+    if (!course) return forwardError(next, res, new NotFoundError("Course not found"));
 
     // 1. Get OAuth2 service token and call Python AI Service
     const accessToken = await getAccessToken();
@@ -375,17 +567,32 @@ const generateCourseSyllabusWithAI = async (req, res) => {
       },
       body: JSON.stringify({
         course_title: course.title,
-        category: course.category
+        category: course.category,
       }),
-    });
+    }).catch(() => null);
 
+    // fetch failed (service down, connection refused): log a fixed code, never the error text
+    if (!aiResponse) {
+      logServerError(req, dependencyFailure("AI_SERVICE_UNREACHABLE"), "generateSyllabus.provider");
+      return syllabusUnavailable(req, res);
+    }
     if (!aiResponse.ok) {
-      return res.status(500).json({ message: "AI Service failed to generate syllabus" });
+      logServerError(
+        req,
+        dependencyFailure("AI_SERVICE_BAD_STATUS", aiResponse.status),
+        "generateSyllabus.provider",
+      );
+      return syllabusUnavailable(req, res);
     }
 
     const data = await aiResponse.json();
     if (data.error) {
-       return res.status(500).json({ message: data.error });
+      logServerError(
+        req,
+        dependencyFailure("AI_SERVICE_ERROR_PAYLOAD"),
+        "generateSyllabus.provider",
+      );
+      return syllabusUnavailable(req, res);
     }
 
     // 2. Insert into DB
@@ -394,7 +601,7 @@ const generateCourseSyllabusWithAI = async (req, res) => {
       const newModule = await Module.create({
         courseId: course.id,
         title: mod.title,
-        order: moduleOrder++
+        order: moduleOrder++,
       });
 
       let lessonOrder = 1;
@@ -404,16 +611,14 @@ const generateCourseSyllabusWithAI = async (req, res) => {
           title: les.title,
           duration: les.duration || "5 mins",
           type: les.type || "video",
-          order: lessonOrder++
+          order: lessonOrder++,
         });
       }
     }
 
     res.json({ message: "Syllabus generated successfully", data: data });
-
   } catch (error) {
-    console.error("GENERATE SYLLABUS ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return sendServerError(req, res, error, "courseController.generateSyllabus");
   }
 };
 
