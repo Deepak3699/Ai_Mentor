@@ -8,5 +8,3 @@ requests
 cloudinary
 pytest
 cachetools
-
-PyJWT[crypto]>=2.10,<3
