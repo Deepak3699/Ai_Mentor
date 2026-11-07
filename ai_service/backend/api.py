@@ -468,7 +468,7 @@ def process_lesson(data: LessonRequest, base_filename: str):
     
             print(f"📝 Generated text: {script}")
     
-            # 2️⃣ Create Output Folders
+            # 2️⃣ Create Output FolderS
     
             base_output_dir = os.path.join(BASE_DIR, "outputs")
             text_dir = os.path.join(base_output_dir, "text")
