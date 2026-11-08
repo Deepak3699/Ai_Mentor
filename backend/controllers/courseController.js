@@ -353,7 +353,7 @@ const getStatsCards = async (req, res, next) => {
 /* =========================
    ADMIN STUBS (UNCHANGED)
 ========================= */
-const addCourse = async (req, res, next) => {
+const addCourse = async (req, res, _next) => {
   try {
     const course = await Course.create({
       ...req.body,
