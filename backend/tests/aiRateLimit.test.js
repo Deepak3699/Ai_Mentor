@@ -48,6 +48,13 @@ const originals = {
   fetch: globalThis.fetch,
 };
 
+const originalOAuthEnv = {
+  OAUTH_TOKEN_URL: process.env.OAUTH_TOKEN_URL,
+  OAUTH_CLIENT_ID: process.env.OAUTH_CLIENT_ID,
+  OAUTH_CLIENT_SECRET: process.env.OAUTH_CLIENT_SECRET,
+  AI_SERVICE_URL: process.env.AI_SERVICE_URL,
+};
+
 let server;
 let baseUrl;
 const loggedWarnings = [];
@@ -80,9 +87,20 @@ before(async () => {
   };
 
   // Mock external AI service provider fetch for syllabus generation
+  process.env.OAUTH_TOKEN_URL = "https://oauth.test/token";
+  process.env.OAUTH_CLIENT_ID = "test-client";
+  process.env.OAUTH_CLIENT_SECRET = "test-secret";
+  process.env.AI_SERVICE_URL = "https://ai-service.test";
+
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
     const url = typeof input === "string" ? input : input?.url || "";
+    if (url === process.env.OAUTH_TOKEN_URL) {
+      return new Response(
+        JSON.stringify({ access_token: "test-access-token", expires_in: 3600 }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
     if (
       url.includes("/generate-syllabus") &&
       !url.includes("127.0.0.1") &&
