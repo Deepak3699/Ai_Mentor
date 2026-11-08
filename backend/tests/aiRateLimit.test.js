@@ -96,10 +96,10 @@ before(async () => {
   globalThis.fetch = async (input, init) => {
     const url = typeof input === "string" ? input : input?.url || "";
     if (url === process.env.OAUTH_TOKEN_URL) {
-      return new Response(
-        JSON.stringify({ access_token: "test-access-token", expires_in: 3600 }),
-        { status: 200, headers: { "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ access_token: "test-access-token", expires_in: 3600 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
     if (
       url.includes("/generate-syllabus") &&
