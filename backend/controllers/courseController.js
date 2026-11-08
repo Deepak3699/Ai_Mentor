@@ -557,7 +557,12 @@ const generateCourseSyllabusWithAI = async (req, res, next) => {
     if (!course) return forwardError(next, res, new NotFoundError("Course not found"));
 
     // 1. Get OAuth2 service token and call Python AI Service
-    const accessToken = await getAccessToken();
+    const accessToken = await getAccessToken().catch(() => null);
+
+    if (!accessToken) {
+      logServerError(req, dependencyFailure("AI_SERVICE_AUTH_FAILED"), "generateSyllabus.auth");
+      return syllabusUnavailable(req, res);
+    }
 
     const aiResponse = await fetch(`${process.env.AI_SERVICE_URL}/generate-syllabus`, {
       method: "POST",

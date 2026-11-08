@@ -6,6 +6,9 @@ import jwt from "jsonwebtoken";
 process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = "test-secret";
 process.env.AI_SERVICE_URL = "http://ai.invalid";
+process.env.OAUTH_TOKEN_URL = "http://auth.invalid/token";
+process.env.OAUTH_CLIENT_ID = "test-client";
+process.env.OAUTH_CLIENT_SECRET = "test-secret";
 
 const { default: app } = await import("../server.js");
 const { sequelize } = await import("../config/db.js");
@@ -25,6 +28,16 @@ const STABLE_SYLLABUS = "Syllabus generation is temporarily unavailable";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const LOG_LEVELS = ["error", "warn", "info", "log"];
 const realFetch = globalThis.fetch;
+
+// Mock fetch for the AI service, but answer OAuth token requests with a valid token.
+function mockAiFetch(handler) {
+  return mockAiFetch(async (url, ...rest) => {
+    if (String(url).includes("auth.invalid")) {
+      return { ok: true, json: async () => ({ access_token: "test-token", expires_in: 3600 }) };
+    }
+    return handler(url, ...rest);
+  });
+}
 
 const actor = {
   id: 1,
@@ -324,7 +337,7 @@ describe("AI syllabus errors", () => {
 
   test("provider error payload: no secret in response or logs", async () => {
     mock.method(Course, "findByPk", async () => course);
-    mock.method(globalThis, "fetch", async () => ({
+    mockAiFetch(async () => ({
       ok: true,
       json: async () => ({ error: "401 invalid api key REDACTED_API_KEY for model xyz" }),
     }));
@@ -338,7 +351,7 @@ describe("AI syllabus errors", () => {
 
   test("AI failure status is logged as a number, not forwarded", async () => {
     mock.method(Course, "findByPk", async () => course);
-    mock.method(globalThis, "fetch", async () => ({ ok: false, status: 418 }));
+    mockAiFetch(async () => ({ ok: false, status: 418 }));
     const res = await call("POST", path);
     expectStable500(res, STABLE_SYLLABUS);
     assert.ok(loggedText().includes('"upstreamStatus":418'));
@@ -346,7 +359,7 @@ describe("AI syllabus errors", () => {
 
   test("AI service unreachable: stable message, no internals", async () => {
     mock.method(Course, "findByPk", async () => course);
-    mock.method(globalThis, "fetch", async () => {
+    mockAiFetch(async () => {
       throw new TypeError("fetch failed: connect ECONNREFUSED 10.0.0.9:8000");
     });
     const res = await call("POST", path);
