@@ -31,7 +31,7 @@ const realFetch = globalThis.fetch;
 
 // Mock fetch for the AI service, but answer OAuth token requests with a valid token.
 function mockAiFetch(handler) {
-  return mockAiFetch(async (url, ...rest) => {
+  return mock.method(globalThis, "fetch", async (url, ...rest) => {
     if (String(url).includes("auth.invalid")) {
       return { ok: true, json: async () => ({ access_token: "test-token", expires_in: 3600 }) };
     }
