@@ -22,7 +22,7 @@ test("fetches and caches access token", async (t) => {
     calls++;
     return {
       ok: true,
-      json: async () => ({ access_token: "test-token", expires_in: 3600 })
+      json: async () => ({ access_token: "test-token", expires_in: 3600 }),
     };
   };
   t.after(() => delete global.fetch);
@@ -61,21 +61,17 @@ test("shares simultaneous token requests", async (t) => {
 
   global.fetch = async () => {
     calls++;
-    await new Promise(resolve => setTimeout(resolve, 30));
+    await new Promise((resolve) => setTimeout(resolve, 30));
     return {
       ok: true,
-      json: async () => ({ access_token: "shared-token", expires_in: 3600 })
+      json: async () => ({ access_token: "shared-token", expires_in: 3600 }),
     };
   };
   t.after(() => delete global.fetch);
 
   const { getAccessToken } = await loadClient();
 
-  const results = await Promise.all([
-    getAccessToken(),
-    getAccessToken(),
-    getAccessToken()
-  ]);
+  const results = await Promise.all([getAccessToken(), getAccessToken(), getAccessToken()]);
 
   assert.deepEqual(results, ["shared-token", "shared-token", "shared-token"]);
   assert.equal(calls, 1);

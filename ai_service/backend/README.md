@@ -1,4 +1,3 @@
-
 ## OAuth2 Service Authentication
 
 The AI Service protects API endpoints and static video/transcript routes using OAuth2 Bearer tokens.

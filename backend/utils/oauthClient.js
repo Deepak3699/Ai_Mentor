@@ -14,28 +14,26 @@ export async function getAccessToken() {
       OAUTH_TOKEN_URL,
       OAUTH_CLIENT_ID,
       OAUTH_CLIENT_SECRET,
-      OAUTH_SCOPE = "ai:access"
+      OAUTH_SCOPE = "ai:access",
     } = process.env;
 
     if (!OAUTH_TOKEN_URL || !OAUTH_CLIENT_ID || !OAUTH_CLIENT_SECRET) {
       throw new Error("OAuth client configuration is missing");
     }
 
-    const credentials = Buffer.from(
-      `${OAUTH_CLIENT_ID}:${OAUTH_CLIENT_SECRET}`
-    ).toString("base64");
+    const credentials = Buffer.from(`${OAUTH_CLIENT_ID}:${OAUTH_CLIENT_SECRET}`).toString("base64");
 
     const response = await fetch(OAUTH_TOKEN_URL, {
       method: "POST",
       headers: {
         Authorization: `Basic ${credentials}`,
-        "Content-Type": "application/x-www-form-urlencoded"
+        "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
         grant_type: "client_credentials",
-        scope: OAUTH_SCOPE
+        scope: OAUTH_SCOPE,
       }),
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!response.ok) {
