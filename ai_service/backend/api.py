@@ -123,6 +123,7 @@ def check_ffmpeg() -> None:
 async def lifespan(app: FastAPI):
     global shutting_down
 
+    validate_config()
     check_ffmpeg()
     shutting_down = False
     yield

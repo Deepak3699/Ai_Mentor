@@ -1,4 +1,3 @@
-
 import importlib
 import sys
 from pathlib import Path
@@ -50,3 +49,38 @@ def test_groq_and_cloudinary_enable_when_configured(monkeypatch):
     )
     assert config.GROQ_ENABLED is True
     assert config.CLOUDINARY_ENABLED is True
+
+@pytest.mark.asyncio
+async def test_startup_fails_when_gemini_key_is_missing(monkeypatch):
+    import api
+
+    monkeypatch.setitem(
+        api.validate_config.__globals__,
+        "GEMINI_API_KEY",
+        None,
+    )
+    monkeypatch.setattr(api, "check_ffmpeg", lambda: None)
+
+    with pytest.raises(
+        ValueError,
+        match="GEMINI_API_KEY is required for the AI service.",
+    ):
+        async with api.lifespan(api.app):
+            pass
+
+
+@pytest.mark.asyncio
+async def test_startup_passes_when_gemini_key_is_configured(monkeypatch):
+    import api
+
+    monkeypatch.setitem(
+        api.validate_config.__globals__,
+        "GEMINI_API_KEY",
+        "test-gemini",
+    )
+    monkeypatch.setattr(api, "check_ffmpeg", lambda: None)
+
+    async with api.lifespan(api.app):
+        assert api.shutting_down is False
+
+    assert api.shutting_down is True
