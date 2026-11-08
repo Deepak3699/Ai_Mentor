@@ -16,6 +16,7 @@ from backend.services.job_tracker import (
 )
 import backend.services.job_tracker as job_tracker
 from backend.services.media_processor import check_ffmpeg
+from backend.oauth_auth import OAuth2Middleware
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +51,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    app.add_middleware(OAuth2Middleware)
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",") if o.strip()],
+        allow_origins=[
+            o.strip()
+            for o in os.getenv(
+                "CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174"
+            ).split(",")
+            if o.strip()
+        ],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -80,4 +89,5 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
