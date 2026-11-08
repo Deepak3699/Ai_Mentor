@@ -1,9 +1,10 @@
-import React, { useEffect, useRef } from "react";
+import React, { Suspense, useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import Header from "./Header";
 import Sidebar from "./Sidebar";
 import { useSidebar } from "../context/SidebarContext";
-
+import LoadingSpinner from "./common/LoadingSpinner";
+import ErrorBoundary from "./common/ErrorBoundary";
 const routeToPage = {
   "/dashboard": "dashboard",
   "/analytics": "analytics",
@@ -43,7 +44,11 @@ const DashboardLayout = () => {
           isDesktop ? (sidebarCollapsed ? "ml-18" : "ml-61.25") : ""
         }`}
       >
-        <Outlet />
+        <ErrorBoundary>
+          <Suspense fallback={<LoadingSpinner />}>
+            <Outlet />
+          </Suspense>
+        </ErrorBoundary>
       </div>
     </div>
   );
