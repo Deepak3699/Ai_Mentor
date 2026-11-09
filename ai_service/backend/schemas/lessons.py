@@ -1,6 +1,8 @@
+
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
 
 class APIRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -11,9 +13,9 @@ class APIRequest(BaseModel):
         if isinstance(value, str) and not value.strip():
             raise ValueError("Field must not be empty or whitespace-only")
         return value
-class LessonPreferences(APIRequest):
-    model_config = ConfigDict(extra="forbid")
 
+
+class LessonPreferences(APIRequest):
     explanation_type: str | None = Field(None, max_length=100)
     learning_style: str | None = Field(None, max_length=100)
     teaching_pace: str | None = Field(None, max_length=100)
@@ -47,7 +49,7 @@ class SyllabusRequest(APIRequest):
 class ExplainCodeRequest(APIRequest):
     code: str = Field(..., min_length=1, max_length=20000)
     language: str = Field(..., min_length=1, max_length=50)
-    mode: str = Field(..., pattern="^(explain|debug|optimize)$")
+    mode: str = Field(..., pattern=r"^(explain|debug|optimize)$")
 
 
 class QuizRequest(APIRequest):
