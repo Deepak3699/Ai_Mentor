@@ -5,6 +5,7 @@
 This document explains the main learner journeys and service responsibilities in the Ai_Mentor platform.
 
 It covers:
+
 - Authentication
 - Course discovery and purchase
 - Payment verification and enrollment
@@ -18,13 +19,13 @@ This is an architecture and onboarding reference. It does not describe implement
 
 Ai_Mentor consists of five main components:
 
-| Component | Location | Responsibility |
-|---|---|---|
-| Learner Frontend | `frontend/` | Learner-facing UI and API requests |
-| User API | `backend/` | Authentication, courses, payments, enrollment, learner progress and AI coordination |
-| Admin Frontend | `frontendAdmin/` | Administrative interface |
-| Admin API | `backendAdmin/` | Platform administration and management |
-| AI Service | `ai_service/backend/` | AI content, lesson scripts, narration and video generation |
+| Component        | Location              | Responsibility                                                                      |
+| ---------------- | --------------------- | ----------------------------------------------------------------------------------- |
+| Learner Frontend | `frontend/`           | Learner-facing UI and API requests                                                  |
+| User API         | `backend/`            | Authentication, courses, payments, enrollment, learner progress and AI coordination |
+| Admin Frontend   | `frontendAdmin/`      | Administrative interface                                                            |
+| Admin API        | `backendAdmin/`       | Platform administration and management                                              |
+| AI Service       | `ai_service/backend/` | AI content, lesson scripts, narration and video generation                          |
 
 ### High-level architecture
 
@@ -57,13 +58,13 @@ The learner and admin applications use separate APIs. Both backend applications 
 
 ### Main endpoints
 
-| Endpoint | Purpose |
-|---|---|
-| `POST /api/auth/register` | Register a new learner |
-| `POST /api/auth/login` | Email/password login |
-| `POST /api/auth/google-login` | Google login |
-| `POST /api/auth/forgot-password` | Request password reset |
-| `POST /api/auth/reset-password/:token` | Reset password |
+| Endpoint                               | Purpose                |
+| -------------------------------------- | ---------------------- |
+| `POST /api/auth/register`              | Register a new learner |
+| `POST /api/auth/login`                 | Email/password login   |
+| `POST /api/auth/google-login`          | Google login           |
+| `POST /api/auth/forgot-password`       | Request password reset |
+| `POST /api/auth/reset-password/:token` | Reset password         |
 
 ### Flow
 
@@ -95,12 +96,12 @@ Authentication is owned by the User API.
 
 ### Course discovery
 
-| Endpoint | Purpose |
-|---|---|
-| `GET /api/courses` | List available courses |
-| `GET /api/courses/:id` | Get course details |
-| `GET /api/courses/my-courses` | List learner's purchased courses |
-| `GET /api/courses/:id/learning` | Get learning data |
+| Endpoint                        | Purpose                          |
+| ------------------------------- | -------------------------------- |
+| `GET /api/courses`              | List available courses           |
+| `GET /api/courses/:id`          | Get course details               |
+| `GET /api/courses/my-courses`   | List learner's purchased courses |
+| `GET /api/courses/:id/learning` | Get learning data                |
 
 The User API handles learner-facing course discovery and learning access.
 
@@ -165,12 +166,12 @@ Razorpay verification checks the signature and, where configured, fetches paymen
 
 ### Stripe vs Razorpay
 
-| Aspect | Stripe | Razorpay |
-|---|---|---|
-| Payment initiation | Checkout session | Order creation |
-| Verification | Webhook signature and event validation | Signature and gateway payment verification |
-| Enrollment trigger | Successful webhook processing | Successful `/verify` request |
-| Payment persistence | Payment model | Payment model |
+| Aspect              | Stripe                                 | Razorpay                                   |
+| ------------------- | -------------------------------------- | ------------------------------------------ |
+| Payment initiation  | Checkout session                       | Order creation                             |
+| Verification        | Webhook signature and event validation | Signature and gateway payment verification |
+| Enrollment trigger  | Successful webhook processing          | Successful `/verify` request               |
+| Payment persistence | Payment model                          | Payment model                              |
 
 ## 5. Enrollment and Course Access
 
@@ -188,11 +189,11 @@ The User API checks purchased-course access before allowing protected learning a
 
 ### Main endpoints
 
-| Endpoint | Purpose |
-|---|---|
-| `POST /api/ai/generate-video` | Request AI video generation |
-| `GET /api/ai/status/:jobId` | Check generation status |
-| `GET /api/ai/transcript/:filename` | Retrieve lesson transcript |
+| Endpoint                           | Purpose                     |
+| ---------------------------------- | --------------------------- |
+| `POST /api/ai/generate-video`      | Request AI video generation |
+| `GET /api/ai/status/:jobId`        | Check generation status     |
+| `GET /api/ai/transcript/:filename` | Retrieve lesson transcript  |
 
 ### End-to-end generation flow
 
@@ -220,6 +221,7 @@ flowchart TD
 ### Service responsibilities
 
 **Learner Frontend**
+
 - Sends the generation request.
 - Provides authentication headers.
 - Accepts a cached video response or a new job ID.
@@ -227,6 +229,7 @@ flowchart TD
 - Retrieves the transcript.
 
 **User API**
+
 - Checks authentication and course access.
 - Creates or reuses an `AIVideo` record.
 - Avoids duplicate in-progress generation jobs.
@@ -235,11 +238,13 @@ flowchart TD
 - Persists generated video and transcript metadata.
 
 **BullMQ worker**
+
 - Processes queued video-generation jobs.
 - Sends course title, lesson title, celebrity and user preferences to the Python `/generate` endpoint.
 - Saves the Python job ID and transcript filename in the AIVideo record.
 
 **Python AI service**
+
 - Generates lesson scripts using Gemini with Groq fallback.
 - Generates narration using Edge TTS.
 - Attempts avatar rendering using D-ID.
@@ -272,11 +277,11 @@ flowchart TD
 
 The `updateCourseProgress` controller maintains:
 
-| Field | Purpose |
-|---|---|
-| `lessonData` | Lesson-specific information |
-| `currentLesson` | Current learning position |
-| `completedLessons` | Completed lesson records |
+| Field              | Purpose                     |
+| ------------------ | --------------------------- |
+| `lessonData`       | Lesson-specific information |
+| `currentLesson`    | Current learning position   |
+| `completedLessons` | Completed lesson records    |
 
 Progress is stored inside the learner's `purchasedCourses` data in the User model.
 
@@ -286,13 +291,13 @@ Completed lessons are checked before insertion to avoid duplicate entries.
 
 ## 8. Service Ownership Matrix
 
-| Service | Owns | Main responsibilities |
-|---|---|---|
-| Learner Frontend | Learner UI | Authentication forms, course browsing, purchase initiation, learning experience, AI generation requests and progress updates |
-| User API | Learner-facing business logic | Authentication, course discovery, payments, enrollment, access control, progress persistence and AI job coordination |
-| Admin Frontend | Admin UI | Administrative workflows |
-| Admin API | Platform management | Admin authentication, course and user management, enrollment/payment overview, reports, notifications and moderation |
-| Python AI Service | AI generation | Lesson scripts, narration, avatar/video generation, subtitles, quizzes, flashcards and code explanations |
+| Service           | Owns                          | Main responsibilities                                                                                                        |
+| ----------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Learner Frontend  | Learner UI                    | Authentication forms, course browsing, purchase initiation, learning experience, AI generation requests and progress updates |
+| User API          | Learner-facing business logic | Authentication, course discovery, payments, enrollment, access control, progress persistence and AI job coordination         |
+| Admin Frontend    | Admin UI                      | Administrative workflows                                                                                                     |
+| Admin API         | Platform management           | Admin authentication, course and user management, enrollment/payment overview, reports, notifications and moderation         |
+| Python AI Service | AI generation                 | Lesson scripts, narration, avatar/video generation, subtitles, quizzes, flashcards and code explanations                     |
 
 ### Admin API routes
 
@@ -312,22 +317,22 @@ Sensitive operations use `protectAdmin` and, where required, `superAdminOnly`.
 
 ## 9. Data Ownership and External Integrations
 
-| Component | Purpose |
-|---|---|
-| PostgreSQL | Persistent application data |
-| User model | Learner details and purchased course progress |
-| Payment model | Payment lifecycle and gateway references |
-| AIVideo model | AI video job and output metadata |
-| Redis | BullMQ queue infrastructure |
-| BullMQ | Background AI video job processing |
-| Stripe | Checkout and payment event delivery |
-| Razorpay | Order creation and payment verification |
-| Firebase | Google authentication verification |
-| Gemini / Groq | AI text generation |
-| Edge TTS | Narration generation |
-| D-ID | Avatar video rendering |
-| FFmpeg | Media processing and fallback video generation |
-| Cloudinary | Generated media storage |
+| Component     | Purpose                                        |
+| ------------- | ---------------------------------------------- |
+| PostgreSQL    | Persistent application data                    |
+| User model    | Learner details and purchased course progress  |
+| Payment model | Payment lifecycle and gateway references       |
+| AIVideo model | AI video job and output metadata               |
+| Redis         | BullMQ queue infrastructure                    |
+| BullMQ        | Background AI video job processing             |
+| Stripe        | Checkout and payment event delivery            |
+| Razorpay      | Order creation and payment verification        |
+| Firebase      | Google authentication verification             |
+| Gemini / Groq | AI text generation                             |
+| Edge TTS      | Narration generation                           |
+| D-ID          | Avatar video rendering                         |
+| FFmpeg        | Media processing and fallback video generation |
+| Cloudinary    | Generated media storage                        |
 
 The Python AI service also maintains generation status in an in-memory TTL cache. This is distinct from the persistent AIVideo records maintained by the User API.
 
@@ -347,6 +352,7 @@ The Python AI service also maintains generation status in an in-memory TTL cache
 This document describes the main paths traced in the repository. It focuses on successful learner journeys and the main service boundaries.
 
 The following implementation details were not exhaustively traced in this research:
+
 - Every frontend payment-screen interaction.
 - Every admin controller's internal business logic.
 - Every AI-generation failure and retry scenario.
