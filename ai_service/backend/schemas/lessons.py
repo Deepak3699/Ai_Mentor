@@ -31,13 +31,14 @@ class LessonRequest(APIRequest):
     preferences: LessonPreferences | None = None
     voice_id: str | None = None
     gender: str | None = None
+
     speech_rate: str | None = Field(
         "+0%",
-        pattern=r"^[+-](?:100|[1-9]?\d)%$",
+        pattern=r"^[+-]100%$|^[+-][1-9]%$|^[+-][1-9][0-9]%$|^[+-]0%$",
     )
     speech_pitch: str | None = Field(
         "+0Hz",
-        pattern=r"^[+-](?:100|[1-9]?\d)Hz$",
+        pattern=r"^[+-]100Hz$|^[+-][1-9]Hz$|^[+-][1-9][0-9]Hz$|^[+-]0Hz$",
     )
 
 
