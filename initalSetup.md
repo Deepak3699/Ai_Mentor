@@ -23,21 +23,88 @@ all five for the full product.
 
 ## 1. Prerequisites
 
-Check these before you begin.
+Check the prerequisites for the application you want to work on before starting development.
 
-| Requirement                            | How to check                              | Where to get it                                                                                    |
-| -------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **Node.js 18+**                        | `node -v`                                 | https://nodejs.org                                                                                 |
-| **npm**                                | `npm -v`                                  | Comes with Node                                                                                    |
-| **Python 3.10+**                       | `python --version` or `python3 --version` | https://python.org — on Windows, tick **Add Python to PATH** during install                        |
-| **PostgreSQL 14+** _or_ a Neon account | `psql --version`                          | https://postgresql.org or https://neon.tech                                                        |
-| **FFmpeg**                             | `ffmpeg -version`                         | Windows: `winget install ffmpeg` · macOS: `brew install ffmpeg` · Linux: `sudo apt install ffmpeg` |
-| **Git**                                | `git --version`                           | https://git-scm.com                                                                                |
+> `npm run setup` checks for Node.js, npm, Python and FFmpeg for every contributor, and needs `ai_service/backend/.env` with a Gemini API key, even if you only work on one application.
 
-> **FFmpeg is required.** Without it the AI video service cannot merge audio
-> and video. Restart your terminal after installing it.
+| Application    | Port | Connects to                          |
+| -------------- | ---- | ------------------------------------ |
+| BACKEND        | 5000 | PostgreSQL, Redis, AI SERVICE        |
+| FRONTEND       | 5173 | BACKEND                              |
+| BACKEND ADMIN  | 5001 | Same PostgreSQL database, AI SERVICE |
+| FRONTEND ADMIN | 5174 | BACKEND ADMIN                        |
+| AI SERVICE     | 8000 | Used by BACKEND and BACKEND ADMIN    |
 
----
+### BACKEND
+
+| Requirement                    | How to check     |
+| ------------------------------ | ---------------- |
+| Node.js 20.19+ or 22.12+       | `node -v`        |
+| npm                            | `npm -v`         |
+| PostgreSQL 15+ or Neon account | `psql --version` |
+| Git                            | `git --version`  |
+
+**Required to start:** a reachable PostgreSQL database.
+
+**Only for specific features** (the server starts without them):
+
+- Redis or Memurai on port `6379` for queued video generation (`redis-cli --version`)
+- AI SERVICE running, for AI lesson videos
+- Gemini API key, for the AI chat feature
+- Cloudinary, SMTP, Firebase, Stripe and Razorpay accounts, for uploads, emails, Google login and payments
+
+### FRONTEND
+
+| Requirement                 | How to check                                                                                 |
+| --------------------------- | -------------------------------------------------------------------------------------------- |
+| Node.js 20.19+ or 22.12+    | `node -v`                                                                                    |
+| npm                         | `npm -v`                                                                                     |
+| BACKEND started (port 5000) | Open http://localhost:5000/health/live. If BACKEND is running, it shows `{"status":"alive"}` |
+| Firebase web app            | Needed to start the dev server                                                               |
+
+**Only for specific features:** Stripe and Razorpay public keys, for checkout.
+
+### BACKEND ADMIN
+
+| Requirement                         | How to check     |
+| ----------------------------------- | ---------------- |
+| Node.js 20.19+ or 22.12+            | `node -v`        |
+| npm                                 | `npm -v`         |
+| Same PostgreSQL database as BACKEND | `psql --version` |
+| Git                                 | `git --version`  |
+
+**Required to start:** a reachable PostgreSQL database. Start BACKEND first so the tables exist.
+
+**Only for specific features:** AI SERVICE running, for syllabus generation.
+
+BACKEND ADMIN does not need Redis, Stripe, Razorpay, Firebase, Cloudinary or SMTP.
+
+### FRONTEND ADMIN
+
+| Requirement                       | How to check                                                                                       |
+| --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Node.js 20.19+ or 22.12+          | `node -v`                                                                                          |
+| npm                               | `npm -v`                                                                                           |
+| BACKEND ADMIN started (port 5001) | Open http://localhost:5001/health/live. If BACKEND ADMIN is running, it shows `{"status":"alive"}` |
+
+### AI SERVICE
+
+| Requirement                          | How to check                |
+| ------------------------------------ | --------------------------- |
+| Python 3.11+ (available as `python`) | `python --version`          |
+| FFmpeg                               | `ffmpeg -version`           |
+| Git                                  | `git --version`             |
+| Gemini API key                       | Required by `npm run setup` |
+
+**Required to start:** FFmpeg. The service stops at startup without it.
+
+**Only for specific features:**
+
+- Groq API key, as a backup AI provider
+- Cloudinary account (all three values together), for cloud video storage
+- D-ID account, for avatar videos (the local FFmpeg renderer is used without it)
+
+Node.js and npm are needed only to run the root commands.
 
 ## 2. Get the code
 
