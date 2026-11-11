@@ -330,6 +330,37 @@ describe("Analytics study hours bug fix (Issue #404)", () => {
           expect(screen.queryByRole("alert")).toBeNull();
         });
       });
+      it("loads Analytics successfully when optional Certificates API fails", async () => {
+        vi.stubGlobal(
+          "fetch",
+          vi.fn((url) => {
+            if (url.includes("/api/courses")) {
+              return Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve([]),
+              });
+            }
+            if (url.includes("/api/analytics")) {
+              return Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve({ studySessions: [] }),
+              });
+            }
+            if (url.includes("/api/certificate/list")) {
+              return Promise.reject(new Error("Certificates network error"));
+            }
+          }),
+        );
+
+        render(
+          <MemoryRouter>
+            <Analytics />
+          </MemoryRouter>,
+        );
+
+        expect(await screen.findByText("Total Study Time")).toBeDefined();
+        expect(screen.queryByRole("alert")).toBeNull();
+      });
     });
   });
 });
