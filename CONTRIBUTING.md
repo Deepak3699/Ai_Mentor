@@ -49,7 +49,15 @@ Please read and understand this guide carefully before contributing to AI Mentor
 
    If the fast-forward update fails, your local branch may have diverged. Resolve that before continuing; do not force-push to the upstream repository.
 
-4. Install project dependencies:
+4. Review the documentation for the application you plan to contribute to. Each guide covers its architecture, technologies, configuration, and local development setup:
+
+   - [BACKEND](./backend/BACKEND_DOCUMENTATION.md)
+   - [BACKEND ADMIN](./backendAdmin/backendAdmin_Documentation.md)
+   - [FRONTEND](./frontend/FRONTEND_DOCUMENTATION.md)
+   - [FRONTEND ADMIN](./frontendAdmin/FRONTEND_ADMIN_DOCUMENTATION.md)
+   - [AI SERVICE](./ai_service/README.md)
+
+   Then install project dependencies:
 
    ```bash
    npm run setup

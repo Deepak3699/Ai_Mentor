@@ -36,11 +36,14 @@ const originals = {
 let server;
 let baseUrl;
 
+// Payment ids are UUIDs, and the status route rejects anything else.
+const PAYMENT_UUID = crypto.randomUUID();
+
 before(async () => {
   const app = express();
   app.use(express.json());
   app.use("/api/payment", paymentRoutes);
-  app.use("/api/razorpay", razorpayRoutes);
+  app.use("/api/payment/razorpay", razorpayRoutes);
   server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -113,8 +116,25 @@ const request = (path, { userId = "user-1", method = "GET", body } = {}) =>
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
 
+// Asserts the shared validation error shape. `expected` is a list of
+// { location, path } entries that must appear in error.details.
+const expectValidationError = async (res, expected = []) => {
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.success, false);
+  assert.equal(body.error.code, "VALIDATION_ERROR");
+  assert.ok(Array.isArray(body.error.details));
+  for (const { location, path } of expected) {
+    assert.ok(
+      body.error.details.some((d) => d.location === location && d.path === path),
+      `expected ${location}.${path} in ${JSON.stringify(body.error.details)}`,
+    );
+  }
+  return body;
+};
+
 test("payment status returns 404 when the payment does not exist", async () => {
-  const res = await request("/api/payment/status/missing");
+  const res = await request(`/api/payment/status/${PAYMENT_UUID}`);
   assert.equal(res.status, 404);
   assert.deepEqual(await res.json(), {
     success: false,
@@ -123,8 +143,8 @@ test("payment status returns 404 when the payment does not exist", async () => {
 });
 
 test("payment status prevents one user from viewing another user's payment", async () => {
-  Payment.findByPk = async () => ({ id: "payment-1", userId: "owner" });
-  const res = await request("/api/payment/status/payment-1", { userId: "attacker" });
+  Payment.findByPk = async () => ({ id: PAYMENT_UUID, userId: "owner" });
+  const res = await request(`/api/payment/status/${PAYMENT_UUID}`, { userId: "attacker" });
   assert.equal(res.status, 403);
   assert.deepEqual(await res.json(), {
     success: false,
@@ -145,10 +165,10 @@ test("payment status returns only the expected fields to the owner", async () =>
     createdAt: "2026-10-05T00:00:00.000Z",
     secretInternalField: "must-not-leak",
   });
-  const res = await request("/api/payment/status/payment-1", { userId: "owner" });
+  const res = await request(`/api/payment/status/${PAYMENT_UUID}`, { userId: "owner" });
   assert.equal(res.status, 200);
   const data = await res.json();
-  assert.equal(data.paymentId, "payment-1");
+  assert.equal(data.paymentId, PAYMENT_UUID);
   assert.equal(data.amount, 49900);
   assert.equal("secretInternalField" in data, false);
 });
@@ -158,21 +178,13 @@ test("Stripe checkout rejects invalid course data, missing idempotency keys, and
     method: "POST",
     body: { course: {}, idempotencyKey: "key" },
   });
-  assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), {
-    success: false,
-    error: { code: "BAD_REQUEST", message: "Invalid course data", details: [] },
-  });
+  await expectValidationError(res, [{ location: "body", path: "course.id" }]);
 
   res = await request("/api/payment/create-checkout-session", {
     method: "POST",
     body: { course: { id: 1, title: "Course", priceValue: 100 } },
   });
-  assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), {
-    success: false,
-    error: { code: "BAD_REQUEST", message: "idempotencyKey is required", details: [] },
-  });
+  await expectValidationError(res, [{ location: "body", path: "idempotencyKey" }]);
 
   Course.findByPk = async () => null;
   res = await request("/api/payment/create-checkout-session", {
@@ -248,28 +260,20 @@ test("Stripe checkout returns a non-expired cached idempotent response for match
 });
 
 test("Razorpay order rejects invalid course data, missing idempotency keys, and unpublished courses", async () => {
-  let res = await request("/api/razorpay/create-order", {
+  let res = await request("/api/payment/razorpay/create-order", {
     method: "POST",
     body: { course: {}, idempotencyKey: "key" },
   });
-  assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), {
-    success: false,
-    error: { code: "BAD_REQUEST", message: "Invalid course data", details: [] },
-  });
+  await expectValidationError(res, [{ location: "body", path: "course.id" }]);
 
-  res = await request("/api/razorpay/create-order", {
+  res = await request("/api/payment/razorpay/create-order", {
     method: "POST",
     body: { course: { id: 1, priceValue: 100 } },
   });
-  assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), {
-    success: false,
-    error: { code: "BAD_REQUEST", message: "idempotencyKey is required", details: [] },
-  });
+  await expectValidationError(res, [{ location: "body", path: "idempotencyKey" }]);
 
   Course.findByPk = async () => null;
-  res = await request("/api/razorpay/create-order", {
+  res = await request("/api/payment/razorpay/create-order", {
     method: "POST",
     body: { course: { id: 999 }, idempotencyKey: "key" },
   });
@@ -280,7 +284,7 @@ test("Razorpay order rejects invalid course data, missing idempotency keys, and 
   });
 
   Course.findByPk = async () => ({ id: 1, status: "disabled", priceValue: 100 });
-  res = await request("/api/razorpay/create-order", {
+  res = await request("/api/payment/razorpay/create-order", {
     method: "POST",
     body: { course: { id: 1 }, idempotencyKey: "key" },
   });
@@ -291,7 +295,7 @@ test("Razorpay order rejects invalid course data, missing idempotency keys, and 
   });
 
   Course.findByPk = async () => ({ id: 1, status: "published", priceValue: 0 });
-  res = await request("/api/razorpay/create-order", {
+  res = await request("/api/payment/razorpay/create-order", {
     method: "POST",
     body: { course: { id: 1 }, idempotencyKey: "key" },
   });
@@ -311,7 +315,7 @@ test("Razorpay order returns a cached idempotent response for matching user, rej
   Payment.create = async () => {
     createCalls += 1;
   };
-  let res = await request("/api/razorpay/create-order", {
+  let res = await request("/api/payment/razorpay/create-order", {
     method: "POST",
     body: { course: { id: 1, title: "Course", priceValue: 100 }, idempotencyKey: "stable-key" },
   });
@@ -324,7 +328,7 @@ test("Razorpay order returns a cached idempotent response for matching user, rej
     userId: "other-user",
     cachedResponse: { orderId: "order-1", amount: 10000, currency: "INR", paymentId: "payment-1" },
   });
-  res = await request("/api/razorpay/create-order", {
+  res = await request("/api/payment/razorpay/create-order", {
     userId: "user-1",
     method: "POST",
     body: { course: { id: 1, title: "Course", priceValue: 100 }, idempotencyKey: "stable-key" },
@@ -337,14 +341,16 @@ test("Razorpay order returns a cached idempotent response for matching user, rej
 });
 
 test("Razorpay verification rejects missing parameters and invalid signatures before any transaction", async () => {
-  let res = await request("/api/razorpay/verify", { method: "POST", body: {} });
-  assert.equal(res.status, 400);
-  assert.deepEqual(await res.json(), {
-    success: false,
-    error: { code: "BAD_REQUEST", message: "Missing required parameters", details: [] },
-  });
+  let res = await request("/api/payment/razorpay/verify", { method: "POST", body: {} });
+  await expectValidationError(res, [
+    { location: "body", path: "razorpay_order_id" },
+    { location: "body", path: "razorpay_payment_id" },
+    { location: "body", path: "razorpay_signature" },
+    { location: "body", path: "courseId" },
+  ]);
 
-  res = await request("/api/razorpay/verify", {
+  // Passes the schema (it is a string), then fails the HMAC signature check
+  res = await request("/api/payment/razorpay/verify", {
     method: "POST",
     body: {
       razorpay_order_id: "order-1",
@@ -399,6 +405,7 @@ test("Stripe checkout creates and updates a payment using the authenticated user
   assert.equal(updatedData.status, "processing");
   assert.equal(updatedData.stripeSessionId, "session-1");
 });
+
 test("Stripe gateway failure returns 500 after payment creation and marks payment failed", async () => {
   let created = 0;
   let update;
@@ -434,6 +441,7 @@ test("Stripe gateway failure returns 500 after payment creation and marks paymen
     console.error = originalError;
   }
 });
+
 test("Stale payment reconciliation moves expired initiated or processing payments to failed", async () => {
   let updateArgs;
   Payment.update = async (values, options) => {
@@ -468,7 +476,7 @@ test("Stale payment reconciliation moves expired initiated or processing payment
     },
   });
 
-  const res = await request("/api/payment/status/payment-stale", { userId: "owner" });
+  const res = await request(`/api/payment/status/${PAYMENT_UUID}`, { userId: "owner" });
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.equal(body.status, "failed");
@@ -547,7 +555,7 @@ test("Razorpay order creates, caches, and updates a payment", async () => {
     gatewayOptions = options;
     return { id: "order-rzp", amount: options.amount, currency: options.currency };
   };
-  const res = await request("/api/razorpay/create-order", {
+  const res = await request("/api/payment/razorpay/create-order", {
     userId: "owner-rzp",
     method: "POST",
     body: {
@@ -586,7 +594,7 @@ test("Razorpay gateway failure marks the initiated payment failed", async () => 
   console.error = () => {};
   console.log = () => {};
   try {
-    const res = await request("/api/razorpay/create-order", {
+    const res = await request("/api/payment/razorpay/create-order", {
       method: "POST",
       body: { course: { id: 9, title: "Course", priceValue: 250 }, idempotencyKey: "rzp-fail" },
     });
@@ -623,7 +631,7 @@ test("Razorpay verification requires a payment owned by the authenticated user",
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
     .update(`${orderId}|${paymentId}`)
     .digest("hex");
-  const res = await request("/api/razorpay/verify", {
+  const res = await request("/api/payment/razorpay/verify", {
     userId: "owner-1",
     method: "POST",
     body: {
@@ -683,7 +691,7 @@ test("Razorpay verification marks payment successful, enrolls once, and commits"
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
     .update("order-success|payment-success")
     .digest("hex");
-  const res = await request("/api/razorpay/verify", {
+  const res = await request("/api/payment/razorpay/verify", {
     userId: "owner-1",
     method: "POST",
     body: {
@@ -733,7 +741,7 @@ test("Razorpay verification does not duplicate an existing course enrollment", a
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
     .update("order-existing|payment-existing")
     .digest("hex");
-  const res = await request("/api/razorpay/verify", {
+  const res = await request("/api/payment/razorpay/verify", {
     userId: "owner-1",
     method: "POST",
     body: {
@@ -776,7 +784,7 @@ test("Razorpay verification rolls back when the authenticated user is missing", 
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
     .update("order-missing-user|payment-missing-user")
     .digest("hex");
-  const res = await request("/api/razorpay/verify", {
+  const res = await request("/api/payment/razorpay/verify", {
     userId: "missing-user",
     method: "POST",
     body: {
@@ -822,7 +830,7 @@ test("Razorpay verification rolls back and returns 500 on database failure", asy
   console.error = () => {};
   console.log = () => {};
   try {
-    const res = await request("/api/razorpay/verify", {
+    const res = await request("/api/payment/razorpay/verify", {
       userId: "owner-1",
       method: "POST",
       body: {
@@ -844,6 +852,7 @@ test("Razorpay verification rolls back and returns 500 on database failure", asy
     console.log = originalLog;
   }
 });
+
 // ---- Razorpay verify: ownership, course binding, replay and duplicate handling ----
 const verifySignature = (orderId, paymentId) =>
   crypto
@@ -907,7 +916,7 @@ const setupVerify = (payment) => {
 };
 
 const verifyRequest = ({ userId = "owner-1", ...overrides } = {}) =>
-  request("/api/razorpay/verify", {
+  request("/api/payment/razorpay/verify", {
     userId,
     method: "POST",
     body: {
@@ -928,6 +937,7 @@ test("Razorpay verification uses a fixed fallback and never a client-supplied ti
   assert.equal(state.user.purchasedCourses.length, 1);
   assert.equal(state.user.purchasedCourses[0].courseTitle, "Course");
 });
+
 test("Razorpay verify enrolls the stored course and ignores the client-supplied title", async () => {
   const payment = makeStoredPayment();
   const state = setupVerify(payment);
@@ -998,4 +1008,135 @@ test("Razorpay verify duplicate: verifying twice updates, enrolls and notifies o
   assert.equal(state.user.purchasedCourses.length, 1);
   assert.equal(state.user.saves, 1);
   assert.equal(state.notifications, 1);
+});
+
+// ---- Schema validation wiring (the full list of bad values lives in paymentSchema.test.js) ----
+
+const BAD_CREATE_BODIES = [
+  ["empty body", {}],
+  ["missing idempotencyKey", { courseId: 7 }],
+  ["malformed courseId", { courseId: "abc", idempotencyKey: "key-1" }],
+  ["unknown field", { courseId: 7, idempotencyKey: "key-1", amount: 1 }],
+];
+
+for (const endpoint of [
+  "/api/payment/create-checkout-session",
+  "/api/payment/razorpay/create-order",
+]) {
+  for (const [name, body] of BAD_CREATE_BODIES) {
+    test(`${endpoint} rejects ${name} before any lookup or gateway call`, async () => {
+      let calls = 0;
+      const mustNotRun = async () => {
+        calls += 1;
+        throw new Error("must not be reached");
+      };
+      Course.findByPk = mustNotRun;
+      Payment.findOne = mustNotRun;
+      Payment.create = mustNotRun;
+      paymentGatewayServices.createStripeCheckoutSession = mustNotRun;
+      paymentGatewayServices.createRazorpayOrder = mustNotRun;
+
+      const res = await request(endpoint, { method: "POST", body });
+      await expectValidationError(res);
+      assert.equal(calls, 0);
+    });
+  }
+}
+
+test("create-order reports a clear message for a malformed courseId", async () => {
+  const res = await request("/api/payment/razorpay/create-order", {
+    method: "POST",
+    body: { courseId: "abc", idempotencyKey: "x" },
+  });
+  const body = await expectValidationError(res, [{ location: "body", path: "courseId" }]);
+  assert.equal(
+    body.error.details.find((d) => d.path === "courseId").message,
+    "Course ID must be a positive integer",
+  );
+});
+
+const goodVerifyBody = () => ({
+  razorpay_order_id: "order-1",
+  razorpay_payment_id: "payment-1",
+  razorpay_signature: verifySignature("order-1", "payment-1"),
+  courseId: 7,
+});
+
+for (const [name, change] of [
+  ["a missing signature", { razorpay_signature: undefined }],
+  ["an object signature", { razorpay_signature: { a: 1 } }],
+  ["a malformed courseId", { courseId: "0x10" }],
+]) {
+  test(`Razorpay verify rejects ${name} before any transaction`, async () => {
+    let transactions = 0;
+    sequelize.transaction = async () => {
+      transactions += 1;
+      throw new Error("must not be reached");
+    };
+    const res = await request("/api/payment/razorpay/verify", {
+      method: "POST",
+      body: { ...goodVerifyBody(), ...change },
+    });
+    await expectValidationError(res);
+    assert.equal(transactions, 0);
+  });
+}
+
+test("payment status rejects a non-UUID paymentId before the database is queried", async () => {
+  let lookups = 0;
+  Payment.findByPk = async () => {
+    lookups += 1;
+    return null;
+  };
+  const res = await request("/api/payment/status/abc");
+  await expectValidationError(res, [{ location: "params", path: "paymentId" }]);
+  assert.equal(lookups, 0);
+});
+
+test("Regression: a string courseId reaches the course lookup as a number", async () => {
+  let receivedId;
+  Course.findByPk = async (id) => {
+    receivedId = id;
+    return null;
+  };
+  const res = await request("/api/payment/create-checkout-session", {
+    method: "POST",
+    body: { courseId: "7", idempotencyKey: "regression-key" },
+  });
+  assert.equal(res.status, 404); // passed validation, then course not found
+  assert.strictEqual(receivedId, 7);
+});
+
+test("Regression: a valid Stripe request with courseId still succeeds", async () => {
+  Payment.create = async () => ({ id: "payment-ok", async update() {} });
+  paymentGatewayServices.createStripeCheckoutSession = async () => ({
+    id: "session-ok",
+    url: "https://checkout.test/session-ok",
+  });
+  const res = await request("/api/payment/create-checkout-session", {
+    method: "POST",
+    body: { courseId: 7, idempotencyKey: "valid-stripe-key" },
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), {
+    url: "https://checkout.test/session-ok",
+    paymentId: "payment-ok",
+  });
+});
+
+test("Regression: a valid Razorpay request with courseId still succeeds", async () => {
+  Payment.create = async () => ({ id: "payment-ok", async update() {} });
+  paymentGatewayServices.createRazorpayOrder = async (options) => ({
+    id: "order-ok",
+    amount: options.amount,
+    currency: options.currency,
+  });
+  const res = await request("/api/payment/razorpay/create-order", {
+    method: "POST",
+    body: { courseId: 9, idempotencyKey: "valid-rzp-key" },
+  });
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.orderId, "order-ok");
+  assert.equal(data.paymentId, "payment-ok");
 });
