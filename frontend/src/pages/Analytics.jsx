@@ -24,11 +24,12 @@ import {
   Flame,
 } from "lucide-react";
 import { apiFetch as fetch } from "../lib/api";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import FloatingAssistant from "../components/common/FloatingAssistant";
+import ErrorState from "../components/common/ErrorState";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import AchievementsCard from "../components/dashboard/AchievementsCard";
 import StatCard from "../components/StatCard";
@@ -46,6 +47,7 @@ const Analytics = () => {
   const [streak, setStreak] = useState(0);
   const [activeTab, setActiveTab] = useState("courses");
   const [pageLoading, setPageLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const searchQuery = "";
 
   // Initialize dark mode from localStorage
@@ -73,33 +75,64 @@ const Analytics = () => {
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
   // Fetch courses and analytics
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const headers = { Authorization: `Bearer ${token}` };
 
-        const coursesRes = await fetch("/api/courses", { headers });
-        const analyticsRes = await fetch("/api/analytics", { headers });
-        const certificateRes = await fetch("/api/certificate/list", { headers });
+  const loadData = useCallback(async () => {
+    setPageLoading(true);
+    setLoadError(false);
 
-        const coursesData = await coursesRes.json();
-        const analyticsData = await analyticsRes.json();
-        const certificateData = certificateRes.ok ? await certificateRes.json() : null;
+    try {
+      const token = localStorage.getItem("token");
+      const headers = { Authorization: `Bearer ${token}` };
 
-        setCourses(coursesData);
-        setStudySessions(analyticsData.studySessions || []);
-        setCertificateData(certificateData);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setPageLoading(false);
+      const [coursesRes, analyticsRes, certificateRes] = await Promise.all([
+        fetch("/api/courses", { headers }),
+        fetch("/api/analytics", { headers }),
+        fetch("/api/certificate/list", { headers }).catch((err) => {
+          console.error("Optional certificates request failed:", err);
+          return null;
+        }),
+      ]);
+
+      if (!coursesRes.ok) throw new Error("Failed to load courses");
+      if (!analyticsRes.ok) throw new Error("Failed to load analytics");
+
+      const coursesData = await coursesRes.json();
+      const analyticsData = await analyticsRes.json();
+
+      if (!Array.isArray(coursesData)) {
+        throw new Error("Invalid courses response");
       }
-    };
 
-    if (user) fetchData();
-    else setPageLoading(false);
-  }, [user]);
+      let certificateData = null;
+
+      if (certificateRes?.ok) {
+        try {
+          certificateData = await certificateRes.json();
+        } catch (err) {
+          console.error("Optional certificates response failed:", err);
+        }
+      }
+
+      setCourses(coursesData);
+      setStudySessions(
+        Array.isArray(analyticsData.studySessions) ? analyticsData.studySessions : [],
+      );
+      setCertificateData(certificateData);
+    } catch (err) {
+      console.error(err);
+      setLoadError(true);
+    } finally {
+      setPageLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    } else {
+      setPageLoading(false);
+    }
+  }, [user, loadData]);
 
   // Streak calculation
   useEffect(() => {
@@ -252,6 +285,16 @@ const Analytics = () => {
   // Calculate ongoing courses (courses with progress > 0)
   if (pageLoading) {
     return <LoadingSpinner label={t("analytics.loading")} />;
+  }
+  if (loadError) {
+    return (
+      <ErrorState
+        title={t("analytics.error")}
+        message="Please check your connection and try again."
+        onRetry={loadData}
+        retryLabel={t("common.retry", { defaultValue: "Try again" })}
+      />
+    );
   }
 
   return (

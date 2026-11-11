@@ -18,6 +18,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
+import ErrorState from "../components/common/ErrorState";
 import { getErrorMessage } from "../lib/errorHandling.js";
 
 const CertificatesPage = () => {
@@ -26,6 +27,7 @@ const CertificatesPage = () => {
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [downloadingId, setDownloadingId] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -56,25 +58,37 @@ const CertificatesPage = () => {
     };
   }, [showPreview, handleClosePreview]);
 
-  useEffect(() => {
-    const fetchCertificates = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${API_BASE_URL}/api/certificate/list`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          setData(json);
-        }
-      } catch (err) {
-        console.error("Failed to fetch certificates:", err);
-      } finally {
-        setLoading(false);
+  const fetchCertificates = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_BASE_URL}/api/certificate/list`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch certificates");
       }
-    };
-    if (user) fetchCertificates();
-  }, [user]);
+
+      const json = await res.json();
+      setData(json);
+    } catch (err) {
+      console.error("Failed to fetch certificates:", err);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchCertificates();
+    } else {
+      setLoading(false);
+    }
+  }, [user, fetchCertificates]);
 
   const handleDownload = async () => {
     try {
@@ -132,6 +146,16 @@ const CertificatesPage = () => {
 
   if (loading) {
     return <LoadingSpinner label={t("certificates.loading")} />;
+  }
+  if (loadError) {
+    return (
+      <ErrorState
+        title={t("certificates.error")}
+        message="Please check your connection and try again."
+        onRetry={fetchCertificates}
+        retryLabel={t("common.retry", { defaultValue: "Try again" })}
+      />
+    );
   }
 
   return (
