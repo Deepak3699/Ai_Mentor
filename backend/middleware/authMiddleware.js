@@ -13,7 +13,6 @@ class AuthError extends Error {
 }
 
 const logAuthFailure = (scope, classification, error = null) => {
-  // Avoid logging tokens, credentials, or raw internal error messages.
   console.error(
     JSON.stringify({
       event: "auth_failure",
@@ -44,8 +43,6 @@ const sendError = (res, status, code, message, details = []) => {
   return res.status(status).json(toErrorEnvelope(status, code, message, details));
 };
 
-// Shared by protect and optionalProtect.
-// Expects an Authorization header beginning with "Bearer ".
 const authenticate = async (authHeader) => {
   if (!process.env.JWT_SECRET) {
     throw new AuthError(
@@ -57,7 +54,6 @@ const authenticate = async (authHeader) => {
   }
 
   const token = authHeader.split(" ")[1];
-
   let decoded;
 
   try {
@@ -71,7 +67,6 @@ const authenticate = async (authHeader) => {
     );
   }
 
-  // Database errors are intentionally not converted to authentication errors.
   const user = await User.findByPk(decoded.id, {
     attributes: { exclude: ["password"] },
   });
@@ -86,7 +81,6 @@ const authenticate = async (authHeader) => {
 
   if (user.passwordChangedAt) {
     const changedAt = Math.floor(user.passwordChangedAt.getTime() / 1000);
-
     if (changedAt > decoded.iat) {
       throw new AuthError(
         401,
@@ -145,7 +139,7 @@ const optionalProtect = async (req, res, next) => {
 };
 
 const admin = (req, res, next) => {
-  if (req.user && req.user.role === "admin") {
+  if (req.user && (req.user.role === "admin" || req.user.role === "superadmin")) {
     return next();
   }
 

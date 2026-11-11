@@ -38,6 +38,7 @@ import "./models/Notification.js";
 import "./models/Report.js";
 import "./models/modelAssociations.js";
 import "./models/Contactmessage.js";
+import Course from "./models/Course.js";
 
 dotenv.config();
 
@@ -162,6 +163,24 @@ const startServer = async () => {
         ? "[OK] Database schema synchronized (development auto-alter enabled)"
         : "[OK] Database schema synchronized",
     );
+
+    // ================= QUICK TEMPORARY SEED =================
+    // ================= QUICK TEMPORARY SEED =================
+    try {
+      await Course.findOrCreate({
+        where: { title: "Node.js Backend Mastery" },
+        defaults: { 
+          description: "A complete course for testing subtopics",
+          category: "Development",
+          priceValue: 0
+        }
+      });
+      console.log("[OK] Test course verified/seeded successfully.");
+    } catch (seedErr) {
+      console.error("[WARNING] Course seeding skipped/failed:", seedErr.message);
+    }
+    // ========================================================
+    // ========================================================
 
     server = http.createServer(app);
 

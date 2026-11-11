@@ -33,5 +33,13 @@ export const updateLessonVideoSchema = z.object({
 });
 
 export const addSubtopicsSchema = z.object({
-  subtopics: z.array(z.string().min(1)),
+  subtopics: z.array(
+    z.object({
+      title: z.string().min(1, "Subtopic title is required"),
+      goal: z.string().optional(),
+      topics: z.array(z.string()).optional(),
+      tools: z.array(z.string()).optional(),
+      activities: z.array(z.any()).optional(),
+    })
+  ).min(1, "At least one subtopic is required"),
 });

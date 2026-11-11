@@ -407,12 +407,65 @@ const updateLessonVideo = async (_req, _res, next) => {
   );
 };
 
-const addSubtopics = async (_req, _res, next) => {
-  return forwardError(
-    next,
-    _res,
-    new AppError("Not Implemented", 501, "NOT_IMPLEMENTED", [], "addSubtopics not implemented"),
-  );
+/* =========================
+   ADD SUBTOPICS (DB)
+========================= */
+const addSubtopics = async (req, res, next) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { courseId } = req.params;
+    const { subtopics } = req.body;
+
+    // 1. Validate that the requested course exists
+    const course = await Course.findByPk(courseId, { transaction });
+    if (!course) {
+      await transaction.rollback();
+      return forwardError(next, res, new NotFoundError("Course not found"));
+    }
+
+    // 2. Ensure subtopics are provided and is an array
+    if (!Array.isArray(subtopics) || subtopics.length === 0) {
+      await transaction.rollback();
+      return forwardError(next, res, new BadRequestError("Subtopics array is required"));
+    }
+
+    // 3. Map subtopics to include courseId (or moduleId depending on your association setup)
+    // Assuming Subtopic model belongs to Course or Module. Adjust foreign key as per your schema.
+    const subtopicsData = subtopics.map((sub) => ({
+      courseId: course.id,
+      title: sub.title,
+      goal: sub.goal,
+      topics: sub.topics || [],
+      tools: sub.tools || [],
+      activities: sub.activities || [],
+    }));
+
+    // 4. Persist using transaction to avoid partial writes
+    const createdSubtopics = await Subtopic.bulkCreate(subtopicsData, {
+      transaction,
+      validate: true,
+    });
+
+    await transaction.commit();
+    return res.status(201).json({
+      message: "Subtopics added successfully",
+      data: createdSubtopics,
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("ADD SUBTOPICS ERROR:", error);
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to add subtopics",
+      ),
+    );
+  }
 };
 
 const addLessons = async (req, res, next) => {
