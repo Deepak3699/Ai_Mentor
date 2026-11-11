@@ -1,6 +1,3 @@
-import asyncio
-import json
-import os
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -13,26 +10,13 @@ BACKEND_DIR = Path(__file__).resolve().parents[1] / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from backend.schemas.jobs import (
-    GenerateLessonResponse,
-    JobStatusResponse,
-    TranscriptResponse,
-)
+from backend.main import app as main_app
 from backend.schemas.lessons import (
-    ExplainCodeRequest,
-    Flashcard,
-    FlashcardRequest,
     LessonPreferences,
     LessonRequest,
-    QuizQuestion,
-    QuizRequest,
-    QuizResponse,
-    SyllabusRequest,
 )
 from backend.schemas.provider import (
     CodeExplanationResponse,
-    ProviderScriptResult,
-    SyllabusResponse,
 )
 from backend.services.job_tracker import (
     active_jobs,
@@ -40,46 +24,32 @@ from backend.services.job_tracker import (
     compute_cache_key,
     generation_cache,
     get_job_status,
-    get_transcript_content,
     init_job_processing,
     job_status,
     mark_job_failed,
     mark_job_ready,
     queue_job,
-    remove_failed_generation_cache,
     shutdown_failed_jobs,
 )
 from backend.services.media_processor import (
     ALLOWED_CELEBRITIES,
     VIDEO_HEIGHT,
     VIDEO_WIDTH,
-    build_avatar_normalization_args,
     build_fallback_ffmpeg_args,
     build_landscape_video_filter,
-    get_celebrity_video,
 )
 from backend.services.providers.base import (
-    UNTRUSTED_INPUT_INSTRUCTION,
     serialize_user_data,
 )
 from backend.services.providers.gemini_provider import GeminiProvider
 from backend.services.providers.groq_provider import GroqProvider
 from backend.services.providers.manager import (
-    explain_code,
-    generate_flashcards,
     generate_lesson_script,
-    generate_quiz,
-    generate_syllabus,
 )
 from backend.utils.cloud_storage import (
-    configure_cloudinary,
-    upload_subtitle,
-    upload_subtitles,
     upload_video,
 )
-from backend.utils.logging_utils import log_event, short_error
-from backend.utils.subtitles import build_cues, chunk_script, get_audio_duration, write_subtitles
-from backend.main import app as main_app
+from backend.utils.logging_utils import short_error
 
 
 @pytest.fixture(autouse=True)

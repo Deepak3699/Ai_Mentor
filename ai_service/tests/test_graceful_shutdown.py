@@ -12,6 +12,7 @@ LESSON_ENDPOINT_PATH = (
 )
 
 from job_shutdown import wait_for_jobs_to_finish
+
 from backend.services import job_tracker
 
 os.environ.setdefault("GEMINI_API_KEY", "dummy_gemini_key")

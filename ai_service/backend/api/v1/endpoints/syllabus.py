@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+
 from backend.schemas.lessons import SyllabusRequest
 from backend.services.providers import manager as provider_manager
 

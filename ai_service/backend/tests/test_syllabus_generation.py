@@ -24,7 +24,6 @@ from backend.api import (
     generate_syllabus,
 )
 
-
 VALID_SYLLABUS = {
     "modules": [
         {

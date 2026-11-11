@@ -287,7 +287,20 @@ jobs:
 
       - name: Syntax check
         # Imports are not executed here, only compiled, so no API keys are needed.
-        run: python -m compileall -q ai_service/backend/api.py ai_service/backend/config.py
+        # Compile the whole package: the previous file list named
+        # ai_service/backend/api.py, which no longer exists, and compileall
+        # exits 0 for missing files, so the check was a silent no-op.
+        run: python -m compileall -q ai_service
+
+      # Step 1 of the ai_service lint gate (issue #664): report Ruff findings
+      # without failing the build. Step 2 removes continue-on-error once the
+      # gate has soaked, and adds `ruff format --check`.
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Lint with Ruff
+        continue-on-error: true
+        run: ruff check ai_service
 
       - name: Check requirements.txt is valid
         working-directory: ai_service

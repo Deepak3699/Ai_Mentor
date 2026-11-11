@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+
 import backend.services.job_tracker as job_tracker
 import backend.services.lesson_pipeline as lesson_pipeline
 
@@ -21,7 +22,6 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 import api
-
 
 SENSITIVE_EXCEPTION = (
     "token=private-token https://provider.invalid/resource?signature=private-signature "

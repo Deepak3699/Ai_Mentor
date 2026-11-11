@@ -1,9 +1,8 @@
-import os
-import sys
 import asyncio
 import inspect
+import os
+import sys
 from pathlib import Path
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Preserve environment state while importing api with dummy configuration.
@@ -33,8 +32,7 @@ backend_dir = Path(__file__).resolve().parent.parent / "backend"
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-from api import LessonRequest, process_lesson, job_status
-
+from api import LessonRequest, job_status, process_lesson
 
 
 def test_process_lesson_is_async():

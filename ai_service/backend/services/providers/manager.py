@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
+
 from fastapi import HTTPException
 
-from backend.config import GEMINI_MODEL, LLM_TIMEOUT_SECONDS
+from backend.config import LLM_TIMEOUT_SECONDS
 from backend.schemas.lessons import (
     ExplainCodeRequest,
     Flashcard,
@@ -17,25 +18,21 @@ from backend.schemas.lessons import (
 )
 from backend.services.providers.base import (
     UNTRUSTED_INPUT_INSTRUCTION,
-    serialize_user_data,
 )
 from backend.services.providers.gemini_provider import (
     GeminiProvider,
-    gemini_client,
     generate_gemini_content,
-    get_gemini_client,
 )
 from backend.services.providers.groq_provider import (
     GroqProvider,
-    groq_client,
     generate_groq_content,
     get_groq_client,
 )
-from backend.utils.logging_utils import log_event, short_error
 from backend.services.providers.validation import (
     ProviderGenerationError,
     validate_lesson_script,
 )
+from backend.utils.logging_utils import log_event, short_error
 
 logger = logging.getLogger(__name__)
 

@@ -4,13 +4,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+
+import backend.services.lesson_pipeline as lesson_pipeline
 from backend.config import GEMINI_MODEL
 from backend.services.providers import manager as provider_manager
 from backend.services.providers.validation import (
     ProviderGenerationError,
     validate_lesson_script,
 )
-import backend.services.lesson_pipeline as lesson_pipeline
 
 os.environ.setdefault("GEMINI_API_KEY", "dummy_gemini_key")
 os.environ.setdefault("GROQ_API_KEY", "dummy_groq_key")

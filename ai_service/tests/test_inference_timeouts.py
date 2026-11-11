@@ -5,9 +5,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import httpx
 from fastapi.testclient import TestClient
 from groq import APITimeoutError
-import httpx
 
 os.environ.setdefault("GEMINI_API_KEY", "dummy_gemini_key")
 os.environ.setdefault("GROQ_API_KEY", "dummy_groq_key")

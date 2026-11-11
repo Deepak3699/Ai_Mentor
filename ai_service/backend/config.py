@@ -1,6 +1,7 @@
 import os
 
 from dotenv import load_dotenv
+
 if not os.getenv("PYTEST_CURRENT_TEST"):
     load_dotenv(override=False)
 

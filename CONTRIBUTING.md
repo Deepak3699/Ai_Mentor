@@ -69,6 +69,17 @@ cd ai_service
 python -m pytest
 ```
 
+For AI service changes, also run the Python lint gate (Ruff, configured in
+`ai_service/pyproject.toml`) from the repository root:
+
+```bash
+ruff check ai_service
+ruff format --check ai_service
+```
+
+(`ruff format --check` becomes a blocking CI gate in step 2 of issue #664;
+for now, please don't reformat files unrelated to your change.)
+
 For frontend changes, run the production build for the affected application:
 
 ```bash

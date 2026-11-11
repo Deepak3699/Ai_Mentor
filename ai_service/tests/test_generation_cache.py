@@ -2,9 +2,9 @@ import asyncio
 import os
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
-from unittest.mock import patch
 from fastapi import BackgroundTasks
 
 # Preserve environment state while importing api with dummy configuration.
