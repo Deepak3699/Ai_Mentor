@@ -1,4 +1,3 @@
-
 import React from "react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,19 +6,15 @@ import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import LoginPage from "../pages/LoginPage.jsx";
 
-const {
-  mockLogin,
-  mockNavigate,
-  mockAxiosPost,
-  mockToastSuccess,
-  mockToastError,
-} = vi.hoisted(() => ({
-  mockLogin: vi.fn(),
-  mockNavigate: vi.fn(),
-  mockAxiosPost: vi.fn(),
-  mockToastSuccess: vi.fn(),
-  mockToastError: vi.fn(),
-}));
+const { mockLogin, mockNavigate, mockAxiosPost, mockToastSuccess, mockToastError } = vi.hoisted(
+  () => ({
+    mockLogin: vi.fn(),
+    mockNavigate: vi.fn(),
+    mockAxiosPost: vi.fn(),
+    mockToastSuccess: vi.fn(),
+    mockToastError: vi.fn(),
+  }),
+);
 
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({ login: mockLogin }),

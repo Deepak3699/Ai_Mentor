@@ -1,4 +1,3 @@
-
 import React from "react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -7,21 +6,15 @@ import { HelmetProvider } from "react-helmet-async";
 import { MemoryRouter } from "react-router-dom";
 import SignUpPage from "../pages/SignUpPage.jsx";
 
-const {
-  mockLogin,
-  mockNavigate,
-  mockApiFetch,
-  mockToastSuccess,
-  mockToastError,
-  mockToggleTheme,
-} = vi.hoisted(() => ({
-  mockLogin: vi.fn(),
-  mockNavigate: vi.fn(),
-  mockApiFetch: vi.fn(),
-  mockToastSuccess: vi.fn(),
-  mockToastError: vi.fn(),
-  mockToggleTheme: vi.fn(),
-}));
+const { mockLogin, mockNavigate, mockApiFetch, mockToastSuccess, mockToastError, mockToggleTheme } =
+  vi.hoisted(() => ({
+    mockLogin: vi.fn(),
+    mockNavigate: vi.fn(),
+    mockApiFetch: vi.fn(),
+    mockToastSuccess: vi.fn(),
+    mockToastError: vi.fn(),
+    mockToggleTheme: vi.fn(),
+  }));
 
 vi.mock("../context/AuthContext", () => ({
   useAuth: () => ({ login: mockLogin }),
@@ -152,9 +145,7 @@ describe("SignUpPage", () => {
     fireEvent.submit(screen.getByRole("button", { name: "Sign Up" }).closest("form"));
 
     await waitFor(() => {
-      expect(mockToastError).toHaveBeenCalledWith(
-        "Password must contain at least one symbol",
-      );
+      expect(mockToastError).toHaveBeenCalledWith("Password must contain at least one symbol");
     });
 
     expect(mockApiFetch).not.toHaveBeenCalled();
@@ -173,9 +164,7 @@ describe("SignUpPage", () => {
     });
 
     expect(uppercaseItem).toHaveClass("text-green-500");
-    expect(screen.getByText("8+ Characters").parentElement).toHaveClass(
-      "text-green-500",
-    );
+    expect(screen.getByText("8+ Characters").parentElement).toHaveClass("text-green-500");
     expect(screen.getByText("Symbol").parentElement).toHaveClass("text-green-500");
   });
 

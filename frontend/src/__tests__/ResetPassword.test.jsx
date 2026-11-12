@@ -1,4 +1,3 @@
-
 import React from "react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -49,7 +48,7 @@ const renderResetPassword = () =>
   );
 
 const fillResetForm = (password, confirmPassword) => {
-  const inputs = document.querySelectorAll('input');
+  const inputs = document.querySelectorAll("input");
 
   fireEvent.change(inputs[0], {
     target: { value: password },
@@ -75,14 +74,10 @@ describe("ResetPassword", () => {
 
     fillResetForm("Pass1!", "Pass1!");
 
-    fireEvent.submit(
-      screen.getByRole("button", { name: "Reset Password" }).closest("form"),
-    );
+    fireEvent.submit(screen.getByRole("button", { name: "Reset Password" }).closest("form"));
 
     await waitFor(() => {
-      expect(
-        screen.getByText("Password must be at least 8 characters"),
-      ).toBeInTheDocument();
+      expect(screen.getByText("Password must be at least 8 characters")).toBeInTheDocument();
     });
 
     expect(mockAxiosPost).not.toHaveBeenCalled();
@@ -93,9 +88,7 @@ describe("ResetPassword", () => {
 
     fillResetForm("Password1!", "Password2!");
 
-    fireEvent.submit(
-      screen.getByRole("button", { name: "Reset Password" }).closest("form"),
-    );
+    fireEvent.submit(screen.getByRole("button", { name: "Reset Password" }).closest("form"));
 
     await waitFor(() => {
       expect(screen.getByText("Passwords do not match")).toBeInTheDocument();
@@ -111,9 +104,7 @@ describe("ResetPassword", () => {
 
     fillResetForm("Password1!", "Password1!");
 
-    fireEvent.submit(
-      screen.getByRole("button", { name: "Reset Password" }).closest("form"),
-    );
+    fireEvent.submit(screen.getByRole("button", { name: "Reset Password" }).closest("form"));
 
     await waitFor(() => {
       expect(mockAxiosPost).toHaveBeenCalledWith(
@@ -122,9 +113,7 @@ describe("ResetPassword", () => {
       );
 
       expect(
-        screen.getByText(
-          "Password has been reset successfully! Redirecting you to login...",
-        ),
+        screen.getByText("Password has been reset successfully! Redirecting you to login..."),
       ).toBeInTheDocument();
     });
   });
@@ -136,9 +125,7 @@ describe("ResetPassword", () => {
 
     fillResetForm("Password1!", "Password1!");
 
-    fireEvent.submit(
-      screen.getByRole("button", { name: "Reset Password" }).closest("form"),
-    );
+    fireEvent.submit(screen.getByRole("button", { name: "Reset Password" }).closest("form"));
 
     await waitFor(() => {
       expect(screen.getByText("Reset failed")).toBeInTheDocument();

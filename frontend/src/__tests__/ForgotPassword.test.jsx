@@ -1,4 +1,3 @@
-
 import React from "react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -94,10 +93,7 @@ describe("ForgotPassword", () => {
       ).toBeInTheDocument();
     });
 
-    expect(screen.getByRole("link", { name: /Back to Login/i })).toHaveAttribute(
-      "href",
-      "/login",
-    );
+    expect(screen.getByRole("link", { name: /Back to Login/i })).toHaveAttribute("href", "/login");
   });
 
   it("shows an error when the forgot password API fails", async () => {
@@ -119,9 +115,6 @@ describe("ForgotPassword", () => {
   it("provides a Back to Login link before submitting the form", () => {
     renderForgotPassword();
 
-    expect(screen.getByRole("link", { name: /Back to Login/i })).toHaveAttribute(
-      "href",
-      "/login",
-    );
+    expect(screen.getByRole("link", { name: /Back to Login/i })).toHaveAttribute("href", "/login");
   });
 });
