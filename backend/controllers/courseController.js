@@ -312,8 +312,75 @@ const updateLessonVideo = async (req, res) => {
   res.status(501).json({ message: "updateLessonVideo not implemented" });
 };
 
+const logSubtopicFailure = (classification) => {
+  console.error(JSON.stringify({ event: "subtopic_failure", classification }));
+};
+
 const addSubtopics = async (req, res) => {
-  res.status(501).json({ message: "addSubtopics not implemented" });
+  try {
+    const { courseId } = req.params;
+    const { moduleId, subtopics } = req.body;
+
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    const module = await Module.findOne({ where: { id: moduleId, courseId } });
+    if (!module) {
+      return res.status(404).json({ message: "Module not found for this course" });
+    }
+
+    const created = await sequelize.transaction(async (transaction) => {
+      const maxOrder =
+        (await Lesson.max("order", {
+          where: { moduleId },
+          transaction,
+        })) || 0;
+
+      const results = [];
+      for (const [index, subtopic] of subtopics.entries()) {
+        const topics = subtopic.topics ?? [];
+        const tools = subtopic.tools ?? [];
+        const activities = subtopic.activities ?? [];
+
+        const lesson = await Lesson.create(
+          {
+            moduleId,
+            title: subtopic.title,
+            duration: "5 mins",
+            type: "text",
+            order: maxOrder + index + 1,
+          },
+          { transaction },
+        );
+
+        await LessonContent.create(
+          {
+            lessonId: lesson.id,
+            introduction: subtopic.goal ?? null,
+            keyConcepts: { topics, tools, activities },
+          },
+          { transaction },
+        );
+
+        results.push({
+          id: lesson.id,
+          title: subtopic.title,
+          goal: subtopic.goal ?? null,
+          topics,
+          tools,
+          activities,
+        });
+      }
+      return results;
+    });
+
+    return res.status(201).json(created);
+  } catch {
+    logSubtopicFailure("persistence_error");
+    return res.status(500).json({ message: "Failed to add subtopics" });
+  }
 };
 
 const addLessons = async (req, res) => {
