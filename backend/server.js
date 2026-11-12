@@ -1,4 +1,3 @@
-// backend/server.js
 import express from "express";
 import http from "node:http";
 import dotenv from "dotenv";
@@ -8,6 +7,7 @@ import { fileURLToPath } from "url";
 import healthRoutes from "./routes/healthRoutes.js";
 
 import { connectDB, closeDB, sequelize } from "./config/db.js";
+import { createGracefulShutdown } from "./gracefulShutdown.js";
 
 // ================= ROUTES =================
 import authRoutes from "./routes/auth.js";
@@ -44,6 +44,8 @@ dotenv.config();
 
 import { validateEnv } from "./env-validator.js";
 import { securityHeaders } from "./config/securityHeaders.js";
+import requestContext from "./middleware/requestContext.js";
+import { errorHandler } from "./middleware/errorMiddleware.js";
 
 validateEnv();
 
@@ -68,12 +70,15 @@ const defaultDevOrigins = [
 
 const allowedOrigins = Array.from(new Set([...envOrigins, ...defaultDevOrigins]));
 
+// Request ID first, so every response and log line has one.
+app.use(requestContext);
+
 app.use(securityHeaders());
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without origin (Postman, mobile apps, curl)
+      // Allow requests without origin (Postman, mobile apps, curl).
       if (!origin) {
         return callback(null, true);
       }
@@ -82,21 +87,26 @@ app.use(
         return callback(null, true);
       }
 
-      // Allow any localhost/127.0.0.1 origin in development
+      // Allow localhost/127.0.0.1 origins in development.
       if (process.env.NODE_ENV !== "production") {
         if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
           return callback(null, true);
         }
       }
 
-      console.error(`❌ Blocked by CORS: ${origin}`);
-      return callback(new Error("Not allowed by CORS"));
+      console.warn("Blocked by CORS");
+      const corsError = new Error("Not allowed by CORS");
+      corsError.status = 403;
+      corsError.expose = true;
+
+      return callback(corsError);
     },
     credentials: true,
   }),
 );
 
-// ================= STRIPE WEBHOOK (MUST BE BEFORE express.json) =================
+// ================= STRIPE WEBHOOK =================
+// These routes must be before express.json().
 app.use("/api/stripe", webhookRoutes);
 app.use("/api/payment", webhookRoutes);
 
@@ -136,21 +146,43 @@ app.use("/api/chat", chatRoutes);
 app.use("/api/assistant", assistantRoutes);
 app.use("/api/calendar", CalendarTaskRoutes);
 
-import { errorHandler, notFoundMiddleware } from "./middleware/errorMiddleware.js";
 // ================= 404 HANDLER =================
-app.use(notFoundMiddleware);
-// ================= GLOBAL ERROR HANDLER =================
+app.use((req, res) => {
+  return res.status(404).json({
+    success: false,
+    message: "Route not found",
+    requestId: req.id,
+  });
+});
+
+// ================= GLOBAL ERROR HANDLER (must be last) =================
 app.use(errorHandler);
 
 // ================= SERVER START =================
 const PORT = process.env.PORT || 5000;
 let server; // Keep reference to server globally for graceful shutdown handlers
 
+const SHUTDOWN_TIMEOUT = 10_000;
+const shutdown = createGracefulShutdown({
+  getServer: () => server,
+  database: sequelize,
+  timeoutMs: SHUTDOWN_TIMEOUT,
+});
+
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
+process.once("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+
 const startServer = async () => {
   try {
     console.log("[STARTING] Backend startup");
     console.log("[CHECK] Connecting to database...");
+
     await connectDB();
+
     console.log("[OK] Database connected");
 
     const isDevelopment = process.env.NODE_ENV !== "production";
@@ -164,7 +196,6 @@ const startServer = async () => {
         : "[OK] Database schema synchronized",
     );
 
-    // ================= QUICK TEMPORARY SEED =================
     // ================= QUICK TEMPORARY SEED =================
     try {
       await Course.findOrCreate({
@@ -180,14 +211,16 @@ const startServer = async () => {
       console.error("[WARNING] Course seeding skipped/failed:", seedErr.message);
     }
     // ========================================================
-    // ========================================================
 
     server = http.createServer(app);
 
     server.requestTimeout = 120_000;
     server.headersTimeout = 65_000;
     server.keepAliveTimeout = 60_000;
-
+    server.on("error", () => {
+      console.error("[FAILED] Backend HTTP server error.");
+      process.exitCode = 1;
+    });
     server.listen(PORT, () => {
       console.log(`[READY] Backend: http://localhost:${PORT}`);
       console.log(`[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`);
@@ -199,56 +232,8 @@ const startServer = async () => {
   }
 };
 
-// ================= GRACEFUL SHUTDOWN (Issue #127) =================
-let isShuttingDown = false;
-
-const gracefulShutdown = (signal) => {
-  if (isShuttingDown) return;
-  isShuttingDown = true;
-  console.log(`\n[INFO] Received ${signal}. Starting graceful shutdown...`);
-
-  // Force exit fallback timer (10 seconds)
-  const forceExitTimeout = setTimeout(() => {
-    console.error("[ERROR] Forced shutdown: Could not close connections in time.");
-    process.exit(1);
-  }, 10_000);
-
-  if (!server) {
-    console.log("[INFO] Server instance not initialized. Closing DB directly.");
-    closeDB()
-      .then(() => process.exit(0))
-      .catch(() => process.exit(1));
-    return;
-  }
-
-  // Stop accepting new connections
-  server.close(async (err) => {
-    if (err) {
-      console.error("[ERROR] Error closing HTTP server:", err);
-      clearTimeout(forceExitTimeout);
-      process.exit(1);
-    }
-
-    console.log("[OK] HTTP server closed cleanly.");
-
-    try {
-      // Close database connection pool
-      await closeDB();
-      clearTimeout(forceExitTimeout);
-      console.log("[OK] Graceful shutdown completed successfully.");
-      process.exit(0);
-    } catch (dbErr) {
-      console.error("[ERROR] Error during database closure:", dbErr);
-      clearTimeout(forceExitTimeout);
-      process.exit(1);
-    }
-  });
-};
-
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-
 if (process.env.NODE_ENV !== "test") {
   startServer();
 }
+
 export default app;

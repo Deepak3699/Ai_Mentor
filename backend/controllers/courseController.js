@@ -8,7 +8,7 @@ import {
   NotFoundError,
   forwardError,
 } from "../utils/error.js";
-
+import Subtopic from "../models/Subtopic.js";
 /* =========================
    HELPERS
 ========================= */

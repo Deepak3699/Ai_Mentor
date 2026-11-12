@@ -1,6 +1,7 @@
 // backendAdmin/server.js
 import express from "express";
 import http from "node:http";
+import { createGracefulShutdown } from "../backend/gracefulShutdown.js";
 import dotenv from "dotenv";
 import cors from "cors";
 import healthRoutes from "./routes/healthRoutes.js";
@@ -71,6 +72,23 @@ app.use((err, req, res, _next) => {
 const PORT = process.env.PORT || 5001;
 let server; // Keep reference to server globally for graceful shutdown handlers
 
+const SHUTDOWN_TIMEOUT = 10_000;
+const shutdown = createGracefulShutdown({
+  getServer: () => server,
+  database: sequelize,
+  timeoutMs: SHUTDOWN_TIMEOUT,
+  beforeClose: () => {
+    if (!shutdownController.signal.aborted) shutdownController.abort();
+  },
+});
+
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM");
+});
+process.once("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+
 const startServer = async () => {
   try {
     console.log("[STARTING] Admin backend startup");
@@ -83,18 +101,14 @@ const startServer = async () => {
     server.requestTimeout = 120_000;
     server.headersTimeout = 65_000;
     server.keepAliveTimeout = 60_000;
+    server.on("error", () => {
+      console.error("[FAILED] Admin backend HTTP server error.");
+      process.exitCode = 1;
+    });
 
     server.listen(PORT, () => {
       console.log(`[READY] Admin backend: http://localhost:${PORT}`);
     });
-
-    const shutdown = () => {
-      if (shutdownController.signal.aborted) return;
-      shutdownController.abort();
-      server.close(() => sequelize.close());
-    };
-    process.once("SIGINT", shutdown);
-    process.once("SIGTERM", shutdown);
   } catch (error) {
     console.error("[FAILED] Admin backend startup failed:", error.message);
     process.exit(1);
