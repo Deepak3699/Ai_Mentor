@@ -1,12 +1,15 @@
 import os
 
 from dotenv import load_dotenv
-
-load_dotenv()
+if not os.getenv("PYTEST_CURRENT_TEST"):
+    load_dotenv(override=False)
 
 # Required: Primary AI provider
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+# LLM call timeout in seconds
+LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "60") or "60")
 
 # Optional: Fallback AI provider
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")

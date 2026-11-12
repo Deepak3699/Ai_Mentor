@@ -29,6 +29,13 @@ def test_config_imports_without_external_credentials(monkeypatch):
     assert not config.GEMINI_API_KEY
     assert not config.GROQ_API_KEY
     assert config.GEMINI_MODEL == "gemini-2.5-flash"
+    assert config.LLM_TIMEOUT_SECONDS == 60
+
+
+def test_config_custom_llm_timeout(monkeypatch):
+    monkeypatch.setenv("LLM_TIMEOUT_SECONDS", "45")
+    config = import_config(monkeypatch)
+    assert config.LLM_TIMEOUT_SECONDS == 45
 
 
 def test_validate_config_reports_missing_gemini_key_first(monkeypatch):

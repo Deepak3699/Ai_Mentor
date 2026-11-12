@@ -1,14 +1,15 @@
 import User from "../models/User.js";
+import { AppError, NotFoundError, forwardError } from "../utils/error.js";
 
 // @desc    Get user analytics
 // @route   GET /api/analytics
 // @access  Private
-const getUserAnalytics = async (req, res) => {
+const getUserAnalytics = async (req, res, next) => {
   try {
     const user = await User.findByPk(req.user.id);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return forwardError(next, res, new NotFoundError("User not found"));
     }
 
     // ✅ Ensure analytics exists
@@ -28,21 +29,31 @@ const getUserAnalytics = async (req, res) => {
     });
   } catch (error) {
     console.error("ANALYTICS ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Analytics lookup failed",
+      ),
+    );
   }
 };
 
 // @desc    Record study session
 // @route   POST /api/analytics/study-session
 // @access  Private
-const recordStudySession = async (req, res) => {
+const recordStudySession = async (req, res, next) => {
   try {
     const { hours, date } = req.body;
 
     const user = await User.findByPk(req.user.id);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return forwardError(next, res, new NotFoundError("User not found"));
     }
 
     // ✅ Ensure analytics object exists
@@ -88,7 +99,17 @@ const recordStudySession = async (req, res) => {
     });
   } catch (error) {
     console.error("STUDY SESSION ERROR:", error);
-    res.status(500).json({ message: "Server error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Study session update failed",
+      ),
+    );
   }
 };
 

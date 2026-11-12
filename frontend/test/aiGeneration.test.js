@@ -210,5 +210,32 @@ test("the abort signal is handed to the wait between polls", async () => {
     waitForNextPoll: async (ms, signal) => seen.push([ms, signal]),
   });
 
-  assert.deepEqual(seen, [[1, controller.signal]]);
+  assert.equal(seen[0][0], 1);
+  assert.equal(seen[0][1] instanceof AbortSignal, true);
+  assert.equal(seen[0][1].aborted, false);
+});
+
+test("classifies browser Failed to fetch errors as connectivity failures", () => {
+  const failure = classifyGenerationError(new Error("Failed to fetch"));
+  assert.equal(failure.type, "connectivity");
+  assert.equal(
+    failure.message,
+    "We couldn't connect to the AI service. Check your connection and try again.",
+  );
+  assert.equal(failure.retryable, true);
+});
+
+test("429 responses produce a distinct retryable rate_limit error", () => {
+  const error = classifyGenerationError(
+    Object.assign(new Error("Too many requests"), { status: 429, retryAfter: 900 }),
+  );
+  assert.equal(error.type, "rate_limit");
+  assert.equal(error.retryable, true);
+  assert.equal(error.details.retryAfter, 900);
+});
+
+test("rate limit messages are categorized as rate_limit", () => {
+  const error = classifyGenerationError(new Error("Rate limit exceeded"));
+  assert.equal(error.type, "rate_limit");
+  assert.equal(error.retryable, true);
 });

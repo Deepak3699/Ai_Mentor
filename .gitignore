@@ -46,6 +46,9 @@ frontend/.vite
 .DS_Store
 Thumbs.db
 .vscode/
+!.vscode/
+.vscode/*
+!.vscode/settings.json
 .idea/
 
 # =====================
@@ -71,3 +74,9 @@ start_ai.bat
 # Runtime user uploads
 /backend/uploads/*
 !/backend/uploads/.gitkeep
+
+# Local Python virtual environment
+ai_service/.venv/
+
+# Update plan
+update.md

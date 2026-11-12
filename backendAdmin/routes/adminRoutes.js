@@ -16,7 +16,7 @@ import {
   deleteCourseHard,
   getCourseEnrollments,
   getCourseSyllabus,
-  generateCourseSyllabusWithAI,
+  generateCourseSyllabus,
 } from "../controllers/courseController.js";
 import {
   getAllUsers,
@@ -45,11 +45,12 @@ import {
   deleteReport,
 } from "../controllers/courseReportsController.js";
 import { protectAdmin, superAdminOnly } from "../middleware/adminAuthMiddleware.js";
+import { adminLoginLimiter } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 
 // Public routes
-router.post("/login", loginAdmin);
+router.post("/login", adminLoginLimiter, loginAdmin);
 
 // Protected routes
 router.post("/register", protectAdmin, superAdminOnly, registerAdmin);
@@ -67,7 +68,7 @@ router.patch("/courses/:id/status", protectAdmin, updateCourseStatus);
 router.delete("/courses/:id", protectAdmin, superAdminOnly, deleteCourseHard);
 router.get("/courses/:id/enrollments", protectAdmin, getCourseEnrollments);
 router.get("/courses/:id/learning", protectAdmin, getCourseSyllabus);
-router.post("/courses/:id/generate-syllabus", protectAdmin, generateCourseSyllabusWithAI);
+router.post("/courses/:id/generate-syllabus", protectAdmin, generateCourseSyllabus);
 router.get("/users", protectAdmin, getAllUsers);
 router.patch("/users/:id/status", protectAdmin, superAdminOnly, updateUserStatus);
 router.patch("/users/:id/block", protectAdmin, superAdminOnly, toggleUserBlock);

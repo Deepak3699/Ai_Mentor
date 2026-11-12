@@ -26,6 +26,7 @@ import i18n from "../i18n/index.js";
 import FloatingAssistant from "../components/common/FloatingAssistant.jsx";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import API_BASE_URL from "../lib/api";
+import { getErrorMessage } from "../lib/errorHandling.js";
 
 const resolveAvatarUrl = (avatarUrl) => {
   if (!avatarUrl || typeof avatarUrl !== "string") return null;
@@ -293,7 +294,7 @@ export default function Settings() {
       setDeletePopup(true);
     } catch (error) {
       console.error("Delete error", error);
-      toast.error(error.response?.data?.message || "Failed to delete account. Please try again.");
+      toast.error(getErrorMessage(error, "Failed to delete account. Please try again."));
     } finally {
       setDeleting(false);
     }
@@ -321,7 +322,7 @@ export default function Settings() {
       toast.success("Profile photo removed.");
     } catch (error) {
       console.error("Error removing profile photo:", error.response?.data || error);
-      toast.error(error.response?.data?.message || "Failed to remove profile photo.");
+      toast.error(getErrorMessage(error, "Failed to remove profile photo."));
     } finally {
       setAvatarRemoving(false);
     }
@@ -364,7 +365,7 @@ export default function Settings() {
       setProfilePopup(true);
     } catch (error) {
       console.error("Error updating profile:", error.response?.data || error);
-      toast.error(error.response?.data?.message || "Failed to update profile.");
+      toast.error(getErrorMessage(error, "Failed to update profile."));
       setFormData({
         firstName: user.firstName || "",
         lastName: user.lastName || "",
@@ -407,7 +408,7 @@ export default function Settings() {
         setContactForm({ subject: "", message: "" });
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to send message");
+      toast.error(getErrorMessage(error, "Failed to send message"));
     } finally {
       setLoading(false);
     }
@@ -989,7 +990,7 @@ export default function Settings() {
                   confirmPassword: "",
                 });
               } catch (error) {
-                toast.error(error.response?.data?.message || "Failed to update password");
+                toast.error(getErrorMessage(error, "Failed to update password"));
               } finally {
                 setLoading(false);
               }
