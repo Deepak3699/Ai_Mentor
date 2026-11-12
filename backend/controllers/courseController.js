@@ -462,7 +462,6 @@ const addSubtopics = async (req, res, next) => {
     return sendServerError(req, res, error, "courseController.addSubtopics");
   }
 };
-};
 
 const hasValidTitledItems = (items) =>
   Array.isArray(items) &&
