@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 import API_BASE_URL, { apiFetch as fetch } from "../lib/api";
 import { createElement, useState, useEffect, useRef, useCallback } from "react";
+=======
+import { useState, useEffect, useRef, useCallback, useId } from "react";
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
@@ -29,6 +33,7 @@ import {
   Scale,
 } from "lucide-react";
 import FloatingAssistant from "../components/common/FloatingAssistant";
+<<<<<<< HEAD
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import DiscussionSidebar from "../components/discussions/DiscussionSidebar";
 import { getErrorMessage } from "../lib/errorHandling.js";
@@ -68,6 +73,9 @@ const CourseArtwork = ({ title, compact = false }) => {
     </span>
   );
 };
+=======
+import Modal from "../components/common/Modal";
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
 
 //helpers
 const getRelativeTime = (dateStr) => {
@@ -136,6 +144,10 @@ const categoryColorMap = {
 
 //main component
 const DiscussionsPage = () => {
+  const noticeModalTitleId = useId();
+  const reportModalTitleId = useId();
+  const reportSuccessTitleId = useId();
+  const reportAlreadyExistsTitleId = useId();
   const location = useLocation();
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -2766,11 +2778,20 @@ const DiscussionsPage = () => {
       </div>
 
       {/* Popup Modal */}
+<<<<<<< HEAD
       {popupModal.open && (
         <div className="fixed inset-0 z-160 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 ui-overlay-motion">
+=======
+      <Modal
+        open={popupModal.open}
+        onClose={closePopupModal}
+        labelledBy={noticeModalTitleId}
+        className="fixed inset-0 z-160 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-4"
+      >
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-xs sm:max-w-sm md:max-w-md">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h3 className="font-bold text-main text-base">{popupModal.title || "Notice"}</h3>
+              <h3 id={noticeModalTitleId} className="font-bold text-main text-base">{popupModal.title || "Notice"}</h3>
               <button
                 onClick={closePopupModal}
                 className="text-muted hover:text-main transition-colors"
@@ -2788,6 +2809,7 @@ const DiscussionsPage = () => {
               {popupModal.cancelText && (
                 <button
                   onClick={closePopupModal}
+                  autoFocus={Boolean(popupModal.cancelText)}
                   className="px-4 py-2 text-sm font-medium text-muted border border-border rounded-lg hover:text-main hover:border-main/30 transition-colors"
                 >
                   {popupModal.cancelText}
@@ -2795,6 +2817,7 @@ const DiscussionsPage = () => {
               )}
               <button
                 onClick={handlePopupConfirm}
+                autoFocus={!popupModal.cancelText}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                   popupModal.cancelText
                     ? "bg-red-500 text-white hover:bg-red-600"
@@ -2805,14 +2828,27 @@ const DiscussionsPage = () => {
               </button>
             </div>
           </div>
+<<<<<<< HEAD
         </div>
       )}
       {reportModal.open && (
         <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
+=======
+      </Modal>
+      <Modal
+        open={reportModal.open}
+        onClose={() => {
+          setReportModal({ open: false, postId: null, replyId: null });
+          setReportDescription("");
+        }}
+        labelledBy={reportModalTitleId}
+        className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      >
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md">
             {/* Header */}
             <div className="px-5 pt-5 pb-1">
-              <h3 className="font-bold text-main text-lg">Report Content</h3>
+              <h3 id={reportModalTitleId} className="font-bold text-main text-lg">Report Content</h3>
               <p className="text-muted text-sm mt-1">
                 Help us maintain a safe community. Please provide a reason for reporting.
               </p>
@@ -2822,6 +2858,7 @@ const DiscussionsPage = () => {
 
             <div className="px-5 py-4">
               <textarea
+                autoFocus
                 value={reportDescription}
                 onChange={(e) => setReportDescription(e.target.value)}
                 placeholder="Describe the issue (spam, harassment, inappropriate content, etc.)"
@@ -2857,17 +2894,28 @@ const DiscussionsPage = () => {
               </button>
             </div>
           </div>
+<<<<<<< HEAD
         </div>
       )}
 
       {reportSuccess && (
         <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
+=======
+      </Modal>
+      <Modal
+        open={reportSuccess}
+        onClose={() => setReportSuccess(false)}
+        labelledBy={reportSuccessTitleId}
+        className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      >
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h3 className="font-bold text-main text-base">Report</h3>
+              <h3 id={reportSuccessTitleId} className="font-bold text-main text-base">Report</h3>
               <button
                 onClick={() => setReportSuccess(false)}
+                aria-label="Close report confirmation"
                 className="text-muted hover:text-main transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -2909,6 +2957,7 @@ const DiscussionsPage = () => {
             {/* Footer */}
             <div className="px-4 pb-4">
               <button
+                autoFocus
                 onClick={() => setReportSuccess(false)}
                 className="w-full py-2 bg-blue-500 text-white text-sm font-semibold rounded-lg hover:bg-blue-600 transition-colors"
               >
@@ -2916,11 +2965,21 @@ const DiscussionsPage = () => {
               </button>
             </div>
           </div>
+<<<<<<< HEAD
         </div>
       )}
 
       {reportAlreadyExists && (
         <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
+=======
+      </Modal>
+      <Modal
+        open={reportAlreadyExists}
+        onClose={() => setReportAlreadyExists(false)}
+        labelledBy={reportAlreadyExistsTitleId}
+        className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      >
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm">
             <div className="px-5 py-6 text-center space-y-3">
               <div className="flex justify-center">
@@ -2928,13 +2987,20 @@ const DiscussionsPage = () => {
                   <AlertTriangle className="w-7 h-7 text-yellow-500" />
                 </div>
               </div>
+<<<<<<< HEAD
               <h4 className="text-base font-bold text-main">Already Reported</h4>
+=======
+              <h4 id={reportAlreadyExistsTitleId} className="text-base font-bold text-main">
+                Already Reported
+              </h4>
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
               <p className="text-sm text-muted">
                 You have already reported this content. Our team will review it shortly.
               </p>
             </div>
             <div className="px-5 pb-5">
               <button
+                autoFocus
                 onClick={() => setReportAlreadyExists(false)}
                 className="w-full py-2 bg-blue-500 text-white text-sm font-semibold rounded-lg hover:bg-blue-600 transition-colors"
               >
@@ -2942,8 +3008,7 @@ const DiscussionsPage = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </>
   );
 };

@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useId, useState, useEffect } from "react";
 import axios from "axios";
 import { ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
+<<<<<<< HEAD
 import LoadingSpinner from "./common/LoadingSpinner";
 import { getErrorMessage } from "../lib/errorHandling.js";
+=======
+import Modal from "./common/Modal";
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
 
 export const WIZARD_STEPS = [
   {
@@ -103,6 +107,7 @@ const ProgressBar = ({ current, total }) => {
 };
 
 export default function Preferences({ mode = "modal", onSuccess }) {
+  const modalTitleId = useId();
   const { t } = useTranslation();
   const currentToken = localStorage.getItem("token");
 
@@ -219,6 +224,7 @@ export default function Preferences({ mode = "modal", onSuccess }) {
     fetchPreferences();
   }, [currentToken]);
 
+<<<<<<< HEAD
   useEffect(() => {
     if (mode === "modal" && !loading && !hasExisting && !isSkipped) {
       document.body.style.overflow = "hidden";
@@ -228,6 +234,8 @@ export default function Preferences({ mode = "modal", onSuccess }) {
     }
   }, [mode, loading, hasExisting, isSkipped]);
 
+=======
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
   const handleSave = async () => {
     setIsSaving(true);
     setError("");
@@ -330,6 +338,7 @@ export default function Preferences({ mode = "modal", onSuccess }) {
       <div className={`${isModal ? "p-8 flex flex-col h-full min-h-0" : "p-5 sm:p-6"}`}>
         {isModal && (
           <div className="mb-6 shrink-0">
+<<<<<<< HEAD
             <h4 className="text-[12px] font-bold text-blue-600 dark:text-blue-500 tracking-wider uppercase mb-2">
               QUICK SETUP
             </h4>
@@ -339,6 +348,11 @@ export default function Preferences({ mode = "modal", onSuccess }) {
             <p className="text-gray-500 dark:text-gray-400 text-[15px]">
               {t("preferences.modal_subtitle")}
             </p>
+=======
+            <h4 className="text-[12px] font-bold text-blue-600 dark:text-blue-500 tracking-wider uppercase mb-2">QUICK SETUP</h4>
+            <h2 id={modalTitleId} className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white mb-2 font-sans tracking-tight">{t("preferences.modal_title")}</h2>
+            <p className="text-gray-500 dark:text-gray-400 text-[15px]">{t("preferences.modal_subtitle")}</p>
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
           </div>
         )}
 
@@ -423,6 +437,7 @@ export default function Preferences({ mode = "modal", onSuccess }) {
 
   if (isModal) {
     return (
+<<<<<<< HEAD
       <div
         className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm p-4 sm:p-6 ui-overlay-motion"
         style={{ overscrollBehavior: "contain" }}
@@ -431,6 +446,16 @@ export default function Preferences({ mode = "modal", onSuccess }) {
           {renderContent()}
         </div>
       </div>
+=======
+      <Modal
+        open
+        onClose={handleSkip}
+        labelledBy={modalTitleId}
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm dark:bg-slate-950/80 sm:p-6"
+      >
+        <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[24px] shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">{renderContent()}</div>
+      </Modal>
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
     );
   }
 

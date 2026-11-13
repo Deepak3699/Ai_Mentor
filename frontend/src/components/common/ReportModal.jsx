@@ -1,7 +1,13 @@
+<<<<<<< HEAD
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, X } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
+=======
+import React, { useId, useState } from "react";
+import { ArrowDown, X } from "lucide-react";
+import Modal from "./Modal";
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
 
 const ReportModal = ({
   show,
@@ -18,6 +24,7 @@ const ReportModal = ({
   setSelectedCourse,
   loading,
 }) => {
+  const modalTitleId = useId();
   const [openDropdown, setOpenDropdown] = useState(false);
   const [openCourseDropdown, setOpenCourseDropdown] = useState(false);
   const [openSubDropdown, setOpenSubDropdown] = useState(false);
@@ -87,6 +94,7 @@ const ReportModal = ({
     ],
   };
 
+<<<<<<< HEAD
   if (!shouldRender) return null;
 
   return createPortal(
@@ -106,12 +114,34 @@ const ReportModal = ({
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <LoadingSpinner variant="compact" label="Submitting report" />
             <p className="text-sm text-gray-600 dark:text-gray-300">Submitting report...</p>
+=======
+  return (
+    <Modal
+      open={show}
+      onClose={onClose}
+      labelledBy={modalTitleId}
+      dismissOnBackdrop
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm"
+    >
+      <div
+        className="relative w-full max-w-md bg-white/90 dark:bg-black/50 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-2xl"
+      >
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <h2 id={modalTitleId} className="sr-only">
+              Report an Issue
+            </h2>
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-500"></div>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Submitting report...
+            </p>
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
           </div>
         ) : (
           <>
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                <h2 id={modalTitleId} className="text-xl font-semibold text-gray-900 dark:text-white">
                   Report an Issue
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -120,7 +150,12 @@ const ReportModal = ({
               </div>
 
               <button
+<<<<<<< HEAD
                 onClick={requestClose}
+=======
+                onClick={onClose}
+                aria-label="Close report dialog"
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
                 className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 transition"
               >
                 <X className="w-4 h-4 text-gray-700 dark:text-white" />
@@ -133,6 +168,7 @@ const ReportModal = ({
               </label>
 
               <button
+<<<<<<< HEAD
                 onClick={() => {
                   setOpenDropdown(!openDropdown);
                   setOpenCourseDropdown(false);
@@ -140,6 +176,12 @@ const ReportModal = ({
                 }}
                 data-report-dropdown
                 className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-[#3867D6] focus:border-[#3867D6] transition"
+=======
+                onClick={() => setOpenDropdown(!openDropdown)}
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown}
+                className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-teal-400 transition"
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
               >
                 {reportType}
                 <ChevronDown
@@ -148,12 +190,19 @@ const ReportModal = ({
               </button>
 
               {openDropdown && (
+<<<<<<< HEAD
                 <div
                   className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-border bg-card text-main shadow-xl ui-popover-surface"
                   data-report-dropdown
                 >
+=======
+                <div role="listbox" className="absolute mt-2 w-full bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-lg shadow-lg overflow-hidden z-50">
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
                   {reportOptions.map((option) => (
-                    <div
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={reportType === option}
                       key={option}
                       onClick={() => {
                         setReportType(option);
@@ -161,10 +210,14 @@ const ReportModal = ({
                         setSubType("");
                         setOpenDropdown(false);
                       }}
+<<<<<<< HEAD
                       className="cursor-pointer px-4 py-2.5 text-sm text-main transition-colors hover:bg-canvas-alt"
+=======
+                      className="w-full px-4 py-3 text-left text-sm hover:bg-teal-50 dark:hover:bg-white/10 transition"
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
                     >
                       {option}
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -177,6 +230,7 @@ const ReportModal = ({
                 </label>
 
                 <button
+<<<<<<< HEAD
                   onClick={() => {
                     setOpenCourseDropdown(!openCourseDropdown);
                     setOpenDropdown(false);
@@ -184,6 +238,12 @@ const ReportModal = ({
                   }}
                   data-report-dropdown
                   className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-[#3867D6] focus:border-[#3867D6] transition"
+=======
+                  onClick={() => setOpenCourseDropdown(!openCourseDropdown)}
+                  aria-haspopup="listbox"
+                  aria-expanded={openCourseDropdown}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-teal-400 transition"
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
                 >
                   {selectedCourse || "Select your course"}
                   <ChevronDown
@@ -192,25 +252,36 @@ const ReportModal = ({
                 </button>
 
                 {openCourseDropdown && (
+<<<<<<< HEAD
                   <div
                     className="absolute z-50 mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-border bg-card text-main shadow-xl ui-popover-surface"
                     data-report-dropdown
                   >
+=======
+                  <div role="listbox" className="absolute mt-2 w-full bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-lg shadow-lg overflow-hidden z-50 max-h-48 overflow-y-auto">
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
                     {enrolledCourses.length === 0 ? (
                       <div className="px-4 py-3 text-sm text-gray-400">No enrolled courses</div>
                     ) : (
                       enrolledCourses.map((course) => (
-                        <div
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={selectedCourse === course.title}
                           key={course.id}
                           onClick={() => {
                             setSelectedCourse(course.title);
                             setSubType("");
                             setOpenCourseDropdown(false);
                           }}
+<<<<<<< HEAD
                           className="cursor-pointer px-4 py-2.5 text-sm text-main transition-colors hover:bg-canvas-alt"
+=======
+                          className="w-full px-4 py-3 text-left text-sm hover:bg-teal-50 dark:hover:bg-white/10 transition"
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
                         >
                           {course.title}
-                        </div>
+                        </button>
                       ))
                     )}
                   </div>
@@ -227,6 +298,7 @@ const ReportModal = ({
                   </label>
 
                   <button
+<<<<<<< HEAD
                     onClick={() => {
                       setOpenSubDropdown(!openSubDropdown);
                       setOpenDropdown(false);
@@ -234,6 +306,12 @@ const ReportModal = ({
                     }}
                     data-report-dropdown
                     className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-[#3867D6] focus:border-[#3867D6] transition"
+=======
+                    onClick={() => setOpenSubDropdown(!openSubDropdown)}
+                    aria-haspopup="listbox"
+                    aria-expanded={openSubDropdown}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-teal-400 transition"
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
                   >
                     {subType || "Select reason"}
                     <ChevronDown
@@ -242,21 +320,32 @@ const ReportModal = ({
                   </button>
 
                   {openSubDropdown && (
+<<<<<<< HEAD
                     <div
                       className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-border bg-card text-main shadow-xl ui-popover-surface"
                       data-report-dropdown
                     >
+=======
+                    <div role="listbox" className="absolute mt-2 w-full bg-white dark:bg-black border border-gray-200 dark:border-white/10 rounded-lg shadow-lg overflow-hidden z-50">
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
                       {(subOptionsMap[reportType] || []).map((item) => (
-                        <div
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={subType === item}
                           key={item}
                           onClick={() => {
                             setSubType(item);
                             setOpenSubDropdown(false);
                           }}
+<<<<<<< HEAD
                           className="cursor-pointer px-4 py-2.5 text-sm text-main transition-colors hover:bg-canvas-alt"
+=======
+                          className="w-full px-4 py-3 text-left text-sm hover:bg-teal-50 dark:hover:bg-white/10 transition"
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
                         >
                           {item}
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -312,8 +401,12 @@ const ReportModal = ({
           </>
         )}
       </div>
+<<<<<<< HEAD
     </div>,
     document.body,
+=======
+    </Modal>
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
   );
 };
 

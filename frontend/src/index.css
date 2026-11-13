@@ -95,7 +95,20 @@ body {
   color: var(--color-text-main);
 }
 
+<<<<<<< HEAD
 button {
+=======
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+button{
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
   cursor: pointer;
 }
 

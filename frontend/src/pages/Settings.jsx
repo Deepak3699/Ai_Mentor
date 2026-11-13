@@ -1,5 +1,5 @@
 // frontend/src/pages/Settings.jsx
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { useAuth } from "../context/AuthContext";
 import {
   User,
@@ -24,6 +24,7 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import i18n from "../i18n/index.js";
 import FloatingAssistant from "../components/common/FloatingAssistant.jsx";
+<<<<<<< HEAD
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import API_BASE_URL from "../lib/api";
 import { getErrorMessage } from "../lib/errorHandling.js";
@@ -41,6 +42,9 @@ const verifyImageUrl = (url) =>
     image.onerror = () => reject(new Error("The uploaded profile photo could not be loaded."));
     image.src = url;
   });
+=======
+import Modal from "../components/common/Modal.jsx";
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
 
 // ── Added Firebase Imports for Issue #390 Fix ───────────────────────────
 import { signOut } from "firebase/auth";
@@ -220,6 +224,9 @@ function MobileModal({ open, onBack, onClose, title, children }) {
    Main Settings Component
 ─────────────────────────────────────────────── */
 export default function Settings() {
+  const deleteAccountTitleId = useId();
+  const profileUpdatedTitleId = useId();
+  const accountDeletedTitleId = useId();
   const { t } = useTranslation();
   const [originalNotifications, setOriginalNotifications] = useState(null);
   const { theme, setTheme } = useTheme();
@@ -298,6 +305,11 @@ export default function Settings() {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const closeAccountDeletedPopup = () => {
+    setDeletePopup(false);
+    window.location.href = "/login";
   };
 
   const handleInputChange = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
@@ -1359,6 +1371,7 @@ export default function Settings() {
       </MobileModal>
 
       {/* ── DELETE ACCOUNT POPUP ── */}
+<<<<<<< HEAD
       {showDeletePopup && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[230] p-4 ui-overlay-motion">
           <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 sm:p-8 w-full max-w-[520px] text-center shadow-xl">
@@ -1393,14 +1406,33 @@ export default function Settings() {
                 disabled={confirmText !== "DELETE" || deleting}
                 className="h-[50px] px-6 rounded-xl text-white bg-red-500 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
+=======
+      <Modal
+        open={showDeletePopup}
+        onClose={() => { setConfirmText(""); setshowDeletePopup(false); }}
+        labelledBy={deleteAccountTitleId}
+        className="fixed inset-0 z-[230] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      >
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 sm:p-8 w-full max-w-[520px] text-center shadow-xl">
+            <div className="mb-4 text-red-500 text-5xl">⚠</div>
+            <h2 id={deleteAccountTitleId} className="text-xl font-bold mb-2 text-main">Delete Account?</h2>
+            <p className="text-muted mb-6 text-sm">This action will permanently delete your profile, courses and progress. This cannot be undone.</p>
+            <p className="text-sm text-muted mb-6">Please type <span className="font-bold text-red-500">DELETE</span> to confirm.</p>
+            <input type="text" placeholder="Type DELETE here..." value={confirmText} onChange={(e) => setConfirmText(e.target.value)}
+              className="w-full h-[50px] px-4 rounded-xl border border-border text-[16px] font-[Inter] focus:ring-2 focus:ring-primary focus:border-primary bg-input text-main mb-6" />
+            <div className="flex justify-center gap-4">
+              <button autoFocus onClick={() => { setConfirmText(""); setshowDeletePopup(false); }} className="px-6 py-2 border rounded-lg text-main hover:bg-canvas-alt">Cancel</button>
+              <button onClick={handleDeleteAccount} disabled={confirmText !== "DELETE" || deleting}
+                className="h-[50px] px-6 rounded-xl text-white bg-red-500 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
                 {deleting ? "Deleting..." : "Delete Account"}
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* ── PROFILE UPDATED POPUP ── */}
+<<<<<<< HEAD
       {profilepopup && (
         <div className="fixed inset-0 z-[240] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm ui-overlay-motion">
           <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-center shadow-2xl sm:p-7">
@@ -1417,35 +1449,59 @@ export default function Settings() {
             >
               Done
             </button>
+=======
+      <Modal
+        open={profilepopup}
+        onClose={() => setProfilePopup(false)}
+        labelledBy={profileUpdatedTitleId}
+        className="fixed inset-0 z-[240] flex animate-fadeIn items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      >
+          <div className="relative bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-3xl p-6 sm:p-10 w-[90vw] max-w-[420px] text-center shadow-2xl border border-slate-200 dark:border-slate-700">
+            <div className="mx-auto mb-6 w-20 h-20 flex items-center justify-center rounded-full bg-gradient-to-r from-emerald-400 to-green-500 shadow-lg animate-bounce">
+              <span className="text-4xl text-white">✓</span>
+            </div>
+            <h2 id={profileUpdatedTitleId} className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent mb-3">Profile Updated Successfully!</h2>
+            <button autoFocus onClick={() => setProfilePopup(false)} className="px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl font-semibold shadow-lg hover:scale-105 transition-all duration-300">Ok</button>
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* ── ACCOUNT DELETED POPUP ── */}
+<<<<<<< HEAD
       {deletePopup && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[240] animate-fadeIn p-4 ui-overlay-motion">
+=======
+      <Modal
+        open={deletePopup}
+        onClose={closeAccountDeletedPopup}
+        labelledBy={accountDeletedTitleId}
+        className="fixed inset-0 z-[240] flex animate-fadeIn items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      >
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
           <div className="relative bg-gradient-to-br from-white to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-3xl p-6 sm:p-10 w-[90vw] max-w-[420px] text-center shadow-2xl border border-slate-200 dark:border-slate-700">
             <div className="mx-auto mb-6 w-20 h-20 flex items-center justify-center rounded-full bg-gradient-to-r from-red-400 to-rose-500 shadow-lg animate-bounce">
               <span className="text-4xl text-white">✓</span>
             </div>
+<<<<<<< HEAD
             <h2 className="text-2xl font-bold bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent mb-3">
               Account Deleted Successfully!
             </h2>
             <p className="text-muted mb-6 text-sm font-sans">
               Your account and all associated data have been permanently removed.
             </p>
+=======
+            <h2 id={accountDeletedTitleId} className="text-2xl font-bold bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent mb-3">Account Deleted Successfully!</h2>
+            <p className="text-muted mb-6 text-sm font-[Inter]">Your account and all associated data have been permanently removed.</p>
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
             <button
-              onClick={() => {
-                setDeletePopup(false);
-                window.location.href = "/login";
-              }}
+              autoFocus
+              onClick={closeAccountDeletedPopup}
               className="px-8 py-3 bg-gradient-to-r from-red-500 to-rose-500 text-white rounded-2xl font-semibold shadow-lg hover:scale-105 transition-all duration-300"
             >
               Ok
             </button>
           </div>
-        </div>
-      )}
+      </Modal>
     </>
   );
 }

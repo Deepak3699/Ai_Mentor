@@ -10,7 +10,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+<<<<<<< HEAD
     "test": "node --test test/*.test.js && vitest run",
+=======
+    "test": "node --test test/*.test.js && npm run test:vitest",
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
     "test:vitest": "vitest run",
     "preview": "vite preview"
   },

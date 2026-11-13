@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 import { apiFetch as fetch } from "../lib/api";
 import React, { useEffect, useRef, useState } from "react";
+=======
+import React, { useEffect, useRef, useState, useId } from "react";
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
 import { useParams, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import Header from "../components/Header";
@@ -10,7 +14,11 @@ import toast from "react-hot-toast";
 import { getErrorMessage } from "../lib/errorHandling.js";
 import { loadRazorpayScript } from "../lib/loadRazorPay";
 import CourseFeedback from "../components/common/CourseFeedback";
+<<<<<<< HEAD
 import LoadingSpinner from "../components/common/LoadingSpinner";
+=======
+import Modal from "../components/common/Modal";
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
 /* safe getter */
 function safeGet(obj, path, fallback = undefined) {
   if (!obj || !path) return fallback;
@@ -43,6 +51,7 @@ function buildImageCandidates(imagePath) {
   return candidates;
 }
 export default function CoursePreview() {
+<<<<<<< HEAD
   const { courseId } = useParams();
   const navigate = useNavigate();
   const { user, fetchUserProfile } = useAuth();
@@ -79,6 +88,204 @@ export default function CoursePreview() {
       try {
         const metaUrl = `${API_BASE_URL}/api/courses/${courseId}`;
         const learnUrl = `${API_BASE_URL}/api/courses/${courseId}/learning`;
+=======
+    const enrollModalTitleId = useId();
+    const { courseId } = useParams();
+    const navigate = useNavigate();
+    const { user, fetchUserProfile } = useAuth();
+    const [courseMeta, setCourseMeta] = useState(null);
+    const [learningData, setLearningData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [isPurchasing, setIsPurchasing] = useState(false);
+    // module collapse
+    const [openModules, setOpenModules] = useState({});
+    const [allExpanded, setAllExpanded] = useState(false);
+    // modal for enrollment
+    const [showEnrollPopup, setShowEnrollPopup] = useState(false);
+    const [selectedCourse, setSelectedCourse] = useState(null);
+    // hero image src handling
+    const [heroSrc, setHeroSrc] = useState("/ui/course-hero-placeholder.jpg");
+    const heroCandidatesRef = useRef([]);
+    const heroIndexRef = useRef(0);
+    // instructor image candidates + state (brand-first)
+    const [instructorSrc, setInstructorSrc] = useState("/AI_Tutor_New_UI/Course_Preview/Mascot.jpeg");
+    const instructorCandidatesRef = useRef([]);
+    const instructorIndexRef = useRef(0);
+    // trust badge candidates + state (brand-first)
+    const [trustSrc, setTrustSrc] = useState("/AI_Tutor_New_UI/Course_Preview/US.png");
+    const trustCandidatesRef = useRef([]);
+    const trustIndexRef = useRef(0);
+    const [idempotencyKey, setIdempotencyKey] = useState(null);
+    // fetch meta & learning (use API_BASE_URL)
+    useEffect(() => {
+        let cancelled = false;
+        const fetchAll = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const metaUrl = `${API_BASE_URL}/api/courses/${courseId}`;
+                const learnUrl = `${API_BASE_URL}/api/courses/${courseId}/learning`;
+                const token = localStorage.getItem("token");
+const [metaRes, learnRes] = await Promise.all([
+    fetch(metaUrl),
+    fetch(learnUrl, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    }),
+]);
+                if (!metaRes.ok) throw new Error("Failed to fetch course meta");
+                if (learnRes.status === 401) {
+                  throw new Error("Please login to access course content");
+                   }
+                if (!learnRes.ok) {
+                throw new Error("Failed to fetch course learning");
+                  }
+                const meta = await metaRes.json();
+                const learning = await learnRes.json();
+                if (!cancelled) {
+                    setCourseMeta(meta || {});
+                    setLearningData(learning || {});
+                    // init module open state
+                    const mods = Array.isArray(learning?.modules)
+                        ? learning.modules
+                        : Array.isArray(meta?.modules)
+                            ? meta.modules
+                            : [];
+                    const init = mods.reduce((acc, m, i) => {
+                        acc[m.id ?? `mod-${i}`] = i === 0;
+                        return acc;
+                    }, {});
+                    setOpenModules(init);
+                    // prepare hero image candidates & initial src
+                    const heroPath = safeGet(
+                        meta,
+                        "image",
+                        safeGet(learning, "course.logo", ""),
+                    );
+                    const heroCandidates = buildImageCandidates(heroPath);
+                    heroCandidatesRef.current = heroCandidates;
+                    heroIndexRef.current = 0;
+                    setHeroSrc(heroCandidates[0] || "/AI_Tutor_New_UI/Course_Preview/thumbnail_img.png");
+                    // prepare instructor image candidates: brand-first then backend candidates
+                    const brandInstructorPaths = [
+                        "/AI_Tutor_New_UI/Course_Preview/Mascot.jpeg",
+                        "/brankkit/mascot.png",
+                        "/assets/mascot.png",
+                    ];
+                    const backendInstructorCandidates = buildImageCandidates(
+                        safeGet(meta, "instructorPhoto", ""),
+                    );
+                    instructorCandidatesRef.current = [
+                        ...brandInstructorPaths,
+                        ...backendInstructorCandidates,
+                        "/AI_Tutor_New_UI/Course_Preview/Mascot.jpeg",
+                    ];
+                    instructorIndexRef.current = 0;
+                    setInstructorSrc(
+                        instructorCandidatesRef.current[0] || "/AI_Tutor_New_UI/Course_Preview/Mascot.jpeg",
+                    );
+                    // prepare trust badge candidates (brand-first)
+                    const brandTrustPaths = [
+                        "/AI_Tutor_New_UI/Course_Preview/US.png",
+                        "/brankkit/US.png",
+                        "/assets/US.png",
+                    ];
+                    trustCandidatesRef.current = [
+                        ...brandTrustPaths,
+                        "/AI_Tutor_New_UI/Course_Preview/US.png",
+                    ];
+                    trustIndexRef.current = 0;
+                    setTrustSrc(trustCandidatesRef.current[0] || "/AI_Tutor_New_UI/Course_Preview/US.png");
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    console.error(err);
+                    setError("Failed to load course details. Try reloading.");
+                }
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        };
+        fetchAll();
+        return () => {
+            cancelled = true;
+        };
+    }, [courseId]);
+    // image error handlers: cycle through candidates
+    const handleHeroError = () => {
+        const candidates = heroCandidatesRef.current || [];
+        const nextIndex = heroIndexRef.current + 1;
+        if (nextIndex < candidates.length) {
+            heroIndexRef.current = nextIndex;
+            setHeroSrc(candidates[nextIndex]);
+        }
+    };
+    const handleInstructorError = (ev) => {
+        const candidates = instructorCandidatesRef.current || [];
+        const nextIndex = instructorIndexRef.current + 1;
+        if (nextIndex < candidates.length) {
+            instructorIndexRef.current = nextIndex;
+            // update the <img> directly so React doesn't fight with onError loop
+            ev.currentTarget.src = candidates[nextIndex];
+            setInstructorSrc(candidates[nextIndex]);
+        }
+    };
+    const handleTrustError = (ev) => {
+        const candidates = trustCandidatesRef.current || [];
+        const nextIndex = trustIndexRef.current + 1;
+        if (nextIndex < candidates.length) {
+            trustIndexRef.current = nextIndex;
+            ev.currentTarget.src = candidates[nextIndex];
+            setTrustSrc(candidates[nextIndex]);
+        }
+    };
+    // toggle single module
+    const toggleModule = (id) => {
+        setOpenModules((prev) => {
+            const next = { ...prev, [id]: !prev[id] };
+            setAllExpanded(
+                Object.keys(next).length > 0 && Object.keys(next).every((k) => next[k]),
+            );
+            return next;
+        });
+    };
+    const toggleAll = () => {
+        setOpenModules((prev) => {
+            const keys = Object.keys(prev);
+            const next = keys.reduce((acc, k) => ((acc[k] = !allExpanded), acc), {});
+            setAllExpanded(!allExpanded);
+            return next;
+        });
+    };
+    // open modal for enrollment
+    const openEnrollModal = () => {
+        if (!user) {
+            navigate("/login");
+            return;
+        }
+        const title = safeGet(courseMeta, "title", safeGet(learningData, "course.title", "Course"));
+
+        const img = heroSrc;
+        const category = safeGet(courseMeta, "category", "");
+        const level = safeGet(courseMeta, "level", "");
+        const priceValue = safeGet(courseMeta, "priceValue", 0);
+        setIdempotencyKey(crypto.randomUUID());
+        setSelectedCourse({
+            id: Number(courseId),
+            title,
+            image: img,
+            category,
+            level,
+            priceValue, // ✅ store numeric
+        });
+        setShowEnrollPopup(true);
+    };
+    // confirm enrollment from modal -> purchase and redirect to /courses
+    const handlePayment = async () => {
+        if (!selectedCourse || isPurchasing) return;
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
         const token = localStorage.getItem("token");
         const [metaRes, learnRes] = await Promise.all([
           fetch(metaUrl),
@@ -425,6 +632,7 @@ export default function CoursePreview() {
         },
       };
 
+<<<<<<< HEAD
       const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", function (response) {
         razorpayModalOpen.current = false;
@@ -456,6 +664,158 @@ export default function CoursePreview() {
             {error || "Course not found"}
           </h2>
           <p className="text-muted">Please check the course ID or try again later.</p>
+=======
+                        {/* Course Feedback & Ratings */}
+                        <CourseFeedback courseId={courseId} />
+                    </div>
+                    {/* RIGHT: image (top) then Buy Now (below) */}
+                    <div className="lg:col-span-4 flex flex-col items-stretch">
+                        <div className="bg-card rounded-xl overflow-hidden shadow-md mb-6">
+                            <img
+                                src={heroSrc}
+                                alt={title}
+                                className="w-full h-56 object-cover"
+                                onError={handleHeroError}
+                            />
+                        </div>
+                        <div className="bg-card rounded-xl p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] mb-6 border border-border">
+                            <div className="text-center mb-4">
+                                <div className="text-sm text-muted mb-1">Lifetime access</div>
+                                <div className="text-3xl font-extrabold text-main mb-2">
+                                    {priceDisplay}
+                                </div>
+                                <div className="text-sm text-muted line-through">
+                                    ₹{priceOriginal}
+                                </div>
+                            </div>
+                            {safeGet(courseMeta, "countdown", null) ? (
+                                <div className="bg-[#FFF7ED] text-[#B45309] text-center p-3 rounded-md mb-4">
+                                    Sale ends in: {safeGet(courseMeta, "countdown.hours", 0)}h{" "}
+                                    {safeGet(courseMeta, "countdown.minutes", 0)}m{" "}
+                                    {safeGet(courseMeta, "countdown.seconds", 0)}s
+                                </div>
+                            ) : null}
+                            {isPurchased ? (
+                                <button
+                                    onClick={() => navigate(`/learning/${courseId}`)}
+                                    className="w-full bg-green-600 text-white font-semibold py-3 rounded-lg mb-3 hover:opacity-95"
+                                >
+                                    Go to Course
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={openEnrollModal}
+                                    disabled={isPurchasing}
+                                    className="w-full bg-primary text-white font-semibold py-3 rounded-lg mb-3 hover:opacity-95 disabled:opacity-50"
+                                >
+                                    {isPurchasing ? "Processing..." : "Buy Now"}
+                                </button>
+                            )}
+                            <div className="mt-4 space-y-3 text-sm text-muted">
+                                {features.map((f, i) => (
+                                    <div key={i} className="flex items-start gap-3">
+                                        <svg
+                                            className="w-4 h-4 mt-1"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                        >
+                                            <path
+                                                d="M5 13l4 4L19 7"
+                                                stroke="#10B981"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                            />
+                                        </svg>
+                                        <div>
+                                            {typeof f === "string" ? f : f.text || JSON.stringify(f)}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        {/* trust card (uses US brand image first) */}
+                        <div className="bg-card rounded-xl p-4 shadow-[0_8px_24px_rgba(15,23,42,0.03)] text-sm text-muted border border-border">
+                            <div className="flex items-center gap-3">
+                                <img
+                                    src={trustSrc}
+                                    alt="trust"
+                                    className="w-10 h-10 object-contain"
+                                    onError={handleTrustError}
+                                />
+                                <div>
+                                    <div className="font-medium text-main">30-day refund</div>
+                                    <div className="text-xs text-muted">No questions asked</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+            {/* ENROLL CONFIRM POPUP (same style as CoursesPage) */}
+            <Modal
+                open={showEnrollPopup && Boolean(selectedCourse)}
+                onClose={() => setShowEnrollPopup(false)}
+                labelledBy={enrollModalTitleId}
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            >
+                {selectedCourse && (
+                    <div className="bg-card w-full max-w-md rounded-2xl p-6 pt-10 relative border border-border">
+                        <button
+                            autoFocus
+                            onClick={() => setShowEnrollPopup(false)}
+                            aria-label="Close enrollment dialog"
+                            className="absolute top-3 right-4 z-20 text-black text-lg font-bold"
+                        >
+                            <X size={20} />
+                        </button>
+                        <img
+                            src={selectedCourse.image}
+                            alt={selectedCourse.title}
+                            className="w-full h-40 object-cover rounded-xl mb-4"
+                        />
+                        <h2 id={enrollModalTitleId} className="text-xl font-bold text-main">
+                            {selectedCourse.title}
+                        </h2>
+                        <p className="text-sm text-muted mt-1">
+                            {selectedCourse.category} • {selectedCourse.level}
+                        </p>
+                        <div className="flex justify-between items-center mt-4">
+                            <span className="line-through text-muted">{selectedCourse.price}</span>
+                            <span className="text-lg font-bold text-green-600">
+                                {selectedCourse.price}
+                            </span>
+                        </div>
+                        {Number(selectedCourse.priceValue) > 0 || (selectedCourse.price && selectedCourse.price !== "Free" && selectedCourse.price !== "₹0") ? (
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    onClick={handlePayment}
+                                    disabled={isPurchasing}
+                                    className="w-1/2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold disabled:opacity-50 transition-colors"
+                                >
+                                    {isPurchasing ? "Processing..." : "Pay with Stripe"}
+                                </button>
+                                <button
+                                    onClick={handleRazorpayPayment}
+                                    disabled={isPurchasing}
+                                    className="w-1/2 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-semibold disabled:opacity-50 transition-colors"
+                                >
+                                    {isPurchasing ? "Processing..." : "Pay with Razorpay"}
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={handlePayment}
+                                disabled={isPurchasing}
+                                className="w-full mt-6 py-3 rounded-xl bg-primary text-white font-semibold disabled:opacity-50"
+                            >
+                                {isPurchasing ? "Processing..." : "Confirm Enrollment"}
+                            </button>
+                        )}
+                    </div>
+                )}
+            </Modal>
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
         </div>
       </div>
     );

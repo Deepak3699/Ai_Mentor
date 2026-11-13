@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Bell,
@@ -10,6 +11,10 @@ import {
   ChevronDown,
   Search,
 } from "lucide-react";
+=======
+import React, { useState, useRef, useEffect, useCallback, useId } from "react";
+import { Bell, Menu, X, User, Settings, LogOut, ShieldCheck, ChevronDown } from "lucide-react";
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import ThemeToggle from "../components/common/ThemeToggle";
@@ -24,8 +29,10 @@ import {
   clearAllNotificationsApi,
 } from "../service/notificationService";
 import toast from "react-hot-toast";
+import Modal from "./common/Modal";
 
 const Header = () => {
+  const logoutModalTitleId = useId();
   const { t } = useTranslation();
   const { sidebarOpen, setSidebarOpen, sidebarCollapsed } = useSidebar();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -410,14 +417,32 @@ const Header = () => {
           </div>
         </div>
       </header>
+<<<<<<< HEAD
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm ui-overlay-motion">
           <div className="bg-card border border-border/50 rounded-[2rem] shadow-2xl p-6 sm:p-8 w-[90%] max-w-sm text-center">
             <LogOut className="w-10 h-10 text-red-500 mx-auto mb-4" />
             <h3 className="text-sm font-black uppercase tracking-tight text-main mb-2">Logout</h3>
             <p className="text-xs text-muted mb-6">Are you sure you want to logout?</p>
+=======
+      <Modal
+        open={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        labelledBy={logoutModalTitleId}
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      >
+          <div className="bg-card border border-border/50 rounded-[2rem] shadow-2xl p-6 sm:p-8 w-[90%] max-w-sm text-center">
+            <LogOut className="w-10 h-10 text-red-500 mx-auto mb-4" />
+            <h3 id={logoutModalTitleId} className="text-sm font-black uppercase tracking-tight text-main mb-2">
+              Logout
+            </h3>
+            <p className="text-xs text-muted mb-6">
+              Are you sure you want to logout?
+            </p>
+>>>>>>> 8194845 (fix: improve learner modal accessibility)
             <div className="flex gap-3">
               <button
+                autoFocus
                 onClick={() => setShowLogoutConfirm(false)}
                 className="flex-1 py-3 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest border border-border hover:bg-canvas-alt transition-all"
               >
@@ -431,8 +456,7 @@ const Header = () => {
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </>
   );
 };
