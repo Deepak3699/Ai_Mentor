@@ -29,7 +29,8 @@
     "premium_member": "Premium Member",
     "enroll": "Enroll",
     "continue_learning": "Continue Learning",
-    "start_learning": "Start Learning"
+    "start_learning": "Start Learning",
+    "retry": "Try again"
   },
   "settings": {
     "title": "Settings",
@@ -450,6 +451,7 @@
     "title": "My Certificates",
     "subtitle": "Track your achievements and download certificates",
     "loading": "Loading certificates...",
+    "error": "Error loading certificates",
     "enrolled_courses": "Enrolled Courses",
     "courses_completed": "Courses Completed",
     "certificates_earned": "Certificates Earned",
