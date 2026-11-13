@@ -286,6 +286,7 @@
     "to": "结束日期",
     "welcome_back_user": "欢迎回来，{{name}}！",
     "analytics_subtitle": "这里是您的学习进展和即将到来的任务",
+    "vs_previous_period": "与上一时期相比",
     "units": {
       "day_one": "{{count}} 天",
       "day_other": "{{count}} 天",

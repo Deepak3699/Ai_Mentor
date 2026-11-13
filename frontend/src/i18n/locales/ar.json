@@ -286,6 +286,7 @@
     "to": "إلى",
     "welcome_back_user": "مرحباً بعودتك، {{name}}!",
     "analytics_subtitle": "إليك تقدمك في التعلم والمهام القادمة",
+    "vs_previous_period": "مقارنة بالفترة السابقة",
     "units": {
       "day_one": "يوم",
       "day_other": "{{count}} أيام",

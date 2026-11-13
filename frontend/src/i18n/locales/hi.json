@@ -286,6 +286,7 @@
     "to": "तक",
     "welcome_back_user": "वापस स्वागत है, {{name}}!",
     "analytics_subtitle": "यहाँ आपकी सीखने की प्रगति और आगामी कार्य हैं",
+    "vs_previous_period": "पिछली अवधि की तुलना में",
     "units": {
       "day_one": "{{count}} दिन",
       "day_other": "{{count}} दिन",

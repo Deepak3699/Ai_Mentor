@@ -286,6 +286,7 @@
     "to": "Au",
     "welcome_back_user": "Bon retour, {{name}} !",
     "analytics_subtitle": "Voici vos progrès d'apprentissage et vos tâches à venir",
+    "vs_previous_period": "par rapport à la période précédente",
     "units": {
       "day_one": "{{count}} Jour",
       "day_other": "{{count}} Jours",

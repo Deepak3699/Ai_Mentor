@@ -10,6 +10,7 @@ const DateRangeSelector = ({ preset, label, onSelectPreset, onApplyCustom }) => 
   const [to, setTo] = useState("");
   const [error, setError] = useState("");
   const containerRef = useRef(null);
+  const triggerRef = useRef(null);
   const today = new Date().toLocaleDateString("en-CA");
 
   const presets = [
@@ -24,6 +25,7 @@ const DateRangeSelector = ({ preset, label, onSelectPreset, onApplyCustom }) => 
         setOpen(false);
         setShowCustom(false);
         setError("");
+        triggerRef.current?.focus();
       }
     };
 
@@ -32,6 +34,7 @@ const DateRangeSelector = ({ preset, label, onSelectPreset, onApplyCustom }) => 
         setOpen(false);
         setShowCustom(false);
         setError("");
+        triggerRef.current?.focus();
       }
     };
 
@@ -78,15 +81,21 @@ const DateRangeSelector = ({ preset, label, onSelectPreset, onApplyCustom }) => 
     }
 
     onApplyCustom({ start, end });
+    triggerRef.current?.focus();
     setOpen(false);
     setShowCustom(false);
   };
 
   return (
     <div className="relative w-full sm:w-auto" ref={containerRef}>
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        Showing {label}
+      </span>
       <button
         type="button"
         aria-expanded={open}
+        aria-haspopup="true"
+        ref={triggerRef}
         onClick={() => {
           setOpen((value) => !value);
           setShowCustom(false);
@@ -111,6 +120,7 @@ const DateRangeSelector = ({ preset, label, onSelectPreset, onApplyCustom }) => 
                   type="button"
                   onClick={() => {
                     onSelectPreset(item.key);
+                    triggerRef.current?.focus();
                     setOpen(false);
                   }}
                   className={`w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-[#F5F5F5] dark:hover:bg-gray-700 ${

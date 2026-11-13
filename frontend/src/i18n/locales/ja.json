@@ -286,6 +286,7 @@
     "to": "終了日",
     "welcome_back_user": "おかえりなさい、{{name}}さん！",
     "analytics_subtitle": "あなたの学習進捗と今後のタスクはこちらです",
+    "vs_previous_period": "前の期間との比較",
     "units": {
       "day_one": "{{count}}日",
       "day_other": "{{count}}日",

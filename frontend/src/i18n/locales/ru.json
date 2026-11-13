@@ -286,6 +286,7 @@
     "to": "По",
     "welcome_back_user": "С возвращением, {{name}}!",
     "analytics_subtitle": "Вот ваш прогресс в обучении и предстоящие задачи",
+    "vs_previous_period": "по сравнению с предыдущим периодом",
     "units": {
       "day_one": "{{count}} день",
       "day_other": "{{count}} дней",

@@ -286,6 +286,7 @@
     "to": "Hasta",
     "welcome_back_user": "¡Bienvenido de vuelta, {{name}}!",
     "analytics_subtitle": "Aquí está tu progreso de aprendizaje y próximas tareas",
+    "vs_previous_period": "vs. el período anterior",
     "units": {
       "day_one": "{{count}} Día",
       "day_other": "{{count}} Días",

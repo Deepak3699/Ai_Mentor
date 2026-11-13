@@ -289,6 +289,7 @@
     "to": "To",
     "welcome_back_user": "Welcome back, {{name}}!",
     "analytics_subtitle": "Here's your learning progress and upcoming tasks",
+    "vs_previous_period": "vs previous period",
     "units": {
       "day_one": "Day",
       "day_other": "Days",
