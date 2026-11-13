@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import { NAV_ITEMS } from "../../constants/adminNavigation";
 
-
 const ICONS = {
   dashboard: LayoutDashboard,
   courses: BookOpen,
@@ -46,7 +45,8 @@ function AdminSidebar({
   const displayName = user?.name || user?.email?.split("@")[0] || "Admin";
   const roleLabel = user?.role || "Admin";
   const avatarUrl =
-    user?.avatar_url || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
+    user?.avatar_url ||
+    `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
 
   return (
     <>
@@ -67,7 +67,9 @@ function AdminSidebar({
           className="hidden lg:flex absolute -right-5 top-8 w-10 h-10 bg-card border border-border rounded-xl items-center justify-center hover:bg-teal-500 hover:text-white transition-all shadow-xl z-80"
           type="button"
         >
-          <ChevronRight className={`w-5 h-5 transition-transform duration-500 ${collapsed ? "" : "rotate-180"}`} />
+          <ChevronRight
+            className={`w-5 h-5 transition-transform duration-500 ${collapsed ? "" : "rotate-180"}`}
+          />
         </button>
 
         <div className="h-16 px-4 flex items-center justify-between border-b border-border/30">
@@ -89,7 +91,9 @@ function AdminSidebar({
           </button>
         </div>
 
-        <nav className={`mt-4 px-4 flex-1 scrollbar-hide ${collapsed ? "overflow-visible" : "overflow-y-auto"}`}>
+        <nav
+          className={`mt-4 px-4 flex-1 scrollbar-hide ${collapsed ? "overflow-visible" : "overflow-y-auto"}`}
+        >
           <div className="space-y-3 pb-6">
             {NAV_ITEMS.map(([id, label]) => {
               const Icon = ICONS[id] || LayoutDashboard;
@@ -110,7 +114,9 @@ function AdminSidebar({
                 >
                   <Icon className={`w-5 h-5 shrink-0 ${active ? "text-white" : "text-main"}`} />
                   {!collapsed && (
-                    <span className={`ml-4 text-sm font-black uppercase tracking-tight ${active ? "text-white" : ""}`}>
+                    <span
+                      className={`ml-4 text-sm font-black uppercase tracking-tight ${active ? "text-white" : ""}`}
+                    >
                       {label}
                     </span>
                   )}
@@ -126,8 +132,12 @@ function AdminSidebar({
         </nav>
 
         <div className="p-4 border-t border-border/20 bg-card/50 shrink-0">
-          <div className={`cursor-default p-0.5 rounded-4xl bg-linear-to-br from-teal-500/30 via-blue-500/20 to-transparent`}>
-            <div className={`bg-card dark:bg-slate-900 rounded-[1.9rem] transition-all duration-300 ${collapsed ? "p-1" : "p-4 flex items-center"}`}>
+          <div
+            className={`cursor-default p-0.5 rounded-4xl bg-linear-to-br from-teal-500/30 via-blue-500/20 to-transparent`}
+          >
+            <div
+              className={`bg-card dark:bg-slate-900 rounded-[1.9rem] transition-all duration-300 ${collapsed ? "p-1" : "p-4 flex items-center"}`}
+            >
               <img
                 src={avatarUrl}
                 className={`${collapsed ? "w-12 h-12" : "w-10 h-10"} rounded-[1.2rem] shadow-md border-2 border-white dark:border-slate-800 transition-all`}
@@ -135,14 +145,24 @@ function AdminSidebar({
               />
               {!collapsed && (
                 <div className="ml-3 flex-1 min-w-0 text-left">
-                  <div className="text-[11px] font-black text-main truncate uppercase tracking-tight">{displayName}</div>
-                  <div className="text-[9px] text-muted font-bold opacity-60 uppercase tracking-widest mt-0.5">{roleLabel}</div>
+                  <div className="text-[11px] font-black text-main truncate uppercase tracking-tight">
+                    {displayName}
+                  </div>
+                  <div className="text-[9px] text-muted font-bold opacity-60 uppercase tracking-widest mt-0.5">
+                    {roleLabel}
+                  </div>
                 </div>
               )}
-              {!collapsed && <button  onClick={() => {
-                        navigate("/settings");
-                        onPageChange("settings");
-                      }}><Settings className="w-4 h-4 text-muted"/></button> }
+              {!collapsed && (
+                <button
+                  onClick={() => {
+                    navigate("/settings");
+                    onPageChange("settings");
+                  }}
+                >
+                  <Settings className="w-4 h-4 text-muted" />
+                </button>
+              )}
             </div>
           </div>
         </div>

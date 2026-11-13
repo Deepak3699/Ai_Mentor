@@ -1,5 +1,4 @@
-const ADMIN_APP_URL =
-  import.meta.env.VITE_ADMIN_APP_URL || "http://localhost:5174";
+const ADMIN_APP_URL = import.meta.env.VITE_ADMIN_APP_URL || "http://localhost:5174";
 
 const adminRouteMap = {
   "/admin": "/dashboard",

@@ -14,5 +14,5 @@ createRoot(document.getElementById("root")).render(
         <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
       </StrictMode>
     </ThemeProvider>
-  </BrowserRouter>
+  </BrowserRouter>,
 );

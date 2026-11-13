@@ -5,28 +5,40 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // Define models briefly for seeding
-const User = sequelize.define("User", {
-  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
-  name: { type: DataTypes.STRING, allowNull: false },
-  email: { type: DataTypes.STRING, allowNull: false, unique: true },
-  role: { type: DataTypes.STRING, defaultValue: "user" },
-}, { timestamps: true, tableName: "Users" });
+const User = sequelize.define(
+  "User",
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    name: { type: DataTypes.STRING, allowNull: false },
+    email: { type: DataTypes.STRING, allowNull: false, unique: true },
+    role: { type: DataTypes.STRING, defaultValue: "user" },
+  },
+  { timestamps: true, tableName: "Users" },
+);
 
-const CommunityPost = sequelize.define("CommunityPost", {
-  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
-  content: DataTypes.TEXT,
-  userId: DataTypes.UUID,
-  type: { type: DataTypes.STRING, defaultValue: "global" },
-}, { timestamps: true, tableName: "CommunityPosts" });
+const CommunityPost = sequelize.define(
+  "CommunityPost",
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    content: DataTypes.TEXT,
+    userId: DataTypes.UUID,
+    type: { type: DataTypes.STRING, defaultValue: "global" },
+  },
+  { timestamps: true, tableName: "CommunityPosts" },
+);
 
-const Report = sequelize.define("Report", {
-  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
-  reporterId: { type: DataTypes.UUID, allowNull: false },
-  postId: { type: DataTypes.UUID, allowNull: false },
-  reason: { type: DataTypes.STRING, allowNull: false },
-  description: { type: DataTypes.TEXT, allowNull: true },
-  status: { type: DataTypes.STRING, defaultValue: "pending" },
-}, { timestamps: true, tableName: "Reports" });
+const Report = sequelize.define(
+  "Report",
+  {
+    id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+    reporterId: { type: DataTypes.UUID, allowNull: false },
+    postId: { type: DataTypes.UUID, allowNull: false },
+    reason: { type: DataTypes.STRING, allowNull: false },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    status: { type: DataTypes.STRING, defaultValue: "pending" },
+  },
+  { timestamps: true, tableName: "Reports" },
+);
 
 async function seed() {
   try {
@@ -66,7 +78,7 @@ async function seed() {
         postId: post.id,
         reason: "harassment",
         description: "This is a seeded test report for harassment.",
-      }
+      },
     ]);
     console.log(`✅ Created ${reports.length} reports`);
     process.exit(0);

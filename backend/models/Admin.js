@@ -2,7 +2,7 @@ import { DataTypes, Model } from "sequelize";
 import bcrypt from "bcrypt";
 import { sequelize } from "../config/db.js";
 
-class Admin extends Model { }
+class Admin extends Model {}
 
 Admin.init(
   {
@@ -48,7 +48,7 @@ Admin.init(
         }
       },
     },
-  }
+  },
 );
 
 Admin.prototype.matchPassword = async function (enteredPassword) {

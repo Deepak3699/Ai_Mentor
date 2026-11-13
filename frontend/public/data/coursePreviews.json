@@ -25,10 +25,22 @@
         "seconds": 10
       },
       "features": [
-        { "icon": "AI_Tutor_New_UI/Course_Preview/lifetimeaccess_icon.svg", "text": "Lifetime access" },
-        { "icon": "AI_Tutor_New_UI/Course_Preview/mobile.svg", "text": "Access on mobile and desktop" },
-        { "icon": "AI_Tutor_New_UI/Course_Preview/certificate.svg", "text": "Certificate of completion" },
-        { "icon": "AI_Tutor_New_UI/Course_Preview/moneyback.svg", "text": "30-day money-back guarantee" }
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/lifetimeaccess_icon.svg",
+          "text": "Lifetime access"
+        },
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/mobile.svg",
+          "text": "Access on mobile and desktop"
+        },
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/certificate.svg",
+          "text": "Certificate of completion"
+        },
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/moneyback.svg",
+          "text": "30-day money-back guarantee"
+        }
       ],
       "whatYouLearn": [
         "Understand AI, Generative AI, and Machine Learning fundamentals",
@@ -49,10 +61,7 @@
             "Neural Networks overview",
             "AI Ethics and Limitations"
           ],
-          "activities": [
-            "Case study: ChatGPT and Midjourney explained",
-            "Quiz: AI vs ML concepts"
-          ]
+          "activities": ["Case study: ChatGPT and Midjourney explained", "Quiz: AI vs ML concepts"]
         },
         {
           "title": "Module 2: Generative AI in Action",
@@ -64,11 +73,7 @@
             "AI Video and Music Generation Tools",
             "Automation using Zapier and Make"
           ],
-          "tools": [
-            "ChatGPT, Midjourney, DALL·E",
-            "Runway ML, Synthesia",
-            "Zapier, Make.com"
-          ],
+          "tools": ["ChatGPT, Midjourney, DALL·E", "Runway ML, Synthesia", "Zapier, Make.com"],
           "assignment": "Design an AI-generated marketing campaign"
         },
         {
@@ -80,10 +85,7 @@
             "Creating a personal AI assistant",
             "Deploying AI tools for business use"
           ],
-          "tools": [
-            "OpenAI API",
-            "Notion AI, Replit, Zapier"
-          ],
+          "tools": ["OpenAI API", "Notion AI, Replit, Zapier"],
           "activity": "Build a personalized AI chatbot"
         }
       ]
@@ -113,10 +115,22 @@
         "seconds": 45
       },
       "features": [
-        { "icon": "AI_Tutor_New_UI/Course_Preview/lifetimeaccess_icon.svg", "text": "Lifetime access" },
-        { "icon": "AI_Tutor_New_UI/Course_Preview/mobile.svg", "text": "Access on mobile and desktop" },
-        { "icon": "AI_Tutor_New_UI/Course_Preview/certificate.svg", "text": "Certificate of completion" },
-        { "icon": "AI_Tutor_New_UI/Course_Preview/moneyback.svg", "text": "30-day money-back guarantee" }
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/lifetimeaccess_icon.svg",
+          "text": "Lifetime access"
+        },
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/mobile.svg",
+          "text": "Access on mobile and desktop"
+        },
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/certificate.svg",
+          "text": "Certificate of completion"
+        },
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/moneyback.svg",
+          "text": "30-day money-back guarantee"
+        }
       ],
       "whatYouLearn": [
         "Master HTML, CSS, and JavaScript fundamentals",
@@ -136,10 +150,7 @@
             "JavaScript ES6+ fundamentals",
             "DOM Manipulation & Event Handling"
           ],
-          "activities": [
-            "Build a personal portfolio website",
-            "Interactive landing page project"
-          ]
+          "activities": ["Build a personal portfolio website", "Interactive landing page project"]
         },
         {
           "title": "Module 2: React Framework",
@@ -192,10 +203,22 @@
         "seconds": 30
       },
       "features": [
-        { "icon": "AI_Tutor_New_UI/Course_Preview/lifetimeaccess_icon.svg", "text": "Lifetime access" },
-        { "icon": "AI_Tutor_New_UI/Course_Preview/mobile.svg", "text": "Access on mobile and desktop" },
-        { "icon": "AI_Tutor_New_UI/Course_Preview/certificate.svg", "text": "Certificate of completion" },
-        { "icon": "AI_Tutor_New_UI/Course_Preview/moneyback.svg", "text": "30-day money-back guarantee" }
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/lifetimeaccess_icon.svg",
+          "text": "Lifetime access"
+        },
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/mobile.svg",
+          "text": "Access on mobile and desktop"
+        },
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/certificate.svg",
+          "text": "Certificate of completion"
+        },
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/moneyback.svg",
+          "text": "30-day money-back guarantee"
+        }
       ],
       "whatYouLearn": [
         "Perform data cleaning and preprocessing",
@@ -267,10 +290,22 @@
         "seconds": 20
       },
       "features": [
-        { "icon": "AI_Tutor_New_UI/Course_Preview/lifetimeaccess_icon.svg", "text": "Lifetime access" },
-        { "icon": "AI_Tutor_New_UI/Course_Preview/mobile.svg", "text": "Access on mobile and desktop" },
-        { "icon": "AI_Tutor_New_UI/Course_Preview/certificate.svg", "text": "Certificate of completion" },
-        { "icon": "AI_Tutor_New_UI/Course_Preview/moneyback.svg", "text": "30-day money-back guarantee" }
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/lifetimeaccess_icon.svg",
+          "text": "Lifetime access"
+        },
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/mobile.svg",
+          "text": "Access on mobile and desktop"
+        },
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/certificate.svg",
+          "text": "Certificate of completion"
+        },
+        {
+          "icon": "AI_Tutor_New_UI/Course_Preview/moneyback.svg",
+          "text": "30-day money-back guarantee"
+        }
       ],
       "whatYouLearn": [
         "Understand core ML concepts and types of learning",
@@ -289,7 +324,10 @@
             "Evaluation metrics",
             "Bias-Variance tradeoff"
           ],
-          "activities": ["Implement a simple linear regression model", "Compare accuracy of algorithms"]
+          "activities": [
+            "Implement a simple linear regression model",
+            "Compare accuracy of algorithms"
+          ]
         },
         {
           "title": "Module 2: Supervised Learning",

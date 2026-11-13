@@ -13,6 +13,7 @@ const { default: Notification } = await import("../models/Notification.js");
 const { sequelize } = await import("../config/db.js");
 const { paymentGatewayServices } = await import("../services/paymentGatewayServices.js");
 const { default: webhookRoutes } = await import("../routes/webhook.js");
+const { default: requestContext } = await import("../middleware/requestContext.js");
 
 const originals = {
   paymentFindOne: Payment.findOne,
@@ -27,6 +28,7 @@ let baseUrl;
 
 before(async () => {
   const app = express();
+  app.use(requestContext);
   app.use("/api/stripe", webhookRoutes);
   server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, resolve));
@@ -35,15 +37,23 @@ before(async () => {
 
 beforeEach(() => {
   Payment.findOne = async () => null;
-  Payment.update = async () => { throw new Error("unexpected Payment.update"); };
+  Payment.update = async () => {
+    throw new Error("unexpected Payment.update");
+  };
   User.findByPk = async () => null;
   Notification.create = async (data) => ({ id: "notification", ...data });
   sequelize.transaction = async () => ({
     finished: undefined,
-    async commit() { this.finished = "commit"; },
-    async rollback() { this.finished = "rollback"; },
+    async commit() {
+      this.finished = "commit";
+    },
+    async rollback() {
+      this.finished = "rollback";
+    },
   });
-  paymentGatewayServices.constructStripeWebhookEvent = () => { throw new Error("invalid signature"); };
+  paymentGatewayServices.constructStripeWebhookEvent = () => {
+    throw new Error("invalid signature");
+  };
 });
 
 after(async () => {
@@ -56,19 +66,24 @@ after(async () => {
   await new Promise((resolve) => server.close(resolve));
 });
 
-const send = (signature) => fetch(`${baseUrl}/api/stripe/webhook`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    ...(signature ? { "stripe-signature": signature } : {}),
-  },
-  body: JSON.stringify({ test: true }),
-});
+const send = (signature) =>
+  fetch(`${baseUrl}/api/stripe/webhook`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(signature ? { "stripe-signature": signature } : {}),
+    },
+    body: JSON.stringify({ test: true }),
+  });
 
 const quietErrors = async (callback) => {
   const original = console.error;
   console.error = () => {};
-  try { return await callback(); } finally { console.error = original; }
+  try {
+    return await callback();
+  } finally {
+    console.error = original;
+  }
 };
 
 test("webhook rejects a missing Stripe signature", async () => {
@@ -77,10 +92,23 @@ test("webhook rejects a missing Stripe signature", async () => {
   assert.equal(await res.text(), "Missing stripe-signature header");
 });
 
-test("webhook rejects an invalid Stripe signature", async () => {
+test("webhook rejects an invalid Stripe signature without echoing provider text", async () => {
+  const providerText = "No signatures found matching the expected signature sk_test_abc123";
+  paymentGatewayServices.constructStripeWebhookEvent = () => {
+    throw new Error(providerText);
+  };
+
   const res = await quietErrors(() => send("invalid"));
   assert.equal(res.status, 400);
-  assert.match(await res.text(), /Webhook Error: invalid signature/);
+
+  const raw = await res.text();
+  const body = JSON.parse(raw);
+  assert.equal(body.success, false);
+  assert.equal(body.message, "Webhook signature verification failed");
+  assert.equal(body.requestId, res.headers.get("x-request-id"));
+  assert.ok(!raw.includes(providerText), "provider exception text leaked");
+  assert.ok(!raw.includes("Webhook Error"), "old error prefix leaked");
+  assert.ok(!raw.includes("sk_test_abc123"), "secret fragment leaked");
 });
 
 test("expired Stripe sessions are marked failed and acknowledged", async () => {
@@ -89,7 +117,10 @@ test("expired Stripe sessions are marked failed and acknowledged", async () => {
     type: "checkout.session.expired",
     data: { object: { id: "session-expired" } },
   });
-  Payment.update = async (...args) => { update = args; return [1]; };
+  Payment.update = async (...args) => {
+    update = args;
+    return [1];
+  };
   const res = await send("valid");
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { received: true });
@@ -101,14 +132,18 @@ test("expired Stripe sessions are marked failed and acknowledged", async () => {
 
 test("unhandled events are acknowledged without changing payments", async () => {
   let updateCalls = 0;
-  paymentGatewayServices.constructStripeWebhookEvent = () => ({ type: "customer.created", data: { object: {} } });
-  Payment.update = async () => { updateCalls += 1; };
+  paymentGatewayServices.constructStripeWebhookEvent = () => ({
+    type: "customer.created",
+    data: { object: {} },
+  });
+  Payment.update = async () => {
+    updateCalls += 1;
+  };
   const res = await send("valid");
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { received: true });
   assert.equal(updateCalls, 0);
 });
-
 
 const completedEvent = (overrides = {}) => ({
   type: "checkout.session.completed",
@@ -130,16 +165,23 @@ test("completed checkout marks payment successful, enrolls the user, and commits
   const user = {
     id: "user-1",
     purchasedCourses: [],
-    changed(field, value) { changed = [field, value]; },
-    async save(options) { savedOptions = options; },
+    changed(field, value) {
+      changed = [field, value];
+    },
+    async save(options) {
+      savedOptions = options;
+    },
   };
   paymentGatewayServices.constructStripeWebhookEvent = () => completedEvent();
   Payment.findOne = async ({ where, transaction: tx }) => {
     assert.deepEqual(where, { stripeSessionId: "session-complete" });
     transaction = tx;
-    return { status: "processing" };
+    return { id: "pay-1", userId: "user-1", courseId: 7, status: "processing" };
   };
-  Payment.update = async (...args) => { paymentUpdate = args; return [1]; };
+  Payment.update = async (...args) => {
+    paymentUpdate = args;
+    return [1];
+  };
   User.findByPk = async (id, options) => {
     assert.equal(id, "user-1");
     assert.equal(options.transaction, transaction);
@@ -162,13 +204,20 @@ test("completed checkout does not duplicate an existing enrollment", async () =>
   let saves = 0;
   let transaction;
   paymentGatewayServices.constructStripeWebhookEvent = () => completedEvent();
-  Payment.findOne = async ({ transaction: tx }) => { transaction = tx; return { status: "processing" }; };
+  Payment.findOne = async ({ transaction: tx }) => {
+    transaction = tx;
+    return { id: "pay-1", userId: "user-1", courseId: 7, status: "processing" };
+  };
   Payment.update = async () => [1];
   User.findByPk = async () => ({
     id: "user-1",
     purchasedCourses: [{ courseId: 7, courseTitle: "Existing" }],
-    changed() { throw new Error("should not mark unchanged enrollment"); },
-    async save() { saves += 1; },
+    changed() {
+      throw new Error("should not mark unchanged enrollment");
+    },
+    async save() {
+      saves += 1;
+    },
   });
   const res = await send("valid");
   assert.equal(res.status, 200);
@@ -180,9 +229,16 @@ test("already successful Stripe sessions are acknowledged and rolled back as rep
   let transaction;
   let updateCalls = 0;
   paymentGatewayServices.constructStripeWebhookEvent = () => completedEvent();
-  Payment.findOne = async ({ transaction: tx }) => { transaction = tx; return { status: "success" }; };
-  Payment.update = async () => { updateCalls += 1; };
-  User.findByPk = async () => { throw new Error("replay must not load user"); };
+  Payment.findOne = async ({ transaction: tx }) => {
+    transaction = tx;
+    return { status: "success" };
+  };
+  Payment.update = async () => {
+    updateCalls += 1;
+  };
+  User.findByPk = async () => {
+    throw new Error("replay must not load user");
+  };
   const res = await send("valid");
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { received: true });
@@ -190,10 +246,39 @@ test("already successful Stripe sessions are acknowledged and rolled back as rep
   assert.equal(updateCalls, 0);
 });
 
+test("webhook rejects when no matching payment record exists", async () => {
+  let transaction;
+  paymentGatewayServices.constructStripeWebhookEvent = () => completedEvent();
+  Payment.findOne = async ({ transaction: tx }) => {
+    transaction = tx;
+    return null; // no matching payment record
+  };
+  const res = await quietErrors(() => send("valid"));
+  assert.equal(res.status, 404);
+  assert.equal(await res.text(), "Payment record not found");
+  assert.equal(transaction.finished, "rollback");
+});
+
+test("webhook rejects when session details mismatch stored payment", async () => {
+  let transaction;
+  paymentGatewayServices.constructStripeWebhookEvent = () => completedEvent();
+  Payment.findOne = async ({ transaction: tx }) => {
+    transaction = tx;
+    return { id: "pay-1", userId: "different-user", courseId: 7, status: "processing" };
+  };
+  const res = await quietErrors(() => send("valid"));
+  assert.equal(res.status, 400);
+  assert.equal(await res.text(), "Session details do not match stored payment");
+  assert.equal(transaction.finished, "rollback");
+});
+
 test("missing webhook user rolls back and returns 404", async () => {
   let transaction;
   paymentGatewayServices.constructStripeWebhookEvent = () => completedEvent();
-  Payment.findOne = async ({ transaction: tx }) => { transaction = tx; return { status: "processing" }; };
+  Payment.findOne = async ({ transaction: tx }) => {
+    transaction = tx;
+    return { id: "pay-1", userId: "user-1", courseId: 7, status: "processing" };
+  };
   Payment.update = async () => [1];
   User.findByPk = async () => null;
   const res = await send("valid");
@@ -205,7 +290,10 @@ test("missing webhook user rolls back and returns 404", async () => {
 test("database failures roll back the webhook transaction", async () => {
   let transaction;
   paymentGatewayServices.constructStripeWebhookEvent = () => completedEvent();
-  Payment.findOne = async ({ transaction: tx }) => { transaction = tx; throw new Error("database unavailable"); };
+  Payment.findOne = async ({ transaction: tx }) => {
+    transaction = tx;
+    throw new Error("database unavailable");
+  };
   const res = await quietErrors(() => send("valid"));
   assert.equal(res.status, 500);
   assert.equal(await res.text(), "Internal Server Error");

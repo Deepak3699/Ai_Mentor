@@ -8,7 +8,7 @@ import {
   getAllEnrollments,
   getAllPayments,
   getAllCourses,
-  getAllUsers
+  getAllUsers,
 } from "../controllers/adminController.js";
 import { protectAdmin, superAdminOnly } from "../middleware/adminAuthMiddleware.js";
 

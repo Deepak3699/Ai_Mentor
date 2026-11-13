@@ -21,11 +21,7 @@ const ThemeToggle = () => {
       className="p-1.5 sm:px-2 rounded-xl text-muted hover:bg-canvas-alt transition-colors font-semibold"
       aria-label="Toggle theme"
     >
-      {isDark ? (
-        <Sun className="w-5 h-5" />
-      ) : (
-        <Moon className="w-5 h-5" />
-      )}
+      {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
     </button>
   );
 };

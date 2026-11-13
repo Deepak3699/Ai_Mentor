@@ -1,10 +1,10 @@
 import express from "express";
 import {
-    getUnreadCount,
-    getNotifications,
-    markAsRead,
-    markAllAsRead,
-    clearAll,
+  getUnreadCount,
+  getNotifications,
+  markAsRead,
+  markAllAsRead,
+  clearAll,
 } from "../controllers/notificationController.js";
 import { protect } from "../middleware/authMiddleware.js";
 

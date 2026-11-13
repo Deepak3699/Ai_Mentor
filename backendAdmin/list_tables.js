@@ -4,7 +4,7 @@ async function checkUsers() {
   try {
     const [results] = await sequelize.query('SELECT * FROM "Users" LIMIT 5');
     console.log("Users sample:", results);
-    
+
     const [columns] = await sequelize.query(`
       SELECT column_name, data_type 
       FROM information_schema.columns 

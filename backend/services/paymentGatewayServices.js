@@ -13,9 +13,7 @@ const getStripe = () => {
 };
 
 const getRazorpay = () => {
-  const missing = ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET"].filter(
-    (key) => !process.env[key],
-  );
+  const missing = ["RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET"].filter((key) => !process.env[key]);
   if (missing.length > 0) {
     throw new Error(`Missing Razorpay environment variables: ${missing.join(", ")}`);
   }
@@ -32,6 +30,12 @@ export const paymentGatewayServices = {
   },
   createRazorpayOrder(options) {
     return getRazorpay().orders.create(options);
+  },
+  fetchRazorpayPayment(paymentId) {
+    return getRazorpay().payments.fetch(paymentId);
+  },
+  fetchRazorpayOrder(orderId) {
+    return getRazorpay().orders.fetch(orderId);
   },
   constructStripeWebhookEvent(payload, signature, secret) {
     return getStripe().webhooks.constructEvent(payload, signature, secret);

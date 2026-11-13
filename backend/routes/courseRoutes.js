@@ -23,6 +23,7 @@ import {
   updateLessonVideoSchema,
   addSubtopicsSchema,
 } from "../schemas/courseSchema.js";
+import { syllabusGenerationLimiter } from "../middleware/aiRateLimiter.js";
 import feedbackRoutes from "./feedbackRoutes.js";
 
 const router = express.Router();
@@ -47,13 +48,19 @@ router.route("/:id").get(getCourseById);
 // ADMIN (PROTECTED + ADMIN ONLY)
 router.route("/").post(protect, admin, validate(addCourseSchema), addCourse);
 router.route("/:id").delete(protect, admin, deleteCourse);
-router.route("/:id/generate-syllabus").post(protect, admin, generateCourseSyllabusWithAI);
+router
+  .route("/:id/generate-syllabus")
+  .post(protect, admin, syllabusGenerationLimiter, generateCourseSyllabusWithAI);
 router.route("/:courseId/modules").post(protect, admin, validate(addModulesSchema), addModules);
-router.route("/:courseId/modules/:moduleId/lessons").post(protect, admin, validate(addLessonsSchema), addLessons);
+router
+  .route("/:courseId/modules/:moduleId/lessons")
+  .post(protect, admin, validate(addLessonsSchema), addLessons);
 router
   .route("/:courseId/lessons/:lessonId/video")
   .put(protect, admin, validate(updateLessonVideoSchema), updateLessonVideo);
-router.route("/:courseId/subtopics").post(protect, admin, validate(addSubtopicsSchema), addSubtopics);
+router
+  .route("/:courseId/subtopics")
+  .post(protect, admin, validate(addSubtopicsSchema), addSubtopics);
 
 // FEEDBACK (nested)
 router.use("/:courseId/feedback", feedbackRoutes);

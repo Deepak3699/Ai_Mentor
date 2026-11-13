@@ -62,7 +62,7 @@ Report.init(
         name: "unique_report_per_user",
       },
     ],
-  }
+  },
 );
 
 Report.belongsTo(User, { foreignKey: "reporterId", as: "reporter" });

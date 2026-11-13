@@ -7,11 +7,7 @@ const PasswordInput = ({ label, placeholder }) => {
     <div className="mb-3">
       <label className="form-label">{label}</label>
       <div className="input-group">
-        <input
-          type="password"
-          className="form-control password-input"
-          placeholder={placeholder}
-        />
+        <input type="password" className="form-control password-input" placeholder={placeholder} />
         <span
           className="input-group-text"
           style={{ cursor: "pointer" }}

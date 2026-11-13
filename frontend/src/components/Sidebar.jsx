@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import { apiFetch as fetch } from "../lib/api";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   ChevronRight,
-  LogOut,
   Settings,
+  Rocket,
   LayoutDashboard,
   BookOpen,
   MessageSquare,
@@ -12,76 +13,46 @@ import {
   Video,
   Award,
   Flag,
-  CircleHelp,
 } from "lucide-react";
 import API_BASE_URL from "../lib/api";
 import { useSidebar } from "../context/SidebarContext";
 import { useTranslation } from "react-i18next";
 
 const Sidebar = ({ activePage = "dashboard" }) => {
+  const [showProCard, setShowProCard] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("ai-mentor-pro-card-dismissed") !== "true";
+  });
+
+  const dismissProCard = () => {
+    setShowProCard(false);
+    window.localStorage.setItem("ai-mentor-pro-card-dismissed", "true");
+  };
 
   const { t } = useTranslation();
 
-  const {
-    sidebarOpen,
-    setSidebarOpen,
-    sidebarCollapsed,
-    setSidebarCollapsed,
-  } = useSidebar();
+  const { sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed } = useSidebar();
 
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [navigationItems, setNavigationItems] = useState([]);
-  const [profilePopupOpen, setProfilePopupOpen] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const profileRef = useRef(null);
-
-  const handleLogout = () => {
-    setShowLogoutConfirm(true);
-  };
-
-  const confirmLogout = () => {
-    logout();
-    setShowLogoutConfirm(false);
-    setProfilePopupOpen(false);
-    navigate("/login", { state: { logoutSuccess: true } });
-  };
-
-  const displayName = 
-   user?.name || user?.email?.split("@")[0] || "User";
+  const displayName = user?.name || user?.email?.split("@")[0] || "User";
 
   const iconMap = {
-  dashboard: LayoutDashboard,
-  my_courses: BookOpen,
-  "my-courses": BookOpen,
-  courses: BookOpen,
-  discussion: MessageSquare,
-  analytics: BarChart3,
-  settings: Settings,
-  watched_videos: Video,
-  "watched-videos": Video,
-  certificates: Award,
-  report: Flag,
-};
-
-  // Close profile popup when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (
-        profileRef.current &&
-        !profileRef.current.contains(event.target)
-      ) {
-        setProfilePopupOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-
-    return () =>
-      document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    dashboard: LayoutDashboard,
+    my_courses: BookOpen,
+    "my-courses": BookOpen,
+    courses: BookOpen,
+    discussion: MessageSquare,
+    analytics: BarChart3,
+    settings: Settings,
+    watched_videos: Video,
+    "watched-videos": Video,
+    certificates: Award,
+    report: Flag,
+  };
 
   // Fetch navigation items
   useEffect(() => {
@@ -93,15 +64,12 @@ const Sidebar = ({ activePage = "dashboard" }) => {
 
         if (!token) return;
 
-        const response = await fetch(
-          `${API_BASE_URL}/api/sidebar/navigation`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
+        const response = await fetch(`${API_BASE_URL}/api/sidebar/navigation`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
 
         if (!response.ok) return;
 
@@ -132,115 +100,94 @@ const Sidebar = ({ activePage = "dashboard" }) => {
       {/* ================= MOBILE OVERLAY ================= */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] lg:hidden ui-overlay-motion"
           onClick={() => setSidebarOpen(false)}
         />
-      )}
-
-      {/* ================= LOGOUT CONFIRMATION ================= */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="bg-card border border-border/50 rounded-2xl shadow-2xl p-6 w-full max-w-xs text-center">
-            <LogOut className="w-9 h-9 text-red-500 mx-auto mb-3" />
-
-            <h3 className="text-sm font-bold text-main mb-2">
-              Logout
-            </h3>
-
-            <p className="text-xs text-muted mb-5">
-              Are you sure you want to logout?
-            </p>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 py-2.5 rounded-lg text-xs font-semibold border border-border hover:bg-canvas-alt transition-all"
-              >
-                Cancel
-              </button>
-
-              <button
-                onClick={confirmLogout}
-                className="flex-1 py-2.5 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* ================= SIDEBAR ================= */}
       <aside
         className={`
           fixed
-          top-[4.625rem]
+          top-0
           left-0
-          z-[70]
-          h-[calc(100dvh-4.625rem)]
+          z-[105]
+          h-[100dvh]
           flex
           flex-col
-          bg-[#0b1324]
+          bg-card/70 backdrop-blur-xl
           border-r
-          border-white/5
+          border-border/80
           transition-all
           duration-300
           ease-out
 
-          ${
-            sidebarOpen
-              ? "translate-x-0"
-              : "-translate-x-full lg:translate-x-0"
-          }
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
 
-          ${
-            sidebarCollapsed
-              ? "lg:w-[72px]"
-              : "w-[250px] lg:w-[245px]"
-          }
+          ${sidebarCollapsed ? "lg:w-[72px]" : "w-[245px] lg:w-[245px]"}
         `}
       >
         {/* ================= COLLAPSE BUTTON ================= */}
         <button
-          onClick={() =>
-            setSidebarCollapsed(!sidebarCollapsed)
-          }
-          className="
-            hidden
-            lg:flex
-            absolute
-            -right-3
-            top-6
-            w-6
-            h-6
-            rounded-full
-            bg-[#17223a]
-            border
-            border-white/10
-            items-center
-            justify-center
-            text-gray-300
-            hover:bg-blue-600
-            hover:text-white
-            transition-all
-            z-[80]
-          "
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className={`
+    fixed
+    top-[64px]
+    z-[110]
+    hidden
+    h-8
+    w-8
+    -translate-x-1/2
+    cursor-pointer
+    items-center
+    justify-center
+    rounded-full
+    border
+    border-border/80
+    bg-card
+    shadow-md
+    transition-[left,background-color,border-color]
+    duration-300
+    hover:border-[#2f5cc4]
+    hover:bg-[#2f5cc4]
+    lg:flex
+    group
+    ${sidebarCollapsed ? "left-[72px]" : "left-[245px]"}
+  `}
           aria-label="Toggle sidebar"
         >
           <ChevronRight
-            className={`
-              w-3.5
-              h-3.5
-              transition-transform
-              duration-300
-
-              ${sidebarCollapsed ? "" : "rotate-180"}
-            `}
+            className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-500 group-hover:text-white ${
+              sidebarCollapsed ? "" : "rotate-180"
+            }`}
           />
         </button>
 
+        {/* --- LOGO SECTION --- */}
+        <div
+          className={`shrink-0 pt-5 px-3 pb-2 transition-all duration-300 ${sidebarCollapsed ? "flex justify-center" : ""}`}
+        >
+          <div
+            className={`border border-border/50 rounded-2xl p-4 flex flex-col items-center justify-center bg-card shadow-sm w-full ${sidebarCollapsed ? "hidden" : "flex"}`}
+          >
+            <img src="/upto.png" alt="UptoSkills Logo" className="h-8 mb-2 object-contain" />
+            <h2 className="text-[1.2rem] font-bold text-slate-900 dark:text-white tracking-wide">
+              AI Mentor
+            </h2>
+            <p className="text-[11px] text-muted-foreground mt-1 tracking-wide">
+              Learn · Build · Grow
+            </p>
+          </div>
+          {/* Logo when collapsed */}
+          {sidebarCollapsed && (
+            <div className="w-12 h-12 bg-card border border-border/50 rounded-xl flex items-center justify-center shadow-sm">
+              <img src="/upto.png" alt="Logo" className="h-6 object-contain" />
+            </div>
+          )}
+        </div>
+
         {/* ================= MAIN NAVIGATION ================= */}
-        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 py-4">
+        <nav className="min-h-0 flex-1 overflow-y-auto scrollbar-hide px-3 py-4">
           <div className="space-y-2">
             {navigationItems.map((item) => {
               const isActive = activePage === item.id;
@@ -256,14 +203,10 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                     w-full
                     flex
                     items-center
-                    ${
-                      sidebarCollapsed
-                        ? "justify-center"
-                        : "justify-start"
-                    }
+                    ${sidebarCollapsed ? "justify-center" : "justify-start"}
                     gap-3
                     px-3
-                    py-2.5
+                    py-3
                     rounded-lg
                     cursor-pointer
                     transition-all
@@ -271,21 +214,21 @@ const Sidebar = ({ activePage = "dashboard" }) => {
 
                     ${
                       isActive
-                        ? "bg-blue-600 text-white shadow-md shadow-blue-600/20"
-                        : "text-gray-300 hover:bg-white/5 hover:text-white"
+                        ? "bg-[#2f5cc4] text-white shadow-md shadow-[#2f5cc4]/20"
+                        : "text-muted-foreground hover:bg-canvas-alt hover:text-foreground"
                     }
                   `}
                 >
                   <Icon
                     className={`
-                      w-[18px]
-                      h-[18px]
+                      w-5
+                      h-5
                       shrink-0
                       transition-all
                       ${
                         isActive
                           ? "text-white"
-                          : "text-gray-400 group-hover:text-white"
+                          : "text-[#52709b] group-hover:text-[#2f5cc4] dark:text-slate-400 dark:group-hover:text-blue-300"
                       }
                     `}
                   />
@@ -293,13 +236,13 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                   {!sidebarCollapsed && (
                     <span
                       className={`
-                        text-[13px]
-                        font-medium
+                        text-[15px]
+                        font-semibold
                         whitespace-nowrap
                         ${
                           isActive
                             ? "text-white"
-                            : "text-gray-300"
+                            : "text-muted-foreground group-hover:text-foreground"
                         }
                       `}
                     >
@@ -316,8 +259,10 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                         ml-3
                         px-3
                         py-1.5
-                        bg-[#17223a]
-                        text-white
+                        bg-card
+                        border
+                        border-border/50
+                        text-foreground
                         text-[11px]
                         rounded-md
                         opacity-0
@@ -336,275 +281,54 @@ const Sidebar = ({ activePage = "dashboard" }) => {
               );
             })}
           </div>
+
+          {/* ================= UPGRADE TO PRO CARD ================= */}
+          {showProCard && !sidebarCollapsed && (
+            <aside className="relative mt-4 rounded-xl border border-purple-500/20 bg-purple-500/[0.07] p-3">
+              <button
+                type="button"
+                onClick={dismissProCard}
+                aria-label="Dismiss Upgrade to Pro promotion"
+                title="Dismiss"
+                className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-md text-base leading-none text-muted transition-colors hover:bg-purple-500/10 hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-400"
+              >
+                ×
+              </button>
+
+              <div className="flex items-start gap-3 pr-7">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-purple-500/15">
+                  <Rocket className="h-4 w-4 text-purple-300" aria-hidden="true" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-sm font-semibold leading-5 text-foreground">
+                    Upgrade to Pro
+                  </h3>
+                  <p className="mt-0.5 text-[11px] leading-4 text-muted">
+                    Unlock every course with one subscription.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                role="status"
+                aria-label="Pro subscriptions are coming soon"
+                className="mt-3 flex h-9 w-full items-center justify-center rounded-lg border border-purple-400/20 bg-purple-500/10 px-3 text-xs font-semibold text-purple-200/80"
+              >
+                Coming soon
+              </div>
+            </aside>
+          )}
         </nav>
 
         {/* ================= BOTTOM SECTION ================= */}
-        <div className="px-3 pb-5">
-
-          {/* Settings */}
-          <button
-            onClick={() => {
-              navigate("/settings");
-              setSidebarOpen(false);
-            }}
-            className={`
-              group
-              relative
-              w-full
-              flex
-              items-center
-              ${
-                sidebarCollapsed
-                  ? "justify-center"
-                  : "justify-start"
-              }
-              gap-3
-              px-3
-              py-2.5
-              rounded-lg
-              text-gray-300
-              hover:bg-white/5
-              hover:text-white
-              transition-all
-            `}
-          >
-            <Settings className="w-[17px] h-[17px] shrink-0" />
-
-            {!sidebarCollapsed && (
-              <span className="text-[12px] font-medium">
-                Settings
-              </span>
-            )}
-
-            {sidebarCollapsed && (
-              <span
-                className="
-                  absolute
-                  left-full
-                  ml-3
-                  px-3
-                  py-1.5
-                  bg-[#17223a]
-                  text-white
-                  text-[11px]
-                  rounded-md
-                  opacity-0
-                  group-hover:opacity-100
-                  pointer-events-none
-                  whitespace-nowrap
-                  transition-opacity
-                  z-[100]
-                "
-              >
-                Settings
-              </span>
-            )}
-          </button>
-
-          {/* Help & Support */}
-          <button
-            onClick={() => {
-              setSidebarOpen(false);
-              // Keep this action available without assuming a new route.
-              window.dispatchEvent(
-                new CustomEvent("open-help-support")
-              );
-            }}
-            className={`
-              group
-              relative
-              w-full
-              flex
-              items-center
-              ${
-                sidebarCollapsed
-                  ? "justify-center"
-                  : "justify-start"
-              }
-              gap-3
-              px-3
-              py-2.5
-              rounded-lg
-              text-gray-300
-              hover:bg-white/5
-              hover:text-white
-              transition-all
-            `}
-          >
-            <CircleHelp className="w-[17px] h-[17px] shrink-0" />
-
-            {!sidebarCollapsed && (
-              <span className="text-[12px] font-medium">
-                Help & Support
-              </span>
-            )}
-
-            {sidebarCollapsed && (
-              <span
-                className="
-                  absolute
-                  left-full
-                  ml-3
-                  px-3
-                  py-1.5
-                  bg-[#17223a]
-                  text-white
-                  text-[11px]
-                  rounded-md
-                  opacity-0
-                  group-hover:opacity-100
-                  pointer-events-none
-                  whitespace-nowrap
-                  transition-opacity
-                  z-[100]
-                "
-              >
-                Help & Support
-              </span>
-            )}
-          </button>
-
-          {/* ================= USER PROFILE ================= */}
-          <div
-            className="relative mt-3 pt-3 border-t border-white/5"
-            ref={profileRef}
-          >
-            {profilePopupOpen && (
-              <div
-                className={`
-                  absolute
-                  bottom-full
-                  mb-2
-                  ${
-                    sidebarCollapsed
-                      ? "left-0 w-52"
-                      : "left-0 right-0"
-                  }
-                  bg-[#111b30]
-                  border
-                  border-white/10
-                  rounded-xl
-                  shadow-2xl
-                  overflow-hidden
-                  z-[90]
-                `}
-              >
-                <div className="p-4 border-b border-white/5 text-center">
-                  <img
-                    src={
-                      user?.avatar_url ||
-                      `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(
-                        `${user?.firstName || ""} ${
-                          user?.lastName || ""
-                        }`.trim() ||
-                          user?.name ||
-                          displayName
-                      )}`
-                    }
-                    className="w-11 h-11 rounded-full mx-auto mb-2 object-cover"
-                    alt="User"
-                    onError={(e) => {
-                      const seed = encodeURIComponent(
-                        `${user?.firstName || ""} ${
-                          user?.lastName || ""
-                        }`.trim() ||
-                          user?.name ||
-                          displayName
-                      );
-
-                      e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
-                    }}
-                  />
-
-                  <div className="text-xs font-semibold text-white truncate">
-                    {displayName}
-                  </div>
-                </div>
-
-                <div className="p-1.5">
-                  <button
-                    onClick={() => {
-                      navigate("/settings");
-                      setProfilePopupOpen(false);
-                      setSidebarOpen(false);
-                    }}
-                    className="flex items-center w-full px-3 py-2 text-xs text-gray-300 hover:bg-blue-600 hover:text-white rounded-lg transition-all mb-1"
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    Settings
-                  </button>
-
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center w-full px-3 py-2 text-xs text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-all"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Logout
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Profile */}
-            <button
-              onClick={() =>
-                setProfilePopupOpen(!profilePopupOpen)
-              }
-              className={`
-                w-full
-                flex
-                items-center
-                ${
-                  sidebarCollapsed
-                    ? "justify-center"
-                    : "justify-start"
-                }
-                gap-3
-                p-2
-                rounded-lg
-                hover:bg-white/5
-                transition-all
-              `}
-            >
-              <img
-                src={
-                  user?.avatar_url ||
-                  `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(
-                    `${user?.firstName || ""} ${
-                      user?.lastName || ""
-                    }`.trim() ||
-                      user?.name ||
-                      displayName
-                  )}`
-                }
-                className="w-8 h-8 rounded-full object-cover"
-                alt="Avatar"
-                onError={(e) => {
-                  const seed = encodeURIComponent(
-                    `${user?.firstName || ""} ${
-                      user?.lastName || ""
-                    }`.trim() ||
-                      user?.name ||
-                      displayName
-                  );
-
-                  e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
-                }}
-              />
-
-              {!sidebarCollapsed && (
-                <div className="min-w-0 text-left">
-                  <div className="text-[11px] font-medium text-gray-200 truncate">
-                    {displayName}
-                  </div>
-
-                  <div className="text-[9px] text-gray-500">
-                    Account
-                  </div>
-                </div>
-              )}
-            </button>
-          </div>
+        <div className="shrink-0 px-3 pb-5">
+          {/* Account actions live in the header; the sidebar keeps identity only. */}
+          {!sidebarCollapsed && (
+            <div className="mt-3 border-t border-border/70 px-2 pt-4 text-xs text-muted">
+              Signed in as <span className="font-medium text-main">{displayName}</span>
+            </div>
+          )}
         </div>
       </aside>
     </>

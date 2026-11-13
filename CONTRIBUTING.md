@@ -1,184 +1,139 @@
-# Contributing to AI Mentor
+# Contributing
 
-New to the project? Start here.
+Please read and understand this guide carefully before contributing to AI Mentor. It outlines the steps to prepare, validate, and submit your changes effectively.
 
----
+## Get started
 
-# 1. Fork the repository
+1. Fork [Deepak3699/Ai_Mentor](https://github.com/Deepak3699/Ai_Mentor) and clone your fork:
 
-First, fork the repository to your own GitHub account:
+   ```bash
+   git clone https://github.com/<your-username>/Ai_Mentor.git
+   cd Ai_Mentor
+   ```
 
-https://github.com/Deepak3699/Ai_Mentor
+2. Add the original repository as the `upstream` remote:
 
-Click the **Fork** button in the top-right corner and create a fork under your GitHub account.
+   ```bash
+   git remote add upstream https://github.com/Deepak3699/Ai_Mentor.git
+   git remote -v
+   ```
 
-# 2. Clone your fork
+3. Keep your local base branch up to date with upstream. Fetch and integrate the latest changes daily, and always do this before starting new work. Replace `<base-branch>` with the branch you are contributing against, such as `main` or `dev`:
 
-Clone **your forked repository**, not the original repository:
+   ```bash
+   git fetch upstream
+   git switch <base-branch>
+   git pull --ff-only upstream <base-branch>
+   git push origin <base-branch>
+   ```
 
-    git clone https://github.com/<your-github-username>/Ai_Mentor.git
-    cd Ai_Mentor
+   If the fast-forward update fails, your local branch may have diverged. Resolve that before continuing; do not force-push to the upstream repository.
 
-Replace `<your-github-username>` with your GitHub username.
+4. Review the documentation for the application you plan to contribute to. Each guide covers its architecture, technologies, configuration, and local development setup:
 
-# 3. Follow the detailed environment setup
+   - [BACKEND](./backend/BACKEND_DOCUMENTATION.md)
+   - [BACKEND ADMIN](./backendAdmin/backendAdmin_Documentation.md)
+   - [FRONTEND](./frontend/FRONTEND_DOCUMENTATION.md)
+   - [FRONTEND ADMIN](./frontendAdmin/FRONTEND_ADMIN_DOCUMENTATION.md)
+   - [AI SERVICE](./ai_service/README.md)
 
-    # Read initalSetup.md (Neon database + .env files)
-    
+   Then install project dependencies:
 
-# 4. Install dependencies for each service
+   ```bash
+   npm run setup
+   ```
 
-    cd backend       && npm install && cd ..
-    cd backendAdmin  && npm install && cd ..
-    cd frontend      && npm install && cd ..
-    cd frontendAdmin && npm install && cd ..
+5. Configure the required environment variables using the `.env.example` files and [`initalSetup.md`](initalSetup.md). Never commit `.env` files or credentials.
 
-# 5. AI service (Python)
+## Make changes
 
-    cd ai_service
-    python -m venv venv
-    source venv/bin/activate          # Windows: venv\Scripts\activate
-    pip install -r backend/requirements.txt
-    cd ..
+- Create a descriptive branch from the updated base branch, such as `feat/course-search` or `fix/login-validation`.
+- Keep each change focused and consistent with the conventions of the service you are editing.
+- Include or update tests and documentation when relevant.
+- Avoid unrelated formatting changes and generated files.
 
+## Validate your changes
 
-### Running everything (five separate terminals)
-
-| # | Service | Command | URL |
-|---|---|---|---|
-| 1 | backend | `cd backend && npm run dev` | http://localhost:5000 |
-| 2 | frontend | `cd frontend && npm run dev` | http://localhost:5173 |
-| 3 | backendAdmin | `cd backendAdmin && npm run dev` | http://localhost:5001 |
-| 4 | frontendAdmin | `cd frontendAdmin && npm run dev` | http://localhost:5174 |
-| 5 | ai_service | `cd ai_service/backend && uvicorn api:app --reload --port 8000` | http://localhost:8000/docs |
-
-**To create the first admin account:** `cd backendAdmin && npm run seed:superadmin`
-
----
-
-## How to work on a task
+Run the checks relevant to your changes before opening a pull request:
 
 ```bash
-# 1. Always start from the latest code
-git checkout main
-git pull origin main
-
-# 2. Create your own branch
-git checkout -b fix/short-description
-
-# 3. Write code, run it locally, test it
-
-# 4. Run the linter, otherwise CI will fail
-npm run lint                  # from the repo root — checks all four Node/React services
-npm run lint:backend-admin    # Backend Admin only
-
-# 5. Commit
-git add .
-git commit -m "fix: admin panel pointing to wrong port"
-
-# 6. Push
-git push origin fix/short-description
-
-# 7. Open a pull request on GitHub
+npm run format:check
+npm run lint
+npm test
 ```
 
----
+For AI service changes, run the Python tests from `ai_service/`:
 
-## Rules
-
-### Do
-
-- One pull request does one thing — keep it under roughly 400 changed lines
-- Run the service locally before you push
-- `npm run lint` must pass
-- Attach screenshots for any UI change
-- Use the commit format `type: description` (see below)
-- Try on your own for 30 minutes before asking for help
-
-### Do not
-
-- Push directly to `main`
-- Commit a `.env` file — ever
-- Put API keys or passwords in the code
-- Merge someone else's pull request without being asked
-- Leave `console.log` statements behind
-- Bundle five unrelated changes into one pull request
-
----
-
-## Commit message format
-
-```
-type: short description (lowercase, present tense)
+```bash
+cd ai_service
+python -m pytest
 ```
 
-| Type | When to use it |
-|---|---|
-| `feat` | A new feature |
-| `fix` | A bug fix |
-| `docs` | Documentation only |
-| `style` | Formatting, no logic change |
-| `refactor` | Better code, same behaviour |
-| `test` | Adding tests |
-| `chore` | Dependencies or configuration |
+For frontend changes, run the production build for the affected application:
 
-Examples:
-
-```
-feat: add certificate download button
-fix: point admin frontend to port 5001
-docs: add backendAdmin setup to README
-chore: bump express to v5
+```bash
+npm run build --prefix frontend
+npm run build --prefix frontendAdmin
 ```
 
----
+If a check cannot be run, explain why in your pull request. Confirm that your changes do not include credentials, environment files, generated media, or build output.
 
-## Review process
+## Commit messages
 
-1. Open your pull request and fill in the template
-2. Automated checks run (lint and build, about three minutes)
-3. Red cross? Click "Details", read the error, fix it, push again
-4. Green checks plus one approval — then merge
-5. Delete your branch after merging
+Use short, descriptive commit messages in the `type: description` format:
 
----
-
-## Project structure (five services)
-
-```
-Ai_Mentor/
-├── frontend/        Learner app      React 19 + Vite + Tailwind      :5173
-├── backend/         Main API         Express 4 + Sequelize + Postgres :5000
-├── frontendAdmin/   Admin panel      React 19 + Vite + Tailwind      :5174
-├── backendAdmin/    Admin API        Express 5 + Sequelize            :5001
-└── ai_service/      AI video         FastAPI + Gemini + FFmpeg        :8000
+```text
+feat: add course search
+fix: handle expired login tokens
+docs: update setup instructions
+test: cover course enrollment
 ```
 
-`backend` and `backendAdmin` share the **same PostgreSQL database**.
+Common types include `feat`, `fix`, `docs`, `test`, `refactor`, and `chore`. Keep commits coherent and avoid combining unrelated changes.
 
----
+## Submit a pull request
 
-## Stuck?
+A pull request (PR) presents your proposed changes for review. A clear description and a focused, well-tested change help reviewers understand your work and make review more efficient.
 
-1. Try on your own first — give it 30 minutes and read the error carefully
-2. Search Google or Stack Overflow with the exact error message
-3. Still stuck? Ask in the team group, and include:
-   - What you already tried
-   - The full error message (screenshot or pasted text)
-   - Which service and which file
+Before submitting:
 
-Asking for help is fine. Just do not ask with "it is not working" — nobody can
-help you from that alone.
+1. Write code that is clear and consistent with the surrounding project.
+2. Organize your work into coherent commits that make the change easy to follow.
+3. Review your own changes for correctness, scope, and accidental files.
+4. Run the relevant tests, linters, formatters, and builds.
+5. Open a PR against the appropriate project branch.
 
----
+In your PR description:
 
-## Further reading
+- Summarize the problem and the reason for the change.
+- Explain the approach and any important design decisions.
+- Mention differences from the original plan, if applicable.
+- Call out open questions or areas where you would like reviewer input.
+- Include screenshots or recordings for user-facing changes. For UI changes, show the relevant updated screens and note any important interaction changes.
+- List the checks you ran and their results. Be accurate about anything you did not test.
 
-- `initalSetup.md` — environment setup
-- `backend/BACKEND_DOCUMENTATION.md` — the most detailed backend reference
-- `ai_service/README.md` — the AI video pipeline
+Use GitHub Markdown to keep the description easy to read. Put questions about specific code in a review comment on the relevant lines when possible. Respond to feedback constructively and update the PR description if the scope or validation changes.
 
----
+## AI use policy and guidelines
 
-*Questions? Ask the team lead. If you spot a mistake in these rules, send a pull
-request — this file should improve too.*
+AI tools may help you understand the codebase, write code, or improve wording. You are responsible for every change you submit, whether or not you used an AI tool. You must understand the changes, explain why they are appropriate, and verify them with relevant tests. Do not submit AI-generated code that you have not personally reviewed and tested.
+
+### Using AI as a coding assistant
+
+- Become familiar with the relevant part of the project before asking an AI tool to suggest or change code.
+- Verify AI-generated explanations against project documentation and source code. AI tools can be wrong about how the project works.
+- Treat generated code, commands, and recommendations as suggestions. Check their correctness, compatibility, security, and behavior before using them.
+- Break work into focused, reviewable changes and coherent commits, even if a tool produces a large change at once.
+- Avoid comments that merely restate what the code already makes clear. Keep necessary comments concise and accurate.
+
+### Using AI for project communication
+
+Use your own judgment and words when communicating with maintainers. AI tools may help with spelling, grammar, or translation, but read and verify all generated text before posting it. Do not paste generic AI-generated responses to review feedback; explain your reasoning directly.
+
+PR descriptions should focus on the motivation, important design choices, and validation rather than repeating details already visible in the diff. Keep communication concise and accurate, and complete any PR template without replacing its checklist or requested information with generated text.
+
+## Security
+
+Never commit passwords, API keys, tokens, private keys, or other sensitive information. If a real secret is exposed, rotate it with the relevant provider and notify the maintainers. Do not report security vulnerabilities in public issues; contact the project maintainers privately.
+
+For local setup and project-service details, see [`README.md`](README.md) and [`initalSetup.md`](initalSetup.md).

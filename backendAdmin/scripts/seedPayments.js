@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 import { connectDB, sequelize } from "../config/db.js";
 import { User, Course } from "../models/index.js";
-import { Op, Sequelize } from "sequelize";
 
 dotenv.config();
 
@@ -10,20 +9,6 @@ const seedPaymentData = async () => {
     await connectDB();
     await User.sync({ alter: true });
     await Course.sync({ alter: true });
-
-    // ✅ Fix: Check if any user has a non-empty purchasedCourses JSON array
-    const existingPayment = await User.findOne({
-      where: Sequelize.where(
-        Sequelize.fn("json_array_length", Sequelize.col("purchasedCourses")),
-        {
-          [Op.gt]: 0,
-        },
-      ),
-    });
-    // if (existingPayment) {
-    //   console.log("Payment data already exists. Skipping seed.");
-    //   process.exit(0);
-    // }
 
     // ---------- 1. Create sample courses ----------
     const sampleCourses = [
@@ -118,9 +103,7 @@ const seedPaymentData = async () => {
     }
 
     console.log("✅ Payment seed data inserted successfully.");
-    console.log(
-      "📊 Summary: 3 courses created, 3 users with 4 payment records.",
-    );
+    console.log("📊 Summary: 3 courses created, 3 users with 4 payment records.");
     process.exit(0);
   } catch (error) {
     console.error("Failed to seed payment data:", error.message);
