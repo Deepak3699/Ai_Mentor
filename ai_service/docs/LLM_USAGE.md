@@ -31,12 +31,12 @@ and [Configuration caveats and known limitations](#9-configuration-caveats-and-k
 
 ## 3. Model configuration
 
-| Provider/use | Model | Configuration |
-|---|---|---|
-| Gemini shared helper: lesson, syllabus, quiz, flashcards | `GEMINI_MODEL`; default `gemini-2.5-flash` | Environment-configurable |
-| Gemini `/explain-code` | `gemini-3.8-flash` | Hardcoded; does not use `GEMINI_MODEL` |
-| Groq shared helper: lesson, syllabus, quiz, flashcards | `llama-3.3-70b-versatile` | Hardcoded |
-| Groq `/explain-code` | `openai/gpt-oss-120b` | Hardcoded |
+| Provider/use                                             | Model                                      | Configuration                          |
+| -------------------------------------------------------- | ------------------------------------------ | -------------------------------------- |
+| Gemini shared helper: lesson, syllabus, quiz, flashcards | `GEMINI_MODEL`; default `gemini-2.5-flash` | Environment-configurable               |
+| Gemini `/explain-code`                                   | `gemini-3.8-flash`                         | Hardcoded; does not use `GEMINI_MODEL` |
+| Groq shared helper: lesson, syllabus, quiz, flashcards   | `llama-3.3-70b-versatile`                  | Hardcoded                              |
+| Groq `/explain-code`                                     | `openai/gpt-oss-120b`                      | Hardcoded                              |
 
 The runtime value of `GEMINI_MODEL` is **UNKNOWN** without the service
 environment. The default is used only when the environment does not override
@@ -45,12 +45,12 @@ configuration.
 
 ## 4. Environment variables and API keys
 
-| Variable | Purpose | Default/behavior |
-|---|---|---|
-| `GEMINI_API_KEY` | Gemini API key | Config is documented as requiring it. |
-| `GEMINI_MODEL` | Model for shared Gemini calls | `gemini-2.5-flash` |
-| `GROQ_API_KEY` | Optional Groq API key | Groq client enabled when truthy |
-| `LLM_TIMEOUT_SECONDS` | LLM request timeout | `60` seconds |
+| Variable              | Purpose                                | Default/behavior                                 |
+| --------------------- | -------------------------------------- | ------------------------------------------------ |
+| `GEMINI_API_KEY`      | Gemini API key                         | Config is documented as requiring it.            |
+| `GEMINI_MODEL`        | Model for shared Gemini calls          | `gemini-2.5-flash`                               |
+| `GROQ_API_KEY`        | Optional Groq API key                  | Groq client enabled when truthy                  |
+| `LLM_TIMEOUT_SECONDS` | LLM request timeout                    | `60` seconds                                     |
 | `PYTEST_CURRENT_TEST` | Controls dotenv loading in `config.py` | If set, `load_dotenv(override=False)` is skipped |
 
 The `.env.example` also lists Cloudinary and D-ID variables; these are not
@@ -71,13 +71,13 @@ The shared Groq helper defaults to `temperature=0.7` and requires its caller
 to provide `max_tokens`. The following values are explicitly passed by
 endpoint:
 
-| Generation flow | Groq temperature | Groq `max_tokens` |
-|---|---:|---:|
-| Lesson fallback | `0.7` (helper default) | `300` |
-| Syllabus fallback | `0.7` (helper default) | `1000` |
-| Quiz fallback | `0.7` (helper default) | `2000` |
-| Flashcard fallback | `0.4` | `3000` |
-| `/explain-code` fallback | `0.2` | `4000` |
+| Generation flow          |       Groq temperature | Groq `max_tokens` |
+| ------------------------ | ---------------------: | ----------------: |
+| Lesson fallback          | `0.7` (helper default) |             `300` |
+| Syllabus fallback        | `0.7` (helper default) |            `1000` |
+| Quiz fallback            | `0.7` (helper default) |            `2000` |
+| Flashcard fallback       |                  `0.4` |            `3000` |
+| `/explain-code` fallback |                  `0.2` |            `4000` |
 
 These are helper defaults or per-call settings, not global environment
 settings. No Gemini temperature or output-token limit is explicitly passed
@@ -101,12 +101,12 @@ The shared lesson, syllabus, quiz, and flashcard prompts include an
 instruction to treat values in user JSON as untrusted data rather than
 instructions.
 
-| Flow | User data passed to the shared helper |
-|---|---|
-| Lesson | `course`, `topic`, `celebrity`, `language`, and preferences. `None` preference values are excluded. Voice and speech settings are not included in this LLM payload. |
-| Syllabus | `course_title` and `category`; a falsey category becomes `"General Education"`. |
-| Quiz | `lesson` |
-| Flashcards | `count` and `transcript` |
+| Flow       | User data passed to the shared helper                                                                                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lesson     | `course`, `topic`, `celebrity`, `language`, and preferences. `None` preference values are excluded. Voice and speech settings are not included in this LLM payload. |
+| Syllabus   | `course_title` and `category`; a falsey category becomes `"General Education"`.                                                                                     |
+| Quiz       | `lesson`                                                                                                                                                            |
+| Flashcards | `count` and `transcript`                                                                                                                                            |
 
 The `/explain-code` endpoint constructs a text prompt containing the
 programming language, requested mode, and code inside a language-labelled
@@ -118,13 +118,13 @@ it as a user message.
 
 Pydantic request models define these constraints:
 
-| Request | Validated fields |
-|---|---|
-| Lesson | `course`: 1–100 characters; `topic`: 1–200; `celebrity`: default `"modi"`, 1–50; `language`: default `"English"`, maximum 50. Optional preference fields each have maximum 100 characters; extra preference fields are forbidden. |
-| Syllabus | `course_title`: 1–100 characters; optional `category`: maximum 100. |
-| Code | `code`: 1–20,000 characters; `language`: 1–50; `mode`: `explain`, `debug`, or `optimize`. |
-| Quiz | `lesson`: 1–30,000 characters. |
-| Flashcards | `transcript`: 1–30,000 characters; `count`: default 5, minimum 5, maximum 10. |
+| Request    | Validated fields                                                                                                                                                                                                                  |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lesson     | `course`: 1–100 characters; `topic`: 1–200; `celebrity`: default `"modi"`, 1–50; `language`: default `"English"`, maximum 50. Optional preference fields each have maximum 100 characters; extra preference fields are forbidden. |
+| Syllabus   | `course_title`: 1–100 characters; optional `category`: maximum 100.                                                                                                                                                               |
+| Code       | `code`: 1–20,000 characters; `language`: 1–50; `mode`: `explain`, `debug`, or `optimize`.                                                                                                                                         |
+| Quiz       | `lesson`: 1–30,000 characters.                                                                                                                                                                                                    |
+| Flashcards | `transcript`: 1–30,000 characters; `count`: default 5, minimum 5, maximum 10.                                                                                                                                                     |
 
 Generated lesson text must be a string, is whitespace-normalized, and must
 be nonempty and no longer than 10,000 characters. Quiz output is parsed and
@@ -152,14 +152,14 @@ errors.
 
 ## 8. Endpoint-wise provider fallback behaviour
 
-| Endpoint/operation | Provider order and fallback | Failure behavior |
-|---|---|---|
-| Lesson: `POST /generate` | `generate_lesson_script` tries Gemini, then Groq if Gemini generation or output validation fails. | If both fail, raises `ProviderGenerationError`; lesson processing marks the job failed. |
-| Syllabus: `POST /generate-syllabus` | Gemini first; Groq on Gemini, JSON parse, or related failure. | HTTP 503 if the Groq path also fails. |
-| Quiz: `POST /generate-quiz` | Gemini first; Groq on Gemini failure. The attempt loop allows two attempts. | Returns `{"questions": []}` after the second failed attempt. |
-| Flashcards: `POST /generate-flashcards` | Gemini first; Groq is attempted only if a Groq client exists. The attempt loop allows two attempts. | HTTP 503 after retries fail. |
-| Code explanation: `/explain-code`, mode `explain` | Gemini `gemini-3.8-flash`, then Groq `openai/gpt-oss-120b` if Gemini raises. | HTTP 502 if both provider calls fail or the response is invalid. |
-| Code analysis: `/explain-code`, modes `debug` and `optimize` | Same route and provider fallback as code explanation. | Same HTTP 502 behavior. |
+| Endpoint/operation                                           | Provider order and fallback                                                                         | Failure behavior                                                                        |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Lesson: `POST /generate`                                     | `generate_lesson_script` tries Gemini, then Groq if Gemini generation or output validation fails.   | If both fail, raises `ProviderGenerationError`; lesson processing marks the job failed. |
+| Syllabus: `POST /generate-syllabus`                          | Gemini first; Groq on Gemini, JSON parse, or related failure.                                       | HTTP 503 if the Groq path also fails.                                                   |
+| Quiz: `POST /generate-quiz`                                  | Gemini first; Groq on Gemini failure. The attempt loop allows two attempts.                         | Returns `{"questions": []}` after the second failed attempt.                            |
+| Flashcards: `POST /generate-flashcards`                      | Gemini first; Groq is attempted only if a Groq client exists. The attempt loop allows two attempts. | HTTP 503 after retries fail.                                                            |
+| Code explanation: `/explain-code`, mode `explain`            | Gemini `gemini-3.8-flash`, then Groq `openai/gpt-oss-120b` if Gemini raises.                        | HTTP 502 if both provider calls fail or the response is invalid.                        |
+| Code analysis: `/explain-code`, modes `debug` and `optimize` | Same route and provider fallback as code explanation.                                               | Same HTTP 502 behavior.                                                                 |
 
 There is no separate code-analysis route in `api.py`; `/explain-code`
 supports all three modes.
@@ -190,10 +190,10 @@ supports all three modes.
 Paths and line numbers below refer to the repository source used for this
 documentation.
 
-| File | Relevant sections |
-|---|---|
-| `ai_service/backend/api.py` | Provider clients: lines 154–167; request models: 172–225; serialization and provider helpers: 228–269; lesson prompt, validation and fallback: 272–347; syllabus endpoint: 495–585; quiz endpoint: 598–687; flashcard endpoint: 690–755; `/explain-code` prompt, provider calls, validation and errors: 760–884; lesson route: 926–960; lesson failure recording: 1294–1304. |
-| `ai_service/backend/config.py` | Dotenv loading: lines 3–5; Gemini settings and timeout: 7–12; Groq key and enablement: 14–15, 27; `validate_config()` definition: 36–38. |
-| `ai_service/backend/.env.example` | Gemini key/model: lines 1–3; timeout: 5–6; optional Groq key: 8–10. |
-| `ai_service/tests/test_config.py` | Test-only calls to `validate_config()`: lines 44, 50, 56, 66. |
-| `ai_service/backend/tests/test_optional_config.py` | Test-only call to `validate_config()`: line 33. |
+| File                                               | Relevant sections                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai_service/backend/api.py`                        | Provider clients: lines 154–167; request models: 172–225; serialization and provider helpers: 228–269; lesson prompt, validation and fallback: 272–347; syllabus endpoint: 495–585; quiz endpoint: 598–687; flashcard endpoint: 690–755; `/explain-code` prompt, provider calls, validation and errors: 760–884; lesson route: 926–960; lesson failure recording: 1294–1304. |
+| `ai_service/backend/config.py`                     | Dotenv loading: lines 3–5; Gemini settings and timeout: 7–12; Groq key and enablement: 14–15, 27; `validate_config()` definition: 36–38.                                                                                                                                                                                                                                     |
+| `ai_service/backend/.env.example`                  | Gemini key/model: lines 1–3; timeout: 5–6; optional Groq key: 8–10.                                                                                                                                                                                                                                                                                                          |
+| `ai_service/tests/test_config.py`                  | Test-only calls to `validate_config()`: lines 44, 50, 56, 66.                                                                                                                                                                                                                                                                                                                |
+| `ai_service/backend/tests/test_optional_config.py` | Test-only call to `validate_config()`: line 33.                                                                                                                                                                                                                                                                                                                              |
