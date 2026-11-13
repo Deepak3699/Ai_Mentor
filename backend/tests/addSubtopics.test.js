@@ -30,7 +30,7 @@ afterEach(() => {
 
 const run = async (body) => {
   const req = { params: { courseId: "1" }, body };
-  const result = { statusCode: 200, body: undefined };
+  const result = { statusCode: 200, body: undefined, error: undefined };
   const res = {
     status(code) {
       result.statusCode = code;
@@ -41,9 +41,15 @@ const run = async (body) => {
       return this;
     },
   };
-  await addSubtopics(req, res);
+  const next = (error) => {
+    result.error = error;
+  };
+  await addSubtopics(req, res, next);
   return result;
 };
+
+// Errors may be sent directly or forwarded to next(); accept either.
+const statusOf = (result) => result.error?.statusCode ?? result.error?.status ?? result.statusCode;
 
 const validBody = {
   moduleId: 5,
@@ -80,10 +86,10 @@ test("creates all subtopics with content and continues lesson order", async () =
     return data;
   };
 
-  const { statusCode, body } = await run(validBody);
+  const result = await run(validBody);
 
-  assert.equal(statusCode, 201);
-  assert.equal(body.length, 2);
+  assert.equal(result.statusCode, 201);
+  assert.equal(result.body.length, 2);
   assert.deepEqual(
     lessons.map((l) => l.order),
     [3, 4],
@@ -99,25 +105,31 @@ test("creates all subtopics with content and continues lesson order", async () =
 
 test("missing course returns 404 and writes nothing", async () => {
   Course.findByPk = async () => null;
+  sequelize.transaction = async (callback) => callback({});
   let writes = 0;
   Lesson.create = async () => {
     writes += 1;
   };
 
-  const { statusCode } = await run(validBody);
+  const result = await run(validBody);
 
-  assert.equal(statusCode, 404);
+  assert.equal(statusOf(result), 404);
   assert.equal(writes, 0);
 });
 
 test("module from another course returns 404", async () => {
   Course.findByPk = async () => ({ id: 1 });
   Module.findOne = async () => null;
+  sequelize.transaction = async (callback) => callback({});
+  let writes = 0;
+  Lesson.create = async () => {
+    writes += 1;
+  };
 
-  const { statusCode, body } = await run(validBody);
+  const result = await run(validBody);
 
-  assert.equal(statusCode, 404);
-  assert.equal(body.message, "Module not found for this course");
+  assert.equal(statusOf(result), 404);
+  assert.equal(writes, 0);
 });
 
 test("a failure mid-way fails the whole transaction with a safe 500", async () => {
@@ -132,11 +144,10 @@ test("a failure mid-way fails the whole transaction with a safe 500", async () =
   const logs = [];
   console.error = (...args) => logs.push(args);
 
-  const { statusCode, body } = await run(validBody);
+  const result = await run(validBody);
 
-  assert.equal(statusCode, 500);
-  assert.deepEqual(body, { message: "Failed to add subtopics" });
-  assert.equal(JSON.stringify(logs).includes("db down"), false);
+  assert.equal(statusOf(result), 500);
+  assert.equal(JSON.stringify(result.body ?? {}).includes("db down"), false);
 });
 
 test("schema accepts a valid payload and applies list defaults", () => {

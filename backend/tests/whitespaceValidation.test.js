@@ -95,12 +95,28 @@ describe("courseSchema — whitespace validation", () => {
     accepts(addLessonsSchema, { lessons: [{ id: "l1", title: "Introduction" }] }, "valid lesson");
   });
 
-  it("rejects whitespace-only subtopic", () => {
-    rejects(addSubtopicsSchema, { subtopics: ["Variables", "   "] }, "whitespace-only subtopic");
+  it("rejects whitespace-only subtopic title", () => {
+    rejects(
+      addSubtopicsSchema,
+      { moduleId: 1, subtopics: [{ title: "Variables" }, { title: "   " }] },
+      "whitespace-only subtopic title",
+    );
+  });
+
+  it("rejects whitespace-only entries in subtopic topics", () => {
+    rejects(
+      addSubtopicsSchema,
+      { moduleId: 1, subtopics: [{ title: "Variables", topics: ["   "] }] },
+      "whitespace-only subtopic topic",
+    );
   });
 
   it("accepts valid subtopics", () => {
-    accepts(addSubtopicsSchema, { subtopics: ["Variables", "Loops"] }, "valid subtopics");
+    accepts(
+      addSubtopicsSchema,
+      { moduleId: 1, subtopics: [{ title: "Variables" }, { title: "Loops", goal: "Repeat" }] },
+      "valid subtopics",
+    );
   });
 });
 
