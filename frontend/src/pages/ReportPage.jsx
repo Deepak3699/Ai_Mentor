@@ -147,13 +147,18 @@ const ReportPage = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email */}
             <div>
-              <label className="block text-[11px] font-black uppercase tracking-widest text-muted mb-2">
+              <label
+                htmlFor="report-email"
+                className="block text-[11px] font-black uppercase tracking-widest text-muted mb-2"
+              >
                 Email Address <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
                 <input
                   type="email"
+                  id="report-email"
+                  autoComplete="email"
                   name="email"
                   value={form.email}
                   onChange={handleChange}
@@ -165,13 +170,18 @@ const ReportPage = () => {
 
             {/* Phone */}
             <div>
-              <label className="block text-[11px] font-black uppercase tracking-widest text-muted mb-2">
+              <label
+                htmlFor="report-phone"
+                className="block text-[11px] font-black uppercase tracking-widest text-muted mb-2"
+              >
                 Phone Number <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted pointer-events-none" />
                 <input
                   type="tel"
+                  id="report-phone"
+                  autoComplete="tel"
                   name="phone"
                   value={form.phone}
                   onChange={handleChange}
@@ -183,13 +193,17 @@ const ReportPage = () => {
 
             {/* Description */}
             <div>
-              <label className="block text-[11px] font-black uppercase tracking-widest text-muted mb-2">
+              <label
+                htmlFor="report-description"
+                className="block text-[11px] font-black uppercase tracking-widest text-muted mb-2"
+              >
                 Report <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <FileText className="absolute left-4 top-4 w-4 h-4 text-muted pointer-events-none" />
                 <textarea
                   name="description"
+                  id="report-description"
                   value={form.description}
                   onChange={handleChange}
                   rows={6}
@@ -204,7 +218,10 @@ const ReportPage = () => {
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl">
+              <div
+                role="alert"
+                className="flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl"
+              >
                 <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                 <p className="text-xs text-red-400 font-semibold">{error}</p>
               </div>

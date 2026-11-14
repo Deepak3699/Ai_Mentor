@@ -121,6 +121,7 @@ const ReportModal = ({
 
               <button
                 onClick={requestClose}
+                aria-label="Close report dialog"
                 className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 transition"
               >
                 <X className="w-4 h-4 text-gray-700 dark:text-white" />
@@ -128,11 +129,16 @@ const ReportModal = ({
             </div>
 
             <div className="relative mb-5">
-              <label className="text-xs font-medium text-gray-500 uppercase mb-2 block">
+              <label
+                id="report-issue-type-label"
+                className="text-xs font-medium text-gray-500 uppercase mb-2 block"
+              >
                 Issue Type
               </label>
 
               <button
+                id="report-issue-type"
+                aria-labelledby="report-issue-type-label"
                 onClick={() => {
                   setOpenDropdown(!openDropdown);
                   setOpenCourseDropdown(false);
@@ -172,11 +178,16 @@ const ReportModal = ({
 
             {reportType === "Course" && (
               <div className="relative mb-5">
-                <label className="text-xs font-medium text-gray-500 uppercase mb-2 block">
+                <label
+                  id="report-course-label"
+                  className="text-xs font-medium text-gray-500 uppercase mb-2 block"
+                >
                   Select Course
                 </label>
 
                 <button
+                  id="report-course"
+                  aria-labelledby="report-course-label"
                   onClick={() => {
                     setOpenCourseDropdown(!openCourseDropdown);
                     setOpenDropdown(false);
@@ -222,11 +233,16 @@ const ReportModal = ({
               reportType !== "Other" &&
               (reportType !== "Course" || selectedCourse) && (
                 <div className="relative mb-5">
-                  <label className="text-xs font-medium text-gray-500 uppercase mb-2 block">
+                  <label
+                    id="report-reason-label"
+                    className="text-xs font-medium text-gray-500 uppercase mb-2 block"
+                  >
                     Select Reason
                   </label>
 
                   <button
+                    id="report-reason"
+                    aria-labelledby="report-reason-label"
                     onClick={() => {
                       setOpenSubDropdown(!openSubDropdown);
                       setOpenDropdown(false);
@@ -264,11 +280,15 @@ const ReportModal = ({
               )}
 
             <div className="mb-6">
-              <label className="text-xs font-medium text-gray-500 uppercase mb-2 block">
+              <label
+                htmlFor="report-modal-description"
+                className="text-xs font-medium text-gray-500 uppercase mb-2 block"
+              >
                 Description
               </label>
 
               <textarea
+                id="report-modal-description"
                 value={reportText}
                 onChange={(e) => setReportText(e.target.value)}
                 rows={4}

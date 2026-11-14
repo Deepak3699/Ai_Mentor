@@ -9,19 +9,41 @@ import toast from "react-hot-toast";
 import { getErrorMessage } from "../lib/errorHandling.js";
 
 /* ─── Reusable form input (consistent with Login/Signup) ─── */
-const FormInput = ({ label, type, placeholder, value, onChange, required = true }) => (
+const FormInput = ({
+  id,
+  label,
+  type,
+  placeholder,
+  value,
+  onChange,
+  autoComplete,
+  error,
+  required = true,
+}) => (
   <div className="mb-3">
-    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+    <label
+      htmlFor={id}
+      className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+    >
       {label}
     </label>
     <input
       type={type}
+      id={id}
+      autoComplete={autoComplete}
+      aria-invalid={Boolean(error)}
+      aria-describedby={error ? `${id}-error` : undefined}
       className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BEA5] focus:border-transparent transition-all dark:bg-[#0f172a] dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
       placeholder={placeholder}
       value={value}
       onChange={onChange}
       required={required}
     />
+    {error && (
+      <p id={`${id}-error`} role="alert" className="text-[10px] text-red-500 -mt-2 mb-2">
+        {error}
+      </p>
+    )}
   </div>
 );
 
@@ -289,6 +311,7 @@ const CompleteProfilePage = () => {
             <div>
               <FormInput
                 label="First Name"
+                id="complete-first-name"
                 type="text"
                 placeholder="John"
                 value={firstName}
@@ -296,14 +319,14 @@ const CompleteProfilePage = () => {
                   setFirstName(e.target.value);
                   setErrors((prev) => ({ ...prev, firstName: null }));
                 }}
+                autoComplete="given-name"
+                error={errors.firstName}
               />
-              {errors.firstName && (
-                <p className="text-[10px] text-red-500 -mt-2 mb-2">{errors.firstName}</p>
-              )}
             </div>
             <div>
               <FormInput
                 label="Last Name"
+                id="complete-last-name"
                 type="text"
                 placeholder="Doe"
                 value={lastName}
@@ -311,10 +334,9 @@ const CompleteProfilePage = () => {
                   setLastName(e.target.value);
                   setErrors((prev) => ({ ...prev, lastName: null }));
                 }}
+                autoComplete="family-name"
+                error={errors.lastName}
               />
-              {errors.lastName && (
-                <p className="text-[10px] text-red-500 -mt-2 mb-2">{errors.lastName}</p>
-              )}
             </div>
           </div>
         )}
@@ -322,12 +344,21 @@ const CompleteProfilePage = () => {
         {/* ─── Dynamic Field: Password ─── */}
         {showPasswordField && (
           <div className="mb-3 relative">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            <label
+              htmlFor="complete-password"
+              className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+            >
               Create a Password
             </label>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
+                id="complete-password"
+                autoComplete="new-password"
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby={
+                  errors.password ? "complete-password-error" : "complete-password-hint"
+                }
                 className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BEA5] focus:border-transparent transition-all dark:bg-[#0f172a] dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
                 placeholder="••••••••••"
                 value={password}
@@ -340,6 +371,8 @@ const CompleteProfilePage = () => {
               />
               <button
                 type="button"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
                 onClick={() => setShowPassword((prev) => !prev)}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
               >
@@ -348,24 +381,38 @@ const CompleteProfilePage = () => {
             </div>
 
             {/* Password checklist */}
-            <div className="mt-2 grid grid-cols-2 gap-1">
+            <div id="complete-password-hint" className="mt-2 grid grid-cols-2 gap-1">
               <ValidationItem label="8+ Characters" met={passwordRequirements.length} />
               <ValidationItem label="Uppercase" met={passwordRequirements.capital} />
               <ValidationItem label="Lowercase" met={passwordRequirements.lower} />
               <ValidationItem label="Number" met={passwordRequirements.number} />
               <ValidationItem label="Symbol" met={passwordRequirements.symbol} />
             </div>
-            {errors.password && <p className="text-[10px] text-red-500 mt-1">{errors.password}</p>}
+            {errors.password && (
+              <p
+                id="complete-password-error"
+                role="alert"
+                className="text-[10px] text-red-500 mt-1"
+              >
+                {errors.password}
+              </p>
+            )}
           </div>
         )}
 
         {/* ─── Dynamic Field: Bio ─── */}
         {showBioField && (
           <div className="mb-3">
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            <label
+              htmlFor="complete-bio"
+              className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+            >
               Tell us about yourself
             </label>
             <textarea
+              aria-invalid={Boolean(errors.bio)}
+              aria-describedby={errors.bio ? "complete-bio-error" : undefined}
+              id="complete-bio"
               className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BEA5] focus:border-transparent transition-all resize-none dark:bg-[#0f172a] dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
               placeholder="I'm a student passionate about AI and machine learning..."
               rows={3}
@@ -378,7 +425,13 @@ const CompleteProfilePage = () => {
               required
             />
             <div className="flex justify-between mt-0.5">
-              {errors.bio ? <p className="text-[10px] text-red-500">{errors.bio}</p> : <span />}
+              {errors.bio ? (
+                <p id="complete-bio-error" role="alert" className="text-[10px] text-red-500">
+                  {errors.bio}
+                </p>
+              ) : (
+                <span />
+              )}
               <span className="text-[10px] text-gray-400">{bio.length}/500</span>
             </div>
           </div>

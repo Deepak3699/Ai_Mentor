@@ -64,7 +64,10 @@ const ForgotPassword = () => {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label
+                htmlFor="forgot-email"
+                className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+              >
                 Email Address
               </label>
               <div className="relative">
@@ -73,6 +76,10 @@ const ForgotPassword = () => {
                 </div>
                 <input
                   type="email"
+                  id="forgot-email"
+                  autoComplete="email"
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? "forgot-email-error" : undefined}
                   className="w-full pl-10 pr-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BEA5] focus:border-transparent transition-all dark:bg-[#0f172a] dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
                   placeholder="Enter your email"
                   value={email}
@@ -83,7 +90,11 @@ const ForgotPassword = () => {
             </div>
 
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-xs">
+              <div
+                id="forgot-email-error"
+                role="alert"
+                className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-xs"
+              >
                 {error}
               </div>
             )}
