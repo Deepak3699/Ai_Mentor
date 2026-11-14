@@ -7,8 +7,18 @@ import ReportModal from "../components/common/ReportModal";
 const dialogPrototype = HTMLDialogElement.prototype;
 const originalShowModal = Object.getOwnPropertyDescriptor(dialogPrototype, "showModal");
 const originalClose = Object.getOwnPropertyDescriptor(dialogPrototype, "close");
+const originalGetClientRects = Object.getOwnPropertyDescriptor(
+  HTMLElement.prototype,
+  "getClientRects",
+);
 
 beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, "getClientRects", {
+    configurable: true,
+    value() {
+      return [{ width: 1, height: 1 }];
+    },
+  });
   Object.defineProperty(dialogPrototype, "showModal", {
     configurable: true,
     value() {
@@ -35,6 +45,15 @@ afterEach(() => {
   } else {
     delete dialogPrototype.close;
   }
+  if (originalGetClientRects) {
+    Object.defineProperty(
+      HTMLElement.prototype,
+      "getClientRects",
+      originalGetClientRects,
+    );
+  } else {
+    delete HTMLElement.prototype.getClientRects;
+  }
 });
 
 function ModalHarness() {
@@ -49,8 +68,10 @@ function ModalHarness() {
         labelledBy="test-modal-title"
       >
         <h2 id="test-modal-title">Test dialog</h2>
-        <button>Continue</button>
+        <button>First action</button>
+        <button>Last action</button>
       </Modal>
+      <button>Background action</button>
     </>
   );
 }
@@ -81,6 +102,25 @@ describe("Modal", () => {
 
     expect(cancelEvent.defaultPrevented).toBe(true);
     expect(dialog.open).toBe(false);
+  });
+
+  it("wraps Tab and Shift+Tab at the dialog boundaries", () => {
+    render(<ModalHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open dialog" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Test dialog" });
+    const firstAction = screen.getByRole("button", { name: "First action" });
+    const lastAction = screen.getByRole("button", { name: "Last action" });
+
+    lastAction.focus();
+    fireEvent.keyDown(lastAction, { key: "Tab" });
+    expect(document.activeElement).toBe(firstAction);
+
+    firstAction.focus();
+    fireEvent.keyDown(firstAction, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(lastAction);
+    expect(dialog.contains(document.activeElement)).toBe(true);
   });
 
   it("reports the report dropdown expanded state to assistive technology", () => {

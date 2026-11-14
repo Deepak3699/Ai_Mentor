@@ -31,6 +31,36 @@ const Modal = ({
     if (event.key === "Escape") {
       event.preventDefault();
       onCloseRef.current();
+      return;
+    }
+
+    if (event.key === "Tab") {
+      const dialog = dialogRef.current;
+      const focusableElements = Array.from(
+        dialog.querySelectorAll(
+          'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), iframe, object, embed, [contenteditable="true"], [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter(
+        (element) =>
+          element.tabIndex >= 0 &&
+          !element.closest("[hidden], [inert], [aria-hidden='true']") &&
+          element.getClientRects().length > 0,
+      );
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement;
+
+      if (!firstElement) {
+        event.preventDefault();
+        dialog.focus();
+      } else if (event.shiftKey && activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
     }
   };
 
@@ -49,6 +79,7 @@ const Modal = ({
     <dialog
       ref={dialogRef}
       aria-labelledby={labelledBy}
+      tabIndex={-1}
       onKeyDown={handleEscape}
       onCancel={handleCancel}
       className="fixed inset-0 m-0 h-dvh w-screen max-h-none max-w-none border-0 bg-transparent p-0 text-inherit"
