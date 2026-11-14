@@ -220,7 +220,8 @@ const ReportPage = () => {
             {error && (
               <div
                 role="alert"
-                className="flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl">
+                className="flex items-center gap-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl"
+              >
                 <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                 <p className="text-xs text-red-400 font-semibold">{error}</p>
               </div>

@@ -103,7 +103,9 @@ const ResetPassword = () => {
                 </div>
                 <div className="flex items-center gap-1.5 mt-1.5 text-gray-500 dark:text-gray-400">
                   <Lock size={12} />
-                  <small id="reset-password-hint" className="text-[11px]">Min. 8 chars required</small>
+                  <small id="reset-password-hint" className="text-[11px]">
+                    Min. 8 chars required
+                  </small>
                 </div>
               </div>
 
@@ -130,7 +132,8 @@ const ResetPassword = () => {
             {error && (
               <div
                 role="alert"
-                className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-xs">
+                className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-xs"
+              >
                 {error}
               </div>
             )}

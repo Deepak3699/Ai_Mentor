@@ -40,11 +40,7 @@ const FormInput = ({
       required={required}
     />
     {error && (
-      <p
-        id={`${id}-error`}
-        role="alert"
-        className="text-[10px] text-red-500 -mt-2 mb-2"
-      >
+      <p id={`${id}-error`} role="alert" className="text-[10px] text-red-500 -mt-2 mb-2">
         {error}
       </p>
     )}
@@ -100,8 +96,8 @@ const CompleteProfilePage = () => {
     if (isGoogleUser || user?.googleId || user?.isGoogleUser) {
       const seed = encodeURIComponent(
         `${firstName || user?.firstName || ""} ${lastName || user?.lastName || ""}`.trim() ||
-        user?.name ||
-        "User",
+          user?.name ||
+          "User",
       );
       return `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
     }
@@ -276,8 +272,8 @@ const CompleteProfilePage = () => {
                       if (isGoogleUser || user?.googleId || user?.isGoogleUser) {
                         const seed = encodeURIComponent(
                           `${firstName || user?.firstName || ""} ${lastName || user?.lastName || ""}`.trim() ||
-                          user?.name ||
-                          "User",
+                            user?.name ||
+                            "User",
                         );
                         e.target.src = `https://api.dicebear.com/8.x/initials/svg?seed=${seed}`;
                       } else {
@@ -350,7 +346,8 @@ const CompleteProfilePage = () => {
           <div className="mb-3 relative">
             <label
               htmlFor="complete-password"
-              className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+            >
               Create a Password
             </label>
             <div className="relative">
@@ -359,7 +356,9 @@ const CompleteProfilePage = () => {
                 id="complete-password"
                 autoComplete="new-password"
                 aria-invalid={Boolean(errors.password)}
-                aria-describedby={errors.password ? "complete-password-error" : "complete-password-hint"}
+                aria-describedby={
+                  errors.password ? "complete-password-error" : "complete-password-hint"
+                }
                 className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BEA5] focus:border-transparent transition-all dark:bg-[#0f172a] dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
                 placeholder="••••••••••"
                 value={password}
@@ -382,22 +381,22 @@ const CompleteProfilePage = () => {
             </div>
 
             {/* Password checklist */}
-            <div
-              id="complete-password-hint"
-              className="mt-2 grid grid-cols-2 gap-1">
+            <div id="complete-password-hint" className="mt-2 grid grid-cols-2 gap-1">
               <ValidationItem label="8+ Characters" met={passwordRequirements.length} />
               <ValidationItem label="Uppercase" met={passwordRequirements.capital} />
               <ValidationItem label="Lowercase" met={passwordRequirements.lower} />
               <ValidationItem label="Number" met={passwordRequirements.number} />
               <ValidationItem label="Symbol" met={passwordRequirements.symbol} />
             </div>
-            {errors.password && <p
-              id="complete-password-error"
-              role="alert"
-              className="text-[10px] text-red-500 mt-1"
-            >
-              {errors.password}
-            </p>}
+            {errors.password && (
+              <p
+                id="complete-password-error"
+                role="alert"
+                className="text-[10px] text-red-500 mt-1"
+              >
+                {errors.password}
+              </p>
+            )}
           </div>
         )}
 
@@ -406,7 +405,8 @@ const CompleteProfilePage = () => {
           <div className="mb-3">
             <label
               htmlFor="complete-bio"
-              className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+            >
               Tell us about yourself
             </label>
             <textarea
@@ -425,13 +425,13 @@ const CompleteProfilePage = () => {
               required
             />
             <div className="flex justify-between mt-0.5">
-              {errors.bio ? <p
-                id="complete-bio-error"
-                role="alert"
-                className="text-[10px] text-red-500"
-              >
-                {errors.bio}
-              </p> : <span />}
+              {errors.bio ? (
+                <p id="complete-bio-error" role="alert" className="text-[10px] text-red-500">
+                  {errors.bio}
+                </p>
+              ) : (
+                <span />
+              )}
               <span className="text-[10px] text-gray-400">{bio.length}/500</span>
             </div>
           </div>

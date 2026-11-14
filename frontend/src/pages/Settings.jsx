@@ -874,7 +874,9 @@ export default function Settings() {
                 />
                 <button
                   type="button"
-                  aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+                  aria-label={
+                    showCurrentPassword ? "Hide current password" : "Show current password"
+                  }
                   aria-pressed={showCurrentPassword}
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                   className="absolute bottom-1.5 right-2 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-card hover:text-main"
@@ -912,12 +914,13 @@ export default function Settings() {
                       }));
                       setPasswordError("");
                     }}
-                    className={`h-11 w-full rounded-xl border bg-canvas-alt px-4 pr-12 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10 ${pw.length > 0 && !allPwValid
+                    className={`h-11 w-full rounded-xl border bg-canvas-alt px-4 pr-12 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10 ${
+                      pw.length > 0 && !allPwValid
                         ? "border-orange-400 dark:border-orange-500"
                         : pw.length > 0 && allPwValid
                           ? "border-[#3867D6]"
                           : "border-border"
-                      }`}
+                    }`}
                   />
                   <button
                     type="button"
@@ -937,7 +940,8 @@ export default function Settings() {
                   <p
                     id="settings-new-password-hint"
                     role="status"
-                    className="text-[12px] text-orange-500 dark:text-orange-400 font-sans pl-1">
+                    className="text-[12px] text-orange-500 dark:text-orange-400 font-sans pl-1"
+                  >
                     {pwHint}
                   </p>
                 </div>
@@ -963,16 +967,19 @@ export default function Settings() {
                     }));
                     setPasswordError("");
                   }}
-                  className={`h-11 w-full rounded-xl border bg-canvas-alt px-4 pr-12 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10 ${passwordData.confirmPassword.length > 0
+                  className={`h-11 w-full rounded-xl border bg-canvas-alt px-4 pr-12 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10 ${
+                    passwordData.confirmPassword.length > 0
                       ? passwordData.confirmPassword === pw
                         ? "border-[#3867D6]"
                         : "border-red-400 dark:border-red-500"
                       : "border-border"
-                    }`}
+                  }`}
                 />
                 <button
                   type="button"
-                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                  aria-label={
+                    showConfirmPassword ? "Hide confirm password" : "Show confirm password"
+                  }
                   aria-pressed={showConfirmPassword}
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute bottom-1.5 right-2 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-card hover:text-main"
@@ -1315,7 +1322,7 @@ export default function Settings() {
               <p className="mt-1 text-sm font-extrabold text-main">
                 {t(
                   NAV_KEYS.find((item) => item.key === activeSetting)?.labelKey ||
-                  "settings.profile.title",
+                    "settings.profile.title",
                 )}
               </p>
             </div>

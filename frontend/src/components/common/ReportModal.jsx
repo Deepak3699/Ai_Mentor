@@ -131,7 +131,8 @@ const ReportModal = ({
             <div className="relative mb-5">
               <label
                 id="report-issue-type-label"
-                className="text-xs font-medium text-gray-500 uppercase mb-2 block">
+                className="text-xs font-medium text-gray-500 uppercase mb-2 block"
+              >
                 Issue Type
               </label>
 

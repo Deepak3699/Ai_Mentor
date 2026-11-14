@@ -30,16 +30,7 @@ const signupSchema = z.object({
 });
 
 /* FormInput stays UI-only */
-const FormInput = ({
-  id,
-  label,
-  type,
-  placeholder,
-  value,
-  onChange,
-  autoComplete,
-  error,
-}) => {
+const FormInput = ({ id, label, type, placeholder, value, onChange, autoComplete, error }) => {
   return (
     <div className="mb-3">
       <label
@@ -61,11 +52,7 @@ const FormInput = ({
         required
       />
       {error && (
-        <p
-          id={`${id}-error`}
-          role="alert"
-          className="mt-1 text-xs text-red-500"
-        >
+        <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-red-500">
           {error}
         </p>
       )}
@@ -173,11 +160,11 @@ const SignUpPage = () => {
 
         toast.error(
           apiFieldErrors.firstName ||
-          apiFieldErrors.lastName ||
-          apiFieldErrors.email ||
-          apiFieldErrors.username ||
-          apiFieldErrors.password ||
-          getErrorMessage(error, "Sign up failed"),
+            apiFieldErrors.lastName ||
+            apiFieldErrors.email ||
+            apiFieldErrors.username ||
+            apiFieldErrors.password ||
+            getErrorMessage(error, "Sign up failed"),
         );
       }
     } finally {
@@ -284,7 +271,9 @@ const SignUpPage = () => {
               id="signup-password"
               autoComplete="new-password"
               aria-invalid={Boolean(fieldErrors.password)}
-              aria-describedby={fieldErrors.password ? "signup-password-error" : "signup-password-hint"}
+              aria-describedby={
+                fieldErrors.password ? "signup-password-error" : "signup-password-hint"
+              }
               type={showPassword ? "text" : "password"}
               className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BEA5] focus:border-transparent transition-all dark:bg-[#0f172a] dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
               placeholder="••••••••••"
@@ -308,10 +297,7 @@ const SignUpPage = () => {
           </div>
 
           {/* 🔹 PASSWORD CHECKLIST UI */}
-          <div
-            id="signup-password-hint"
-            className="mt-2 grid grid-cols-2 gap-1"
-          >
+          <div id="signup-password-hint" className="mt-2 grid grid-cols-2 gap-1">
             <ValidationItem label="8+ Characters" met={passwordRequirements.length} />
             <ValidationItem label="Uppercase" met={passwordRequirements.capital} />
             <ValidationItem label="Lowercase" met={passwordRequirements.lower} />
@@ -319,11 +305,7 @@ const SignUpPage = () => {
             <ValidationItem label="Symbol" met={passwordRequirements.symbol} />
           </div>
           {fieldErrors.password && (
-            <p
-              id="signup-password-error"
-              role="alert"
-              className="mt-1 text-xs text-red-500"
-            >
+            <p id="signup-password-error" role="alert" className="mt-1 text-xs text-red-500">
               {fieldErrors.password}
             </p>
           )}

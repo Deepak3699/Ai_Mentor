@@ -14,16 +14,7 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-const FormInput = ({
-  id,
-  label,
-  type,
-  placeholder,
-  value,
-  onChange,
-  autoComplete,
-  error,
-}) => {
+const FormInput = ({ id, label, type, placeholder, value, onChange, autoComplete, error }) => {
   return (
     <div className="mb-3">
       <label
@@ -44,11 +35,7 @@ const FormInput = ({
         onChange={onChange}
       />
       {error && (
-        <p
-          id={`${id}-error`}
-          role="alert"
-          className="mt-1 text-xs text-red-500"
-        >
+        <p id={`${id}-error`} role="alert" className="mt-1 text-xs text-red-500">
           {error}
         </p>
       )}
@@ -223,15 +210,10 @@ const LoginPage = () => {
             </button>
           </div>
           {fieldErrors.password && (
-            <p
-              id="login-password-error"
-              role="alert"
-              className="mt-1 text-xs text-red-500"
-            >
+            <p id="login-password-error" role="alert" className="mt-1 text-xs text-red-500">
               {fieldErrors.password}
             </p>
           )}
-
         </div>
 
         <div className="flex justify-end">
