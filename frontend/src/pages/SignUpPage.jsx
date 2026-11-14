@@ -30,20 +30,45 @@ const signupSchema = z.object({
 });
 
 /* FormInput stays UI-only */
-const FormInput = ({ label, type, placeholder, value, onChange }) => {
+const FormInput = ({
+  id,
+  label,
+  type,
+  placeholder,
+  value,
+  onChange,
+  autoComplete,
+  error,
+}) => {
   return (
     <div className="mb-3">
-      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+      <label
+        htmlFor={id}
+        className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+      >
         {label}
       </label>
       <input
+        id={id}
         type={type}
+        autoComplete={autoComplete}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
         className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BEA5] focus:border-transparent transition-all dark:bg-[#0f172a] dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
         placeholder={placeholder}
         value={value}
         onChange={onChange}
         required
       />
+      {error && (
+        <p
+          id={`${id}-error`}
+          role="alert"
+          className="mt-1 text-xs text-red-500"
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 };
@@ -65,6 +90,7 @@ const SignUpPage = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const { login } = useAuth();
   const { isDark, toggleTheme } = useTheme();
@@ -87,6 +113,7 @@ const SignUpPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFieldErrors({});
     try {
       const validationResult = signupSchema.parse({
         firstName,
@@ -129,11 +156,28 @@ const SignUpPage = () => {
       navigate("/complete-profile");
     } catch (error) {
       if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
+        const errors = {};
+
+        error.issues.forEach((issue) => {
+          const field = issue.path[0];
+          if (field) {
+            errors[field] = issue.message;
+          }
+        });
+
+        setFieldErrors(errors);
+        toast.error(error.issues[0].message);
       } else {
-        const fieldErrors = getFieldErrors(error);
+        const apiFieldErrors = getFieldErrors(error);
+        setFieldErrors(apiFieldErrors);
+
         toast.error(
-          fieldErrors.email || fieldErrors.password || getErrorMessage(error, "Sign up failed"),
+          apiFieldErrors.firstName ||
+          apiFieldErrors.lastName ||
+          apiFieldErrors.email ||
+          apiFieldErrors.username ||
+          apiFieldErrors.password ||
+          getErrorMessage(error, "Sign up failed"),
         );
       }
     } finally {
@@ -172,54 +216,90 @@ const SignUpPage = () => {
         {/* 🔹 FIRST & LAST NAME ROW */}
         <div className="grid grid-cols-2 gap-3">
           <FormInput
+            id="signup-first-name"
             label="First Name"
             type="text"
             placeholder="John"
             value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
+            onChange={(e) => {
+              setFirstName(e.target.value);
+              setFieldErrors((prev) => ({ ...prev, firstName: undefined }));
+            }}
+            autoComplete="given-name"
+            error={fieldErrors.firstName}
           />
           <FormInput
+            id="signup-last-name"
             label="Last Name"
             type="text"
             placeholder="Doe"
             value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
+            onChange={(e) => {
+              setLastName(e.target.value);
+              setFieldErrors((prev) => ({ ...prev, lastName: undefined }));
+            }}
+            autoComplete="family-name"
+            error={fieldErrors.lastName}
           />
         </div>
 
         <FormInput
+          id="signup-email"
           label="Email Address"
           type="email"
           placeholder="Enter your email here"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setFieldErrors((prev) => ({ ...prev, email: undefined }));
+          }}
+          autoComplete="email"
+          error={fieldErrors.email}
         />
 
         <FormInput
+          id="signup-username"
           label="Choose a Username"
           type="text"
           placeholder="Enter your username here"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(e) => {
+            setUsername(e.target.value);
+            setFieldErrors((prev) => ({ ...prev, username: undefined }));
+          }}
+          autoComplete="username"
+          error={fieldErrors.username}
         />
 
         {/* Password */}
         <div className="mb-3 relative">
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+          <label
+            htmlFor="signup-password"
+            className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+          >
             Create a Password
           </label>
           <div className="relative">
             <input
+              id="signup-password"
+              autoComplete="new-password"
+              aria-invalid={Boolean(fieldErrors.password)}
+              aria-describedby={fieldErrors.password ? "signup-password-error" : "signup-password-hint"}
               type={showPassword ? "text" : "password"}
               className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BEA5] focus:border-transparent transition-all dark:bg-[#0f172a] dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
               placeholder="••••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setFieldErrors((prev) => ({ ...prev, password: undefined }));
+              }}
               minLength={8}
               required
             />
             <button
               type="button"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
               onClick={togglePasswordVisibility}
               className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
             >
@@ -228,13 +308,25 @@ const SignUpPage = () => {
           </div>
 
           {/* 🔹 PASSWORD CHECKLIST UI */}
-          <div className="mt-2 grid grid-cols-2 gap-1">
+          <div
+            id="signup-password-hint"
+            className="mt-2 grid grid-cols-2 gap-1"
+          >
             <ValidationItem label="8+ Characters" met={passwordRequirements.length} />
             <ValidationItem label="Uppercase" met={passwordRequirements.capital} />
             <ValidationItem label="Lowercase" met={passwordRequirements.lower} />
             <ValidationItem label="Number" met={passwordRequirements.number} />
             <ValidationItem label="Symbol" met={passwordRequirements.symbol} />
           </div>
+          {fieldErrors.password && (
+            <p
+              id="signup-password-error"
+              role="alert"
+              className="mt-1 text-xs text-red-500"
+            >
+              {fieldErrors.password}
+            </p>
+          )}
         </div>
 
         <button

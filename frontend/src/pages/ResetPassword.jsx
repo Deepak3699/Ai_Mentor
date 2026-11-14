@@ -72,12 +72,18 @@ const ResetPassword = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label
+                  htmlFor="reset-new-password"
+                  className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+                >
                   New Password
                 </label>
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
+                    id="reset-new-password"
+                    autoComplete="new-password"
+                    aria-describedby="reset-password-hint"
                     className="w-full px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BEA5] focus:border-transparent transition-all dark:bg-[#0f172a] dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
                     placeholder="••••••••••"
                     value={password}
@@ -87,6 +93,8 @@ const ResetPassword = () => {
                   />
                   <button
                     type="button"
+                    aria-label={showPassword ? "Hide new password" : "Show new password"}
+                    aria-pressed={showPassword}
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                   >
@@ -95,16 +103,21 @@ const ResetPassword = () => {
                 </div>
                 <div className="flex items-center gap-1.5 mt-1.5 text-gray-500 dark:text-gray-400">
                   <Lock size={12} />
-                  <small className="text-[11px]">Min. 8 chars required</small>
+                  <small id="reset-password-hint" className="text-[11px]">Min. 8 chars required</small>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label
+                  id="reset-password-hint"
+                  className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+                >
                   Confirm New Password
                 </label>
                 <input
                   type={showPassword ? "text" : "password"}
+                  id="reset-confirm-password"
+                  autoComplete="new-password"
                   className="w-full px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BEA5] focus:border-transparent transition-all dark:bg-[#0f172a] dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
                   placeholder="••••••••••"
                   value={confirmPassword}
@@ -115,7 +128,9 @@ const ResetPassword = () => {
             </div>
 
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-xs">
+              <div
+                role="alert"
+                className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg text-xs">
                 {error}
               </div>
             )}

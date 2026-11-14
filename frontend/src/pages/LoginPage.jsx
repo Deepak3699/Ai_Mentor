@@ -14,19 +14,44 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-const FormInput = ({ label, type, placeholder, value, onChange }) => {
+const FormInput = ({
+  id,
+  label,
+  type,
+  placeholder,
+  value,
+  onChange,
+  autoComplete,
+  error,
+}) => {
   return (
     <div className="mb-3">
-      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+      <label
+        htmlFor={id}
+        className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+      >
         {label}
       </label>
       <input
+        id={id}
         type={type}
+        autoComplete={autoComplete}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${id}-error` : undefined}
         className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm focus:ring-2 focus:ring-teal-500 outline-none dark:bg-slate-900 dark:border-gray-700 dark:text-white"
         placeholder={placeholder}
         value={value}
         onChange={onChange}
       />
+      {error && (
+        <p
+          id={`${id}-error`}
+          role="alert"
+          className="mt-1 text-xs text-red-500"
+        >
+          {error}
+        </p>
+      )}
     </div>
   );
 };
@@ -38,6 +63,7 @@ const LoginPage = () => {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [showLogoutAlert, setShowLogoutAlert] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -52,6 +78,7 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFieldErrors({});
     try {
       const validationResult = loginSchema.parse({ email, password });
       const response = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/auth/login`, {
@@ -71,11 +98,23 @@ const LoginPage = () => {
       }
     } catch (err) {
       if (err instanceof z.ZodError) {
-        toast.error(err.errors[0].message);
+        const errors = {};
+        err.issues.forEach((issue) => {
+          const field = issue.path[0];
+          if (field) errors[field] = issue.message;
+        });
+
+        setFieldErrors(errors);
+        toast.error(err.issues[0].message);
       } else {
-        const fieldErrors = getFieldErrors(err);
+        const apiFieldErrors = getFieldErrors(err);
+        setFieldErrors(apiFieldErrors);
+
         const errorMessage =
-          fieldErrors.email || fieldErrors.password || getErrorMessage(err, "Invalid Credentials!");
+          apiFieldErrors.email ||
+          apiFieldErrors.password ||
+          getErrorMessage(err, "Invalid Credentials!");
+
         toast.error(errorMessage);
       }
     }
@@ -102,27 +141,45 @@ const LoginPage = () => {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <FormInput
+          id="login-email"
           label="Email Address"
           type="email"
           placeholder="Enter your email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setFieldErrors((prev) => ({ ...prev, email: undefined }));
+          }}
+          autoComplete="email"
+          error={fieldErrors.email}
         />
 
         <div className="mb-3">
-          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+          <label
+            htmlFor="login-password"
+            className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+          >
             Password
           </label>
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
+              id="login-password"
+              autoComplete="current-password"
+              aria-invalid={Boolean(fieldErrors.password)}
+              aria-describedby={fieldErrors.password ? "login-password-error" : undefined}
               className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-sm focus:ring-2 focus:ring-teal-500 outline-none dark:bg-slate-900 dark:border-gray-700 dark:text-white"
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setFieldErrors((prev) => ({ ...prev, password: undefined }));
+              }}
             />
             <button
               type="button"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
             >
@@ -165,6 +222,16 @@ const LoginPage = () => {
               )}
             </button>
           </div>
+          {fieldErrors.password && (
+            <p
+              id="login-password-error"
+              role="alert"
+              className="mt-1 text-xs text-red-500"
+            >
+              {fieldErrors.password}
+            </p>
+          )}
+
         </div>
 
         <div className="flex justify-end">

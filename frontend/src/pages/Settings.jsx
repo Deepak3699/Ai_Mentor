@@ -536,7 +536,10 @@ export default function Settings() {
                     </div>
                   )}
                   {/* Camera icon — sits outside the avatar at bottom-right */}
-                  <label className="absolute -bottom-2 -right-2 flex h-10 w-10 items-center justify-center rounded-full border-2 border-card bg-[#475569] text-white shadow-[0_3px_10px_rgba(0,0,0,0.28)] transition-colors hover:bg-[#334155] cursor-pointer">
+                  <label
+                    aria-label="Upload profile photo"
+                    className="absolute -bottom-2 -right-2 flex h-10 w-10 items-center justify-center rounded-full border-2 border-card bg-[#475569] text-white shadow-[0_3px_10px_rgba(0,0,0,0.28)] transition-colors hover:bg-[#334155] cursor-pointer"
+                  >
                     <Camera className="h-4 w-4" />
                     <input
                       type="file"
@@ -570,10 +573,14 @@ export default function Settings() {
               <div className="flex-1 space-y-5 min-w-0">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="space-y-2">
-                    <label className="block text-xs font-bold uppercase tracking-wide text-muted">
+                    <label
+                      htmlFor="settings-first-name"
+                      className="block text-xs font-bold uppercase tracking-wide text-muted"
+                    >
                       {t("settings.profile.first_name")}
                     </label>
                     <input
+                      id="settings-first-name"
                       type="text"
                       value={formData.firstName}
                       onChange={(e) => handleInputChange("firstName", e.target.value)}
@@ -581,10 +588,14 @@ export default function Settings() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-xs font-bold uppercase tracking-wide text-muted">
+                    <label
+                      htmlFor="settings-first-name"
+                      className="block text-xs font-bold uppercase tracking-wide text-muted"
+                    >
                       {t("settings.profile.last_name")}
                     </label>
                     <input
+                      id="settings-last-name"
                       type="text"
                       value={formData.lastName}
                       onChange={(e) => handleInputChange("lastName", e.target.value)}
@@ -593,10 +604,14 @@ export default function Settings() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold uppercase tracking-wide text-muted">
+                  <label
+                    htmlFor="settings-bio"
+                    className="block text-xs font-bold uppercase tracking-wide text-muted"
+                  >
                     {t("settings.profile.email")}
                   </label>
                   <input
+                    id="settings-email"
                     type="email"
                     value={formData.email}
                     onChange={(e) => handleInputChange("email", e.target.value)}
@@ -604,10 +619,14 @@ export default function Settings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold uppercase tracking-wide text-muted">
+                  <label
+                    htmlFor="settings-bio"
+                    className="block text-xs font-bold uppercase tracking-wide text-muted"
+                  >
                     {t("settings.profile.bio")}
                   </label>
                   <textarea
+                    id="settings-bio"
                     value={formData.bio}
                     onChange={(e) => handleInputChange("bio", e.target.value)}
                     className="min-h-[120px] w-full resize-none rounded-xl border border-border bg-canvas-alt px-4 py-3 text-sm leading-6 text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10"
@@ -834,10 +853,15 @@ export default function Settings() {
             <div className="space-y-5">
               {/* Current Password */}
               <div className="relative space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wide text-muted">
+                <label
+                  htmlFor="settings-current-password"
+                  className="block text-xs font-bold uppercase tracking-wide text-muted"
+                >
                   {t("settings.security.current_password")}
                 </label>
                 <input
+                  id="settings-current-password"
+                  autoComplete="current-password"
                   type={showCurrentPassword ? "text" : "password"}
                   value={passwordData.currentPassword}
                   onChange={(e) =>
@@ -850,6 +874,8 @@ export default function Settings() {
                 />
                 <button
                   type="button"
+                  aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+                  aria-pressed={showCurrentPassword}
                   onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                   className="absolute bottom-1.5 right-2 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-card hover:text-main"
                 >
@@ -864,11 +890,18 @@ export default function Settings() {
               {/* New Password + single step-by-step hint */}
               <div>
                 <div className="relative space-y-2">
-                  <label className="block text-xs font-bold uppercase tracking-wide text-muted">
+                  <label
+                    htmlFor="settings-new-password"
+                    className="block text-xs font-bold uppercase tracking-wide text-muted"
+                  >
                     {t("settings.security.new_password")}
                   </label>
                   <input
                     type={showNewPassword ? "text" : "password"}
+                    id="settings-new-password"
+                    autoComplete="new-password"
+                    aria-describedby="settings-new-password-hint"
+                    aria-invalid={Boolean(pwHint)}
                     value={pw}
                     onFocus={() => setPwFocused(true)}
                     onBlur={() => setPwFocused(false)}
@@ -879,16 +912,17 @@ export default function Settings() {
                       }));
                       setPasswordError("");
                     }}
-                    className={`h-11 w-full rounded-xl border bg-canvas-alt px-4 pr-12 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10 ${
-                      pw.length > 0 && !allPwValid
+                    className={`h-11 w-full rounded-xl border bg-canvas-alt px-4 pr-12 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10 ${pw.length > 0 && !allPwValid
                         ? "border-orange-400 dark:border-orange-500"
                         : pw.length > 0 && allPwValid
                           ? "border-[#3867D6]"
                           : "border-border"
-                    }`}
+                      }`}
                   />
                   <button
                     type="button"
+                    aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                    aria-pressed={showNewPassword}
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     className="absolute bottom-1.5 right-2 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-card hover:text-main"
                   >
@@ -900,7 +934,10 @@ export default function Settings() {
                 <div
                   className={`overflow-hidden transition-all duration-200 ease-in-out ${pwHint ? "max-h-8 opacity-100 mt-1.5" : "max-h-0 opacity-0 mt-0"}`}
                 >
-                  <p className="text-[12px] text-orange-500 dark:text-orange-400 font-sans pl-1">
+                  <p
+                    id="settings-new-password-hint"
+                    role="status"
+                    className="text-[12px] text-orange-500 dark:text-orange-400 font-sans pl-1">
                     {pwHint}
                   </p>
                 </div>
@@ -908,11 +945,15 @@ export default function Settings() {
 
               {/* Confirm Password */}
               <div className="relative space-y-2">
-                <label className="block text-xs font-bold uppercase tracking-wide text-muted">
+                <label
+                  htmlFor="settings-confirm-password"
+                  className="block text-xs font-bold uppercase tracking-wide text-muted"
+                >
                   {t("settings.security.confirm_password")}
                 </label>
                 <input
                   type={showConfirmPassword ? "text" : "password"}
+                  id="settings-confirm-password"
                   autoComplete="new-password"
                   value={passwordData.confirmPassword}
                   onChange={(e) => {
@@ -922,16 +963,17 @@ export default function Settings() {
                     }));
                     setPasswordError("");
                   }}
-                  className={`h-11 w-full rounded-xl border bg-canvas-alt px-4 pr-12 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10 ${
-                    passwordData.confirmPassword.length > 0
+                  className={`h-11 w-full rounded-xl border bg-canvas-alt px-4 pr-12 text-sm font-semibold text-main transition focus:border-[#3867D6] focus:ring-4 focus:ring-[#3867D6]/10 ${passwordData.confirmPassword.length > 0
                       ? passwordData.confirmPassword === pw
                         ? "border-[#3867D6]"
                         : "border-red-400 dark:border-red-500"
                       : "border-border"
-                  }`}
+                    }`}
                 />
                 <button
                   type="button"
+                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                  aria-pressed={showConfirmPassword}
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute bottom-1.5 right-2 flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-card hover:text-main"
                 >
@@ -1068,10 +1110,14 @@ export default function Settings() {
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6 md:p-8">
         <div className="p-5 sm:p-6">
           <div>
-            <h3 className="mb-1 text-lg font-extrabold tracking-tight text-main">
+            <label
+              htmlFor="settings-language"
+              className="mb-1 text-lg font-extrabold tracking-tight text-main"
+            >
               {t("settings.language.interface_language")}
-            </h3>
+            </label>
             <select
+              id="settings-language"
               value={settingsData.appearance.language}
               onChange={(e) =>
                 setSettingsData((prev) => ({
@@ -1142,11 +1188,15 @@ export default function Settings() {
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8">
         <div className="p-5 sm:p-6">
           <div>
-            <label className="block text-sm font-medium text-muted mb-2 font-sans">
+            <label
+              htmlFor="settings-contact-subject"
+              className="block text-sm font-medium text-muted mb-2 font-sans"
+            >
               {t("settings.contactus.subject")}
             </label>
             <input
               type="text"
+              id="settings-contact-subject"
               value={contactForm.subject}
               onChange={(e) => setContactForm((prev) => ({ ...prev, subject: e.target.value }))}
               placeholder="Enter subject..."
@@ -1154,11 +1204,15 @@ export default function Settings() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted mb-2 font-sans">
+            <label
+              htmlFor="settings-contact-message"
+              className="block text-sm font-medium text-muted mb-2 font-sans"
+            >
               {t("settings.contactus.message")}
             </label>
             <textarea
               value={contactForm.message}
+              id="settings-contact-message"
               onChange={(e) => setContactForm((prev) => ({ ...prev, message: e.target.value }))}
               rows={6}
               placeholder="Describe your issue or question..."
@@ -1261,7 +1315,7 @@ export default function Settings() {
               <p className="mt-1 text-sm font-extrabold text-main">
                 {t(
                   NAV_KEYS.find((item) => item.key === activeSetting)?.labelKey ||
-                    "settings.profile.title",
+                  "settings.profile.title",
                 )}
               </p>
             </div>
