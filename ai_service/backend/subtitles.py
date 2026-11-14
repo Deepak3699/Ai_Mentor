@@ -1,8 +1,8 @@
 from backend.utils.subtitles import (
+    _fmt,
     build_cues,
     chunk_script,
     get_audio_duration,
-    _fmt,
 )
 
 

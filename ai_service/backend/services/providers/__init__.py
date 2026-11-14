@@ -1,6 +1,6 @@
 from backend.services.providers.base import (
-    BaseAIProvider,
     UNTRUSTED_INPUT_INSTRUCTION,
+    BaseAIProvider,
     serialize_user_data,
 )
 from backend.services.providers.gemini_provider import (
@@ -10,16 +10,16 @@ from backend.services.providers.gemini_provider import (
 )
 from backend.services.providers.groq_provider import (
     GroqProvider,
-    groq_client,
     generate_groq_content,
+    groq_client,
 )
 from backend.services.providers.manager import (
     explain_code,
+    gemini_provider,
     generate_flashcards,
     generate_lesson_script,
     generate_quiz,
     generate_syllabus,
-    gemini_provider,
     groq_provider,
 )
 

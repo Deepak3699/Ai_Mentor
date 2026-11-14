@@ -1,8 +1,9 @@
 import json
 import subprocess
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
 import api
+import pytest
 
 
 def test_fallback_command_creates_landscape_canvas_without_stretching():

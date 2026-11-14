@@ -6,27 +6,27 @@ import os
 import sys
 import time
 from typing import Any
-from mutagen.mp3 import MP3
-import requests
+
 import cloudinary
 import cloudinary.uploader
+import requests
+from mutagen.mp3 import MP3
 
+import backend.avatar_service as avatar_module
+import backend.voices as voices
 from backend.schemas.lessons import LessonRequest
+from backend.services import media_processor
 from backend.services.job_tracker import (
     active_jobs,
     job_status,
     mark_job_failed,
     shutdown_failed_jobs,
-    remove_failed_generation_cache,
 )
-from backend.services import media_processor
 from backend.services.providers import manager as provider_manager
 from backend.services.providers.validation import (
     ProviderGenerationError,
     validate_lesson_script,
 )
-import backend.avatar_service as avatar_module
-import backend.voices as voices
 from backend.utils.logging_utils import log_event, short_error
 from backend.utils.subtitles import write_subtitles
 

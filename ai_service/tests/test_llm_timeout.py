@@ -1,18 +1,16 @@
-import asyncio
 import http.server
 import json
 import threading
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import api
+import httpx
 import pytest
+import requests
+from config import LLM_TIMEOUT_SECONDS
 from fastapi import HTTPException
 from groq import APITimeoutError
-import httpx
-import requests
-
-import api
-from config import LLM_TIMEOUT_SECONDS
 
 
 @pytest.fixture(autouse=True)

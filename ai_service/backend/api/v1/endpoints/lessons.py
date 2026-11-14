@@ -1,13 +1,12 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException
+
 from backend.schemas.lessons import LessonRequest
 from backend.services.job_tracker import (
-    active_jobs,
     compute_base_filename,
     compute_cache_key,
     generation_cache,
     job_status,
     queue_job,
-    shutting_down,
 )
 from backend.services.lesson_pipeline import run_tracked_lesson
 

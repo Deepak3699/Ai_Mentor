@@ -1,3 +1,10 @@
+from backend.schemas.jobs import (
+    GenerateLessonResponse,
+    JobMetadata,
+    JobStatusResponse,
+    JobTimestamps,
+    TranscriptResponse,
+)
 from backend.schemas.lessons import (
     ExplainCodeRequest,
     Flashcard,
@@ -8,13 +15,6 @@ from backend.schemas.lessons import (
     QuizRequest,
     QuizResponse,
     SyllabusRequest,
-)
-from backend.schemas.jobs import (
-    GenerateLessonResponse,
-    JobMetadata,
-    JobStatusResponse,
-    JobTimestamps,
-    TranscriptResponse,
 )
 from backend.schemas.provider import (
     CodeExplanationLine,

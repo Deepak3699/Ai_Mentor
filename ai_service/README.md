@@ -204,6 +204,17 @@ Run the focused AI-service tests from the repository root with the isolated envi
 ai_service\.venv\Scripts\python.exe -m pytest -q ai_service/tests
 ```
 
+Lint the Python code with Ruff (configuration in `ai_service/pyproject.toml`),
+from the repository root:
+
+```bash
+ruff check ai_service
+ruff format --check ai_service
+```
+
+(`ruff format --check` becomes a blocking CI gate in step 2 of issue #664;
+for now, please don't reformat files unrelated to your change.)
+
 For API exploration, start the service and open the FastAPI documentation at `http://127.0.0.1:8000/docs`.
 
 ## Troubleshooting

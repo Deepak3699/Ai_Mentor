@@ -1,13 +1,12 @@
-import asyncio
 import os
 import sys
-import uuid
-import time
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
-from api import process_lesson, job_status, LessonRequest
+from api import LessonRequest, job_status, process_lesson
+
 
 @pytest.fixture(autouse=True)
 def clear_job_status():
