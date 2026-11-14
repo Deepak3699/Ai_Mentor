@@ -1,11 +1,21 @@
+
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class LessonPreferences(BaseModel):
+class APIRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    @field_validator("*", mode="before")
+    @classmethod
+    def reject_blank_strings(cls, value):
+        if isinstance(value, str) and not value.strip():
+            raise ValueError("Field must not be empty or whitespace-only")
+        return value
+
+
+class LessonPreferences(APIRequest):
     explanation_type: str | None = Field(None, max_length=100)
     learning_style: str | None = Field(None, max_length=100)
     teaching_pace: str | None = Field(None, max_length=100)
@@ -13,7 +23,7 @@ class LessonPreferences(BaseModel):
     focus_area: str | None = Field(None, max_length=100)
 
 
-class LessonRequest(BaseModel):
+class LessonRequest(APIRequest):
     course: str = Field(..., min_length=1, max_length=100)
     topic: str = Field(..., min_length=1, max_length=200)
     celebrity: str = Field("modi", min_length=1, max_length=50)
@@ -21,28 +31,29 @@ class LessonRequest(BaseModel):
     preferences: LessonPreferences | None = None
     voice_id: str | None = None
     gender: str | None = None
+
     speech_rate: str | None = Field(
         "+0%",
-        pattern=r"^[+-](?:100|[1-9]?\d)%$",
+        pattern=r"^[+-]100%$|^[+-][1-9]%$|^[+-][1-9][0-9]%$|^[+-]0%$",
     )
     speech_pitch: str | None = Field(
         "+0Hz",
-        pattern=r"^[+-](?:100|[1-9]?\d)Hz$",
+        pattern=r"^[+-]100Hz$|^[+-][1-9]Hz$|^[+-][1-9][0-9]Hz$|^[+-]0Hz$",
     )
 
 
-class SyllabusRequest(BaseModel):
+class SyllabusRequest(APIRequest):
     course_title: str = Field(..., min_length=1, max_length=100)
     category: str | None = Field(None, max_length=100)
 
 
-class ExplainCodeRequest(BaseModel):
+class ExplainCodeRequest(APIRequest):
     code: str = Field(..., min_length=1, max_length=20000)
     language: str = Field(..., min_length=1, max_length=50)
-    mode: str = Field(..., pattern="^(explain|debug|optimize)$")
+    mode: str = Field(..., pattern=r"^(explain|debug|optimize)$")
 
 
-class QuizRequest(BaseModel):
+class QuizRequest(APIRequest):
     lesson: str = Field(..., min_length=1, max_length=30000)
 
 
@@ -57,7 +68,7 @@ class QuizResponse(BaseModel):
     questions: list[QuizQuestion]
 
 
-class FlashcardRequest(BaseModel):
+class FlashcardRequest(APIRequest):
     transcript: str = Field(..., min_length=1, max_length=30000)
     count: int = Field(5, ge=5, le=10)
 

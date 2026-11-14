@@ -55,7 +55,7 @@ def test_generate_quiz_gemini_timeout_falls_back_to_groq():
         api.groq_client.chat.completions,
         "create",
         return_value=groq_response,
-    ) as groq, patch.object(api, "check_ffmpeg", return_value=None):
+    ) as groq, patch("backend.main.check_ffmpeg", return_value=None):
         with TestClient(api.app) as client:
             response = _post_generate_quiz(client)
 
@@ -78,7 +78,7 @@ def test_generate_quiz_both_provider_timeouts_return_empty_quiz():
         api.groq_client.chat.completions,
         "create",
         side_effect=groq_timeout,
-    ) as groq, patch.object(api, "check_ffmpeg", return_value=None):
+    ) as groq, patch("backend.main.check_ffmpeg", return_value=None):
         with TestClient(api.app) as client:
             response = _post_generate_quiz(client)
 
@@ -98,7 +98,7 @@ def test_generate_quiz_successful_gemini_response_contract_is_unchanged():
     ) as gemini, patch.object(
         api.groq_client.chat.completions,
         "create",
-    ) as groq, patch.object(api, "check_ffmpeg", return_value=None):
+    ) as groq, patch("backend.main.check_ffmpeg", return_value=None):
         with TestClient(api.app) as client:
             response = _post_generate_quiz(client)
 
