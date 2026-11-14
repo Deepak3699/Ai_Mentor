@@ -71,7 +71,7 @@ const LoginPage = () => {
       }
     } catch (err) {
       if (err instanceof z.ZodError) {
-        toast.error(err.errors[0].message);
+        toast.error(err.issues[0].message);
       } else {
         const fieldErrors = getFieldErrors(err);
         const errorMessage =
