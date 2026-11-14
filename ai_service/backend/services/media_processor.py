@@ -67,22 +67,17 @@ async def generate_tts(
 def get_celebrity_video(celebrity_name: str, base_dir: str | None = None) -> str:
     """Select the valid video path for the requested celebrity, or fall back to modi."""
     effective_base = base_dir or BASE_DIR
-    input_video_dir = os.path.realpath(
-        os.path.join(effective_base, "backend", "input")
-    )
+    input_video_dir = os.path.realpath(os.path.join(effective_base, "backend", "input"))
 
     name = celebrity_name.strip().lower() if isinstance(celebrity_name, str) else ""
     if name not in ALLOWED_CELEBRITIES:
         name = "modi"
 
-    candidate = os.path.realpath(
-        os.path.join(input_video_dir, f"{name}.mp4")
-    )
+    candidate = os.path.realpath(os.path.join(input_video_dir, f"{name}.mp4"))
 
-    if (
-        os.path.commonpath([input_video_dir, candidate]) == input_video_dir
-        and os.path.isfile(candidate)
-    ):
+    if os.path.commonpath(
+        [input_video_dir, candidate]
+    ) == input_video_dir and os.path.isfile(candidate):
         print(f"[INFO] Renderer source selected | source={name}", flush=True)
         return candidate
 
@@ -105,19 +100,61 @@ def build_landscape_video_filter() -> str:
 def build_avatar_normalization_args(input_video: str, output_path: str) -> list[str]:
     """Normalize a downloaded avatar video while preserving its own audio."""
     return [
-        "ffmpeg", "-y", "-i", input_video, "-filter_complex", build_landscape_video_filter(),
-        "-map", "[video]", "-map", "0:a?", "-c:v", "libx264", "-preset", "medium",
-        "-crf", "20", "-c:a", "aac", "-movflags", "+faststart", output_path,
+        "ffmpeg",
+        "-y",
+        "-i",
+        input_video,
+        "-filter_complex",
+        build_landscape_video_filter(),
+        "-map",
+        "[video]",
+        "-map",
+        "0:a?",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "medium",
+        "-crf",
+        "20",
+        "-c:a",
+        "aac",
+        "-movflags",
+        "+faststart",
+        output_path,
     ]
 
 
-def build_fallback_ffmpeg_args(input_video: str, audio_path: str, output_path: str) -> list[str]:
+def build_fallback_ffmpeg_args(
+    input_video: str, audio_path: str, output_path: str
+) -> list[str]:
     """Create an uncropped 16:9 lesson video with a blurred background."""
     return [
-        "ffmpeg", "-y", "-stream_loop", "-1", "-i", input_video, "-i", audio_path,
-        "-filter_complex", build_landscape_video_filter(), "-map", "[video]", "-map", "1:a:0",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-c:a", "aac",
-        "-movflags", "+faststart", "-shortest", output_path,
+        "ffmpeg",
+        "-y",
+        "-stream_loop",
+        "-1",
+        "-i",
+        input_video,
+        "-i",
+        audio_path,
+        "-filter_complex",
+        build_landscape_video_filter(),
+        "-map",
+        "[video]",
+        "-map",
+        "1:a:0",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "medium",
+        "-crf",
+        "20",
+        "-c:a",
+        "aac",
+        "-movflags",
+        "+faststart",
+        "-shortest",
+        output_path,
     ]
 
 
@@ -136,9 +173,21 @@ async def run_ffmpeg_command(args: list[str]) -> tuple[int, str]:
 def probe_video_metadata(video_path: str) -> dict:
     """Return safe delivery metadata without exposing local paths."""
     result = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
-         "stream=width,height,codec_name,avg_frame_rate,bit_rate", "-of", "json", video_path],
-        check=True, capture_output=True, text=True,
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=width,height,codec_name,avg_frame_rate,bit_rate",
+            "-of",
+            "json",
+            video_path,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
     )
     stream = (json.loads(result.stdout).get("streams") or [{}])[0]
     return {

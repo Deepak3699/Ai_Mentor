@@ -135,7 +135,11 @@ def generate_quiz(data: QuizRequest) -> QuizResponse | dict[str, Any]:
                 )
                 text = response.text.strip()
             except Exception as gemini_error:
-                log_event("WARN", "Gemini quiz generation failed", error=short_error(gemini_error))
+                log_event(
+                    "WARN",
+                    "Gemini quiz generation failed",
+                    error=short_error(gemini_error),
+                )
                 log_event("RUN", "Trying Groq fallback")
 
                 try:
@@ -179,7 +183,12 @@ def generate_quiz(data: QuizRequest) -> QuizResponse | dict[str, Any]:
             return validated_quiz
 
         except Exception as e:
-            log_event("WARN", "Quiz generation attempt failed", attempt=attempt + 1, error=short_error(e))
+            log_event(
+                "WARN",
+                "Quiz generation attempt failed",
+                attempt=attempt + 1,
+                error=short_error(e),
+            )
             if attempt == 1:
                 return {"questions": []}
 
@@ -230,7 +239,10 @@ def generate_flashcards(data: FlashcardRequest) -> list[Flashcard]:
                     text = text[:-3]
 
             flashcard_data = json.loads(text.strip())
-            if not isinstance(flashcard_data, list) or len(flashcard_data) != data.count:
+            if (
+                not isinstance(flashcard_data, list)
+                or len(flashcard_data) != data.count
+            ):
                 raise ValueError(f"Expected exactly {data.count} flashcards.")
 
             cards = [Flashcard.model_validate(card) for card in flashcard_data]
