@@ -32,6 +32,19 @@ export const updateLessonVideoSchema = z.object({
   videoUrl: z.string().url("Invalid video URL"),
 });
 
+const stringList = z.array(z.string().trim().min(1)).default([]);
+
 export const addSubtopicsSchema = z.object({
-  subtopics: z.array(z.string().trim().min(1)),
+  moduleId: z.coerce.number().int().positive("Module ID is required"),
+  subtopics: z
+    .array(
+      z.object({
+        title: z.string().trim().min(1, "Subtopic title is required"),
+        goal: z.string().trim().optional(),
+        topics: stringList,
+        tools: stringList,
+        activities: stringList,
+      }),
+    )
+    .min(1, "At least one subtopic is required"),
 });

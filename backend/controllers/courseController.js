@@ -390,12 +390,77 @@ const updateLessonVideo = async (_req, _res, next) => {
   );
 };
 
-const addSubtopics = async (_req, _res, next) => {
-  return forwardError(
-    next,
-    _res,
-    new AppError("Not Implemented", 501, "NOT_IMPLEMENTED", [], "addSubtopics not implemented"),
-  );
+const addSubtopics = async (req, res, next) => {
+  try {
+    const { courseId } = req.params;
+    const { moduleId, subtopics } = req.body;
+
+    const outcome = await sequelize.transaction(async (transaction) => {
+      const course = await Course.findByPk(courseId, { transaction });
+      if (!course) return { missing: "course" };
+
+      const module = await Module.findOne({
+        where: { id: moduleId, courseId },
+        transaction,
+        lock: true,
+      });
+      if (!module) return { missing: "module" };
+
+      const maxOrder =
+        (await Lesson.max("order", {
+          where: { moduleId },
+          transaction,
+        })) || 0;
+
+      const results = [];
+      for (const [index, subtopic] of subtopics.entries()) {
+        const topics = subtopic.topics ?? [];
+        const tools = subtopic.tools ?? [];
+        const activities = subtopic.activities ?? [];
+
+        const lesson = await Lesson.create(
+          {
+            moduleId,
+            title: subtopic.title,
+            duration: "5 mins",
+            type: "text",
+            order: maxOrder + index + 1,
+          },
+          { transaction },
+        );
+
+        await LessonContent.create(
+          {
+            lessonId: lesson.id,
+            introduction: subtopic.goal ?? null,
+            keyConcepts: { topics, tools, activities },
+          },
+          { transaction },
+        );
+
+        results.push({
+          id: lesson.id,
+          title: subtopic.title,
+          goal: subtopic.goal ?? null,
+          topics,
+          tools,
+          activities,
+        });
+      }
+      return { results };
+    });
+
+    if (outcome.missing === "course") {
+      return forwardError(next, res, new NotFoundError("Course not found"));
+    }
+    if (outcome.missing === "module") {
+      return forwardError(next, res, new NotFoundError("Module not found for this course"));
+    }
+
+    return res.status(201).json(outcome.results);
+  } catch (error) {
+    return sendServerError(req, res, error, "courseController.addSubtopics");
+  }
 };
 
 const hasValidTitledItems = (items) =>
