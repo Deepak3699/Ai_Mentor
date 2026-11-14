@@ -43,3 +43,5 @@ export const explainCodeSchema = z.object({
   language: z.string().trim().min(1, "Programming language is required").max(50),
   mode: z.enum(["explain", "debug", "optimize"]),
 });
+
+export { chatSchema, chatRequestSchema } from "./chatSchema.js";
