@@ -56,7 +56,7 @@ function ModalHarness() {
 }
 
 describe("Modal", () => {
-  it("opens as a named dialog and closes on the browser Escape cancel event", () => {
+  it("opens as a named dialog and closes when Escape is pressed", () => {
     render(<ModalHarness />);
 
     fireEvent.click(screen.getByRole("button", { name: "Open dialog" }));
@@ -64,8 +64,22 @@ describe("Modal", () => {
     const dialog = screen.getByRole("dialog", { name: "Test dialog" });
     expect(dialog.open).toBe(true);
 
-    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    fireEvent.keyDown(dialog, { key: "Escape" });
 
+    expect(dialog.open).toBe(false);
+  });
+
+  it("closes when the browser sends a dialog cancel request", () => {
+    render(<ModalHarness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open dialog" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Test dialog" });
+    const cancelEvent = new Event("cancel", { cancelable: true });
+
+    fireEvent(dialog, cancelEvent);
+
+    expect(cancelEvent.defaultPrevented).toBe(true);
     expect(dialog.open).toBe(false);
   });
 

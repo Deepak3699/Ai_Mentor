@@ -27,7 +27,15 @@ const Modal = ({
     };
   }, [open]);
 
-  const handleCancel = () => {
+  const handleEscape = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onCloseRef.current();
+    }
+  };
+
+  const handleCancel = (event) => {
+    event.preventDefault();
     onCloseRef.current();
   };
 
@@ -41,6 +49,7 @@ const Modal = ({
     <dialog
       ref={dialogRef}
       aria-labelledby={labelledBy}
+      onKeyDown={handleEscape}
       onCancel={handleCancel}
       className="fixed inset-0 m-0 h-dvh w-screen max-h-none max-w-none border-0 bg-transparent p-0 text-inherit"
     >
