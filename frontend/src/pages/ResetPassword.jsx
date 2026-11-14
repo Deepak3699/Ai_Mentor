@@ -1,20 +1,16 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Eye, EyeOff, Lock, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import AuthLayout from "../components/auth/AuthLayout";
+import PasswordChecklist from "../components/auth/PasswordChecklist";
 import axios from "axios";
 import { z } from "zod";
 import { getErrorMessage } from "../lib/errorHandling.js";
+import { passwordSchema } from "../lib/passwordRules.js";
 
 const resetPasswordSchema = z
   .object({
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-      .regex(/[0-9]/, "Password must contain at least one number")
-      .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one symbol"),
+    password: passwordSchema,
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -26,12 +22,18 @@ const ResetPassword = () => {
   const { token } = useParams();
   const navigate = useNavigate();
 
+  const newPasswordId = useId();
+  const confirmPasswordId = useId();
+  const confirmErrorId = useId();
+
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  const passwordsMismatch = confirmPassword.length > 0 && password !== confirmPassword;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -72,11 +74,15 @@ const ResetPassword = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label
+                  htmlFor={newPasswordId}
+                  className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+                >
                   New Password
                 </label>
                 <div className="relative">
                   <input
+                    id={newPasswordId}
                     type={showPassword ? "text" : "password"}
                     className="w-full px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BEA5] focus:border-transparent transition-all dark:bg-[#0f172a] dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
                     placeholder="••••••••••"
@@ -88,29 +94,46 @@ const ResetPassword = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
-                <div className="flex items-center gap-1.5 mt-1.5 text-gray-500 dark:text-gray-400">
-                  <Lock size={12} />
-                  <small className="text-[11px]">Min. 8 chars required</small>
-                </div>
+                <PasswordChecklist password={password} />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label
+                  htmlFor={confirmPasswordId}
+                  className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+                >
                   Confirm New Password
                 </label>
                 <input
+                  id={confirmPasswordId}
                   type={showPassword ? "text" : "password"}
-                  className="w-full px-3 py-2.5 rounded-lg bg-gray-50 border border-gray-200 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00BEA5] focus:border-transparent transition-all dark:bg-[#0f172a] dark:border-gray-700 dark:text-white dark:placeholder-gray-500"
+                  className={`w-full px-3 py-2.5 rounded-lg bg-gray-50 border text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all dark:bg-[#0f172a] dark:text-white dark:placeholder-gray-500 ${
+                    passwordsMismatch
+                      ? "border-red-500 focus:ring-red-500 dark:border-red-500"
+                      : "border-gray-200 focus:ring-[#00BEA5] dark:border-gray-700"
+                  }`}
                   placeholder="••••••••••"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  aria-invalid={passwordsMismatch}
+                  aria-describedby={passwordsMismatch ? confirmErrorId : undefined}
                   required
                 />
+                {passwordsMismatch && (
+                  <p
+                    id={confirmErrorId}
+                    role="alert"
+                    className="mt-1.5 text-xs text-red-600 dark:text-red-400"
+                  >
+                    Passwords do not match
+                  </p>
+                )}
               </div>
             </div>
 
