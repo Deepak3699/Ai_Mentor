@@ -109,7 +109,7 @@ User API / Admin API ─────────────┴──> AI servic
                               Cloudinary or local output
 ```
 
-The root development runner coordinates all five local services. It starts frontends only after their matching APIs are healthy, starts or reuses the Python AI service, and stops only processes started by the current terminal.
+The root development runner coordinates all five local services. It starts frontends only after their matching APIs are healthy, starts or reuses the Python AI service, and stops only processes started by the current terminal. For a quick startup guide, detailed service responsibilities, and direct service commands, see the [Contributor Service Map in CONTRIBUTING.md](./CONTRIBUTING.md#contributor-service-map-and-responsibilities).
 
 ## Applications and local ports
 
@@ -316,7 +316,7 @@ CI uses dummy frontend and AI-service values where configuration is required onl
 ## Documentation
 
 - [`initalSetup.md`](./initalSetup.md): first-time environment and database setup
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md): branch, commit, validation, review, and security workflow
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md): contributor service map, startup checklist, branch, commit, validation, review, and security workflow
 - [`backend/README.md`](./backend/README.md): user API setup and endpoints
 - [`backend/BACKEND_DOCUMENTATION.md`](./backend/BACKEND_DOCUMENTATION.md): detailed backend reference
 - [`frontend/README.md`](./frontend/README.md): learner application setup and routes
@@ -328,7 +328,7 @@ CI uses dummy frontend and AI-service values where configuration is required onl
 
 Contributions should use a focused branch and pull request. Run the relevant formatter, linter, tests, and builds before pushing. Do not push directly to `main`, bundle unrelated changes, or merge another contributor's pull request without authorization.
 
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the complete workflow, commit-message convention, secret-scanning process, and review requirements.
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the contributor service map, first-time startup guide, commit-message convention, secret-scanning process, and review requirements.
 
 ## Project context
 
