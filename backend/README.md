@@ -162,7 +162,7 @@ The backend uses **Sequelize** with PostgreSQL and expects a full connection str
 1. Create a Neon project at https://neon.tech and create or use the default branch.
 2. From the Neon dashboard, copy the Postgres connection string (the `postgres://...` URL). Make sure the string includes SSL (Neon requires SSL / `sslmode=require`).
 3. Paste the Neon connection string into `DATABASE_URL` inside your `.env`.
-4. On server startup, Sequelize will **sync all models** (`sequelize.sync({ alter: true })`), creating or altering tables as needed.
+4. On server startup, Sequelize will **sync all models** (`sequelize.sync()`), ensuring tables exist without auto-altering schemas. Schema changes must be applied via migration scripts.
 
 Notes:
 
