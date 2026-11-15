@@ -49,6 +49,8 @@ from backend.services.job_tracker import (
     remove_failed_generation_cache,
     shutdown_failed_jobs,
 )
+
+import backend.services.lesson_pipeline as lesson_pipeline
 from backend.services.media_processor import (
     ALLOWED_CELEBRITIES,
     VIDEO_HEIGHT,
@@ -293,3 +295,36 @@ def test_main_app_generate_lesson_endpoint():
         assert data["status"] == "Processing"
         assert "jobId" in data
         assert data["cached"] is False
+
+@pytest.mark.parametrize("should_fail", [False, True])
+def test_run_tracked_lesson_releases_active_job_slot(should_fail):
+    job_id = "test_slot_release"
+    active_jobs.add(job_id)
+
+    mock_process = AsyncMock()
+
+    if should_fail:
+        mock_process.side_effect = RuntimeError("Generation failed")
+
+    with patch.object(
+        lesson_pipeline,
+        "process_lesson",
+        mock_process,
+    ):
+        if should_fail:
+            with pytest.raises(RuntimeError):
+                asyncio.run(
+                    lesson_pipeline.run_tracked_lesson(
+                        MagicMock(),
+                        job_id,
+                    )
+                )
+        else:
+            asyncio.run(
+                lesson_pipeline.run_tracked_lesson(
+                    MagicMock(),
+                    job_id,
+                )
+            )
+
+    assert job_id not in active_jobs
