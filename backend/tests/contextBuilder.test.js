@@ -152,7 +152,13 @@ test("never splits emoji and strips control characters", () => {
   const preferences = { learning_goal: "🚀".repeat(500) + "\u0000\u0007bad" };
   const context = buildUserContext({ name: "T" }, preferences);
 
-  assert.doesNotMatch(context, /[\u0000-\u0008\u000B-\u001F\u007F]/);
+  const hasControlChar = Array.from(context).some((char) => {
+    const code = char.codePointAt(0);
+
+    return (code < 32 && code !== 9 && code !== 10) || code === 127;
+  });
+
+  assert.equal(hasControlChar, false);
   assert.equal(context.toWellFormed(), context);
   assert.ok(size(context) <= MAX_USER_CONTEXT_CHARS);
 });
