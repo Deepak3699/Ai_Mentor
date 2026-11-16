@@ -6,6 +6,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import Analytics from "../pages/Analytics";
 import DateRangeSelector from "../components/DateRangeSelector";
+import { ok } from "node:assert";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const analyticsSource = readFileSync(resolve(here, "../pages/Analytics.jsx"), "utf8");
@@ -141,11 +142,15 @@ describe("Analytics study hours bug fix (Issue #404)", () => {
         "fetch",
         vi.fn((url) => {
           if (url.includes("/api/courses")) {
-            return Promise.resolve({ json: () => Promise.resolve([]) });
+            return Promise.resolve({
+              ok: true,
+              json: () => Promise.resolve([]),
+            });
           }
 
           if (url.includes("/api/analytics")) {
             return Promise.resolve({
+              ok: true,
               json: () =>
                 Promise.resolve({
                   studySessions: [
