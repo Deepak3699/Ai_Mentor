@@ -7,6 +7,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { SidebarProvider } from "./context/SidebarContext";
 import { Toaster } from "react-hot-toast";
+import ErrorBoundary from "./components/common/ErrorBoundary.jsx";
 import "./index.css";
 import "./i18n/index.js";
 import App from "./App.jsx";
@@ -18,7 +19,9 @@ createRoot(document.getElementById("root")).render(
         <ThemeProvider>
           <SidebarProvider>
             <AuthProvider>
-              <App />
+              <ErrorBoundary>
+                <App />
+              </ErrorBoundary>
               <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
             </AuthProvider>
           </SidebarProvider>
