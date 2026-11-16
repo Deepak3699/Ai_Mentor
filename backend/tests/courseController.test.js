@@ -11,6 +11,7 @@ const validate = (await import("../middleware/validate.js")).default;
 const {
   addCourse,
   addLessons,
+  addModules,
   deleteCourse,
   getCourseById,
   getCourseLearningData,
@@ -28,6 +29,8 @@ const originals = {
   courseCreate: Course.create,
   courseDestroy: Course.destroy,
   moduleFindAll: Module.findAll,
+  moduleMax: Module.max,
+  moduleCreate: Module.create,
   lessonFindAll: Lesson.findAll,
   lessonMax: Lesson.max,
   lessonCreate: Lesson.create,
@@ -79,6 +82,9 @@ beforeEach(() => {
   Course.create = async (data) => ({ id: 1, ...data });
   Course.destroy = async () => 0;
   Module.findAll = async () => [];
+  Module.findOne = async () => ({ id: 10, courseId: 1 });
+  Module.max = async () => 0;
+  Module.create = async (data) => ({ id: 1, ...data });
   Lesson.findAll = async () => [];
   Lesson.max = async () => 0;
   Lesson.create = async (data) => ({ id: 1, ...data });
@@ -93,6 +99,8 @@ after(() => {
   Course.destroy = originals.courseDestroy;
   Module.findAll = originals.moduleFindAll;
   Module.findOne = originals.moduleFindOne;
+  Module.max = originals.moduleMax;
+  Module.create = originals.moduleCreate;
   Lesson.findAll = originals.lessonFindAll;
   Lesson.max = originals.lessonMax;
   Lesson.create = originals.lessonCreate;
@@ -545,4 +553,94 @@ test("addLessons rejects a module belonging to another course", async () => {
   assert.equal(state.body.error.message, "Module not found for the specified course");
   assert.equal(maxCalled, false);
   assert.equal(createCalled, false);
+});
+
+test("addModules creates a locked transactional batch with sequential order", async () => {
+  const transaction = {};
+  const created = [];
+  sequelize.transaction = async (work) => work(transaction);
+  Course.findByPk = async (id, options) => {
+    assert.equal(id, "7");
+    assert.equal(options.transaction, transaction);
+    assert.equal(options.lock, true);
+    return { id: 7 };
+  };
+  Module.max = async (field, options) => {
+    assert.equal(field, "order");
+    assert.deepEqual(options.where, { courseId: "7" });
+    assert.equal(options.transaction, transaction);
+    return 2;
+  };
+  Module.create = async (data, options) => {
+    assert.equal(options.transaction, transaction);
+    created.push(data);
+    return { id: created.length, ...data };
+  };
+  const { state, res } = response();
+  await addModules(
+    { params: { courseId: "7" }, body: { modules: [{ title: " One " }, { title: "Two" }] } },
+    res,
+  );
+  assert.equal(state.statusCode, 201);
+  assert.deepEqual(
+    created.map(({ title, order }) => ({ title, order })),
+    [
+      { title: "One", order: 3 },
+      { title: "Two", order: 4 },
+    ],
+  );
+});
+
+test("addModules rejects duplicate titles before opening a transaction", async () => {
+  let transactionCalls = 0;
+  sequelize.transaction = async () => {
+    transactionCalls += 1;
+  };
+  const { state, res } = response();
+  await addModules(
+    { params: { courseId: "7" }, body: { modules: [{ title: "Intro" }, { title: " intro " }] } },
+    res,
+  );
+  assert.equal(state.statusCode, 400);
+  assert.equal(state.body.error.code, "BAD_REQUEST");
+  assert.equal(transactionCalls, 0);
+});
+
+test("addLessons locks the parent module inside the transaction", async () => {
+  const transaction = {};
+  let lookupOptions;
+  sequelize.transaction = async (work) => work(transaction);
+  Module.findOne = async (options) => {
+    lookupOptions = options;
+    return { id: 10, courseId: 1 };
+  };
+  Lesson.max = async () => 0;
+  Lesson.create = async (data, options) => ({ id: 1, ...data, transaction: options.transaction });
+  const { state, res } = response();
+  await addLessons(
+    { params: { courseId: "1", moduleId: "10" }, body: { lessons: [{ title: "Lesson" }] } },
+    res,
+  );
+  assert.equal(state.statusCode, 201);
+  assert.deepEqual(lookupOptions.where, { id: "10", courseId: "1" });
+  assert.equal(lookupOptions.transaction, transaction);
+  assert.equal(lookupOptions.lock, true);
+});
+
+test("addLessons rejects duplicate titles before opening a transaction", async () => {
+  let transactionCalls = 0;
+  sequelize.transaction = async () => {
+    transactionCalls += 1;
+  };
+  const { state, res } = response();
+  await addLessons(
+    {
+      params: { courseId: "1", moduleId: "10" },
+      body: { lessons: [{ title: "Intro" }, { title: " intro " }] },
+    },
+    res,
+  );
+  assert.equal(state.statusCode, 400);
+  assert.equal(state.body.error.code, "BAD_REQUEST");
+  assert.equal(transactionCalls, 0);
 });

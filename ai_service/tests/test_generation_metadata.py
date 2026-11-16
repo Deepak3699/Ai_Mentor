@@ -15,7 +15,10 @@ def clear_job_status():
     yield
 
 def test_generation_logging_is_ascii_safe():
-    source_path = os.path.join(os.path.dirname(__file__), "../backend/api.py")
+    source_path = os.path.join(
+        os.path.dirname(__file__),
+        "../backend/services/lesson_pipeline.py",
+    )
     with open(source_path, "r", encoding="utf-8") as source_file:
         source = source_file.read()
     assert not any(symbol in source for symbol in ("📊", "⚡", "❌", "✅"))
@@ -60,7 +63,7 @@ async def test_gemini_metadata():
 
     with patch("api.gemini_client.models.generate_content", return_value=mock_gemini_response), \
          patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, \
-         patch("api.create_avatar_video", ) as mock_avatar, \
+         patch("api.create_avatar_video") as mock_avatar, \
          patch("api.requests.get") as mock_get, \
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_process) as mock_exec, \
          patch("api.os.path.exists", return_value=True), \

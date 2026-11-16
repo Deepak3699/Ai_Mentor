@@ -7,8 +7,12 @@ import pytest
 
 BACKEND_DIR = Path(__file__).resolve().parents[1] / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
+LESSON_ENDPOINT_PATH = (
+    BACKEND_DIR / "api" / "v1" / "endpoints" / "lessons.py"
+)
 
 from job_shutdown import wait_for_jobs_to_finish
+from backend.services import job_tracker
 
 os.environ.setdefault("GEMINI_API_KEY", "dummy_gemini_key")
 os.environ.setdefault("GROQ_API_KEY", "dummy_groq_key")
@@ -109,53 +113,53 @@ def test_shutdown_cleans_generation_cache_if_status_update_raises():
 
 
 def test_api_rejects_new_jobs_during_shutdown():
-    source = (BACKEND_DIR / "api.py").read_text(encoding="utf-8")
+    source = LESSON_ENDPOINT_PATH.read_text(encoding="utf-8")
 
-    assert "if shutting_down:" in source
+    assert "if jt.shutting_down:" in source
     assert "status_code=503" in source
 
 
 def test_late_failure_preserves_shutdown_status_and_cleans_cache():
-    import api
-
     job_id = "shutdown-job"
-    api.job_status[job_id] = {
+    job_tracker.job_status[job_id] = {
         "status": "processing",
         "meta": {
             "provider": "gemini",
             "timestamps": {"queued_at": "queued-time"},
         },
     }
-    api.active_jobs.add(job_id)
-    api.shutdown_failed_jobs.discard(job_id)
-    api.generation_cache.clear()
-    api.generation_cache["request-hash"] = job_id
+    job_tracker.active_jobs.add(job_id)
+    job_tracker.shutdown_failed_jobs.discard(job_id)
+    job_tracker.generation_cache.clear()
+    job_tracker.generation_cache["request-hash"] = job_id
     try:
         asyncio.run(
             wait_for_jobs_to_finish(
-                api.active_jobs,
-                api.job_status,
-                api.shutdown_failed_jobs,
+                job_tracker.active_jobs,
+                job_tracker.job_status,
+                job_tracker.shutdown_failed_jobs,
                 timeout_seconds=0,
-                generation_cache=api.generation_cache,
+                generation_cache=job_tracker.generation_cache,
             )
         )
-        shutdown_status = api.job_status[job_id]
+        shutdown_status = job_tracker.job_status[job_id]
         shutdown_timestamp = shutdown_status["meta"]["timestamps"]["failed_at"]
         shutdown_reason = shutdown_status["reason"]
 
-        api.mark_job_failed(job_id, RuntimeError("private diagnostic"))
+        job_tracker.mark_job_failed(job_id, RuntimeError("private diagnostic"))
 
-        assert api.job_status[job_id]["status"] == "failed"
-        assert api.job_status[job_id]["error"] == shutdown_reason
-        assert api.job_status[job_id]["reason"] == shutdown_reason
-        assert api.job_status[job_id]["failure_code"] == "shutdown_timeout"
-        assert api.job_status[job_id]["meta"]["provider"] == "gemini"
-        assert api.job_status[job_id]["meta"]["timestamps"]["queued_at"] == "queued-time"
-        assert api.job_status[job_id]["meta"]["timestamps"]["failed_at"] == shutdown_timestamp
-        assert not any(value == job_id for value in api.generation_cache.values())
+        assert job_tracker.job_status[job_id]["status"] == "failed"
+        assert job_tracker.job_status[job_id]["error"] == shutdown_reason
+        assert job_tracker.job_status[job_id]["reason"] == shutdown_reason
+        assert job_tracker.job_status[job_id]["failure_code"] == "shutdown_timeout"
+        assert job_tracker.job_status[job_id]["meta"]["provider"] == "gemini"
+        assert job_tracker.job_status[job_id]["meta"]["timestamps"]["queued_at"] == "queued-time"
+        assert job_tracker.job_status[job_id]["meta"]["timestamps"]["failed_at"] == shutdown_timestamp
+        assert not any(
+            value == job_id for value in job_tracker.generation_cache.values()
+        )
     finally:
-        api.active_jobs.discard(job_id)
-        api.shutdown_failed_jobs.discard(job_id)
-        api.job_status.pop(job_id, None)
-        api.generation_cache.clear()
+        job_tracker.active_jobs.discard(job_id)
+        job_tracker.shutdown_failed_jobs.discard(job_id)
+        job_tracker.job_status.pop(job_id, None)
+        job_tracker.generation_cache.clear()

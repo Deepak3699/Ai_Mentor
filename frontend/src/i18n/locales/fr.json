@@ -273,8 +273,20 @@
     "course_performance": "Performance des Cours",
     "no_courses": "Aucun cours à afficher.",
     "progress_lessons": "Progrès",
+    "range_last7": "7 derniers jours",
+    "range_last30": "30 derniers jours",
+    "range_this_month": "Ce mois-ci",
+    "custom_range": "Période personnalisée",
+    "select_both_dates": "Veuillez sélectionner les deux dates.",
+    "invalid_dates": "Veuillez saisir des dates valides.",
+    "invalid_date_order": "La date de début ne peut pas être postérieure à la date de fin.",
+    "future_date": "La date de fin ne peut pas être dans le futur.",
+    "max_date_range": "La période ne peut pas dépasser 90 jours.",
+    "from": "Du",
+    "to": "Au",
     "welcome_back_user": "Bon retour, {{name}} !",
     "analytics_subtitle": "Voici vos progrès d'apprentissage et vos tâches à venir",
+    "vs_previous_period": "par rapport à la période précédente",
     "units": {
       "day_one": "{{count}} Jour",
       "day_other": "{{count}} Jours",
@@ -320,7 +332,18 @@
     "status_ongoing": "En cours",
     "status_upcoming": "À venir",
     "delete_task_confirm": "Êtes-vous sûr de vouloir supprimer cette tâche ?",
-    "task_exists_error": "La tâche existe déjà pour cette date."
+    "task_exists_error": "La tâche existe déjà pour cette date.",
+    "achievements": {
+      "title": "Réussites",
+      "view_all": "Tout voir",
+      "course_title": "Cours terminé : {{title}}",
+      "course_description": "Vous avez terminé le cours",
+      "streak_title_one": "Série de {{count}} jour",
+      "streak_title_other": "Série de {{count}} jours",
+      "streak_description": "Apprentissage régulier",
+      "certificate_title": "Premier certificat",
+      "empty": "Terminez un cours ou étudiez 3 jours de suite pour obtenir votre première réussite."
+    }
   },
   "discussions": {
     "title": "Discussions",

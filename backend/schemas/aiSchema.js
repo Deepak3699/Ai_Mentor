@@ -21,10 +21,10 @@ const positiveIntId = (fieldName = "ID") =>
 export const generateVideoSchema = z.object({
   courseId: positiveIntId("Course ID"),
   lessonId: positiveIntId("Lesson ID"),
-  celebrity: z.string().min(1, "Celebrity name is required"),
-  voice_id: z.string().optional(),
-  speech_rate: z.string().optional(),
-  speech_pitch: z.string().optional(),
+  celebrity: z.string().trim().min(1, "Celebrity name is required"),
+  voice_id: z.string().trim().optional(),
+  speech_rate: z.string().trim().optional(),
+  speech_pitch: z.string().trim().optional(),
 });
 
 export const generateFlashcardsSchema = z.object({

@@ -140,7 +140,7 @@ describe("syllabus provider errors", () => {
     mock.method(Course, "findByPk", async () => course);
     mock.method(globalThis, "fetch", async () => ({
       ok: true,
-      json: async () => ({ error: "401 invalid api key sk-abc123 for model xyz" }),
+      json: async () => ({ error: "401 invalid api key REDACTED_API_KEY for model xyz" }),
     }));
     const res = await call("POST", path);
     expectSyllabusFailure(res, {
@@ -148,7 +148,8 @@ describe("syllabus provider errors", () => {
       code: "INVALID_PROVIDER_RESPONSE",
       retryable: false,
     });
-    assert.ok(!loggedText().includes("sk-abc123"));
+
+    assert.ok(!loggedText().includes("REDACTED_API_KEY"));
   });
 
   test("provider responds with a failure status", async () => {

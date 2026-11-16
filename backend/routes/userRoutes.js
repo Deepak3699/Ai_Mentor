@@ -4,7 +4,6 @@ import multer from "multer";
 import path from "path";
 import { protect } from "../middleware/authMiddleware.js";
 import validate from "../middleware/validate.js";
-import { registerSchema, loginSchema } from "../schemas/authSchema.js";
 import {
   updateProfileSchema,
   changePasswordSchema,
@@ -15,8 +14,6 @@ import {
 } from "../schemas/userSchema.js";
 
 import {
-  registerUser,
-  loginUser,
   getUserProfile,
   updateUserProfile,
   removeProfileAvatar,
@@ -31,7 +28,6 @@ import {
   completeProfile,
 } from "../controllers/userController.js";
 import crypto from "crypto";
-import { loginLimiter, registerLimiter } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 
@@ -86,9 +82,6 @@ const uploadAvatar = (req, res, next) => {
 };
 
 /* ---------- AUTH ROUTES ---------- */
-
-router.post("/register", registerLimiter, validate(registerSchema), registerUser);
-router.post("/login", loginLimiter, validate(loginSchema), loginUser);
 
 /* ---------- FIRST-TIME ONBOARDING ---------- */
 // Accepts avatar via multipart form data, requires JWT auth

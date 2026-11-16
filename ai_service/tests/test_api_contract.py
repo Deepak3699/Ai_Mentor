@@ -1,25 +1,42 @@
 import ast
 from pathlib import Path
 
-API_PATH = Path(__file__).resolve().parents[1] / "backend" / "api.py"
-SOURCE = API_PATH.read_text(encoding="utf-8")
-TREE = ast.parse(SOURCE)
+BACKEND_PATH = Path(__file__).resolve().parents[1] / "backend"
+SCHEMA_PATH = BACKEND_PATH / "schemas" / "lessons.py"
+ENDPOINTS_PATH = BACKEND_PATH / "api" / "v1" / "endpoints"
+GEMINI_PATH = BACKEND_PATH / "services" / "providers" / "gemini_provider.py"
+SCHEMA_TREE = ast.parse(SCHEMA_PATH.read_text(encoding="utf-8"))
+GEMINI_SOURCE = GEMINI_PATH.read_text(encoding="utf-8")
+SOURCE = "\n".join(
+    path.read_text(encoding="utf-8")
+    for path in [*ENDPOINTS_PATH.glob("*.py"), GEMINI_PATH]
+)
 
 
 def class_fields(name):
-    node = next(n for n in TREE.body if isinstance(n, ast.ClassDef) and n.name == name)
+    node = next(
+        n
+        for n in SCHEMA_TREE.body
+        if isinstance(n, ast.ClassDef) and n.name == name
+    )
     return {n.target.id for n in node.body if isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name)}
 
 
 def route_map():
     routes = {}
-    for node in TREE.body:
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        for decorator in node.decorator_list:
-            if isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Attribute):
-                owner = decorator.func.value
-                if isinstance(owner, ast.Name) and owner.id == "app" and decorator.args:
+    for path in ENDPOINTS_PATH.glob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in tree.body:
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for decorator in node.decorator_list:
+                if (
+                    isinstance(decorator, ast.Call)
+                    and isinstance(decorator.func, ast.Attribute)
+                    and isinstance(decorator.func.value, ast.Name)
+                    and decorator.func.value.id == "router"
+                    and decorator.args
+                ):
                     value = decorator.args[0]
                     if isinstance(value, ast.Constant) and isinstance(value.value, str):
                         routes[(decorator.func.attr, value.value)] = node.name
@@ -54,7 +71,8 @@ def test_job_and_transcript_routes_remain_available():
 
 
 def test_api_uses_declared_config_model_for_primary_gemini_calls():
-    assert "model=GEMINI_MODEL" in SOURCE, "Primary Gemini calls should use the configured GEMINI_MODEL"
+    assert "model: str = GEMINI_MODEL" in GEMINI_SOURCE
+    assert "model=model" in GEMINI_SOURCE
 
 
 def test_api_does_not_embed_secret_values():

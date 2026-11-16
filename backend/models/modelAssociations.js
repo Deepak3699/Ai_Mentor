@@ -78,6 +78,22 @@ Lesson.hasMany(AIVideo, {
 AIVideo.belongsTo(Lesson, {
   foreignKey: "lessonId",
 });
+
+/* ======================
+   USER → AI VIDEO
+====================== */
+
+User.hasMany(AIVideo, {
+  foreignKey: "userId",
+  as: "aiVideos",
+  onDelete: "SET NULL",
+});
+
+AIVideo.belongsTo(User, {
+  foreignKey: "userId",
+  as: "user",
+});
+
 /* ======================
    USER → CALENDAR TASK
 ====================== */

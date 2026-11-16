@@ -6,11 +6,14 @@ from unittest.mock import Mock, patch
 
 from pydantic import ValidationError
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+test_root = Path(__file__).resolve().parents[2]
+backend_root = test_root / "backend"
+sys.path.insert(0, str(test_root))
+sys.path.insert(0, str(backend_root))
 
 from fastapi import HTTPException
 
-from api import (
+from backend.api import (
     FlashcardRequest,
     LessonRequest,
     QuizRequest,

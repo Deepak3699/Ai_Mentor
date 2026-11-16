@@ -6,6 +6,7 @@ import { AppError, forwardError } from "../utils/error.js";
 import { detectIntent } from "../services/intentService.js";
 import { buildUserContext } from "../services/contextBuilder.js";
 import { askGemini } from "../services/geminiChatService.js";
+import { normalizeHistory } from "../services/chatHistory.js";
 import { detectNavigation } from "../services/navigationService.js";
 import { APP_ROUTES } from "../services/routeMap.js";
 
@@ -60,6 +61,14 @@ export const chatWithAssistant = async (req, res, next) => {
         next,
         res,
         new AppError("Message is required", 400, "BAD_REQUEST", [], "Message is required"),
+      );
+    }
+    const { turns: history = [], error: historyError } = normalizeHistory(req.body.history);
+    if (historyError) {
+      return forwardError(
+        next,
+        res,
+        new AppError(historyError, 400, "BAD_REQUEST", [], historyError),
       );
     }
 
@@ -134,21 +143,6 @@ export const chatWithAssistant = async (req, res, next) => {
 
         Focus Area: ${preferences.focus_area || "Unknown"}
         `,
-      });
-    }
-
-    //recommendation
-    if (intent.type === "recommendation") {
-      const courses = user.purchasedCourses || [];
-      if (!courses.length) {
-        return res.json({
-          reply: "You are not enrolled in any courses yet.",
-        });
-      }
-
-      const course = courses[0];
-      return res.json({
-        reply: `I recommend continuing ${course.courseTitle}.`,
       });
     }
 
@@ -228,25 +222,21 @@ export const chatWithAssistant = async (req, res, next) => {
 
     const context = buildUserContext(user, preferences);
 
-    const geminiReply = await askGemini(context, message);
-
-    // Check if Gemini returned a route
-    let route = null;
-
-    const routeMatch = geminiReply.match(/ROUTE:([^\r\n]*)/i);
-
-    if (routeMatch) {
-      const requestedRoute = routeMatch[1].trim();
-      if (Object.values(APP_ROUTES).includes(requestedRoute)) {
-        route = requestedRoute;
-      }
+    const result = await askGemini(context, message, { requestId: req.id, history });
+    if (!result.ok) {
+      return res.json({ reply: result.message, route: null, error: result.category });
     }
-
-    // Remove ROUTE from visible message
-    const cleanedReply = geminiReply.replace(/ROUTE:[^\r\n]*/gi, "").trim();
-
+    const routeMatch = result.text.match(/ROUTE:([^\r\n]*)/i);
+    const requestedRoute = routeMatch ? routeMatch[1].trim() : null;
+    const route =
+      requestedRoute && Object.values(APP_ROUTES).includes(requestedRoute) ? requestedRoute : null;
+    const cleanedReply = result.text.replace(/ROUTE:[^\r\n]*/gi, "").trim();
     return res.json({
-      reply: cleanedReply,
+      reply:
+        cleanedReply ||
+        (route
+          ? "I can take you to that page."
+          : "I couldn't generate a response. Please try asking in a different way."),
       route,
     });
   } catch (error) {

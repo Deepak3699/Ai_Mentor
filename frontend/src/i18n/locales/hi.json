@@ -273,8 +273,20 @@
     "course_performance": "कोर्स प्रदर्शन",
     "no_courses": "प्रदर्शन दिखाने के लिए कोई कोर्स नहीं।",
     "progress_lessons": "प्रगति",
+    "range_last7": "पिछले 7 दिन",
+    "range_last30": "पिछले 30 दिन",
+    "range_this_month": "इस महीने",
+    "custom_range": "अपनी तारीख चुनें",
+    "select_both_dates": "कृपया दोनों तारीखें चुनें।",
+    "invalid_dates": "कृपया सही तारीखें दर्ज करें।",
+    "invalid_date_order": "शुरुआत की तारीख समाप्ति की तारीख के बाद नहीं हो सकती।",
+    "future_date": "समाप्ति की तारीख भविष्य की नहीं हो सकती।",
+    "max_date_range": "तारीखों की अवधि 90 दिनों से अधिक नहीं हो सकती।",
+    "from": "से",
+    "to": "तक",
     "welcome_back_user": "वापस स्वागत है, {{name}}!",
     "analytics_subtitle": "यहाँ आपकी सीखने की प्रगति और आगामी कार्य हैं",
+    "vs_previous_period": "पिछली अवधि की तुलना में",
     "units": {
       "day_one": "{{count}} दिन",
       "day_other": "{{count}} दिन",
@@ -320,7 +332,18 @@
     "status_ongoing": "चल रहा है",
     "status_upcoming": "आगामी",
     "delete_task_confirm": "क्या आप वाकई इस कार्य को हटाना चाहते हैं?",
-    "task_exists_error": "इस तारीख के लिए कार्य पहले से मौजूद है।"
+    "task_exists_error": "इस तारीख के लिए कार्य पहले से मौजूद है।",
+    "achievements": {
+      "title": "उपलब्धियाँ",
+      "view_all": "सभी देखें",
+      "course_title": "पूरा किया: {{title}}",
+      "course_description": "आपने कोर्स पूरा कर लिया",
+      "streak_title_one": "{{count}} दिन की स्ट्रीक",
+      "streak_title_other": "{{count}} दिन की स्ट्रीक",
+      "streak_description": "लगातार सीखने वाले",
+      "certificate_title": "पहला प्रमाणपत्र",
+      "empty": "पहली उपलब्धि पाने के लिए एक कोर्स पूरा करें या लगातार 3 दिन पढ़ाई करें।"
+    }
   },
   "discussions": {
     "title": "चर्चा",

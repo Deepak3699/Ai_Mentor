@@ -303,6 +303,7 @@ const CoursesPage = () => {
     try {
       setIsPurchasing(true);
       const token = localStorage.getItem("token");
+      const idempotencyKey = crypto.randomUUID();
       const response = await fetch(`${API_BASE_URL}/api/payment/create-checkout-session`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -312,6 +313,7 @@ const CoursesPage = () => {
             title: selectedCourse.title,
             priceValue: Number(selectedCourse.priceValue || 0),
           },
+          idempotencyKey,
         }),
       });
       const data = await response.json();
@@ -329,11 +331,13 @@ const CoursesPage = () => {
     try {
       setIsPurchasing(true);
       const token = localStorage.getItem("token");
+      const idempotencyKey = crypto.randomUUID();
       const response = await fetch(`${API_BASE_URL}/api/payment/razorpay/create-order`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           course: { id: selectedCourse.id, priceValue: Number(selectedCourse.priceValue || 0) },
+          idempotencyKey,
         }),
       });
       const order = await response.json();
