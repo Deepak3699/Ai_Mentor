@@ -319,6 +319,12 @@
     "status_completed": "पूर्ण",
     "status_ongoing": "चल रहा है",
     "status_upcoming": "आगामी",
+    "upcoming_card_title": "आगामी कार्य",
+    "no_upcoming_tasks": "कोई आगामी कार्य नहीं",
+    "add_task": "कार्य जोड़ें",
+    "overdue": "समय सीमा समाप्त",
+    "due_today": "आज",
+    "due_tomorrow": "कल",
     "delete_task_confirm": "क्या आप वाकई इस कार्य को हटाना चाहते हैं?",
     "task_exists_error": "इस तारीख के लिए कार्य पहले से मौजूद है।",
     "achievements": {

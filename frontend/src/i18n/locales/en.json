@@ -322,6 +322,12 @@
     "status_completed": "Completed",
     "status_ongoing": "Ongoing",
     "status_upcoming": "Upcoming",
+    "upcoming_card_title": "Upcoming Tasks",
+    "no_upcoming_tasks": "No upcoming tasks",
+    "add_task": "Add a task",
+    "overdue": "Overdue",
+    "due_today": "Today",
+    "due_tomorrow": "Tomorrow",
     "achievements": {
       "title": "Achievements",
       "view_all": "View All",

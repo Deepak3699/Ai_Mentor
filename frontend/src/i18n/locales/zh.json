@@ -319,6 +319,12 @@
     "status_completed": "完成",
     "status_ongoing": "进行中",
     "status_upcoming": "即将到来",
+    "upcoming_card_title": "即将到来的任务",
+    "no_upcoming_tasks": "没有即将到来的任务",
+    "add_task": "添加任务",
+    "overdue": "已逾期",
+    "due_today": "今天",
+    "due_tomorrow": "明天",
     "delete_task_confirm": "您确定要删除此任务吗？",
     "task_exists_error": "该日期的任务已存在。",
     "achievements": {

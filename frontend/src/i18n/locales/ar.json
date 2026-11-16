@@ -319,6 +319,12 @@
     "status_completed": "مكتمل",
     "status_ongoing": "جاري",
     "status_upcoming": "قادم",
+    "upcoming_card_title": "المهام القادمة",
+    "no_upcoming_tasks": "لا توجد مهام قادمة",
+    "add_task": "إضافة مهمة",
+    "overdue": "متأخر",
+    "due_today": "اليوم",
+    "due_tomorrow": "غدًا",
     "delete_task_confirm": "هل أنت متأكد أنك تريد حذف هذه المهمة؟",
     "task_exists_error": "المهمة موجودة بالفعل لهذا التاريخ.",
     "achievements": {
