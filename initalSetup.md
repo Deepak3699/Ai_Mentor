@@ -33,6 +33,7 @@ Check the prerequisites for the application you want to work on before starting 
 | **PostgreSQL 14+** _or_ a Neon account | `psql --version`                          | https://postgresql.org or https://neon.tech                                                        |
 | **FFmpeg**                             | `ffmpeg -version`                         | Windows: `winget install ffmpeg` · macOS: `brew install ffmpeg` · Linux: `sudo apt install ffmpeg` |
 | **Git**                                | `git --version`                           | https://git-scm.com                                                                                |
+
 > `npm run setup` checks for Node.js, npm, Python and FFmpeg for every contributor, and needs `ai_service/backend/.env` with a Gemini API key, even if you only work on one application.
 
 | Application    | Port | Connects to                          |
