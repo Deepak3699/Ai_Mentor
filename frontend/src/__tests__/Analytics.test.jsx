@@ -61,8 +61,8 @@ vi.mock("react-i18next", () => ({
       if (key === "analytics.hours_unit") return options?.defaultValue || "hrs";
       if (key === "analytics.total_study_time_label") return "Total Study Time";
       if (key === "analytics.loading") return "Loading...";
-if (key === "common.retry") return "Try again";
-return translations[key] || options?.defaultValue || key;
+      if (key === "common.retry") return "Try again";
+      return translations[key] || options?.defaultValue || key;
     },
     i18n: { language: "en" },
   }),
