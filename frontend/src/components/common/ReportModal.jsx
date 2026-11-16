@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import React, { useEffect, useId, useState } from "react";
 import { ChevronDown, X } from "lucide-react";
 import LoadingSpinner from "./LoadingSpinner";
+import Modal from "./Modal";
 
 const ReportModal = ({
   show,
@@ -23,6 +23,11 @@ const ReportModal = ({
   const [openSubDropdown, setOpenSubDropdown] = useState(false);
   const [shouldRender, setShouldRender] = useState(show);
   const [visible, setVisible] = useState(false);
+  const dropdownId = useId();
+  const titleId = `${dropdownId}-title`;
+  const issueTypeListId = `${dropdownId}-issue-types`;
+  const courseListId = `${dropdownId}-courses`;
+  const reasonListId = `${dropdownId}-reasons`;
   useEffect(() => {
     let frame;
     let timer;
@@ -89,8 +94,11 @@ const ReportModal = ({
 
   if (!shouldRender) return null;
 
-  return createPortal(
-    <div
+  return (
+    <Modal
+      open={shouldRender}
+      onClose={requestClose}
+      labelledBy={titleId}
       className={`fixed inset-0 z-[200] flex items-center justify-center px-4 ui-overlay ${visible ? "is-open" : "is-closing"}`}
     >
       <div
@@ -104,6 +112,9 @@ const ReportModal = ({
       >
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <h2 id={titleId} className="sr-only">
+              Report an Issue
+            </h2>
             <LoadingSpinner variant="compact" label="Submitting report" />
             <p className="text-sm text-gray-600 dark:text-gray-300">Submitting report...</p>
           </div>
@@ -111,7 +122,7 @@ const ReportModal = ({
           <>
             <div className="flex items-start justify-between mb-6">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                <h2 id={titleId} className="text-xl font-semibold text-gray-900 dark:text-white">
                   Report an Issue
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -121,6 +132,7 @@ const ReportModal = ({
 
               <button
                 onClick={requestClose}
+                aria-label="Close report dialog"
                 className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-white/10 transition"
               >
                 <X className="w-4 h-4 text-gray-700 dark:text-white" />
@@ -133,12 +145,16 @@ const ReportModal = ({
               </label>
 
               <button
+                type="button"
                 onClick={() => {
                   setOpenDropdown(!openDropdown);
                   setOpenCourseDropdown(false);
                   setOpenSubDropdown(false);
                 }}
                 data-report-dropdown
+                aria-haspopup="listbox"
+                aria-expanded={openDropdown}
+                aria-controls={issueTypeListId}
                 className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-[#3867D6] focus:border-[#3867D6] transition"
               >
                 {reportType}
@@ -149,22 +165,28 @@ const ReportModal = ({
 
               {openDropdown && (
                 <div
+                  id={issueTypeListId}
+                  role="listbox"
+                  aria-label="Issue type"
                   className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-border bg-card text-main shadow-xl ui-popover-surface"
                   data-report-dropdown
                 >
                   {reportOptions.map((option) => (
-                    <div
+                    <button
+                      type="button"
                       key={option}
+                      role="option"
+                      aria-selected={reportType === option}
                       onClick={() => {
                         setReportType(option);
                         setSelectedCourse("");
                         setSubType("");
                         setOpenDropdown(false);
                       }}
-                      className="cursor-pointer px-4 py-2.5 text-sm text-main transition-colors hover:bg-canvas-alt"
+                      className="block w-full cursor-pointer px-4 py-2.5 text-left text-sm text-main transition-colors hover:bg-canvas-alt"
                     >
                       {option}
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -177,12 +199,16 @@ const ReportModal = ({
                 </label>
 
                 <button
+                  type="button"
                   onClick={() => {
                     setOpenCourseDropdown(!openCourseDropdown);
                     setOpenDropdown(false);
                     setOpenSubDropdown(false);
                   }}
                   data-report-dropdown
+                  aria-haspopup="listbox"
+                  aria-expanded={openCourseDropdown}
+                  aria-controls={courseListId}
                   className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-[#3867D6] focus:border-[#3867D6] transition"
                 >
                   {selectedCourse || "Select your course"}
@@ -193,6 +219,9 @@ const ReportModal = ({
 
                 {openCourseDropdown && (
                   <div
+                    id={courseListId}
+                    role="listbox"
+                    aria-label="Select course"
                     className="absolute z-50 mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-border bg-card text-main shadow-xl ui-popover-surface"
                     data-report-dropdown
                   >
@@ -200,17 +229,20 @@ const ReportModal = ({
                       <div className="px-4 py-3 text-sm text-gray-400">No enrolled courses</div>
                     ) : (
                       enrolledCourses.map((course) => (
-                        <div
+                        <button
+                          type="button"
                           key={course.id}
+                          role="option"
+                          aria-selected={selectedCourse === course.title}
                           onClick={() => {
                             setSelectedCourse(course.title);
                             setSubType("");
                             setOpenCourseDropdown(false);
                           }}
-                          className="cursor-pointer px-4 py-2.5 text-sm text-main transition-colors hover:bg-canvas-alt"
+                          className="block w-full cursor-pointer px-4 py-2.5 text-left text-sm text-main transition-colors hover:bg-canvas-alt"
                         >
                           {course.title}
-                        </div>
+                        </button>
                       ))
                     )}
                   </div>
@@ -227,12 +259,16 @@ const ReportModal = ({
                   </label>
 
                   <button
+                    type="button"
                     onClick={() => {
                       setOpenSubDropdown(!openSubDropdown);
                       setOpenDropdown(false);
                       setOpenCourseDropdown(false);
                     }}
                     data-report-dropdown
+                    aria-haspopup="listbox"
+                    aria-expanded={openSubDropdown}
+                    aria-controls={reasonListId}
                     className="w-full flex items-center justify-between px-4 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-lg text-sm hover:border-[#3867D6] focus:border-[#3867D6] transition"
                   >
                     {subType || "Select reason"}
@@ -243,20 +279,26 @@ const ReportModal = ({
 
                   {openSubDropdown && (
                     <div
+                      id={reasonListId}
+                      role="listbox"
+                      aria-label="Select reason"
                       className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-border bg-card text-main shadow-xl ui-popover-surface"
                       data-report-dropdown
                     >
                       {(subOptionsMap[reportType] || []).map((item) => (
-                        <div
+                        <button
+                          type="button"
                           key={item}
+                          role="option"
+                          aria-selected={subType === item}
                           onClick={() => {
                             setSubType(item);
                             setOpenSubDropdown(false);
                           }}
-                          className="cursor-pointer px-4 py-2.5 text-sm text-main transition-colors hover:bg-canvas-alt"
+                          className="block w-full cursor-pointer px-4 py-2.5 text-left text-sm text-main transition-colors hover:bg-canvas-alt"
                         >
                           {item}
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -312,8 +354,7 @@ const ReportModal = ({
           </>
         )}
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 };
 

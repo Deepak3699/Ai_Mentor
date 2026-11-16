@@ -29,6 +29,7 @@ import {
   Scale,
 } from "lucide-react";
 import FloatingAssistant from "../components/common/FloatingAssistant";
+import Modal from "../components/common/Modal";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import DiscussionSidebar from "../components/discussions/DiscussionSidebar";
 import { getErrorMessage } from "../lib/errorHandling.js";
@@ -2767,10 +2768,17 @@ const DiscussionsPage = () => {
 
       {/* Popup Modal */}
       {popupModal.open && (
-        <div className="fixed inset-0 z-160 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 ui-overlay-motion">
+        <Modal
+          open
+          onClose={closePopupModal}
+          labelledBy="discussion-notice-title"
+          className="fixed inset-0 z-160 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 ui-overlay-motion"
+        >
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-xs sm:max-w-sm md:max-w-md">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h3 className="font-bold text-main text-base">{popupModal.title || "Notice"}</h3>
+              <h3 id="discussion-notice-title" className="font-bold text-main text-base">
+                {popupModal.title || "Notice"}
+              </h3>
               <button
                 onClick={closePopupModal}
                 className="text-muted hover:text-main transition-colors"
@@ -2805,14 +2813,24 @@ const DiscussionsPage = () => {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
       {reportModal.open && (
-        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
+        <Modal
+          open
+          onClose={() => {
+            setReportModal({ open: false, postId: null, replyId: null });
+            setReportDescription("");
+          }}
+          labelledBy="discussion-report-title"
+          className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion"
+        >
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md">
             {/* Header */}
             <div className="px-5 pt-5 pb-1">
-              <h3 className="font-bold text-main text-lg">Report Content</h3>
+              <h3 id="discussion-report-title" className="font-bold text-main text-lg">
+                Report Content
+              </h3>
               <p className="text-muted text-sm mt-1">
                 Help us maintain a safe community. Please provide a reason for reporting.
               </p>
@@ -2857,17 +2875,25 @@ const DiscussionsPage = () => {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {reportSuccess && (
-        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
+        <Modal
+          open
+          onClose={() => setReportSuccess(false)}
+          labelledBy="discussion-report-success-title"
+          className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion"
+        >
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm">
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h3 className="font-bold text-main text-base">Report</h3>
+              <h3 id="discussion-report-success-title" className="font-bold text-main text-base">
+                Report
+              </h3>
               <button
                 onClick={() => setReportSuccess(false)}
+                aria-label="Close report confirmation"
                 className="text-muted hover:text-main transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -2916,11 +2942,16 @@ const DiscussionsPage = () => {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {reportAlreadyExists && (
-        <div className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion">
+        <Modal
+          open
+          onClose={() => setReportAlreadyExists(false)}
+          labelledBy="discussion-already-reported-title"
+          className="fixed inset-0 z-150 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 ui-overlay-motion"
+        >
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm">
             <div className="px-5 py-6 text-center space-y-3">
               <div className="flex justify-center">
@@ -2928,7 +2959,9 @@ const DiscussionsPage = () => {
                   <AlertTriangle className="w-7 h-7 text-yellow-500" />
                 </div>
               </div>
-              <h4 className="text-base font-bold text-main">Already Reported</h4>
+              <h4 id="discussion-already-reported-title" className="text-base font-bold text-main">
+                Already Reported
+              </h4>
               <p className="text-sm text-muted">
                 You have already reported this content. Our team will review it shortly.
               </p>
@@ -2942,7 +2975,7 @@ const DiscussionsPage = () => {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

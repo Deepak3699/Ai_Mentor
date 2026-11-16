@@ -3,6 +3,7 @@ import axios from "axios";
 import { ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import LoadingSpinner from "./common/LoadingSpinner";
+import Modal from "./common/Modal";
 import { getErrorMessage } from "../lib/errorHandling.js";
 
 export const WIZARD_STEPS = [
@@ -333,7 +334,10 @@ export default function Preferences({ mode = "modal", onSuccess }) {
             <h4 className="text-[12px] font-bold text-blue-600 dark:text-blue-500 tracking-wider uppercase mb-2">
               QUICK SETUP
             </h4>
-            <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white mb-2 font-sans tracking-tight">
+            <h2
+              id={isModal ? "preferences-modal-title" : undefined}
+              className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white mb-2 font-sans tracking-tight"
+            >
               {t("preferences.modal_title")}
             </h2>
             <p className="text-gray-500 dark:text-gray-400 text-[15px]">
@@ -423,14 +427,16 @@ export default function Preferences({ mode = "modal", onSuccess }) {
 
   if (isModal) {
     return (
-      <div
+      <Modal
+        open
+        onClose={handleSkip}
+        labelledBy="preferences-modal-title"
         className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80 backdrop-blur-sm p-4 sm:p-6 ui-overlay-motion"
-        style={{ overscrollBehavior: "contain" }}
       >
         <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl sm:rounded-[24px] shadow-2xl max-h-[90vh] flex flex-col overflow-hidden">
           {renderContent()}
         </div>
-      </div>
+      </Modal>
     );
   }
 

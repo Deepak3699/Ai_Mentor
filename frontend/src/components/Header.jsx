@@ -16,6 +16,7 @@ import ThemeToggle from "../components/common/ThemeToggle";
 import { useSidebar } from "../context/SidebarContext";
 import { useTranslation } from "react-i18next";
 import NotificationItem from "../components/common/NotificationItem";
+import Modal from "./common/Modal";
 import LoadingSpinner from "./common/LoadingSpinner";
 import {
   fetchNotifications,
@@ -411,10 +412,20 @@ const Header = () => {
         </div>
       </header>
       {showLogoutConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm ui-overlay-motion">
+        <Modal
+          open={showLogoutConfirm}
+          onClose={() => setShowLogoutConfirm(false)}
+          labelledBy="logout-confirm-title"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm ui-overlay-motion"
+        >
           <div className="bg-card border border-border/50 rounded-[2rem] shadow-2xl p-6 sm:p-8 w-[90%] max-w-sm text-center">
             <LogOut className="w-10 h-10 text-red-500 mx-auto mb-4" />
-            <h3 className="text-sm font-black uppercase tracking-tight text-main mb-2">Logout</h3>
+            <h3
+              id="logout-confirm-title"
+              className="text-sm font-black uppercase tracking-tight text-main mb-2"
+            >
+              Logout
+            </h3>
             <p className="text-xs text-muted mb-6">Are you sure you want to logout?</p>
             <div className="flex gap-3">
               <button
@@ -431,7 +442,7 @@ const Header = () => {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );
