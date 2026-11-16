@@ -5,9 +5,8 @@ import { useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
 import DashboardLayout from "./components/DashboardLayout";
-
 import Dashboard from "./pages/Dashboard";
-
+import LoadingSpinner from "./components/common/LoadingSpinner";
 // Lazy Loading
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const SignUpPage = lazy(() => import("./pages/SignUpPage"));
@@ -61,7 +60,7 @@ const PublicRoutes = () => {
 
 const App = () => {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<LoadingSpinner label="Loading..." />}>
       <Routes>
         {/* ROOT */}
         <Route path="/" element={<RootRedirect />} />
