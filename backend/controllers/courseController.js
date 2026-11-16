@@ -1,3 +1,4 @@
+import { getAccessToken } from "../utils/oauthClient.js";
 import { Course, Module, Lesson, LessonContent } from "../models/modelAssociations.js";
 import { sequelize } from "../config/db.js";
 import { sendServerError, logServerError, dependencyFailure } from "../utils/apiError.js";
@@ -352,7 +353,7 @@ const getStatsCards = async (req, res, next) => {
 /* =========================
    ADMIN STUBS (UNCHANGED)
 ========================= */
-const addCourse = async (req, res, next) => {
+const addCourse = async (req, res, _next) => {
   try {
     const course = await Course.create({
       ...req.body,
@@ -555,10 +556,20 @@ const generateCourseSyllabusWithAI = async (req, res, next) => {
     const course = await Course.findByPk(id);
     if (!course) return forwardError(next, res, new NotFoundError("Course not found"));
 
-    // 1. Call Python AI Service
+    // 1. Get OAuth2 service token and call Python AI Service
+    const accessToken = await getAccessToken().catch(() => null);
+
+    if (!accessToken) {
+      logServerError(req, dependencyFailure("AI_SERVICE_AUTH_FAILED"), "generateSyllabus.auth");
+      return syllabusUnavailable(req, res);
+    }
+
     const aiResponse = await fetch(`${process.env.AI_SERVICE_URL}/generate-syllabus`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({
         course_title: course.title,
         category: course.category,
