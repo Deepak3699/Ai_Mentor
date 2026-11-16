@@ -17,8 +17,6 @@ import {
   LogOut,
   Bell,
   Search,
-  Moon,
-  Sun,
   Menu,
   Users,
   Flame,
@@ -33,6 +31,7 @@ import ErrorState from "../components/common/ErrorState";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import AchievementsCard from "../components/dashboard/AchievementsCard";
 import StatCard from "../components/StatCard";
+import DateRangeSelector from "../components/DateRangeSelector";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -48,16 +47,9 @@ const Analytics = () => {
   const [activeTab, setActiveTab] = useState("courses");
   const [pageLoading, setPageLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [rangePreset, setRangePreset] = useState("last30");
+  const [customRange, setCustomRange] = useState(null);
   const searchQuery = "";
-
-  // Initialize dark mode from localStorage
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme) {
-      return savedTheme === "dark";
-    }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
 
   const statusEmojis = {
     Completed: "✅",
@@ -74,6 +66,58 @@ const Analytics = () => {
   const formatDateKey = (date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const getActiveRange = () => {
+    const today = startOfDay(new Date());
+
+    if (rangePreset === "custom" && customRange) {
+      return {
+        start: startOfDay(customRange.start),
+        end: startOfDay(customRange.end),
+      };
+    }
+
+    if (rangePreset === "last7") {
+      const start = new Date(today);
+      start.setDate(today.getDate() - 6);
+      return { start, end: today };
+    }
+
+    if (rangePreset === "thisMonth") {
+      return {
+        start: new Date(today.getFullYear(), today.getMonth(), 1),
+        end: today,
+      };
+    }
+
+    // default: last30
+    const start = new Date(today);
+    start.setDate(today.getDate() - 29);
+    return { start, end: today };
+  };
+
+  const { start: rangeStart, end: rangeEnd } = getActiveRange();
+  const rangeDays = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
+
+  const rangeLabel =
+    rangePreset === "last7"
+      ? t("analytics.range_last7")
+      : rangePreset === "last30"
+        ? t("analytics.range_last30")
+        : rangePreset === "thisMonth"
+          ? t("analytics.range_this_month")
+          : `${rangeStart.toLocaleDateString(i18n.language)} - ${rangeEnd.toLocaleDateString(i18n.language)}`;
+
+  const rangeDatesLabel = `${rangeStart.toLocaleDateString(i18n.language, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })} - ${rangeEnd.toLocaleDateString(i18n.language, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })}`;
   // Fetch courses and analytics
 
   const loadData = useCallback(async () => {
@@ -174,17 +218,13 @@ const Analytics = () => {
     }).length || 0;
 
   const calculateAttendance = () => {
-    const today = new Date();
-    const last30 = [];
-    for (let i = 0; i < 30; i++) {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
-      last30.push(d.toDateString());
-    }
-    const studiedDays = studySessions.map((s) => new Date(s.date).toDateString());
-    const uniqueDays = [...new Set(studiedDays)];
-    const attended = uniqueDays.filter((d) => last30.includes(d)).length;
-    return Math.round((attended / 30) * 100);
+    const studiedDays = new Set(
+      studySessions
+        .map((s) => startOfDay(new Date(s.date)))
+        .filter((d) => d >= rangeStart && d <= rangeEnd)
+        .map((d) => d.getTime()),
+    );
+    return Math.round((studiedDays.size / rangeDays) * 100);
   };
 
   const attendance = calculateAttendance();
@@ -273,10 +313,31 @@ const Analytics = () => {
   );
 
   // Calculate total study time
-  const totalStudyTime = studySessions.reduce(
+  const sessionsInRange = studySessions.filter((s) => {
+    const d = startOfDay(new Date(s.date));
+    return d >= rangeStart && d <= rangeEnd;
+  });
+
+  const totalStudyTime = sessionsInRange.reduce(
     (acc, session) => acc + (session.hours || session.duration || 0),
     0,
   );
+
+  const prevEnd = new Date(rangeStart);
+  prevEnd.setDate(prevEnd.getDate() - 1);
+
+  const prevStart = new Date(prevEnd);
+  prevStart.setDate(prevEnd.getDate() - (rangeDays - 1));
+
+  const prevTotalStudyTime = studySessions
+    .filter((s) => {
+      const d = startOfDay(new Date(s.date));
+      return d >= prevStart && d <= prevEnd;
+    })
+    .reduce((acc, session) => acc + (session.hours || session.duration || 0), 0);
+
+  const studyTimeChangeHours =
+    prevTotalStudyTime > 0 ? Math.round((totalStudyTime - prevTotalStudyTime) * 10) / 10 : null;
   const averageProgress =
     myCourses.length > 0
       ? Math.round(myCourses.reduce((acc, c) => acc + c.progress, 0) / myCourses.length)
@@ -300,28 +361,30 @@ const Analytics = () => {
   return (
     <>
       <main className="p-4 md:p-6 lg:p-8">
-        {/* Dark Mode Toggle Button */}
-        <div className="fixed bottom-6 right-6 z-50">
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-3 rounded-full bg-white dark:bg-[#1A1A1A] shadow-lg hover:shadow-xl transition-all duration-300 border border-[#CCCCCC] dark:border-gray-700"
-          >
-            {isDarkMode ? (
-              <Sun className="w-5 h-5 text-[#ff6d34]" />
-            ) : (
-              <Moon className="w-5 h-5 text-[#ff6d34]" />
-            )}
-          </button>
-        </div>
+        {/* Welcome Section */}
 
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#2D3436] dark:text-white">
-            {t("analytics.welcome_back_user", { name: user?.name || "Learner" })}
-          </h1>
-          <p className="text-[#2D3436]/70 dark:text-gray-400 mt-2 text-lg">
-            {t("analytics.analytics_subtitle")}
-          </p>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-3xl font-bold text-[#2D3436] dark:text-white">
+              {t("analytics.welcome_back_user", { name: user?.name || "Learner" })}
+            </h1>
+            <p className="text-[#2D3436]/70 dark:text-gray-400 mt-2 text-lg">
+              {t("analytics.analytics_subtitle")}
+            </p>
+          </div>
+          <DateRangeSelector
+            preset={rangePreset}
+            label={rangeDatesLabel}
+            onSelectPreset={(key) => {
+              setRangePreset(key);
+              setCustomRange(null);
+            }}
+            onApplyCustom={(range) => {
+              setCustomRange(range);
+              setRangePreset("custom");
+            }}
+          />
         </div>
 
         {/* METRICS CARDS */}
@@ -407,9 +470,18 @@ const Analytics = () => {
             <div className="text-xl font-bold text-[#ff6d34]">
               {Math.round(totalStudyTime)} {t("analytics.hours_unit", { defaultValue: "hrs" })}
             </div>
-            <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">
-              {t("analytics.this_month")}
-            </div>
+            <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">{rangeLabel}</div>
+            {studyTimeChangeHours !== null && (
+              <div
+                className={`text-xs mt-1 font-medium ${
+                  studyTimeChangeHours >= 0 ? "text-[#28A745]" : "text-red-500"
+                }`}
+              >
+                {studyTimeChangeHours >= 0 ? "↑" : "↓"} {Math.abs(studyTimeChangeHours)}{" "}
+                {t("analytics.hours_unit", { defaultValue: "hrs" })}{" "}
+                {t("analytics.vs_previous_period")}
+              </div>
+            )}
           </div>
           <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
             <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">
