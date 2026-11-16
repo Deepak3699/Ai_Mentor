@@ -1,6 +1,7 @@
 # Contributing
 
 Please read and understand this guide carefully before contributing to AI Mentor. It outlines the steps to prepare, validate, and submit your changes effectively.
+
 ## Get started
 
 1. Fork [Deepak3699/Ai_Mentor](https://github.com/Deepak3699/Ai_Mentor) and clone your fork:
