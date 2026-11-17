@@ -72,6 +72,7 @@ To set up the complete repository, including all Node and React applications, ru
 ```bash
 npm run setup
 ```
+
 ### Python Version
 
 The AI service requires **Python 3.11**.
