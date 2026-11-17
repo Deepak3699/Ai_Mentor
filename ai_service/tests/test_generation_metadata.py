@@ -7,6 +7,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 import pytest
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../backend"))
+from backend.config import GROQ_MODEL
 from api import process_lesson, job_status, LessonRequest
 
 @pytest.fixture(autouse=True)
@@ -152,7 +153,7 @@ async def test_groq_metadata_and_mp3_duration():
 
     assert job_status[base_filename]["status"] == "ready"
     assert job_status[base_filename]["meta"]["provider"] == "groq"
-    assert job_status[base_filename]["meta"]["model"] == "llama-3.3-70b-versatile"
+    assert job_status[base_filename]["meta"]["model"] == GROQ_MODEL
     assert job_status[base_filename]["meta"]["word_count"] == 3
     assert job_status[base_filename]["meta"]["audio_seconds"] == 42.5
     assert "duration_ms" in job_status[base_filename]["meta"]

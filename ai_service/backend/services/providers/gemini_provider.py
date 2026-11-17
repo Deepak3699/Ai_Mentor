@@ -7,7 +7,12 @@ from typing import Any
 from google import genai
 from google.genai import types
 
-from backend.config import GEMINI_API_KEY, GEMINI_MODEL, LLM_TIMEOUT_SECONDS
+from backend.config import (
+    GEMINI_API_KEY,
+    GEMINI_EXPLAIN_MODEL,
+    GEMINI_MODEL,
+    LLM_TIMEOUT_SECONDS,
+)
 from backend.schemas.lessons import (
     ExplainCodeRequest,
     Flashcard,
@@ -296,7 +301,7 @@ class GeminiProvider(BaseAIProvider):
         print("Trying Gemini for code analysis...")
         client = get_gemini_client()
         response = client.models.generate_content(
-            model="gemini-3.8-flash",
+            model=GEMINI_EXPLAIN_MODEL,
             contents=prompt,
         )
         result_text = response.text.strip()
