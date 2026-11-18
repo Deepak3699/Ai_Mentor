@@ -1,0 +1,51 @@
+from backend.schemas.lessons import (
+    ExplainCodeRequest,
+    Flashcard,
+    FlashcardRequest,
+    LessonPreferences,
+    LessonRequest,
+    QuizQuestion,
+    QuizRequest,
+    QuizResponse,
+    SyllabusRequest,
+)
+from backend.schemas.jobs import (
+    GenerateLessonResponse,
+    JobMetadata,
+    JobStatusResponse,
+    JobTimestamps,
+    TranscriptResponse,
+)
+from backend.schemas.provider import (
+    CodeExplanationLine,
+    CodeExplanationResponse,
+    CodeIssue,
+    ProviderScriptResult,
+    SyllabusLesson,
+    SyllabusModule,
+    SyllabusResponse,
+)
+
+__all__ = [
+    "LessonPreferences",
+    "LessonRequest",
+    "SyllabusRequest",
+    "ExplainCodeRequest",
+    "QuizRequest",
+    "QuizQuestion",
+    "QuizResponse",
+    "FlashcardRequest",
+    "Flashcard",
+    "JobStatusResponse",
+    "GenerateLessonResponse",
+    "TranscriptResponse",
+    "JobTimestamps",
+    "JobMetadata",
+    "ProviderScriptResult",
+    "CodeExplanationLine",
+    "CodeIssue",
+    "CodeExplanationResponse",
+    "SyllabusLesson",
+    "SyllabusModule",
+    "SyllabusResponse",
+]

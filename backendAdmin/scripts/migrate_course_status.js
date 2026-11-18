@@ -1,12 +1,12 @@
 /**
  * Migration Script: Add course status management columns
- * 
+ *
  * This script:
  * 1. Adds `status` column to Users table (fixes pre-existing crash)
  * 2. Adds `status` column to Courses table (new feature)
  * 3. Adds `deletedAt` column to Courses table (soft delete support)
  * 4. Back-fills all existing courses with status = 'published'
- * 
+ *
  * Safe to run multiple times (uses IF NOT EXISTS).
  */
 

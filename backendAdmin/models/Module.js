@@ -9,7 +9,7 @@ const Module = sequelize.define(
     title: DataTypes.STRING,
     order: DataTypes.INTEGER,
   },
-  { timestamps: true, tableName: "Modules" }
+  { timestamps: true, tableName: "Modules" },
 );
 
 export default Module;

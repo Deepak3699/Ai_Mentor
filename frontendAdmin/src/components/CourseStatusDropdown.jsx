@@ -52,7 +52,7 @@ export default function CourseStatusDropdown({
     const rect = buttonRef.current.getBoundingClientRect();
     setMenuPos({
       top: rect.bottom + 6, // 6px gap below button
-      left: rect.right,     // right-aligned
+      left: rect.right, // right-aligned
     });
   }, []);
 
@@ -75,8 +75,10 @@ export default function CourseStatusDropdown({
 
     const handleClickOutside = (e) => {
       if (
-        buttonRef.current && !buttonRef.current.contains(e.target) &&
-        menuRef.current && !menuRef.current.contains(e.target)
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target) &&
+        menuRef.current &&
+        !menuRef.current.contains(e.target)
       ) {
         setOpen(false);
       }
@@ -132,8 +134,12 @@ export default function CourseStatusDropdown({
                   `}
                 >
                   <div className="flex items-center gap-2">
-                    <span className={`w-1.5 h-1.5 rounded-full ${optConfig.dotColor || "bg-red-500"}`} />
-                    <span className={`text-xs font-bold ${option.isDanger ? "text-red-500" : "text-main"}`}>
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${optConfig.dotColor || "bg-red-500"}`}
+                    />
+                    <span
+                      className={`text-xs font-bold ${option.isDanger ? "text-red-500" : "text-main"}`}
+                    >
                       {option.label}
                     </span>
                     {isActive && (
@@ -148,7 +154,7 @@ export default function CourseStatusDropdown({
             );
           })}
         </div>,
-        document.body
+        document.body,
       )
     : null;
 

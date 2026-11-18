@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { 
-  BookOpen, 
-  Calendar, 
-  TrendingUp, 
+import {
+  BookOpen,
+  Calendar,
+  CalendarDays,
+  ArrowRight,
+  TrendingUp,
   Award,
   ChevronLeft,
   ChevronRight,
@@ -19,37 +19,40 @@ import {
   LogOut,
   Bell,
   Search,
-  Moon,
-  Sun,
-  Menu
+  Menu,
+  Users,
+  Flame,
 } from "lucide-react";
+import { apiFetch as fetch } from "../lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import FloatingAssistant from "../components/common/FloatingAssistant";
-
+import ErrorState from "../components/common/ErrorState";
+import LoadingSpinner from "../components/common/LoadingSpinner";
+import AchievementsCard from "../components/dashboard/AchievementsCard";
+import StatCard from "../components/StatCard";
+import DateRangeSelector from "../components/DateRangeSelector";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
 
   const [courses, setCourses] = useState([]);
   const [studySessions, setStudySessions] = useState([]);
+  const [certificateData, setCertificateData] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [tasks, setTasks] = useState({});
+  const [completedTaskKeys, setCompletedTaskKeys] = useState([]);
   const [newTask, setNewTask] = useState("");
   const [streak, setStreak] = useState(0);
   const [activeTab, setActiveTab] = useState("courses");
   const [pageLoading, setPageLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [rangePreset, setRangePreset] = useState("last30");
+  const [customRange, setCustomRange] = useState(null);
   const searchQuery = "";
-
-  // Initialize dark mode from localStorage
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme) {
-      return savedTheme === "dark";
-    }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
 
   const statusEmojis = {
     Completed: "✅",
@@ -66,30 +69,117 @@ const Analytics = () => {
   const formatDateKey = (date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const getActiveRange = () => {
+    const today = startOfDay(new Date());
+
+    if (rangePreset === "custom" && customRange) {
+      return {
+        start: startOfDay(customRange.start),
+        end: startOfDay(customRange.end),
+      };
+    }
+
+    if (rangePreset === "last7") {
+      const start = new Date(today);
+      start.setDate(today.getDate() - 6);
+      return { start, end: today };
+    }
+
+    if (rangePreset === "thisMonth") {
+      return {
+        start: new Date(today.getFullYear(), today.getMonth(), 1),
+        end: today,
+      };
+    }
+
+    // default: last30
+    const start = new Date(today);
+    start.setDate(today.getDate() - 29);
+    return { start, end: today };
+  };
+
+  const { start: rangeStart, end: rangeEnd } = getActiveRange();
+  const rangeDays = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
+
+  const rangeLabel =
+    rangePreset === "last7"
+      ? t("analytics.range_last7")
+      : rangePreset === "last30"
+        ? t("analytics.range_last30")
+        : rangePreset === "thisMonth"
+          ? t("analytics.range_this_month")
+          : `${rangeStart.toLocaleDateString(i18n.language)} - ${rangeEnd.toLocaleDateString(i18n.language)}`;
+
+  const rangeDatesLabel = `${rangeStart.toLocaleDateString(i18n.language, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })} - ${rangeEnd.toLocaleDateString(i18n.language, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })}`;
   // Fetch courses and analytics
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const headers = { Authorization: `Bearer ${token}` };
 
-        const coursesRes = await fetch("/api/courses", { headers });
-        const analyticsRes = await fetch("/api/analytics", { headers });
+  const loadData = useCallback(async () => {
+    setPageLoading(true);
+    setLoadError(false);
 
-        const coursesData = await coursesRes.json();
-        const analyticsData = await analyticsRes.json();
+    try {
+      const token = localStorage.getItem("token");
+      const headers = { Authorization: `Bearer ${token}` };
 
-        setCourses(coursesData);
-        setStudySessions(analyticsData.studySessions || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setPageLoading(false);
+      const [coursesRes, analyticsRes, certificateRes] = await Promise.all([
+        fetch("/api/courses", { headers }),
+        fetch("/api/analytics", { headers }),
+        fetch("/api/certificate/list", { headers }).catch((err) => {
+          console.error("Optional certificates request failed:", err);
+          return null;
+        }),
+      ]);
+
+      if (!coursesRes.ok) throw new Error("Failed to load courses");
+      if (!analyticsRes.ok) throw new Error("Failed to load analytics");
+
+      const coursesData = await coursesRes.json();
+      const analyticsData = await analyticsRes.json();
+
+      if (!Array.isArray(coursesData)) {
+        throw new Error("Invalid courses response");
       }
-    };
 
-    if (user) fetchData(); else setPageLoading(false);
-  }, [user]);
+      let certificateData = null;
+
+      if (certificateRes?.ok) {
+        try {
+          certificateData = await certificateRes.json();
+        } catch (err) {
+          console.error("Optional certificates response failed:", err);
+        }
+      }
+
+      setCourses(coursesData);
+      setStudySessions(
+        Array.isArray(analyticsData.studySessions) ? analyticsData.studySessions : [],
+      );
+      setCertificateData(certificateData);
+    } catch (err) {
+      console.error(err);
+      setLoadError(true);
+    } finally {
+      setPageLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    } else {
+      setPageLoading(false);
+    }
+  }, [user, loadData]);
 
   // Streak calculation
   useEffect(() => {
@@ -120,7 +210,6 @@ const Analytics = () => {
     localStorage.setItem("calendarTasks", JSON.stringify(tasks));
   }, [tasks]);
 
-
   const totalCourses = user?.purchasedCourses?.length || 0;
 
   const certificates =
@@ -132,43 +221,85 @@ const Analytics = () => {
     }).length || 0;
 
   const calculateAttendance = () => {
-    const today = new Date();
-    const last30 = [];
-    for (let i = 0; i < 30; i++) {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
-      last30.push(d.toDateString());
-    }
-    const studiedDays = studySessions.map((s) =>
-      new Date(s.date).toDateString(),
+    const studiedDays = new Set(
+      studySessions
+        .map((s) => startOfDay(new Date(s.date)))
+        .filter((d) => d >= rangeStart && d <= rangeEnd)
+        .map((d) => d.getTime()),
     );
-    const uniqueDays = [...new Set(studiedDays)];
-    const attended = uniqueDays.filter((d) => last30.includes(d)).length;
-    return Math.round((attended / 30) * 100);
+    return Math.round((studiedDays.size / rangeDays) * 100);
   };
 
   const attendance = calculateAttendance();
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  const upcomingTasks = Object.entries(tasks)
+    .flatMap(([date, dateTasks]) =>
+      (dateTasks || []).map((task, index) => ({
+        ...task,
+        date,
+        index,
+      })),
+    )
+    .filter(
+      (task) =>
+        task.status !== "Completed" || completedTaskKeys.includes(`${task.date}-${task.index}`),
+    )
+    .sort((a, b) => {
+      const aOverdue = a.date < todayKey;
+      const bOverdue = b.date < todayKey;
+
+      if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+      return a.date.localeCompare(b.date);
+    });
+
+  const displayedUpcomingTasks = upcomingTasks.slice(0, 3);
 
   const addTask = () => {
     if (!newTask.trim()) return;
     const dateKey = selectedDate || formatDateKey(new Date());
     setTasks((prev) => ({
       ...prev,
-      [dateKey]: [
-        ...(prev[dateKey] || []),
-        { text: newTask.trim(), status: "Upcoming" },
-      ],
+      [dateKey]: [...(prev[dateKey] || []), { text: newTask.trim(), status: "Upcoming" }],
     }));
     setNewTask("");
   };
 
   const updateTaskStatus = (index, status) => {
     if (!tasks[selectedDate]) return;
+
+    const taskId = `${selectedDate}-${index}`;
+
+    if (status !== "Completed") {
+      setCompletedTaskKeys((prev) => prev.filter((id) => id !== taskId));
+    }
+
     setTasks((prev) => {
       const updated = [...prev[selectedDate]];
       updated[index].status = status;
       return { ...prev, [selectedDate]: updated };
     });
+  };
+  const updateTaskByDate = (dateKey, index, status) => {
+    setTasks((prev) => {
+      const updated = [...(prev[dateKey] || [])];
+      if (!updated[index]) return prev;
+
+      updated[index] = { ...updated[index], status };
+      return { ...prev, [dateKey]: updated };
+    });
+  };
+  const handleUpcomingTaskToggle = (task, checked) => {
+    const taskId = `${task.date}-${task.index}`;
+
+    if (checked) {
+      setCompletedTaskKeys((prev) => [...prev, taskId]);
+      updateTaskByDate(task.date, task.index, "Completed");
+    } else {
+      setCompletedTaskKeys((prev) => prev.filter((id) => id !== taskId));
+      updateTaskByDate(task.date, task.index, "Upcoming");
+    }
   };
 
   const deleteTask = (index) => {
@@ -210,7 +341,9 @@ const Analytics = () => {
         id: c.courseId,
         title: courseInfo?.title || "Course",
         level: courseInfo?.level || "Beginner",
-        image: courseInfo?.image || "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80",
+        image:
+          courseInfo?.image ||
+          "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=150&q=80",
         category: courseInfo?.category || "Education",
         completedLessons,
         totalLessons,
@@ -219,667 +352,916 @@ const Analytics = () => {
       };
     }) || [];
 
+  const certificateCount = certificateData?.stats?.certificatesEarned || 0;
+
+  const certificateCourseTitle =
+    certificateData?.courses?.find((course) => course.isCompleted)?.courseTitle ||
+    myCourses.find((course) => course.progress >= 100)?.title ||
+    "";
+
   // Filter courses based on search
-  const filteredCourses = myCourses.filter(course =>
-    course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    course.category.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCourses = myCourses.filter(
+    (course) =>
+      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      course.category.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   // Calculate total study time
-  const totalStudyTime = studySessions.reduce((acc, session) => acc + (session.duration || 0), 0);
-  const averageProgress = myCourses.length > 0 
-    ? Math.round(myCourses.reduce((acc, c) => acc + c.progress, 0) / myCourses.length) 
-    : 0;
+  const sessionsInRange = studySessions.filter((s) => {
+    const d = startOfDay(new Date(s.date));
+    return d >= rangeStart && d <= rangeEnd;
+  });
+
+  const totalStudyTime = sessionsInRange.reduce(
+    (acc, session) => acc + (session.hours || session.duration || 0),
+    0,
+  );
+
+  const prevEnd = new Date(rangeStart);
+  prevEnd.setDate(prevEnd.getDate() - 1);
+
+  const prevStart = new Date(prevEnd);
+  prevStart.setDate(prevEnd.getDate() - (rangeDays - 1));
+
+  const prevTotalStudyTime = studySessions
+    .filter((s) => {
+      const d = startOfDay(new Date(s.date));
+      return d >= prevStart && d <= prevEnd;
+    })
+    .reduce((acc, session) => acc + (session.hours || session.duration || 0), 0);
+
+  const studyTimeChangeHours =
+    prevTotalStudyTime > 0 ? Math.round((totalStudyTime - prevTotalStudyTime) * 10) / 10 : null;
+  const averageProgress =
+    myCourses.length > 0
+      ? Math.round(myCourses.reduce((acc, c) => acc + c.progress, 0) / myCourses.length)
+      : 0;
 
   // Calculate ongoing courses (courses with progress > 0)
-  const ongoingCourses = myCourses.filter(c => c.progress > 0).length;
-
   if (pageLoading) {
+    return <LoadingSpinner label={t("analytics.loading")} />;
+  }
+  if (loadError) {
     return (
-      <main className="flex-1 p-4 md:p-6 lg:p-8 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-muted">{t("analytics.loading")}</p>
-        </div>
-      </main>
+      <ErrorState
+        title={t("analytics.error")}
+        message="Please check your connection and try again."
+        onRetry={loadData}
+        retryLabel={t("common.retry", { defaultValue: "Try again" })}
+      />
     );
   }
 
   return (
     <>
-        <main className="p-4 md:p-6 lg:p-8">
-          {/* Dark Mode Toggle Button */}
-          <div className="fixed bottom-6 right-6 z-50">
-            <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-3 rounded-full bg-white dark:bg-[#1A1A1A] shadow-lg hover:shadow-xl transition-all duration-300 border border-[#CCCCCC] dark:border-gray-700"
-            >
-              {isDarkMode ? (
-                <Sun className="w-5 h-5 text-[#ff6d34]" />
-              ) : (
-                <Moon className="w-5 h-5 text-[#ff6d34]" />
-              )}
-            </button>
-          </div>
+      <main className="p-4 md:p-6 lg:p-8">
+        {/* Welcome Section */}
 
-          {/* Welcome Section */}
-          <div className="mb-8">
+        {/* Welcome Section */}
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
             <h1 className="text-3xl font-bold text-[#2D3436] dark:text-white">
-              {t('analytics.welcome_back_user', { name: user?.name || 'Learner' })}
+              {t("analytics.welcome_back_user", { name: user?.name || "Learner" })}
             </h1>
             <p className="text-[#2D3436]/70 dark:text-gray-400 mt-2 text-lg">
-              {t('analytics.analytics_subtitle')}
+              {t("analytics.analytics_subtitle")}
             </p>
           </div>
+          <DateRangeSelector
+            preset={rangePreset}
+            label={rangeDatesLabel}
+            onSelectPreset={(key) => {
+              setRangePreset(key);
+              setCustomRange(null);
+            }}
+            onApplyCustom={(range) => {
+              setCustomRange(range);
+              setRangePreset("custom");
+            }}
+          />
+        </div>
 
-          {/* METRICS CARDS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {[
-              {
-                label: t('analytics.enrolled_courses'),
-                value: totalCourses,
-                icon: <BookOpen className="w-6 h-6 text-[#00bea3]" />,
-                bgColor: "bg-[#00bea3]/10 dark:bg-[#00bea3]/20",
-                trend: t('dashboard.ongoing_courses_progress', { count: ongoingCourses, defaultValue: `${ongoingCourses} in progress` })
-              },
-              {
-                label: t('analytics.attendance_rate'),
-                value: `${attendance}%`,
-                icon: <BarChart3 className="w-6 h-6 text-[#28A745]" />,
-                bgColor: "bg-[#28A745]/10 dark:bg-[#28A745]/20",
-                trend: attendance > 70 ? t('analytics.great_consistency', { defaultValue: '👍 Great consistency' }) : t('analytics.needs_improvement', { defaultValue: '👀 Needs improvement' })
-              },
-              {
-                label: t('analytics.current_streak_label'),
-                value: streak,
-                icon: <Zap className="w-6 h-6 text-[#FFC107]" />,
-                bgColor: "bg-[#FFC107]/10 dark:bg-[#FFC107]/20",
-                trend: t('analytics.streak_days', { count: streak })
-              },
-              {
-                label: t('analytics.certificates'),
-                value: certificates,
-                icon: <Award className="w-6 h-6 text-[#ff6d34]" />,
-                bgColor: "bg-[#ff6d34]/10 dark:bg-[#ff6d34]/20",
-                trend: certificates > 0 ? t('analytics.achievements_unlocked') : t('analytics.complete_to_earn')
-              },
-            ].map((metric, idx) => (
+        {/* METRICS CARDS */}
+        {/* METRICS CARDS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* 1. Enrolled Courses (Links to /courses) */}
+          <StatCard
+            icon={BookOpen}
+            iconBgColor="bg-blue-50 dark:bg-blue-950/40"
+            iconColor="text-blue-500 dark:text-blue-400"
+            label={t("analytics.enrolled_courses")}
+            value={totalCourses}
+            unit={t("analytics.units.course", { count: totalCourses })}
+            to="/courses"
+            change={null}
+          />
+
+          {/* 2. Attendance Rate (No link, unit is %) */}
+          <StatCard
+            icon={Users}
+            iconBgColor="bg-emerald-50 dark:bg-emerald-950/40"
+            iconColor="text-emerald-500 dark:text-emerald-400"
+            label={t("analytics.attendance_rate")}
+            value={`${attendance}%`}
+            to={null}
+            change={null}
+          />
+
+          {/* 3. Current Streak (No link) */}
+          <StatCard
+            icon={Flame}
+            iconBgColor="bg-orange-50 dark:bg-orange-950/40"
+            iconColor="text-orange-500 dark:text-orange-400"
+            label={t("analytics.current_streak_label")}
+            value={streak}
+            unit={t("analytics.units.day", { count: streak })}
+            to={null}
+            change={null}
+          />
+
+          {/* 4. Certificates (Links to /certificates) */}
+          <StatCard
+            icon={Award}
+            iconBgColor="bg-purple-50 dark:bg-purple-950/40"
+            iconColor="text-purple-500 dark:text-purple-400"
+            label={t("analytics.certificates")}
+            value={certificates}
+            unit={t("analytics.units.certificate", { count: certificates })}
+            to="/certificates"
+            change={null}
+          />
+        </div>
+
+        {/* Quick Stats Row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
+            <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">
+              {t("analytics.average_progress")}
+            </div>
+            <div className="text-xl font-bold text-[#00bea3]">{averageProgress}%</div>
+            <div className="w-full bg-[#F5F5F5] dark:bg-gray-700 rounded-full h-1.5 mt-2">
               <div
-                key={idx}
-                className="group relative bg-white dark:bg-[#27272A] rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300"
+                className="bg-gradient-to-r from-[#00bea3] to-[#ff6d34] h-1.5 rounded-full transition-all duration-500"
+                style={{ width: `${averageProgress}%` }}
+              ></div>
+            </div>
+          </div>
+          <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
+            <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">
+              {t("analytics.completed_lessons_count")}
+            </div>
+            <div className="text-xl font-bold text-[#28A745]">
+              {myCourses.reduce((acc, c) => acc + c.completedLessons, 0)}
+            </div>
+            <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">
+              {t("analytics.across_all_courses")}
+            </div>
+          </div>
+          <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
+            <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">
+              {t("analytics.total_study_time_label")}
+            </div>
+            <div className="text-xl font-bold text-[#ff6d34]">
+              {Math.round(totalStudyTime)} {t("analytics.hours_unit", { defaultValue: "hrs" })}
+            </div>
+            <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">{rangeLabel}</div>
+            {studyTimeChangeHours !== null && (
+              <div
+                className={`text-xs mt-1 font-medium ${
+                  studyTimeChangeHours >= 0 ? "text-[#28A745]" : "text-red-500"
+                }`}
               >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-sm text-[#2D3436]/60 dark:text-gray-400 mb-1">{metric.label}</p>
-                    <p className="text-3xl font-bold text-[#2D3436] dark:text-white">
-                      {metric.value}
-                    </p>
-                  </div>
-                  <div className={`${metric.bgColor} p-3 rounded-xl group-hover:scale-110 transition-transform`}>
-                    {metric.icon}
-                  </div>
-                </div>
-                <div className="mt-4 flex items-center gap-1 text-xs text-[#2D3436]/60 dark:text-gray-400">
-                  <TrendingUp className="w-3 h-3" />
-                  <span>{metric.trend}</span>
-                </div>
+                {studyTimeChangeHours >= 0 ? "↑" : "↓"} {Math.abs(studyTimeChangeHours)}{" "}
+                {t("analytics.hours_unit", { defaultValue: "hrs" })}{" "}
+                {t("analytics.vs_previous_period")}
               </div>
-            ))}
+            )}
           </div>
-
-          {/* Quick Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
-              <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">{t('analytics.average_progress')}</div>
-              <div className="text-xl font-bold text-[#00bea3]">{averageProgress}%</div>
-              <div className="w-full bg-[#F5F5F5] dark:bg-gray-700 rounded-full h-1.5 mt-2">
-                <div 
-                  className="bg-gradient-to-r from-[#00bea3] to-[#ff6d34] h-1.5 rounded-full transition-all duration-500" 
-                  style={{ width: `${averageProgress}%` }}
-                ></div>
-              </div>
+          <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
+            <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">
+              {t("analytics.upcoming_tasks_count")}
             </div>
-            <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
-              <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">{t('analytics.completed_lessons_count')}</div>
-              <div className="text-xl font-bold text-[#28A745]">
-                {myCourses.reduce((acc, c) => acc + c.completedLessons, 0)}
-              </div>
-              <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">{t('analytics.across_all_courses')}</div>
+            <div className="text-xl font-bold text-[#FFC107]">
+              {
+                Object.values(tasks)
+                  .flat()
+                  .filter((t) => t.status === "Upcoming").length
+              }
             </div>
-            <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
-              <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">{t('analytics.total_study_time_label')}</div>
-              <div className="text-xl font-bold text-[#ff6d34]">
-                {Math.round(totalStudyTime / 60)} {t('analytics.hours_unit', { defaultValue: 'hrs' })}
-              </div>
-              <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">{t('analytics.this_month')}</div>
-            </div>
-            <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
-              <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">{t('analytics.upcoming_tasks_count')}</div>
-              <div className="text-xl font-bold text-[#FFC107]">
-                {Object.values(tasks).flat().filter(t => t.status === "Upcoming").length}
-              </div>
-              <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">{t('analytics.need_attention')}</div>
+            <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">
+              {t("analytics.need_attention")}
             </div>
           </div>
+        </div>
 
-          {/* Tab Navigation */}
-          <div className="flex gap-2 mb-6 border-b border-[#CCCCCC] dark:border-gray-700">
+        {/* Achievements Card */}
+        <div className="mb-8">
+          <AchievementsCard
+            myCourses={myCourses}
+            streak={streak}
+            certificateCount={certificateCount}
+            certificateCourseTitle={certificateCourseTitle}
+            t={t}
+          />
+        </div>
+
+        {/* Upcoming Tasks Card */}
+        <div className="mb-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3 mb-5">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-blue-500" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {t("analytics.upcoming_card_title")}
+              </h2>
+            </div>
+
             <button
-              onClick={() => setActiveTab("courses")}
-              className={`px-4 py-2 font-medium transition-colors relative ${
-                activeTab === "courses"
-                  ? "text-[#ff6d34] dark:text-[#ff6d34]"
-                  : "text-[#2D3436]/60 hover:text-[#2D3436] dark:text-gray-400"
-              }`}
-            >
-              {t('analytics.my_courses_tab')}
-              {activeTab === "courses" && (
-                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#ff6d34]"></span>
-              )}
-            </button>
-            <button
+              type="button"
               onClick={() => setActiveTab("calendar")}
-              className={`px-4 py-2 font-medium transition-colors relative ${
-                activeTab === "calendar"
-                  ? "text-[#ff6d34] dark:text-[#ff6d34]"
-                  : "text-[#2D3436]/60 hover:text-[#2D3436] dark:text-gray-400"
-              }`}
+              className="flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
             >
-              {t('analytics.calendar_tasks_tab')}
-              {activeTab === "calendar" && (
-                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#ff6d34]"></span>
-              )}
+              {t("analytics.achievements.view_all")}
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
 
-          {activeTab === "courses" && (
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-[#2D3436] dark:text-white flex items-center gap-2">
-                  <BookOpen className="w-6 h-6 text-[#00bea3]" />
-                  {t('analytics.my_courses_tab')}
-                  <span className="text-sm font-normal text-[#2D3436]/60 dark:text-gray-400 bg-[#F5F5F5] dark:bg-gray-700 px-2 py-1 rounded-full">
-                    {filteredCourses.length}
-                  </span>
-                </h2>
-                <Link
-                  to="/courses"
-                  className="text-[#ff6d34] hover:text-[#ff6d34]/80 text-sm font-medium flex items-center gap-1"
-                >
-                  {t('analytics.browse_all_courses')}
-                  <ChevronRight className="w-4 h-4" />
-                </Link>
-              </div>
-              
-              <div className="bg-white dark:bg-[#1A1A1A] rounded-2xl shadow-lg overflow-hidden border border-[#CCCCCC]/30 dark:border-gray-700">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead className="bg-[#F5F5F5] dark:bg-gray-700/50">
-                      <tr>
-                        <th className="px-6 py-4 text-xs font-semibold text-[#2D3436]/70 dark:text-gray-300 uppercase tracking-wider">{t('analytics.table_course')}</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-[#2D3436]/70 dark:text-gray-300 uppercase tracking-wider">{t('analytics.table_progress')}</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-[#2D3436]/70 dark:text-gray-300 uppercase tracking-wider">{t('analytics.table_lessons')}</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-[#2D3436]/70 dark:text-gray-300 uppercase tracking-wider">{t('analytics.table_level')}</th>
-                        <th className="px-6 py-4 text-xs font-semibold text-[#2D3436]/70 dark:text-gray-300 uppercase tracking-wider">{t('analytics.table_action')}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#CCCCCC]/50 dark:divide-gray-700">
-                      {filteredCourses.length > 0 ? (
-                        filteredCourses.map((course) => (
-                          <tr 
-                            key={course.id} 
-                            className="hover:bg-[#F5F5F5] dark:hover:bg-gray-700/30 transition-colors group"
-                          >
-                            <td className="px-6 py-4">
-                              <Link to={`/learning/${course.id}`} className="flex items-center gap-4">
-                                <div className="relative">
-                                  <img
-  src={
-    course.title === "React Fundamentals"
-      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals_logo.png"
-      : course.title === "Python For AI"
-      ? "/AI_Tutor_New_UI/Dashboard/python_for_ai_logo.png"
-      : course.title === "AI Ethics & Bias"
-      ? "/AI_Tutor_New_UI/Dashboard/data_analytics.png"
-      : course.title === "MongoDB Fundamentals"
-      ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
-      : "/AI_Tutor_New_UI/Dashboard/logo.png"
-  }
-  alt={course.title}
-  className="w-12 h-12 rounded-xl object-cover group-hover:scale-105 transition-transform duration-300"
-/>
-                                  <div className="absolute inset-0 rounded-xl bg-[#ff6d34] opacity-0 group-hover:opacity-10 transition-opacity"></div>
-                                </div>
-                                <div>
-                                  <div className="font-semibold text-[#2D3436] dark:text-white line-clamp-1">
-                                    {course.title}
-                                  </div>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <span className="text-xs px-2 py-0.5 bg-[#F5F5F5] dark:bg-gray-700 rounded-full text-[#2D3436]/70 dark:text-gray-300">
-                                      {course.category}
-                                    </span>
-                                  </div>
-                                </div>
-                              </Link>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="w-40">
-                                <div className="flex justify-between mb-1">
-                                  <span className="text-xs font-medium text-[#2D3436] dark:text-gray-300">
-                                    {course.progress}%
-                                  </span>
-                                </div>
-                                <div className="w-full bg-[#F5F5F5] dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                                  <div 
-                                    className="bg-gradient-to-r from-[#00bea3] to-[#ff6d34] h-2 rounded-full transition-all duration-500 relative"
-                                    style={{ width: `${course.progress}%` }}
-                                  >
-                                    <div className="absolute inset-0 bg-white/20 animate-shimmer"></div>
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-1">
-                                <CheckCircle className="w-4 h-4 text-[#28A745]" />
-                                <span className="text-sm text-[#2D3436]/70 dark:text-gray-300">
-                                  <span className="font-semibold text-[#00bea3]">{course.completedLessons}</span>
-                                  <span className="mx-1 text-gray-300">/</span>
-                                  <span>{course.totalLessons}</span>
-                                </span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className={`px-3 py-1 text-xs rounded-full font-medium ${
-                                course.level === 'Beginner' 
-                                  ? 'bg-green-100 text-[#28A745] dark:bg-green-900/30 dark:text-[#28A745]' 
-                                  : course.level === 'Intermediate' 
-                                  ? 'bg-blue-100 text-[#00bea3] dark:bg-blue-900/30 dark:text-[#00bea3]' 
-                                  : 'bg-orange-100 text-[#ff6d34] dark:bg-orange-900/30 dark:text-[#ff6d34]'
-                              }`}>
-                                {course.level}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <Link
-                                to={`/learning/${course.id}`}
-                                className="inline-flex items-center gap-1 text-[#ff6d34] hover:text-[#ff6d34]/80 text-sm font-medium"
-                              >
-                                {t('analytics.continue_btn')}
-                                <ChevronRight className="w-4 h-4" />
-                              </Link>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan="5" className="px-6 py-16 text-center">
-                            <div className="flex flex-col items-center gap-3">
-                              <BookOpen className="w-12 h-12 text-gray-300 dark:text-gray-600" />
-                              <p className="text-[#2D3436]/60 dark:text-gray-400">
-                                {searchQuery ? t('analytics.no_courses_match') : t('analytics.no_courses_enrolled')}
-                              </p>
-                              {!searchQuery && (
-                                <Link 
-                                  to="/courses" 
-                                  className="px-4 py-2 bg-[#ff6d34] text-white rounded-lg hover:bg-[#ff6d34]/90 transition"
-                                >
-                                  {t('analytics.browse_courses_btn')}
-                                </Link>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
+          {displayedUpcomingTasks.length > 0 ? (
+            <div className="space-y-3">
+              {displayedUpcomingTasks.map((task) => {
+                const taskId = `${task.date}-${task.index}`;
+                const isChecked = completedTaskKeys.includes(taskId);
+                const isOverdue = task.date < todayKey;
 
-          {activeTab === "calendar" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-              {/* CALENDAR */}
-              <div className="lg:col-span-2 bg-white dark:bg-[#1A1A1A] rounded-2xl p-3 shadow-lg">
-                {/* Month Navigation */}
-                <div className="flex justify-between items-center mb-6">
-                  <button
-                    onClick={handlePrevMonth}
-                    className="p-2 rounded-lg hover:bg-[#F5F5F5] dark:hover:bg-gray-700 transition group"
+                const taskDate = new Date(`${task.date}T00:00:00`);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const tomorrowKey = formatDateKey(tomorrow);
+
+                const dueLabel =
+                  task.date === todayKey
+                    ? t("analytics.due_today")
+                    : task.date === tomorrowKey
+                      ? t("analytics.due_tomorrow")
+                      : taskDate.toLocaleDateString(i18n.language, {
+                          day: "numeric",
+                          month: "short",
+                        });
+
+                return (
+                  <div
+                    key={taskId}
+                    className="flex items-center gap-3 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50"
                   >
-                    <ChevronLeft className="w-5 h-5 text-[#2D3436]/60 dark:text-gray-400 group-hover:text-[#ff6d34]" />
-                  </button>
-                  <span className="text-xl font-bold text-[#2D3436] dark:text-white">
-                    {currentDate.toLocaleString(i18n.language, {
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </span>
-                  <button
-                    onClick={handleNextMonth}
-                    className="p-2 rounded-lg hover:bg-[#F5F5F5] dark:hover:bg-gray-700 transition group"
-                  >
-                    <ChevronRight className="w-5 h-5 text-[#2D3436]/60 dark:text-gray-400 group-hover:text-[#ff6d34]" />
-                  </button>
-                </div>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => handleUpcomingTaskToggle(task, e.target.checked)}
+                      aria-label={task.text}
+                      className="w-4 h-4 shrink-0 cursor-pointer accent-blue-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                    />
 
-                {/* Weekdays */}
-                <div className="grid grid-cols-7 gap-2 mb-2">
-                  {[0, 1, 2, 3, 4, 5, 6].map((d) => {
-                    const date = new Date(2021, 0, 3 + d); // 2021-01-03 was a Sunday
-                    return (
-                      <div key={d} className="text-center text-sm font-medium text-[#2D3436]/60 dark:text-gray-400">
-                        {date.toLocaleString(i18n.language, { weekday: 'short' })}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Calendar Grid */}
-                <div className="grid grid-cols-7 gap-2">
-                  {(() => {
-                    const year = currentDate.getFullYear();
-                    const month = currentDate.getMonth();
-                    const firstDay = new Date(year, month, 1).getDay();
-                    const daysInMonth = new Date(year, month + 1, 0).getDate();
-                    
-                    const prevMonthDays = new Date(year, month, 0).getDate();
-                    const prevMonth = new Date(year, month - 1);
-                    const nextMonth = new Date(year, month + 1);
-                    
-                    const allDays = [];
-                    
-                    // Track if we've already shown the month name for previous month
-                    let hasShownPrevMonthName = false;
-                    let hasShownNextMonthName = false;
-                    
-                    // Add previous month's days
-                    for (let i = firstDay - 1; i >= 0; i--) {
-                      const dayNum = prevMonthDays - i;
-                      allDays.push({
-                        day: dayNum,
-                        month: prevMonth.getMonth(),
-                        year: prevMonth.getFullYear(),
-                        isCurrentMonth: false,
-                        isClickable: false,
-                        showMonthName: !hasShownPrevMonthName && i === 0
-                      });
-                      if (i === 0) hasShownPrevMonthName = true;
-                    }
-                    
-                    // Add current month's days
-                    for (let i = 1; i <= daysInMonth; i++) {
-                      allDays.push({
-                        day: i,
-                        month: month,
-                        year: year,
-                        isCurrentMonth: true,
-                        isClickable: true,
-                        showMonthName: false
-                      });
-                    }
-                    
-                    // Add next month's days
-                    const remainingCells = 42 - allDays.length;
-                    for (let i = 1; i <= remainingCells; i++) {
-                      allDays.push({
-                        day: i,
-                        month: nextMonth.getMonth(),
-                        year: nextMonth.getFullYear(),
-                        isCurrentMonth: false,
-                        isClickable: false,
-                        showMonthName: !hasShownNextMonthName && i === 1
-                      });
-                      if (i === 1) hasShownNextMonthName = true;
-                    }
-                    
-                    return allDays.map((dayInfo, index) => {
-                      const key = formatDateKey(new Date(dayInfo.year, dayInfo.month, dayInfo.day));
-                      const isToday = key === formatDateKey(new Date());
-                      const taskList = tasks[key] || [];
-                      const displayTasks = taskList.slice(0, 2);
-                      const remainingCount = Math.max(taskList.length - displayTasks.length, 0);
-                      
-                      const allTasksCompleted = taskList.length > 0 && taskList.every(task => task.status === "Completed");
-                      const hasAnyTask = taskList.length > 0;
-                      const hasIncompleteTasks = hasAnyTask && !allTasksCompleted;
-                      
-                      const monthName = dayInfo.showMonthName 
-                        ? new Date(dayInfo.year, dayInfo.month, 1).toLocaleString(i18n.language, { month: 'short' })
-                        : '';
-                      
-                      return (
-                        <div
-                          key={index}
-                          onClick={() => {
-                            if (dayInfo.isClickable) {
-                              setSelectedDate(key);
-                            }
-                          }}
-                          className={`relative h-24 rounded-xl p-2 transition-all duration-300
-                            ${dayInfo.isClickable && selectedDate === key 
-                              ? 'ring-2 ring-[#ff6d34] shadow-lg scale-105 z-10' 
-                              : dayInfo.isClickable 
-                              ? 'hover:ring-1 hover:ring-[#CCCCCC] dark:hover:ring-gray-600 cursor-pointer'
-                              : 'cursor-default opacity-70'
-                            }
-                            ${isToday && dayInfo.isCurrentMonth
-                              ? 'bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-[#ff6d34]/30 dark:to-[#FFC107]/30 border-2 border-[#ff6d34]' 
-                              : allTasksCompleted && dayInfo.isCurrentMonth
-                              ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-[#28A745]/40 dark:to-[#28A745]/40 border border-[#28A745] dark:border-[#28A745]'
-                              : hasIncompleteTasks && dayInfo.isCurrentMonth
-                              ? 'bg-white dark:bg-[#0F0F0F] border-l-4 border-l-[#FFC107]'
-                              : dayInfo.isCurrentMonth 
-                              ? 'bg-white dark:bg-[#0F0F0F]'
-                              : 'bg-[#F5F5F5] dark:bg-[#0F0F0F]/50'
-                            }`}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex flex-col">
-                              <span className={`text-sm font-semibold ${
-                                isToday && dayInfo.isCurrentMonth 
-                                  ? 'text-[#ff6d34] dark:text-[#ff6d34]' 
-                                  : dayInfo.isCurrentMonth
-                                  ? 'text-[#2D3436] dark:text-gray-300'
-                                  : 'text-[#2D3436]/50 dark:text-gray-500'
-                              }`}>
-                                {dayInfo.day}
-                              </span>
-                              {monthName && (
-                                <span className="text-[10px] font-medium text-[#2D3436]/50 dark:text-gray-500 mt-0.5">
-                                  {monthName}
-                                </span>
-                              )}
-                            </div>
-                            {hasAnyTask && dayInfo.isCurrentMonth && (
-                              <div className="flex gap-1">
-                                {allTasksCompleted ? (
-                                  <CheckCircle className="w-4 h-4 text-[#28A745]" />
-                                ) : (
-                                  <span className="text-xs bg-[#ff6d34]/10 text-[#ff6d34] dark:bg-[#ff6d34]/30 dark:text-[#ff6d34] px-1.5 rounded-full">
-                                    {taskList.length}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          
-                          {hasAnyTask && dayInfo.isCurrentMonth && (
-                            <>
-                              <div className="mt-1 space-y-0.5">
-                                {displayTasks.map((task, idx) => (
-                                  <div key={idx} className="flex items-center gap-1 text-[10px]">
-                                    <span>{statusEmojis[task.status]}</span>
-                                    <span className="truncate text-[#2D3436]/70 dark:text-gray-400">{task.text}</span>
-                                  </div>
-                                ))}
-                                {remainingCount > 0 && (
-                                  <div className="text-[9px] text-[#2D3436]/50 dark:text-gray-500">
-                                    +{remainingCount} {t('common.more', { defaultValue: 'more' })}
-                                  </div>
-                                )}
-                              </div>
-                              
-                              {hasIncompleteTasks && taskList.length > 1 && (
-                                <div className="absolute bottom-1 left-2 right-2 h-0.5 bg-[#F5F5F5] dark:bg-gray-700 rounded-full overflow-hidden">
-                                  <div 
-                                    className="h-full bg-[#28A745] rounded-full transition-all duration-300"
-                                    style={{ width: `${(taskList.filter(t => t.status === "Completed").length / taskList.length) * 100}%` }}
-                                  ></div>
-                                </div>
-                              )}
-                            </>
-                          )}
-                          
-                          {!dayInfo.isClickable && (
-                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <div className="w-full h-full bg-white/50 dark:bg-black/30 rounded-xl"></div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-
-                {/* Legend */}
-                <div className="flex flex-wrap items-center gap-4 mt-6 pt-4 border-t border-[#CCCCCC] dark:border-gray-700">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-gradient-to-br from-orange-50 to-yellow-50 border-2 border-[#ff6d34]"></div>
-                    <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">{t('analytics.legend_today')}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-gradient-to-br from-green-50 to-emerald-50 border border-[#28A745]"></div>
-                    <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">{t('analytics.legend_all_completed')}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-white dark:bg-[#0F0F0F] border-l-4 border-l-[#FFC107]"></div>
-                    <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">{t('analytics.legend_tasks_pending')}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-[#F5F5F5] dark:bg-[#0F0F0F]/50 border border-[#CCCCCC] dark:border-gray-600"></div>
-                    <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">{t('analytics.legend_other_month')}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>✅</span>
-                    <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">{t('analytics.status_completed')}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>🔄</span>
-                    <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">{t('analytics.status_ongoing')}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>📅</span>
-                    <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">{t('analytics.status_upcoming')}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* TASK PANEL */}
-              <div className="bg-white dark:bg-[#1A1A1A] rounded-2xl p-3 shadow-lg">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-bold text-[#2D3436] dark:text-white flex items-center gap-2">
-                    <Target className="w-5 h-5 text-[#ff6d34]" />
-                    {t('analytics.tasks_for_date', { date: selectedDate })}
-                  </h3>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2 mb-6">
-                  <input
-                    value={newTask}
-                    onChange={(e) => setNewTask(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addTask()}
-                    className="flex-1 min-w-0 border border-[#CCCCCC] dark:border-gray-700 dark:bg-gray-900 dark:text-white p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ff6d34] transition placeholder:text-gray-400 dark:placeholder:text-gray-500"
-                    placeholder={t('analytics.add_task_placeholder')}
-                  />
-
-                  <button
-                    onClick={addTask}
-                    className="w-full sm:w-auto bg-[#ff6d34] hover:bg-[#ff6d34]/90 text-white px-4 py-3 rounded-xl transition flex items-center justify-center gap-1 whitespace-nowrap"
-                  >
-                    <Plus className="w-4 h-4" />
-                    {t('analytics.add_btn')}
-                  </button>
-                </div>
-
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                  {(tasks[selectedDate] || []).length > 0 ? (
-                    (tasks[selectedDate] || []).map((task, i) => (
-                      <div
-                        key={i}
-                        className={`group relative flex items-center gap-3 p-3 rounded-xl transition-all
-                          ${task.status === "Completed" 
-                            ? 'bg-[#28A745]/10 dark:bg-[#28A745]/20' 
-                            : 'bg-[#F5F5F5] dark:bg-gray-700/50 hover:bg-[#CCCCCC]/30 dark:hover:bg-gray-700'
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentDate(
+                          new Date(
+                            Number(task.date.slice(0, 4)),
+                            Number(task.date.slice(5, 7)) - 1,
+                            1,
+                          ),
+                        );
+                        setSelectedDate(task.date);
+                        setActiveTab("calendar");
+                      }}
+                      aria-label={task.text}
+                      className="min-w-0 flex-1 flex items-center justify-between gap-2 text-left rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={`block truncate text-sm font-medium ${
+                            isChecked
+                              ? "line-through text-gray-400"
+                              : "text-gray-800 dark:text-gray-100"
                           }`}
-                      >
-                        <div className="flex-shrink-0">
-                          {statusIcons[task.status]}
-                        </div>
-                        <span className={`flex-1 text-sm line-clamp-2 ${
-                          task.status === "Completed" 
-                            ? 'line-through text-gray-500 dark:text-gray-400' 
-                            : 'text-[#2D3436] dark:text-gray-300'
-                        }`}>
+                        >
                           {task.text}
                         </span>
-                        
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <select
-                            value={task.status}
-                            onChange={(e) => updateTaskStatus(i, e.target.value)}
-                            className="bg-white dark:bg-gray-800 border border-[#CCCCCC] dark:border-gray-600 rounded-lg p-1 text-xs focus:outline-none focus:ring-1 focus:ring-[#ff6d34] text-[#2D3436] dark:text-gray-300"
-                          >
-                            <option value="Upcoming">📅 Upcoming</option>
-                            <option value="Ongoing">🔄 Ongoing</option>
-                            <option value="Completed">✅ Done</option>
-                          </select>
-                          <button
-                            onClick={() => deleteTask(i)}
-                            className="text-gray-400 hover:text-red-500 transition p-1"
-                          >
-                            ✕
-                          </button>
+
+                        <span
+                          className={`mt-1 block text-xs ${
+                            isOverdue ? "text-red-500" : "text-gray-500 dark:text-gray-400"
+                          }`}
+                        >
+                          {isOverdue
+                            ? `${t("analytics.overdue")} · ${taskDate.toLocaleDateString(
+                                i18n.language,
+                                { day: "numeric", month: "short" },
+                              )}`
+                            : dueLabel}
+                        </span>
+                      </span>
+
+                      <ArrowRight className="w-4 h-4 shrink-0 text-gray-400" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-6 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                {t("analytics.no_upcoming_tasks")}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("calendar")}
+                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                + {t("analytics.add_task")}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6 border-b border-[#CCCCCC] dark:border-gray-700">
+          <button
+            onClick={() => setActiveTab("courses")}
+            className={`px-4 py-2 font-medium transition-colors relative ${
+              activeTab === "courses"
+                ? "text-[#ff6d34] dark:text-[#ff6d34]"
+                : "text-[#2D3436]/60 hover:text-[#2D3436] dark:text-gray-400"
+            }`}
+          >
+            {t("analytics.my_courses_tab")}
+            {activeTab === "courses" && (
+              <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#ff6d34]"></span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("calendar")}
+            className={`px-4 py-2 font-medium transition-colors relative ${
+              activeTab === "calendar"
+                ? "text-[#ff6d34] dark:text-[#ff6d34]"
+                : "text-[#2D3436]/60 hover:text-[#2D3436] dark:text-gray-400"
+            }`}
+          >
+            {t("analytics.calendar_tasks_tab")}
+            {activeTab === "calendar" && (
+              <span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#ff6d34]"></span>
+            )}
+          </button>
+        </div>
+
+        {activeTab === "courses" && (
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-[#2D3436] dark:text-white flex items-center gap-2">
+                <BookOpen className="w-6 h-6 text-[#00bea3]" />
+                {t("analytics.my_courses_tab")}
+                <span className="text-sm font-normal text-[#2D3436]/60 dark:text-gray-400 bg-[#F5F5F5] dark:bg-gray-700 px-2 py-1 rounded-full">
+                  {filteredCourses.length}
+                </span>
+              </h2>
+              <Link
+                to="/courses"
+                className="text-[#ff6d34] hover:text-[#ff6d34]/80 text-sm font-medium flex items-center gap-1"
+              >
+                {t("analytics.browse_all_courses")}
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            <div className="bg-white dark:bg-[#1A1A1A] rounded-2xl shadow-lg overflow-hidden border border-[#CCCCCC]/30 dark:border-gray-700">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-[#F5F5F5] dark:bg-gray-700/50">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-semibold text-[#2D3436]/70 dark:text-gray-300 uppercase tracking-wider">
+                        {t("analytics.table_course")}
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[#2D3436]/70 dark:text-gray-300 uppercase tracking-wider">
+                        {t("analytics.table_progress")}
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[#2D3436]/70 dark:text-gray-300 uppercase tracking-wider">
+                        {t("analytics.table_lessons")}
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[#2D3436]/70 dark:text-gray-300 uppercase tracking-wider">
+                        {t("analytics.table_level")}
+                      </th>
+                      <th className="px-6 py-4 text-xs font-semibold text-[#2D3436]/70 dark:text-gray-300 uppercase tracking-wider">
+                        {t("analytics.table_action")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#CCCCCC]/50 dark:divide-gray-700">
+                    {filteredCourses.length > 0 ? (
+                      filteredCourses.map((course) => (
+                        <tr
+                          key={course.id}
+                          className="hover:bg-[#F5F5F5] dark:hover:bg-gray-700/30 transition-colors group"
+                        >
+                          <td className="px-6 py-4">
+                            <Link to={`/learning/${course.id}`} className="flex items-center gap-4">
+                              <div className="relative">
+                                <img
+                                  src={
+                                    course.title === "React Fundamentals"
+                                      ? "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png"
+                                      : course.title === "Python For AI"
+                                        ? "/AI_Tutor_New_UI/Dashboard/python_for_ai.png"
+                                        : course.title === "AI Ethics & Bias"
+                                          ? "/AI_Tutor_New_UI/Dashboard/ai_ethics_bias.png"
+                                          : course.title === "PostgreSQL"
+                                            ? "/AI_Tutor_New_UI/Dashboard/postgresql.png"
+                                            : course.title === "MongoDB Fundamentals"
+                                              ? "/AI_Tutor_New_UI/Dashboard/MongoDB.png"
+                                              : course.title === "Machine Learning Fundamentals" ||
+                                                  course.title === "ML Fundamentals"
+                                                ? "/AI_Tutor_New_UI/Dashboard/ML_fundamentals.png"
+                                                : course.title === "Full Stack Web Development" ||
+                                                    course.title === "Full Stack Web Dev"
+                                                  ? "/AI_Tutor_New_UI/Dashboard/full_stack_web_dev.png"
+                                                  : "/AI_Tutor_New_UI/Dashboard/logo.png"
+                                  }
+                                  alt={course.title}
+                                  className="w-12 h-12 rounded-xl object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                                <div className="absolute inset-0 rounded-xl bg-[#ff6d34] opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                              </div>
+                              <div>
+                                <div className="font-semibold text-[#2D3436] dark:text-white line-clamp-1">
+                                  {course.title}
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs px-2 py-0.5 bg-[#F5F5F5] dark:bg-gray-700 rounded-full text-[#2D3436]/70 dark:text-gray-300">
+                                    {course.category}
+                                  </span>
+                                </div>
+                              </div>
+                            </Link>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="w-40">
+                              <div className="flex justify-between mb-1">
+                                <span className="text-xs font-medium text-[#2D3436] dark:text-gray-300">
+                                  {course.progress}%
+                                </span>
+                              </div>
+                              <div className="w-full bg-[#F5F5F5] dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className="bg-gradient-to-r from-[#00bea3] to-[#ff6d34] h-2 rounded-full transition-all duration-500 relative"
+                                  style={{ width: `${course.progress}%` }}
+                                >
+                                  <div className="absolute inset-0 bg-white/20 animate-shimmer"></div>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-1">
+                              <CheckCircle className="w-4 h-4 text-[#28A745]" />
+                              <span className="text-sm text-[#2D3436]/70 dark:text-gray-300">
+                                <span className="font-semibold text-[#00bea3]">
+                                  {course.completedLessons}
+                                </span>
+                                <span className="mx-1 text-gray-300">/</span>
+                                <span>{course.totalLessons}</span>
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`px-3 py-1 text-xs rounded-full font-medium ${
+                                course.level === "Beginner"
+                                  ? "bg-green-100 text-[#28A745] dark:bg-green-900/30 dark:text-[#28A745]"
+                                  : course.level === "Intermediate"
+                                    ? "bg-blue-100 text-[#00bea3] dark:bg-blue-900/30 dark:text-[#00bea3]"
+                                    : "bg-orange-100 text-[#ff6d34] dark:bg-orange-900/30 dark:text-[#ff6d34]"
+                              }`}
+                            >
+                              {course.level}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <Link
+                              to={`/learning/${course.id}`}
+                              className="inline-flex items-center gap-1 text-[#ff6d34] hover:text-[#ff6d34]/80 text-sm font-medium"
+                            >
+                              {t("analytics.continue_btn")}
+                              <ChevronRight className="w-4 h-4" />
+                            </Link>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-16 text-center">
+                          <div className="flex flex-col items-center gap-3">
+                            <BookOpen className="w-12 h-12 text-gray-300 dark:text-gray-600" />
+                            <p className="text-[#2D3436]/60 dark:text-gray-400">
+                              {searchQuery
+                                ? t("analytics.no_courses_match")
+                                : t("analytics.no_courses_enrolled")}
+                            </p>
+                            {!searchQuery && (
+                              <Link
+                                to="/courses"
+                                className="px-4 py-2 bg-[#ff6d34] text-white rounded-lg hover:bg-[#ff6d34]/90 transition"
+                              >
+                                {t("analytics.browse_courses_btn")}
+                              </Link>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "calendar" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+            {/* CALENDAR */}
+            <div className="lg:col-span-2 bg-white dark:bg-[#1A1A1A] rounded-2xl p-3 shadow-lg">
+              {/* Month Navigation */}
+              <div className="flex justify-between items-center mb-6">
+                <button
+                  onClick={handlePrevMonth}
+                  className="p-2 rounded-lg hover:bg-[#F5F5F5] dark:hover:bg-gray-700 transition group"
+                >
+                  <ChevronLeft className="w-5 h-5 text-[#2D3436]/60 dark:text-gray-400 group-hover:text-[#ff6d34]" />
+                </button>
+                <span className="text-xl font-bold text-[#2D3436] dark:text-white">
+                  {currentDate.toLocaleString(i18n.language, {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </span>
+                <button
+                  onClick={handleNextMonth}
+                  className="p-2 rounded-lg hover:bg-[#F5F5F5] dark:hover:bg-gray-700 transition group"
+                >
+                  <ChevronRight className="w-5 h-5 text-[#2D3436]/60 dark:text-gray-400 group-hover:text-[#ff6d34]" />
+                </button>
+              </div>
+
+              {/* Weekdays */}
+              <div className="grid grid-cols-7 gap-2 mb-2">
+                {[0, 1, 2, 3, 4, 5, 6].map((d) => {
+                  const date = new Date(2021, 0, 3 + d); // 2021-01-03 was a Sunday
+                  return (
+                    <div
+                      key={d}
+                      className="text-center text-sm font-medium text-[#2D3436]/60 dark:text-gray-400"
+                    >
+                      {date.toLocaleString(i18n.language, { weekday: "short" })}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Calendar Grid */}
+              <div className="grid grid-cols-7 gap-2">
+                {(() => {
+                  const year = currentDate.getFullYear();
+                  const month = currentDate.getMonth();
+                  const firstDay = new Date(year, month, 1).getDay();
+                  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+                  const prevMonthDays = new Date(year, month, 0).getDate();
+                  const prevMonth = new Date(year, month - 1);
+                  const nextMonth = new Date(year, month + 1);
+
+                  const allDays = [];
+
+                  // Track if we've already shown the month name for previous month
+                  let hasShownPrevMonthName = false;
+                  let hasShownNextMonthName = false;
+
+                  // Add previous month's days
+                  for (let i = firstDay - 1; i >= 0; i--) {
+                    const dayNum = prevMonthDays - i;
+                    allDays.push({
+                      day: dayNum,
+                      month: prevMonth.getMonth(),
+                      year: prevMonth.getFullYear(),
+                      isCurrentMonth: false,
+                      isClickable: false,
+                      showMonthName: !hasShownPrevMonthName && i === 0,
+                    });
+                    if (i === 0) hasShownPrevMonthName = true;
+                  }
+
+                  // Add current month's days
+                  for (let i = 1; i <= daysInMonth; i++) {
+                    allDays.push({
+                      day: i,
+                      month: month,
+                      year: year,
+                      isCurrentMonth: true,
+                      isClickable: true,
+                      showMonthName: false,
+                    });
+                  }
+
+                  // Add next month's days
+                  const remainingCells = 42 - allDays.length;
+                  for (let i = 1; i <= remainingCells; i++) {
+                    allDays.push({
+                      day: i,
+                      month: nextMonth.getMonth(),
+                      year: nextMonth.getFullYear(),
+                      isCurrentMonth: false,
+                      isClickable: false,
+                      showMonthName: !hasShownNextMonthName && i === 1,
+                    });
+                    if (i === 1) hasShownNextMonthName = true;
+                  }
+
+                  return allDays.map((dayInfo, index) => {
+                    const key = formatDateKey(new Date(dayInfo.year, dayInfo.month, dayInfo.day));
+                    const isToday = key === formatDateKey(new Date());
+                    const taskList = tasks[key] || [];
+                    const displayTasks = taskList.slice(0, 2);
+                    const remainingCount = Math.max(taskList.length - displayTasks.length, 0);
+
+                    const allTasksCompleted =
+                      taskList.length > 0 && taskList.every((task) => task.status === "Completed");
+                    const hasAnyTask = taskList.length > 0;
+                    const hasIncompleteTasks = hasAnyTask && !allTasksCompleted;
+
+                    const monthName = dayInfo.showMonthName
+                      ? new Date(dayInfo.year, dayInfo.month, 1).toLocaleString(i18n.language, {
+                          month: "short",
+                        })
+                      : "";
+
+                    return (
+                      <div
+                        key={index}
+                        onClick={() => {
+                          if (dayInfo.isClickable) {
+                            setSelectedDate(key);
+                          }
+                        }}
+                        className={`relative h-24 rounded-xl p-2 transition-all duration-300
+                            ${
+                              dayInfo.isClickable && selectedDate === key
+                                ? "ring-2 ring-[#ff6d34] shadow-lg scale-105 z-10"
+                                : dayInfo.isClickable
+                                  ? "hover:ring-1 hover:ring-[#CCCCCC] dark:hover:ring-gray-600 cursor-pointer"
+                                  : "cursor-default opacity-70"
+                            }
+                            ${
+                              isToday && dayInfo.isCurrentMonth
+                                ? "bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-[#ff6d34]/30 dark:to-[#FFC107]/30 border-2 border-[#ff6d34]"
+                                : allTasksCompleted && dayInfo.isCurrentMonth
+                                  ? "bg-gradient-to-br from-green-50 to-emerald-50 dark:from-[#28A745]/40 dark:to-[#28A745]/40 border border-[#28A745] dark:border-[#28A745]"
+                                  : hasIncompleteTasks && dayInfo.isCurrentMonth
+                                    ? "bg-white dark:bg-[#0F0F0F] border-l-4 border-l-[#FFC107]"
+                                    : dayInfo.isCurrentMonth
+                                      ? "bg-white dark:bg-[#0F0F0F]"
+                                      : "bg-[#F5F5F5] dark:bg-[#0F0F0F]/50"
+                            }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex flex-col">
+                            <span
+                              className={`text-sm font-semibold ${
+                                isToday && dayInfo.isCurrentMonth
+                                  ? "text-[#ff6d34] dark:text-[#ff6d34]"
+                                  : dayInfo.isCurrentMonth
+                                    ? "text-[#2D3436] dark:text-gray-300"
+                                    : "text-[#2D3436]/50 dark:text-gray-500"
+                              }`}
+                            >
+                              {dayInfo.day}
+                            </span>
+                            {monthName && (
+                              <span className="text-[10px] font-medium text-[#2D3436]/50 dark:text-gray-500 mt-0.5">
+                                {monthName}
+                              </span>
+                            )}
+                          </div>
+                          {hasAnyTask && dayInfo.isCurrentMonth && (
+                            <div className="flex gap-1">
+                              {allTasksCompleted ? (
+                                <CheckCircle className="w-4 h-4 text-[#28A745]" />
+                              ) : (
+                                <span className="text-xs bg-[#ff6d34]/10 text-[#ff6d34] dark:bg-[#ff6d34]/30 dark:text-[#ff6d34] px-1.5 rounded-full">
+                                  {taskList.length}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
 
-                        {task.status === "Completed" && (
-                          <div className="absolute bottom-0 left-0 h-0.5 bg-[#28A745] rounded-full w-full"></div>
+                        {hasAnyTask && dayInfo.isCurrentMonth && (
+                          <>
+                            <div className="mt-1 space-y-0.5">
+                              {displayTasks.map((task, idx) => (
+                                <div key={idx} className="flex items-center gap-1 text-[10px]">
+                                  <span>{statusEmojis[task.status]}</span>
+                                  <span className="truncate text-[#2D3436]/70 dark:text-gray-400">
+                                    {task.text}
+                                  </span>
+                                </div>
+                              ))}
+                              {remainingCount > 0 && (
+                                <div className="text-[9px] text-[#2D3436]/50 dark:text-gray-500">
+                                  +{remainingCount} {t("common.more", { defaultValue: "more" })}
+                                </div>
+                              )}
+                            </div>
+
+                            {hasIncompleteTasks && taskList.length > 1 && (
+                              <div className="absolute bottom-1 left-2 right-2 h-0.5 bg-[#F5F5F5] dark:bg-gray-700 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-[#28A745] rounded-full transition-all duration-300"
+                                  style={{
+                                    width: `${(taskList.filter((t) => t.status === "Completed").length / taskList.length) * 100}%`,
+                                  }}
+                                ></div>
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {!dayInfo.isClickable && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-full h-full bg-white/50 dark:bg-black/30 rounded-xl"></div>
+                          </div>
                         )}
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8">
-                      <div className="inline-flex items-center justify-center w-12 h-12 bg-[#F5F5F5] dark:bg-gray-800 rounded-full mb-3">
-                        <Target className="w-6 h-6 text-gray-400" />
-                      </div>
-                      <p className="text-[#2D3436]/60 dark:text-gray-400 text-sm">No tasks for this day</p>
-                      <p className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-1">Add a task to get started</p>
-                    </div>
-                  )}
-                </div>
+                    );
+                  });
+                })()}
+              </div>
 
-                {tasks[selectedDate] && tasks[selectedDate].length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-[#CCCCCC] dark:border-gray-700">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[#2D3436]/60 dark:text-gray-400">Completed:</span>
-                      <span className="font-medium text-[#28A745]">
-                        {tasks[selectedDate].filter(t => t.status === "Completed").length}/{tasks[selectedDate].length}
+              {/* Legend */}
+              <div className="flex flex-wrap items-center gap-4 mt-6 pt-4 border-t border-[#CCCCCC] dark:border-gray-700">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-br from-orange-50 to-yellow-50 border-2 border-[#ff6d34]"></div>
+                  <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">
+                    {t("analytics.legend_today")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-gradient-to-br from-green-50 to-emerald-50 border border-[#28A745]"></div>
+                  <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">
+                    {t("analytics.legend_all_completed")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-white dark:bg-[#0F0F0F] border-l-4 border-l-[#FFC107]"></div>
+                  <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">
+                    {t("analytics.legend_tasks_pending")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#F5F5F5] dark:bg-[#0F0F0F]/50 border border-[#CCCCCC] dark:border-gray-600"></div>
+                  <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">
+                    {t("analytics.legend_other_month")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>✅</span>
+                  <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">
+                    {t("analytics.status_completed")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>🔄</span>
+                  <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">
+                    {t("analytics.status_ongoing")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>📅</span>
+                  <span className="text-xs text-[#2D3436]/70 dark:text-gray-400">
+                    {t("analytics.status_upcoming")}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* TASK PANEL */}
+            <div className="bg-white dark:bg-[#1A1A1A] rounded-2xl p-3 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-[#2D3436] dark:text-white flex items-center gap-2">
+                  <Target className="w-5 h-5 text-[#ff6d34]" />
+                  {t("analytics.tasks_for_date", { date: selectedDate })}
+                </h3>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2 mb-6">
+                <input
+                  value={newTask}
+                  onChange={(e) => setNewTask(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addTask()}
+                  className="flex-1 min-w-0 border border-[#CCCCCC] dark:border-gray-700 dark:bg-gray-900 dark:text-white p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#ff6d34] transition placeholder:text-gray-400 dark:placeholder:text-gray-500"
+                  placeholder={t("analytics.add_task_placeholder")}
+                />
+
+                <button
+                  onClick={addTask}
+                  className="w-full sm:w-auto bg-[#ff6d34] hover:bg-[#ff6d34]/90 text-white px-4 py-3 rounded-xl transition flex items-center justify-center gap-1 whitespace-nowrap"
+                >
+                  <Plus className="w-4 h-4" />
+                  {t("analytics.add_btn")}
+                </button>
+              </div>
+
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {(tasks[selectedDate] || []).length > 0 ? (
+                  (tasks[selectedDate] || []).map((task, i) => (
+                    <div
+                      key={i}
+                      className={`group relative flex items-center gap-3 p-3 rounded-xl transition-all
+                          ${
+                            task.status === "Completed"
+                              ? "bg-[#28A745]/10 dark:bg-[#28A745]/20"
+                              : "bg-[#F5F5F5] dark:bg-gray-700/50 hover:bg-[#CCCCCC]/30 dark:hover:bg-gray-700"
+                          }`}
+                    >
+                      <div className="flex-shrink-0">{statusIcons[task.status]}</div>
+                      <span
+                        className={`flex-1 text-sm line-clamp-2 ${
+                          task.status === "Completed"
+                            ? "line-through text-gray-500 dark:text-gray-400"
+                            : "text-[#2D3436] dark:text-gray-300"
+                        }`}
+                      >
+                        {task.text}
                       </span>
+
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <select
+                          value={task.status}
+                          onChange={(e) => updateTaskStatus(i, e.target.value)}
+                          className="bg-white dark:bg-gray-800 border border-[#CCCCCC] dark:border-gray-600 rounded-lg p-1 text-xs focus:outline-none focus:ring-1 focus:ring-[#ff6d34] text-[#2D3436] dark:text-gray-300"
+                        >
+                          <option value="Upcoming">📅 Upcoming</option>
+                          <option value="Ongoing">🔄 Ongoing</option>
+                          <option value="Completed">✅ Done</option>
+                        </select>
+                        <button
+                          onClick={() => deleteTask(i)}
+                          className="text-gray-400 hover:text-red-500 transition p-1"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {task.status === "Completed" && (
+                        <div className="absolute bottom-0 left-0 h-0.5 bg-[#28A745] rounded-full w-full"></div>
+                      )}
                     </div>
-                    <div className="w-full bg-[#F5F5F5] rounded-full h-1.5 mt-2">
-                      <div 
-                        className="bg-[#28A745] h-1.5 rounded-full transition-all duration-300"
-                        style={{ width: `${(tasks[selectedDate].filter(t => t.status === "Completed").length / tasks[selectedDate].length) * 100}%` }}
-                      ></div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="inline-flex items-center justify-center w-12 h-12 bg-[#F5F5F5] dark:bg-gray-800 rounded-full mb-3">
+                      <Target className="w-6 h-6 text-gray-400" />
                     </div>
+                    <p className="text-[#2D3436]/60 dark:text-gray-400 text-sm">
+                      No tasks for this day
+                    </p>
+                    <p className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-1">
+                      Add a task to get started
+                    </p>
                   </div>
                 )}
               </div>
+
+              {tasks[selectedDate] && tasks[selectedDate].length > 0 && (
+                <div className="mt-4 pt-4 border-t border-[#CCCCCC] dark:border-gray-700">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[#2D3436]/60 dark:text-gray-400">Completed:</span>
+                    <span className="font-medium text-[#28A745]">
+                      {tasks[selectedDate].filter((t) => t.status === "Completed").length}/
+                      {tasks[selectedDate].length}
+                    </span>
+                  </div>
+                  <div className="w-full bg-[#F5F5F5] rounded-full h-1.5 mt-2">
+                    <div
+                      className="bg-[#28A745] h-1.5 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${(tasks[selectedDate].filter((t) => t.status === "Completed").length / tasks[selectedDate].length) * 100}%`,
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-          <FloatingAssistant />
-        </main>
+          </div>
+        )}
+        <FloatingAssistant />
+      </main>
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {

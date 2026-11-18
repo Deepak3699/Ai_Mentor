@@ -6,11 +6,9 @@ export const ThemeProvider = ({ children }) => {
     return localStorage.getItem("theme") || "auto";
   });
 
-  const getSystemTheme = () =>
-    window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const getSystemTheme = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-  const isDark =
-    theme === "dark" || (theme === "auto" && getSystemTheme());
+  const isDark = theme === "dark" || (theme === "auto" && getSystemTheme());
 
   useEffect(() => {
     const root = document.documentElement;
@@ -28,9 +26,7 @@ export const ThemeProvider = ({ children }) => {
   useEffect(() => {
     if (theme !== "auto") return;
 
-    const mediaQuery = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    );
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
     const handleChange = () => {
       // force re-render
@@ -39,16 +35,11 @@ export const ThemeProvider = ({ children }) => {
 
     mediaQuery.addEventListener("change", handleChange);
 
-    return () =>
-      mediaQuery.removeEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
   }, [theme]);
 
   return (
-    <ThemeContext.Provider
-      value={{ theme, setTheme, isDark }}
-    >
-      {children}
-    </ThemeContext.Provider>
+    <ThemeContext.Provider value={{ theme, setTheme, isDark }}>{children}</ThemeContext.Provider>
   );
 };
 

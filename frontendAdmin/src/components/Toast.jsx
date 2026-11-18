@@ -68,9 +68,7 @@ function ToastItem({ toast, onDismiss }) {
       {/* Content */}
       <div className="flex items-start gap-3 px-4 pt-4 pb-3">
         <Icon className={`w-5 h-5 mt-0.5 shrink-0 ${config.iconColor}`} />
-        <p className="text-sm font-medium text-main leading-relaxed flex-1 pr-2">
-          {toast.message}
-        </p>
+        <p className="text-sm font-medium text-main leading-relaxed flex-1 pr-2">{toast.message}</p>
         <button
           onClick={() => onDismiss(toast.id)}
           className="shrink-0 w-6 h-6 rounded-lg flex items-center justify-center text-muted hover:text-main hover:bg-canvas-alt transition-all"
@@ -81,10 +79,7 @@ function ToastItem({ toast, onDismiss }) {
 
       {/* Progress bar */}
       <div className="h-0.5 w-full bg-border/50">
-        <div
-          className={`h-full transition-none ${config.bar}`}
-          style={{ width: `${progress}%` }}
-        />
+        <div className={`h-full transition-none ${config.bar}`} style={{ width: `${progress}%` }} />
       </div>
     </div>
   );
@@ -99,6 +94,6 @@ export default function Toast() {
         <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} />
       ))}
     </div>,
-    document.body
+    document.body,
   );
 }

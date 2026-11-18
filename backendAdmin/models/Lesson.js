@@ -12,7 +12,7 @@ const Lesson = sequelize.define(
     youtubeUrl: DataTypes.STRING,
     order: DataTypes.INTEGER,
   },
-  { timestamps: true, tableName: "Lessons" }
+  { timestamps: true, tableName: "Lessons" },
 );
 
 export default Lesson;

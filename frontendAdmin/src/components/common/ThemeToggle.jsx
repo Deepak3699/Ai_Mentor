@@ -1,8 +1,8 @@
 import { Sun, Moon } from "lucide-react";
-import { useTheme } from  "../../context/ThemeContext";
+import { useTheme } from "../../context/ThemeContext";
 
 const ThemeToggle = () => {
-  const { theme, setTheme, isDark } = useTheme();
+  const { setTheme, isDark } = useTheme();
 
   const toggleTheme = () => {
     // Always switch explicitly between light & dark
@@ -19,11 +19,7 @@ const ThemeToggle = () => {
       title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
       className="p-2 rounded-lg border border-border bg-card hover:bg-canvas-alt transition-colors"
     >
-      {isDark ? (
-        <Sun className="w-5 h-5 text-white" />
-      ) : (
-        <Moon className="w-5 h-5 text-black" />
-      )}
+      {isDark ? <Sun className="w-5 h-5 text-white" /> : <Moon className="w-5 h-5 text-black" />}
     </button>
   );
 };

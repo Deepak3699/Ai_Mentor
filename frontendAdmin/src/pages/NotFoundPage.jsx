@@ -140,19 +140,14 @@ const NotFoundPage = () => {
 
   return (
     <div className="relative w-full min-h-screen flex flex-col items-center justify-center overflow-hidden bg-[#0B1120]">
-
       {/* Canvas background */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-auto z-0"
-      />
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-auto z-0" />
 
       {/* Grid overlay */}
       <div className="absolute inset-0 opacity-10 pointer-events-none z-0 bg-[linear-gradient(rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:40px_40px]" />
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center text-center px-4 pt-8">
-
         {/* Animated Bot */}
         <div className="relative mb-8 flex items-center justify-center group">
           <div className="absolute inset-0 bg-black/50 blur-[50px] rounded-full" />
@@ -160,18 +155,20 @@ const NotFoundPage = () => {
           <div className="absolute w-52 h-52 border border-teal-500/20 rounded-full animate-[ping_4s_cubic-bezier(0,0,0.2,1)_infinite]" />
           <div className="relative z-10 flex items-center justify-center">
             {/* Outer glow pulse */}
-            <div className="absolute w-24 h-24 bg-teal-500/10 rounded-full animate-ping"
-                style={{ animationDuration: "2s" }} />
+            <div
+              className="absolute w-24 h-24 bg-teal-500/10 rounded-full animate-ping"
+              style={{ animationDuration: "2s" }}
+            />
             {/* Inner glow */}
             <div className="absolute w-16 h-16 bg-teal-500/20 rounded-full animate-pulse" />
             {/* Bot icon */}
             <Bot
-            className="w-20 h-20 text-teal-500 relative z-10
+              className="w-20 h-20 text-teal-500 relative z-10
             drop-shadow-[0_0_30px_rgba(20,184,166,0.8)]
             bot-blink"
             />
-             </div>
-         </div>
+          </div>
+        </div>
 
         {/* 404 */}
         <h1 className="text-[7rem] lg:text-[9rem] font-black text-transparent bg-clip-text bg-gradient-to-br from-teal-500 via-teal-400 to-[#ff6d34] leading-none tracking-tighter mb-4 drop-shadow-[0_0_40px_rgba(20,184,166,0.3)]">
@@ -185,8 +182,8 @@ const NotFoundPage = () => {
 
         {/* Description */}
         <p className="text-muted text-sm lg:text-base leading-relaxed max-w-md font-medium mb-10">
-          Oops! This admin page doesn't exist or has been moved.
-          Use the options below to navigate to a valid page.
+          Oops! This admin page doesn't exist or has been moved. Use the options below to navigate
+          to a valid page.
         </p>
 
         {/* Buttons */}
@@ -208,7 +205,6 @@ const NotFoundPage = () => {
             <span className="relative z-10">Go Back</span>
           </button>
         </div>
-
       </div>
     </div>
   );

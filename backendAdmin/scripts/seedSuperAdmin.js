@@ -11,7 +11,7 @@ const seedSuperAdmin = async () => {
 
   if (!name || !email || !password) {
     console.error(
-      "Missing super admin env vars. Set SUPER_ADMIN_NAME, SUPER_ADMIN_EMAIL, and SUPER_ADMIN_PASSWORD in backendAdmin/.env"
+      "Missing super admin env vars. Set SUPER_ADMIN_NAME, SUPER_ADMIN_EMAIL, and SUPER_ADMIN_PASSWORD in backendAdmin/.env",
     );
     process.exit(1);
   }

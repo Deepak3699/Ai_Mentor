@@ -1,10 +1,15 @@
-fastapi
-uvicorn
-python-dotenv
-google-genai
-groq
-asyncio
-edge-tts #Added
-requests
-cloudinary
-pytest
+
+torch==2.15.0
+transformers==5.22.2
+langchain==1.5.0
+cloudinary==1.47.0
+edge-tts==7.3.1
+fastapi==0.162.5
+google-genai==3.3.0
+groq==0.37.1
+httpx==0.28.1
+mutagen==1.48.1
+python-dotenv==1.2.4
+requests==2.34.2
+uvicorn==0.54.0
+cachetools==5.5.2

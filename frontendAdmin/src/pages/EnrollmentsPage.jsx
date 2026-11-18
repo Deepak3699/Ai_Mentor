@@ -24,8 +24,8 @@ function EnrollmentsPage() {
         const enrollmentsList = Array.isArray(response?.data)
           ? response.data
           : Array.isArray(response)
-          ? response
-          : [];
+            ? response
+            : [];
 
         setEnrollments(enrollmentsList);
       } catch (err) {
@@ -38,60 +38,49 @@ function EnrollmentsPage() {
     fetchEnrollments();
   }, []);
 
- const exportToExcel = async () => {
-  const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet("Enrollments");
+  const exportToExcel = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Enrollments");
 
-  worksheet.columns = [
-    { header: "Student", key: "student", width: 20 },
-    { header: "Course", key: "course", width: 20 },
-    { header: "Date", key: "date", width: 15 },
-    { header: "Amount", key: "amount", width: 15 },
-    { header: "Status", key: "status", width: 15 },
-  ];
+    worksheet.columns = [
+      { header: "Student", key: "student", width: 20 },
+      { header: "Course", key: "course", width: 20 },
+      { header: "Date", key: "date", width: 15 },
+      { header: "Amount", key: "amount", width: 15 },
+      { header: "Status", key: "status", width: 15 },
+    ];
 
-  enrollments.forEach((enrollment) => {
-    worksheet.addRow({
-      student: enrollment.user,
-      course: enrollment.course,
-      date: enrollment.date
-        ? new Date(enrollment.date).toLocaleDateString()
-        : "N/A",
-      amount: `Rs ${enrollment.amount}`,
-      status: enrollment.status || "Completed",
+    enrollments.forEach((enrollment) => {
+      worksheet.addRow({
+        student: enrollment.user,
+        course: enrollment.course,
+        date: enrollment.date ? new Date(enrollment.date).toLocaleDateString() : "N/A",
+        amount: `Rs ${enrollment.amount}`,
+        status: enrollment.status || "Completed",
+      });
     });
-  });
 
-  worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(1).font = { bold: true };
 
-  const buffer = await workbook.xlsx.writeBuffer();
+    const buffer = await workbook.xlsx.writeBuffer();
 
-  const blob = new Blob([buffer], {
-    type:
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
 
-  saveAs(blob, "Enrollments_Report.xlsx");
-};
+    saveAs(blob, "Enrollments_Report.xlsx");
+  };
 
   // PDF Export
   const exportToPDF = () => {
     const doc = new jsPDF();
 
-    const tableColumn = [
-      "Student",
-      "Course",
-      "Date",
-      "Amount",
-      "Status",
-    ];
+    const tableColumn = ["Student", "Course", "Date", "Amount", "Status"];
 
     const tableRows = enrollments.map((enrollment) => [
       enrollment.user,
       enrollment.course,
-      enrollment.date
-        ? new Date(enrollment.date).toLocaleDateString()
-        : "N/A",
+      enrollment.date ? new Date(enrollment.date).toLocaleDateString() : "N/A",
       `Rs ${enrollment.amount}`,
       enrollment.status || "Completed",
     ]);
@@ -109,45 +98,31 @@ function EnrollmentsPage() {
 
   // CSV Export
   const exportToCSV = () => {
-  const csv = Papa.unparse(
-    enrollments.map((e) => ({
-      Student: e.user,
-      Course: e.course,
-      Date: e.date
-        ? new Date(e.date).toLocaleDateString()
-        : "N/A",
-      Amount: `Rs ${e.amount}`,
-      Status: e.status || "Completed",
-    }))
-  );
-
-  const blob = new Blob([csv], {
-    type: "text/csv;charset=utf-8;",
-  });
-
-  saveAs(blob, "Enrollments_Report.csv");
-}
-
-  if (loading)
-    return (
-      <div className="p-10 text-center text-muted">
-        Loading enrollments...
-      </div>
+    const csv = Papa.unparse(
+      enrollments.map((e) => ({
+        Student: e.user,
+        Course: e.course,
+        Date: e.date ? new Date(e.date).toLocaleDateString() : "N/A",
+        Amount: `Rs ${e.amount}`,
+        Status: e.status || "Completed",
+      })),
     );
 
-  if (error)
-    return (
-      <div className="p-10 text-center text-red-500">
-        Error: {error}
-      </div>
-    );
+    const blob = new Blob([csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    saveAs(blob, "Enrollments_Report.csv");
+  };
+
+  if (loading) return <div className="p-10 text-center text-muted">Loading enrollments...</div>;
+
+  if (error) return <div className="p-10 text-center text-red-500">Error: {error}</div>;
 
   return (
     <>
       <div className="border-b border-border p-6 md:p-8 flex items-center justify-between">
-        <h2 className="text-3xl font-semibold">
-          All Enrollments
-        </h2>
+        <h2 className="text-3xl font-semibold">All Enrollments</h2>
 
         {/* Export Dropdown */}
         <div className="relative">
@@ -161,9 +136,8 @@ function EnrollmentsPage() {
 
           {showDropdown && (
             <div className="absolute right-0 mt-2 w-48 bg-canvas border border-border rounded-xl shadow-lg z-10 overflow-hidden">
-              
               <button
-                onClick={async() => {
+                onClick={async () => {
                   await exportToExcel();
                   setShowDropdown(false);
                 }}
@@ -173,8 +147,8 @@ function EnrollmentsPage() {
               </button>
 
               <button
-                onClick={async() => {
-                 await exportToPDF();
+                onClick={async () => {
+                  await exportToPDF();
                   setShowDropdown(false);
                 }}
                 className="block w-full text-left px-4 py-3 hover:bg-canvas-alt transition-colors"
@@ -191,7 +165,6 @@ function EnrollmentsPage() {
               >
                 Download CSV
               </button>
-
             </div>
           )}
         </div>
@@ -217,40 +190,25 @@ function EnrollmentsPage() {
                   className="border-b border-border hover:bg-canvas-alt transition-colors"
                 >
                   <td className="p-5">
-                    <div className="font-medium">
-                      {enrollment.user}
-                    </div>
+                    <div className="font-medium">{enrollment.user}</div>
 
-                    <div className="text-xs text-muted">
-                      {enrollment.email}
-                    </div>
+                    <div className="text-xs text-muted">{enrollment.email}</div>
                   </td>
 
                   <td>{enrollment.course}</td>
 
                   <td>
-                    {enrollment.date
-                      ? new Date(
-                          enrollment.date
-                        ).toLocaleDateString()
-                      : "N/A"}
+                    {enrollment.date ? new Date(enrollment.date).toLocaleDateString() : "N/A"}
                   </td>
 
-                  <td className="font-semibold">
-                    Rs {enrollment.amount}
-                  </td>
+                  <td className="font-semibold">Rs {enrollment.amount}</td>
 
-                  <td className="text-green-600">
-                    {enrollment.status || "Completed"}
-                  </td>
+                  <td className="text-green-600">{enrollment.status || "Completed"}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td
-                  colSpan="5"
-                  className="p-10 text-center text-muted italic"
-                >
+                <td colSpan="5" className="p-10 text-center text-muted italic">
                   No enrollments found.
                 </td>
               </tr>

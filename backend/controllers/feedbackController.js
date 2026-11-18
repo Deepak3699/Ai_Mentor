@@ -1,27 +1,32 @@
 import CourseFeedback from "../models/CourseFeedback.js";
 import Course from "../models/Course.js";
 import { sequelize } from "../config/db.js";
+import {
+  AppError,
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+  forwardError,
+} from "../utils/error.js";
 
 /* ===========================
    SUBMIT / UPDATE FEEDBACK
 =========================== */
-export const submitFeedback = async (req, res) => {
+export const submitFeedback = async (req, res, next) => {
   try {
     const courseId = parseInt(req.params.courseId, 10);
     const { rating, review } = req.body;
     const userId = req.user.id;
 
     if (!rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ message: "Rating must be between 1 and 5" });
+      return forwardError(next, res, new BadRequestError("Rating must be between 1 and 5"));
     }
 
     // Only enrolled users can leave feedback
     const purchasedCourses = req.user.purchasedCourses || [];
-    const isEnrolled = purchasedCourses.some(
-      (c) => String(c.courseId) === String(courseId)
-    );
+    const isEnrolled = purchasedCourses.some((c) => String(c.courseId) === String(courseId));
     if (!isEnrolled) {
-      return res.status(403).json({ message: "You must be enrolled to leave a review." });
+      return forwardError(next, res, new ForbiddenError("You must be enrolled to leave a review."));
     }
 
     // Upsert: one review per user per course
@@ -59,10 +64,7 @@ export const submitFeedback = async (req, res) => {
     const avgRating = parseFloat(result[0]?.avgRating || 0).toFixed(1);
     const totalReviews = parseInt(result[0]?.totalReviews || 0, 10);
 
-    await Course.update(
-      { rating: parseFloat(avgRating) },
-      { where: { id: courseId } }
-    );
+    await Course.update({ rating: parseFloat(avgRating) }, { where: { id: courseId } });
 
     return res.status(created ? 201 : 200).json({
       message: created ? "Review submitted!" : "Review updated!",
@@ -80,14 +82,24 @@ export const submitFeedback = async (req, res) => {
     });
   } catch (error) {
     console.error("SUBMIT FEEDBACK ERROR:", error);
-    res.status(500).json({ message: "Failed to submit review" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to submit review",
+      ),
+    );
   }
 };
 
 /* ===========================
    GET FEEDBACK FOR A COURSE
 =========================== */
-export const getCourseFeedback = async (req, res) => {
+export const getCourseFeedback = async (req, res, next) => {
   try {
     const courseId = parseInt(req.params.courseId, 10);
 
@@ -127,14 +139,24 @@ export const getCourseFeedback = async (req, res) => {
     });
   } catch (error) {
     console.error("GET FEEDBACK ERROR:", error);
-    res.status(500).json({ message: "Failed to load reviews" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to load reviews",
+      ),
+    );
   }
 };
 
 /* ===========================
    GET CURRENT USER'S FEEDBACK
 =========================== */
-export const getMyFeedback = async (req, res) => {
+export const getMyFeedback = async (req, res, next) => {
   try {
     const courseId = parseInt(req.params.courseId, 10);
     const userId = req.user.id;
@@ -156,21 +178,31 @@ export const getMyFeedback = async (req, res) => {
     });
   } catch (error) {
     console.error("GET MY FEEDBACK ERROR:", error);
-    res.status(500).json({ message: "Failed to load your review" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to load your review",
+      ),
+    );
   }
 };
 
 /* ===========================
    DELETE FEEDBACK
 =========================== */
-export const deleteFeedback = async (req, res) => {
+export const deleteFeedback = async (req, res, next) => {
   try {
     const courseId = parseInt(req.params.courseId, 10);
     const userId = req.user.id;
 
     const feedback = await CourseFeedback.findOne({ where: { courseId, userId } });
     if (!feedback) {
-      return res.status(404).json({ message: "Review not found" });
+      return forwardError(next, res, new NotFoundError("Review not found"));
     }
 
     await feedback.destroy();
@@ -186,14 +218,25 @@ export const deleteFeedback = async (req, res) => {
     });
 
     const avgRating = parseFloat(result[0]?.avgRating || 0).toFixed(1);
-    await Course.update(
-      { rating: parseFloat(avgRating) || null },
-      { where: { id: courseId } }
-    );
+    await Course.update({ rating: parseFloat(avgRating) || null }, { where: { id: courseId } });
 
-    return res.json({ message: "Review deleted", avgRating, totalReviews: parseInt(result[0]?.totalReviews || 0, 10) });
+    return res.json({
+      message: "Review deleted",
+      avgRating,
+      totalReviews: parseInt(result[0]?.totalReviews || 0, 10),
+    });
   } catch (error) {
     console.error("DELETE FEEDBACK ERROR:", error);
-    res.status(500).json({ message: "Failed to delete review" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Failed to delete review",
+      ),
+    );
   }
 };

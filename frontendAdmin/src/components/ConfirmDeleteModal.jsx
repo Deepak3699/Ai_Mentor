@@ -52,7 +52,7 @@ export default function ConfirmDeleteModal({
         onClose();
       }
     },
-    [canDelete, handleConfirm, onClose]
+    [canDelete, handleConfirm, onClose],
   );
 
   if (!isOpen) return null;
@@ -69,7 +69,9 @@ export default function ConfirmDeleteModal({
             <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
               <AlertTriangle className="w-5 h-5 text-red-500" />
             </div>
-            <h3 className="text-lg font-bold text-main tracking-tight">Permanently Delete Course</h3>
+            <h3 className="text-lg font-bold text-main tracking-tight">
+              Permanently Delete Course
+            </h3>
           </div>
           <button
             onClick={onClose}
@@ -84,7 +86,9 @@ export default function ConfirmDeleteModal({
         <div className="p-6 space-y-5">
           {/* Course info */}
           <div className="p-4 rounded-2xl bg-canvas-alt border border-border">
-            <div className="text-[10px] font-black uppercase tracking-widest text-muted mb-1">Course to Delete</div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-muted mb-1">
+              Course to Delete
+            </div>
             <div className="text-main font-bold text-base line-clamp-2">{courseTitle}</div>
           </div>
 
@@ -93,8 +97,8 @@ export default function ConfirmDeleteModal({
             <div className="flex items-start gap-2.5 p-3 rounded-xl bg-red-500/5 border border-red-500/10">
               <AlertTriangle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
               <p className="text-xs text-red-500 font-medium leading-relaxed">
-                This action <strong>cannot be undone</strong>. All modules, lessons, and course content will be{" "}
-                <strong>permanently removed</strong> from the database.
+                This action <strong>cannot be undone</strong>. All modules, lessons, and course
+                content will be <strong>permanently removed</strong> from the database.
               </p>
             </div>
 
@@ -102,8 +106,11 @@ export default function ConfirmDeleteModal({
               <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/5 border border-amber-500/10">
                 <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <p className="text-xs text-amber-600 font-medium leading-relaxed">
-                  <strong>{enrolledCount} student{enrolledCount > 1 ? "s" : ""}</strong>{" "}
-                  {enrolledCount > 1 ? "are" : "is"} enrolled in this course. Their enrollment records will also be removed.
+                  <strong>
+                    {enrolledCount} student{enrolledCount > 1 ? "s" : ""}
+                  </strong>{" "}
+                  {enrolledCount > 1 ? "are" : "is"} enrolled in this course. Their enrollment
+                  records will also be removed.
                 </p>
               </div>
             )}

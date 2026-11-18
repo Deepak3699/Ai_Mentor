@@ -1,7 +1,7 @@
 // LoginPage.jsx
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Shield, Lock, Mail } from 'lucide-react';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff, Shield, Lock, Mail } from "lucide-react";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -44,7 +44,6 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-10 lg:gap-12 items-center justify-center">
-
         {/* Left Side - Branding */}
         <div className="hidden lg:flex lg:w-1/2 flex-col justify-center items-start p-6 lg:p-8 text-white min-h-[450px]">
           <div className="mb-4 lg:mb-6">
@@ -68,17 +67,27 @@ const LoginPage = () => {
           </div>
 
           <p className="text-slate-300 text-sm lg:text-base mb-0 lg:mb-2 max-w-xs lg:max-w-sm leading-relaxed">
-            Manage and oversee the AI-powered educational platform. Access administrative tools and analytics.
+            Manage and oversee the AI-powered educational platform. Access administrative tools and
+            analytics.
           </p>
 
           <div className="mt-0 lg:mt-2">
             <svg className="w-40 lg:w-48 h-40 lg:h-48" viewBox="0 0 200 200" fill="none">
               <rect x="40" y="60" width="120" height="80" rx="4" fill="#1e40af" opacity="0.3" />
               <rect x="45" y="65" width="110" height="65" fill="#0f172a" />
-              <path d="M100 75 L85 80 L85 95 Q85 105 100 110 Q115 105 115 95 L115 80 Z" fill="#06b6d4" opacity="0.8" />
+              <path
+                d="M100 75 L85 80 L85 95 Q85 105 100 110 Q115 105 115 95 L115 80 Z"
+                fill="#06b6d4"
+                opacity="0.8"
+              />
               <path d="M95 90 L98 95 L108 85" stroke="#fff" strokeWidth="2" fill="none" />
               <rect x="90" y="100" width="20" height="15" rx="2" fill="#f97316" opacity="0.6" />
-              <path d="M95 100 L95 95 Q95 90 100 90 Q105 90 105 95 L105 100" stroke="#f97316" strokeWidth="2" fill="none" />
+              <path
+                d="M95 100 L95 95 Q95 90 100 90 Q105 90 105 95 L105 100"
+                stroke="#f97316"
+                strokeWidth="2"
+                fill="none"
+              />
               <rect x="90" y="140" width="20" height="10" fill="#1e40af" opacity="0.3" />
               <rect x="70" y="150" width="60" height="3" fill="#1e40af" opacity="0.3" />
             </svg>
@@ -89,7 +98,6 @@ const LoginPage = () => {
         <div className="w-full lg:w-1/2 flex items-center justify-center p-2 lg:p-4">
           <div className="w-full max-w-sm">
             <div className="bg-slate-800/50 backdrop-blur-lg rounded-2xl shadow-2xl p-5 lg:p-6 lg:p-8 border border-slate-700">
-
               {/* Header */}
               <div className="text-center mb-5 lg:mb-6">
                 <div className="inline-flex items-center justify-center w-12 h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-full mb-3 mx-auto">
@@ -98,9 +106,7 @@ const LoginPage = () => {
                 <h3 className="text-lg lg:text-xl font-bold text-white mb-1.5 lg:mb-2">
                   Admin Login
                 </h3>
-                <p className="text-slate-400 text-xs lg:text-sm">
-                  Access your admin dashboard
-                </p>
+                <p className="text-slate-400 text-xs lg:text-sm">Access your admin dashboard</p>
               </div>
 
               {/* Error Message */}
@@ -151,7 +157,11 @@ const LoginPage = () => {
                       disabled={loading}
                       className="absolute right-2.5 lg:right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-300 transition disabled:opacity-50"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4 lg:w-5 lg:h-5" /> : <Eye className="w-4 h-4 lg:w-5 lg:h-5" />}
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 lg:w-5 lg:h-5" />
+                      ) : (
+                        <Eye className="w-4 h-4 lg:w-5 lg:h-5" />
+                      )}
                     </button>
                   </div>
                 </div>

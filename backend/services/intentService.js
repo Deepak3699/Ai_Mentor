@@ -21,9 +21,13 @@ export const detectIntent = (message) => {
     text.includes("my preferences") ||
     text.includes("what are my preferences") ||
     text.includes("show my preferences") ||
+    text.includes("explanation type") ||
+    text.includes("learning style") ||
+    text.includes("teaching pace") ||
+    text.includes("example type") ||
+    text.includes("focus area") ||
     text.includes("learning goal") ||
     text.includes("experience level") ||
-    text.includes("learning style") ||
     text.includes("weekly commitment")
   ) {
     return {
@@ -51,18 +55,6 @@ export const detectIntent = (message) => {
   ) {
     return {
       type: "progress_info",
-    };
-  }
-
-  if (
-    text.includes("recommend") ||
-    text.includes("what should i study") ||
-    text.includes("next lesson") ||
-    text.includes("what next") ||
-    text.includes("suggest")
-  ) {
-    return {
-      type: "recommendation",
     };
   }
 
@@ -113,10 +105,7 @@ export const detectIntent = (message) => {
     };
   }
 
-  if (
-    text.includes("go to community") ||
-    text.includes("open community")
-  ) {
+  if (text.includes("go to community") || text.includes("open community")) {
     return {
       type: "navigation",
       route: "/discussions",
@@ -134,50 +123,35 @@ export const detectIntent = (message) => {
     };
   }
 
-  if (
-    text.includes("watch history") ||
-    text.includes("open watch history")
-  ) {
+  if (text.includes("watch history") || text.includes("open watch history")) {
     return {
       type: "navigation",
       route: "/watchedvideos",
     };
   }
 
-  if (
-    text.includes("go to dashboard") ||
-    text.includes("open dashboard")
-  ) {
+  if (text.includes("go to dashboard") || text.includes("open dashboard")) {
     return {
       type: "navigation",
       route: "/dashboard",
     };
   }
 
-  if (
-    text.includes("go to analytics") ||
-    text.includes("open analytics")
-  ) {
+  if (text.includes("go to analytics") || text.includes("open analytics")) {
     return {
       type: "navigation",
       route: "/analytics",
     };
   }
 
-  if (
-    text.includes("go to certificates") ||
-    text.includes("open certificates")
-  ) {
+  if (text.includes("go to certificates") || text.includes("open certificates")) {
     return {
       type: "navigation",
       route: "/certificates",
     };
   }
 
-  if (
-    text.includes("go to reports") ||
-    text.includes("open reports")
-  ) {
+  if (text.includes("go to reports") || text.includes("open reports")) {
     return {
       type: "navigation",
       route: "/report",
