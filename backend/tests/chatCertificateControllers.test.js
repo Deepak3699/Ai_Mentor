@@ -271,10 +271,11 @@ test("completed course generation returns a downloadable PDF", async () => {
   assert.equal(state.sent.subarray(0, 5).toString("ascii"), "%PDF-");
 });
 
-test("invalid Gemini route is dropped while visible reply remains", async () => {
+
+test("invalid AI service route is dropped while visible reply remains", async () => {
   const source = await import("node:fs/promises").then(({ readFile }) =>
     readFile(new URL("../controllers/chatController.js", import.meta.url), "utf8"),
   );
-  assert.match(source, /Object\.values\(APP_ROUTES\)\.includes\(requestedRoute\)/);
+  assert.match(source, /Object\.values\(APP_ROUTES\)\.includes\(result\.route\)/);
   assert.match(source, /I couldn't generate a response/);
 });

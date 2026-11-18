@@ -63,6 +63,25 @@ def generate_gemini_content(
     )
 
 
+def generate_gemini_chat_content(
+    system_instruction: str,
+    contents: list[dict[str, Any]],
+    model: str = GEMINI_MODEL,
+):
+    """Generate a Gemini response using structured conversation history."""
+    client = get_gemini_client()
+    return client.models.generate_content(
+        model=model,
+        contents=contents,
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            http_options=types.HttpOptions(
+                timeout=LLM_TIMEOUT_SECONDS * 1000
+            ),
+        ),
+    )
+
+
 class GeminiProvider(BaseAIProvider):
     """Primary AI provider implementation utilizing Google Gemini."""
 
