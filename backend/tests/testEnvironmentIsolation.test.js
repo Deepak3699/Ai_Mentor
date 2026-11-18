@@ -2,6 +2,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 
+const mockAdmin = {
+  apps: [],
+  initializeApp: jest.fn(),
+  credential: {
+    cert: jest.fn(),
+  },
+};
 const probe = `
   const [{ sequelize }, { default: cloudinary }, { default: admin }] = await Promise.all([
     import("./config/db.js"),
