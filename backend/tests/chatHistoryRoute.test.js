@@ -259,6 +259,7 @@ test("malformed history fails safely with a fixed message and no Gemini call", a
   ];
 
   for (const path of CHAT_PATHS) {
+    await aiChatLimiter.resetKey("user:1");
     for (const [history, expected] of cases) {
       const { status, body } = await post(path, { message: QUESTION, history }, 1);
 

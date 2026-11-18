@@ -227,12 +227,16 @@ def test_groq_provider_instance():
 
 def test_manager_generate_lesson_script_fallback():
     req = LessonRequest(course="CS", topic="Sorting")
-    mock_groq_choice = MagicMock(message=MagicMock(content="Groq sorting lesson."))
-    mock_groq_resp = MagicMock(choices=[mock_groq_choice])
 
-    with patch("backend.services.providers.gemini_provider.generate_gemini_content", side_effect=RuntimeError("Gemini down")), \
-         patch("backend.services.providers.groq_provider.generate_groq_content", return_value=mock_groq_resp):
+    with patch(
+        "backend.services.providers.manager.gemini_provider.generate_lesson_script",
+        side_effect=RuntimeError("Gemini down"),
+    ), patch(
+        "backend.services.providers.manager.groq_provider.generate_lesson_script",
+        return_value=("Groq sorting lesson.", "groq", "llama"),
+    ):
         script, prov, model = generate_lesson_script(req)
+
         assert script == "Groq sorting lesson."
         assert prov == "groq"
 
@@ -243,7 +247,7 @@ def test_manager_generate_lesson_script_fallback():
 
 def test_logging_utils():
     err_str = short_error(ValueError("A very long error message that should be summarized cleanly."))
-    assert "summarized cleanly" in err_str
+    assert err_str == "invalid_data"
 
 
 def test_cloud_storage_handles_disabled_without_exception():

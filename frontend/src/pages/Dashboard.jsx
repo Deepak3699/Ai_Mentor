@@ -298,24 +298,54 @@ const Dashboard = () => {
   };
 
   const enrollAndPreview = async (course) => {
-    if (!user) return navigate("/login");
+    if (!user) {
+      navigate("/login");
+      return;
+    }
     try {
       if (Number(course.priceValue || 0) === 0) {
-        await apiFetch("/api/users/purchase-course", {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          navigate("/login", { replace: true });
+          return;
+        }
+        const response = await apiFetch("/api/users/purchase-course", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ courseId: course.id, courseTitle: course.title }),
+          body: JSON.stringify({
+            courseId: course.id,
+            courseTitle: course.title,
+          }),
         });
-        if (typeof fetchUserProfile === "function") await fetchUserProfile();
+        const data = await response.json().catch(() => null);
+        if (response.status === 401) {
+          navigate("/login", { replace: true });
+          return;
+        }
+        const alreadyEnrolled =
+          response.status === 409 &&
+          data?.error?.code === "CONFLICT" &&
+          data?.error?.message === "Already enrolled";
+        if (!response.ok && !alreadyEnrolled) {
+          throw new Error(
+            data?.message ||
+              data?.error?.message ||
+              "Enrollment could not be completed. Please try again.",
+          );
+        }
+        if (typeof fetchUserProfile === "function") {
+          await fetchUserProfile();
+        }
         window.dispatchEvent(new Event("refreshCourses"));
+        window.dispatchEvent(new Event("refreshNotifications"));
       }
       navigate(`/course-preview/${course.id}`);
     } catch (error) {
       console.error("Enroll and preview error:", error);
-      navigate(`/course-preview/${course.id}`);
+      toast.error(error.message || "Enrollment failed. Please try again.");
     }
   };
 

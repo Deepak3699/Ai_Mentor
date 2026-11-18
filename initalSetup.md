@@ -25,6 +25,15 @@ all five for the full product.
 
 Check the prerequisites for the application you want to work on before starting development.
 
+| Requirement                            | How to check                              | Where to get it                                                                                    |
+| -------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Node.js 22.13+**                     | `node -v`                                 | https://nodejs.org                                                                                 |
+| **npm**                                | `npm -v`                                  | Comes with Node                                                                                    |
+| **Python 3.10+**                       | `python --version` or `python3 --version` | https://python.org — on Windows, tick **Add Python to PATH** during install                        |
+| **PostgreSQL 14+** _or_ a Neon account | `psql --version`                          | https://postgresql.org or https://neon.tech                                                        |
+| **FFmpeg**                             | `ffmpeg -version`                         | Windows: `winget install ffmpeg` · macOS: `brew install ffmpeg` · Linux: `sudo apt install ffmpeg` |
+| **Git**                                | `git --version`                           | https://git-scm.com                                                                                |
+
 > `npm run setup` checks for Node.js, npm, Python and FFmpeg for every contributor, and needs `ai_service/backend/.env` with a Gemini API key, even if you only work on one application.
 
 | Application    | Port | Connects to                          |
@@ -395,7 +404,7 @@ Check each one. If a step fails, see the troubleshooting table below.
 
 Tick every box before you move on to real work.
 
-- [ ] Node 18+, Python 3.10+, FFmpeg and Git installed
+- [ ] Node 22.13+, Python 3.10+, FFmpeg and Git installed
 - [ ] Database created (Neon project, or local `ai_mentor` database)
 - [ ] `backend/.env` created with `NEON_DATABASE_URL`, `JWT_SECRET`, `STRIPE_SECRET_KEY`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`
 - [ ] `frontend/.env` created with the API URL and all six Firebase values
