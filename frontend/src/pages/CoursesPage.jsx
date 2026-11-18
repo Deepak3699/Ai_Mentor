@@ -25,6 +25,7 @@ import toast from "react-hot-toast";
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import CourseCard from "../components/common/CourseCard";
+import Modal from "../components/common/Modal";
 
 const BLUE_BUTTON =
   "inline-flex items-center justify-center gap-2 rounded-xl bg-[#3867D6] px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-[#315BC0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3867D6] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
@@ -836,11 +837,11 @@ const CoursesPage = () => {
       />
 
       {showEnrollPopup && selectedCourse && (
-        <div
+        <Modal
+          open
+          onClose={() => setShowEnrollPopup(false)}
+          labelledBy="course-enrollment-title"
           className="fixed inset-0 z-[160] grid place-items-center bg-black/60 p-4 backdrop-blur-sm ui-overlay-motion"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Enroll in ${selectedCourse.title}`}
         >
           <div className="w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-card shadow-2xl ui-modal-surface">
             <div className="relative aspect-[16/7] overflow-hidden bg-canvas-alt">
@@ -863,7 +864,9 @@ const CoursesPage = () => {
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#3867D6]">
                 {normalizeCategory(selectedCourse.category) || "Course"}
               </p>
-              <h2 className="mt-2 text-2xl font-extrabold text-main">{selectedCourse.title}</h2>
+              <h2 id="course-enrollment-title" className="mt-2 text-2xl font-extrabold text-main">
+                {selectedCourse.title}
+              </h2>
               <p className="mt-2 text-sm text-muted">
                 {selectedCourse.lessons || 0} lessons · {selectedCourse.level || "All levels"}
               </p>
@@ -906,7 +909,7 @@ const CoursesPage = () => {
               )}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </>
   );

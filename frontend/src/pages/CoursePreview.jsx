@@ -11,6 +11,7 @@ import { getErrorMessage } from "../lib/errorHandling.js";
 import { loadRazorpayScript } from "../lib/loadRazorPay";
 import CourseFeedback from "../components/common/CourseFeedback";
 import LoadingSpinner from "../components/common/LoadingSpinner";
+import Modal from "../components/common/Modal";
 /* safe getter */
 function safeGet(obj, path, fallback = undefined) {
   if (!obj || !path) return fallback;
@@ -811,7 +812,12 @@ export default function CoursePreview() {
       </main>
       {/* ENROLL CONFIRM POPUP (same style as CoursesPage) */}
       {showEnrollPopup && selectedCourse && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 ui-overlay-motion">
+        <Modal
+          open
+          onClose={() => setShowEnrollPopup(false)}
+          labelledBy="course-preview-enrollment-title"
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 ui-overlay-motion"
+        >
           <div className="bg-card w-full max-w-md rounded-2xl p-6 pt-10 relative border border-border">
             <button
               onClick={() => setShowEnrollPopup(false)}
@@ -824,7 +830,9 @@ export default function CoursePreview() {
               alt={selectedCourse.title}
               className="w-full h-40 object-cover rounded-xl mb-4"
             />
-            <h2 className="text-xl font-bold text-main">{selectedCourse.title}</h2>
+            <h2 id="course-preview-enrollment-title" className="text-xl font-bold text-main">
+              {selectedCourse.title}
+            </h2>
             <p className="text-sm text-muted mt-1">
               {selectedCourse.category} • {selectedCourse.level}
             </p>
@@ -862,7 +870,7 @@ export default function CoursePreview() {
               </button>
             )}
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

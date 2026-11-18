@@ -887,6 +887,15 @@ body,
 }
 
 /* SHARED OVERLAY MOTION */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
 .ui-overlay-motion {
   animation: ui-overlay-in 180ms ease-out both;
 }
