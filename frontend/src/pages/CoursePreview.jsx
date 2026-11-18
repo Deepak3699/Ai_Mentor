@@ -233,10 +233,6 @@ export default function CoursePreview() {
   const handlePayment = async () => {
     if (!selectedCourse || isPurchasing) return;
     const token = localStorage.getItem("token");
-    if (!token) {
-      navigate("/login", { replace: true });
-      return;
-    }
     // safely extract price
     const priceValue = Number(
       selectedCourse.priceValue ?? selectedCourse.price?.replace("₹", "") ?? 0,
@@ -258,11 +254,7 @@ export default function CoursePreview() {
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) {
-          if (
-            res.status === 409 &&
-            data?.error?.code === "CONFLICT" &&
-            data?.error?.message === "Already enrolled"
-          ) {
+          if (data?.error?.code === "CONFLICT" || data?.message === "Already enrolled") {
             toast.success("Already enrolled!");
           } else {
             throw {
@@ -327,10 +319,6 @@ export default function CoursePreview() {
   const handleRazorpayPayment = async () => {
     if (!selectedCourse || isPurchasing || razorpayModalOpen.current) return;
     const token = localStorage.getItem("token");
-    if (!token) {
-      navigate("/login", { replace: true });
-      return;
-    }
     const priceValue = Number(selectedCourse.priceValue || 0);
 
     setIsPurchasing(true);
