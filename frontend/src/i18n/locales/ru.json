@@ -331,6 +331,12 @@
     "status_completed": "Завершено",
     "status_ongoing": "В процессе",
     "status_upcoming": "Предстоит",
+    "upcoming_card_title": "Предстоящие задачи",
+    "no_upcoming_tasks": "Нет предстоящих задач",
+    "add_task": "Добавить задачу",
+    "overdue": "Просрочено",
+    "due_today": "Сегодня",
+    "due_tomorrow": "Завтра",
     "delete_task_confirm": "Вы уверены, что хотите удалить эту задачу?",
     "task_exists_error": "Задача на эту дату уже существует.",
     "achievements": {

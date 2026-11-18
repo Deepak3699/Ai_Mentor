@@ -331,6 +331,12 @@
     "status_completed": "Abgeschlossen",
     "status_ongoing": "Laufend",
     "status_upcoming": "Bevorstehend",
+    "upcoming_card_title": "Anstehende Aufgaben",
+    "no_upcoming_tasks": "Keine anstehenden Aufgaben",
+    "add_task": "Aufgabe hinzufügen",
+    "overdue": "Überfällig",
+    "due_today": "Heute",
+    "due_tomorrow": "Morgen",
     "delete_task_confirm": "Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?",
     "task_exists_error": "Aufgabe für dieses Datum existiert bereits.",
     "achievements": {

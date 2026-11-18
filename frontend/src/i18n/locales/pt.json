@@ -331,6 +331,12 @@
     "status_completed": "Concluído",
     "status_ongoing": "Em andamento",
     "status_upcoming": "Próximo",
+    "upcoming_card_title": "Próximas tarefas",
+    "no_upcoming_tasks": "Nenhuma tarefa próxima",
+    "add_task": "Adicionar tarefa",
+    "overdue": "Atrasada",
+    "due_today": "Hoje",
+    "due_tomorrow": "Amanhã",
     "delete_task_confirm": "Tem certeza que deseja excluir esta tarefa?",
     "task_exists_error": "Já existe uma tarefa para esta data.",
     "achievements": {

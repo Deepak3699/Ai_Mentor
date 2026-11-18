@@ -331,6 +331,12 @@
     "status_completed": "完了",
     "status_ongoing": "進行中",
     "status_upcoming": "予定",
+    "upcoming_card_title": "今後のタスク",
+    "no_upcoming_tasks": "今後のタスクはありません",
+    "add_task": "タスクを追加",
+    "overdue": "期限超過",
+    "due_today": "今日",
+    "due_tomorrow": "明日",
     "delete_task_confirm": "このタスクを削除してもよろしいですか？",
     "task_exists_error": "この日付のタスクは既に存在します。",
     "achievements": {

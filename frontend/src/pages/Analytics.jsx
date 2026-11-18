@@ -1,6 +1,8 @@
 import {
   BookOpen,
   Calendar,
+  CalendarDays,
+  ArrowRight,
   TrendingUp,
   Award,
   ChevronLeft,
@@ -42,6 +44,7 @@ const Analytics = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [tasks, setTasks] = useState({});
+  const [completedTaskKeys, setCompletedTaskKeys] = useState([]);
   const [newTask, setNewTask] = useState("");
   const [streak, setStreak] = useState(0);
   const [activeTab, setActiveTab] = useState("courses");
@@ -228,6 +231,30 @@ const Analytics = () => {
   };
 
   const attendance = calculateAttendance();
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  const upcomingTasks = Object.entries(tasks)
+    .flatMap(([date, dateTasks]) =>
+      (dateTasks || []).map((task, index) => ({
+        ...task,
+        date,
+        index,
+      })),
+    )
+    .filter(
+      (task) =>
+        task.status !== "Completed" || completedTaskKeys.includes(`${task.date}-${task.index}`),
+    )
+    .sort((a, b) => {
+      const aOverdue = a.date < todayKey;
+      const bOverdue = b.date < todayKey;
+
+      if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+      return a.date.localeCompare(b.date);
+    });
+
+  const displayedUpcomingTasks = upcomingTasks.slice(0, 3);
 
   const addTask = () => {
     if (!newTask.trim()) return;
@@ -241,11 +268,38 @@ const Analytics = () => {
 
   const updateTaskStatus = (index, status) => {
     if (!tasks[selectedDate]) return;
+
+    const taskId = `${selectedDate}-${index}`;
+
+    if (status !== "Completed") {
+      setCompletedTaskKeys((prev) => prev.filter((id) => id !== taskId));
+    }
+
     setTasks((prev) => {
       const updated = [...prev[selectedDate]];
       updated[index].status = status;
       return { ...prev, [selectedDate]: updated };
     });
+  };
+  const updateTaskByDate = (dateKey, index, status) => {
+    setTasks((prev) => {
+      const updated = [...(prev[dateKey] || [])];
+      if (!updated[index]) return prev;
+
+      updated[index] = { ...updated[index], status };
+      return { ...prev, [dateKey]: updated };
+    });
+  };
+  const handleUpcomingTaskToggle = (task, checked) => {
+    const taskId = `${task.date}-${task.index}`;
+
+    if (checked) {
+      setCompletedTaskKeys((prev) => [...prev, taskId]);
+      updateTaskByDate(task.date, task.index, "Completed");
+    } else {
+      setCompletedTaskKeys((prev) => prev.filter((id) => id !== taskId));
+      updateTaskByDate(task.date, task.index, "Upcoming");
+    }
   };
 
   const deleteTask = (index) => {
@@ -510,6 +564,126 @@ const Analytics = () => {
             t={t}
           />
         </div>
+
+        {/* Upcoming Tasks Card */}
+        <div className="mb-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3 mb-5">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-blue-500" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {t("analytics.upcoming_card_title")}
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("calendar")}
+              className="flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              {t("analytics.achievements.view_all")}
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {displayedUpcomingTasks.length > 0 ? (
+            <div className="space-y-3">
+              {displayedUpcomingTasks.map((task) => {
+                const taskId = `${task.date}-${task.index}`;
+                const isChecked = completedTaskKeys.includes(taskId);
+                const isOverdue = task.date < todayKey;
+
+                const taskDate = new Date(`${task.date}T00:00:00`);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const tomorrowKey = formatDateKey(tomorrow);
+
+                const dueLabel =
+                  task.date === todayKey
+                    ? t("analytics.due_today")
+                    : task.date === tomorrowKey
+                      ? t("analytics.due_tomorrow")
+                      : taskDate.toLocaleDateString(i18n.language, {
+                          day: "numeric",
+                          month: "short",
+                        });
+
+                return (
+                  <div
+                    key={taskId}
+                    className="flex items-center gap-3 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => handleUpcomingTaskToggle(task, e.target.checked)}
+                      aria-label={task.text}
+                      className="w-4 h-4 shrink-0 cursor-pointer accent-blue-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentDate(
+                          new Date(
+                            Number(task.date.slice(0, 4)),
+                            Number(task.date.slice(5, 7)) - 1,
+                            1,
+                          ),
+                        );
+                        setSelectedDate(task.date);
+                        setActiveTab("calendar");
+                      }}
+                      aria-label={task.text}
+                      className="min-w-0 flex-1 flex items-center justify-between gap-2 text-left rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={`block truncate text-sm font-medium ${
+                            isChecked
+                              ? "line-through text-gray-400"
+                              : "text-gray-800 dark:text-gray-100"
+                          }`}
+                        >
+                          {task.text}
+                        </span>
+
+                        <span
+                          className={`mt-1 block text-xs ${
+                            isOverdue ? "text-red-500" : "text-gray-500 dark:text-gray-400"
+                          }`}
+                        >
+                          {isOverdue
+                            ? `${t("analytics.overdue")} · ${taskDate.toLocaleDateString(
+                                i18n.language,
+                                { day: "numeric", month: "short" },
+                              )}`
+                            : dueLabel}
+                        </span>
+                      </span>
+
+                      <ArrowRight className="w-4 h-4 shrink-0 text-gray-400" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-6 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                {t("analytics.no_upcoming_tasks")}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("calendar")}
+                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                + {t("analytics.add_task")}
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Tab Navigation */}
         <div className="flex gap-2 mb-6 border-b border-[#CCCCCC] dark:border-gray-700">
           <button
