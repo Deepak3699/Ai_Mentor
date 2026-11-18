@@ -151,6 +151,21 @@ Ai_Mentor/
 └── README.md                Repository overview
 ```
 
+### Service directory glossary
+
+Each top-level folder is a separate application with its own `package.json` (or `requirements.txt` for the AI service). Run them together with `npm run dev`, or one at a time with the command in the last column.
+
+| Folder           | Purpose                                          | Entry points                                                                                                        | Key responsibilities                                                                                                                                                   | Dev command (from the repo root) |
+| ---------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `backend/`       | Learner-facing API (port 5000)                   | `backend/server.js`                                                                                                 | Express routes under `/api/*` (auth, courses, payments, AI, chat, flashcards, community, certificates, and more), Sequelize models, BullMQ video queue, jobs           | `npm run dev:backend`            |
+| `backendAdmin/`  | Administrator API (port 5001)                    | `backendAdmin/server.js`                                                                                            | Admin routes under `/api/admin`, plus controllers for users, courses, syllabi, course reports, and notifications                                                       | `npm run dev:backend-admin`      |
+| `frontend/`      | Learner web app (port 5173)                      | `frontend/vite.config.js` (Vite config), `frontend/src/main.jsx` (app entry), `frontend/src/App.jsx`                | Learner pages and components, routing, Firebase sign-in, translations; proxies `/api` to `VITE_API_BASE_URL`                                                           | `npm run dev:frontend`           |
+| `frontendAdmin/` | Administrator web app (port 5174)                | `frontendAdmin/vite.config.js` (Vite config), `frontendAdmin/src/main.jsx` (app entry), `frontendAdmin/src/App.jsx` | Admin pages and components, routing, theming; proxies `/api` to `VITE_API_BASE_URL`                                                                                    | `npm run dev:frontend-admin`     |
+| `ai_service/`    | Python FastAPI AI generation service (port 8000) | `ai_service/backend/graceful_server.py` (starts Uvicorn), `ai_service/backend/main.py` (FastAPI `app`)              | Versioned API in `backend/api/v1/endpoints` (lessons, syllabus, quiz, flashcards, code, voices, jobs), the lesson pipeline, media processing with FFmpeg, job tracking | `npm run dev:ai`                 |
+| `scripts/`       | Root helper scripts                              | `scripts/install-dependencies.cjs`, `scripts/dev-runner.cjs`                                                        | `npm run setup` installs every service; `npm run dev*` starts them. Also holds shell scripts such as `smoke-test.sh` and `review-pr.sh`                                | `npm run setup`, `npm run dev`   |
+
+The two Vite configs are the frontend entry points for tooling (dev server port and `/api` proxy). The browser entry is each app's `src/main.jsx`. In `ai_service/`, `graceful_server.py` is the file the dev runner executes from `ai_service/backend`.
+
 ## Prerequisites
 
 Install the following before setting up the repository:
