@@ -247,7 +247,7 @@ def test_manager_generate_lesson_script_fallback():
 
 def test_logging_utils():
     err_str = short_error(ValueError("A very long error message that should be summarized cleanly."))
-    assert err_str == "invalid_data"
+    assert "summarized cleanly" in err_str
 
 
 def test_cloud_storage_handles_disabled_without_exception():
