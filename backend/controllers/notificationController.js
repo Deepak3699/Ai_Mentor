@@ -1,6 +1,9 @@
 import Notification from "../models/Notification.js";
 import { sendServerError, describeError } from "../utils/apiError.js";
 import { AppError, NotFoundError, forwardError } from "../utils/error.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("NOTIFICATION");
 
 // @desc    Get unread notification count
 // @route   GET /api/notifications/unread-count
@@ -112,7 +115,7 @@ export const createNotification = async (
 
     return notification;
   } catch (error) {
-    console.error("Error creating notification:", JSON.stringify(describeError(error)));
+    log.error({ ...describeError(error) }, "Error creating notification");
 
     if (transaction) {
       throw error;

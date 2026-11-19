@@ -7,6 +7,9 @@ import {
   NotFoundError,
   forwardError,
 } from "../utils/error.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("CERTIFICATE");
 
 const normalizeName = (name = "") => {
   return name
@@ -113,7 +116,7 @@ export const getCertificates = async (req, res, next) => {
 
     res.json({ stats, courses: coursesData });
   } catch (err) {
-    console.error("Error fetching certificates:", err);
+    log.error({ err, reqId: req.id }, "Error fetching certificates");
     return forwardError(
       next,
       res,
@@ -215,7 +218,7 @@ export const generateCertificate = async (req, res, next) => {
     res.setHeader("Content-Disposition", `attachment; filename=Certificate_${courseId}.pdf`);
     res.send(Buffer.from(pdfBytes));
   } catch (err) {
-    console.error("Error generating certificate pdf:", err);
+    log.error({ err, reqId: req.id }, "Error generating certificate PDF");
     return forwardError(
       next,
       res,

@@ -1,6 +1,9 @@
 import fs from "fs";
 import { Sequelize } from "sequelize";
 import dotenv from "dotenv";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("DB");
 
 const isTestEnvironment = process.env.NODE_ENV === "test";
 const isProduction = process.env.NODE_ENV === "production";
@@ -115,9 +118,9 @@ if (isTestEnvironment) {
 async function connectDB() {
   try {
     await sequelize.authenticate();
-    console.log("✅ Database connected successfully.");
+    log.info("Database connected successfully.");
   } catch (error) {
-    console.error("❌ Database connection failed:", error.message);
+    log.error({ err: error }, "Database connection failed");
     throw error;
   }
 }

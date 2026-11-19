@@ -7,6 +7,9 @@ import { createNotification } from "./notificationController.js";
 import AdminNotification from "../models/AdminNotification.js";
 import { sequelize } from "../config/db.js";
 import { sendServerError } from "../utils/apiError.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("COMMUNITY");
 import {
   AppError,
   ConflictError,
@@ -48,7 +51,7 @@ const getCourseCommunityStats = async (req, res, next) => {
 
     res.json(Object.values(courseMap));
   } catch (error) {
-    console.error("GET COURSE COMMUNITY STATS ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Get course community stats error");
     return forwardError(
       next,
       res,
@@ -118,7 +121,7 @@ const getCourseDiscussions = async (req, res, next) => {
     res.set("X-Pages", Math.ceil(count / sanitizedLimit));
     res.json(posts);
   } catch (error) {
-    console.error("GET COURSE DISCUSSIONS ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Get course discussions error");
     return forwardError(
       next,
       res,
@@ -177,7 +180,7 @@ const getGlobalDiscussions = async (req, res, next) => {
     res.set("X-Pages", Math.ceil(count / sanitizedLimit));
     res.json(posts);
   } catch (error) {
-    console.error("GET GLOBAL DISCUSSIONS ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Get global discussions error");
     return forwardError(
       next,
       res,
@@ -255,7 +258,7 @@ const createCommunityPost = async (req, res, next) => {
 
     res.status(201).json(populated);
   } catch (error) {
-    console.error("CREATE COMMUNITY POST ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Create community post error");
     return forwardError(
       next,
       res,
@@ -323,7 +326,7 @@ const editCommunityPost = async (req, res, next) => {
 
     res.json(updated);
   } catch (error) {
-    console.error("EDIT COMMUNITY POST ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Edit community post error");
     return forwardError(
       next,
       res,
@@ -385,7 +388,7 @@ const deleteCommunityPost = async (req, res, next) => {
     });
     res.json({ message: "Post deleted successfully" });
   } catch (error) {
-    console.error("DELETE COMMUNITY POST ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Delete community post error");
     return forwardError(
       next,
       res,
@@ -441,7 +444,7 @@ const likeCommunityPost = async (req, res, next) => {
 
     res.json(updated);
   } catch (error) {
-    console.error("LIKE COMMUNITY POST ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Like community post error");
     return forwardError(
       next,
       res,
@@ -497,7 +500,7 @@ const dislikeCommunityPost = async (req, res, next) => {
 
     res.json(updated);
   } catch (error) {
-    console.error("DISLIKE COMMUNITY POST ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Dislike community post error");
     return forwardError(
       next,
       res,
@@ -583,7 +586,7 @@ const replyCommunityPost = async (req, res, next) => {
 
     res.json(updated);
   } catch (error) {
-    console.error("REPLY COMMUNITY POST ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Reply community post error");
     return forwardError(
       next,
       res,
@@ -637,7 +640,7 @@ const getAllCoursePosts = async (req, res, next) => {
     res.set("X-Pages", Math.ceil(count / sanitizedLimit));
     res.json(posts);
   } catch (error) {
-    console.error("GET ALL COURSE POSTS ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Get all course posts error");
     return forwardError(
       next,
       res,
@@ -743,7 +746,7 @@ const reportContent = async (req, res, next) => {
 
     res.status(201).json({ message: "Report submitted successfully", report });
   } catch (error) {
-    console.error("REPORT CONTENT ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Report content error");
     return forwardError(
       next,
       res,
@@ -779,7 +782,7 @@ const getReports = async (_req, res, next) => {
 
     res.json(reports);
   } catch (error) {
-    console.error("GET REPORTS ERROR:", error);
+    log.error({ err: error }, "Get reports error");
     return forwardError(
       next,
       res,
@@ -978,7 +981,7 @@ const editReply = async (req, res, next) => {
 
     res.json(updated);
   } catch (error) {
-    console.error("EDIT REPLY ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Edit reply error");
     return forwardError(
       next,
       res,
@@ -1036,7 +1039,7 @@ const deleteReply = async (req, res, next) => {
 
     res.json(updated);
   } catch (error) {
-    console.error("DELETE REPLY ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Delete reply error");
     return forwardError(
       next,
       res,
@@ -1098,7 +1101,7 @@ const unhideContent = async (req, res, next) => {
       post: updated,
     });
   } catch (error) {
-    console.error("UNHIDE CONTENT ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Unhide content error");
     return forwardError(
       next,
       res,

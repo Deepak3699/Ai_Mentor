@@ -3,6 +3,9 @@ import { sequelize } from "../config/db.js";
 import { sendServerError, logServerError, dependencyFailure } from "../utils/apiError.js";
 import { courseDuration } from "../utils/courseDuration.js";
 import { AppError, ForbiddenError, NotFoundError, forwardError } from "../utils/error.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("COURSE");
 
 /* =========================
    HELPERS
@@ -69,7 +72,7 @@ const getCourses = async (req, res, next) => {
     // Directly return the mapped array so the frontend doesn't break
     res.json(rows.map(formatCourse));
   } catch (error) {
-    console.error("GET COURSES ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Get courses error");
     return forwardError(
       next,
       res,
@@ -101,7 +104,7 @@ const getCourseById = async (req, res, next) => {
 
     res.json(formatCourse(course));
   } catch (error) {
-    console.error("GET COURSE BY ID ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Get course by ID error");
     return forwardError(
       next,
       res,
@@ -160,7 +163,7 @@ const getMyCourses = async (req, res) => {
       })),
     );
   } catch (error) {
-    console.error("MY COURSES ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "My courses error");
     res.status(500).json({
       success: false,
       message: "Failed to fetch your courses. Please try again.",
@@ -279,7 +282,7 @@ const getCourseLearningData = async (req, res, next) => {
       currentLesson,
     });
   } catch (error) {
-    console.error("GET COURSE LEARNING DATA ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Get course learning data error");
     return forwardError(
       next,
       res,
@@ -315,7 +318,7 @@ const getCourseAndLessonTitles = async (courseId, lessonId) => {
       lessonTitle: lesson.title || null,
     };
   } catch (error) {
-    console.error("Error reading course/lesson titles:", error);
+    log.error({ err: error }, "Error reading course/lesson titles");
     return null;
   }
 };
@@ -334,7 +337,7 @@ const getStatsCards = async (req, res, next) => {
       certificates: 0,
     });
   } catch (error) {
-    console.error("GET STATS CARDS ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Get stats cards error");
     return forwardError(
       next,
       res,

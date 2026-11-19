@@ -1,5 +1,8 @@
 import { CalendarTask } from "../models/modelAssociations.js";
 import { AppError, NotFoundError, forwardError } from "../utils/error.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("CALENDAR");
 // @desc Get all calendar tasks for user
 // @route GET /api/calendar-tasks
 // @access Private
@@ -12,7 +15,7 @@ export const getCalendarTasks = async (req, res, next) => {
     });
     res.status(200).json(tasks);
   } catch (error) {
-    console.error("GET CALENDAR TASKS ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Get calendar tasks error");
     return forwardError(
       next,
       res,
@@ -41,7 +44,7 @@ export const createCalendarTask = async (req, res, next) => {
     });
     res.status(201).json(task);
   } catch (error) {
-    console.error("CREATE CALENDAR TASK ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Create calendar task error");
     return forwardError(
       next,
       res,
@@ -72,7 +75,7 @@ export const updateCalendarTask = async (req, res, next) => {
     await task.save();
     res.status(200).json(task);
   } catch (error) {
-    console.error("UPDATE CALENDAR TASK ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Update calendar task error");
     return forwardError(
       next,
       res,
@@ -100,7 +103,7 @@ export const deleteCalendarTask = async (req, res, next) => {
     await task.destroy();
     res.status(200).json({ success: true, message: "Task deleted successfully" });
   } catch (error) {
-    console.error("DELETE CALENDAR TASK ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Delete calendar task error");
     return forwardError(
       next,
       res,

@@ -1,13 +1,16 @@
 import cron from "node-cron";
 import { Op } from "sequelize";
 import User from "../models/User.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("TOKEN_CLEANUP");
 
 export const cleanupExpiredTokens = async () => {
   const [count] = await User.update(
     { resetPasswordToken: null, resetPasswordExpires: null },
     { where: { resetPasswordExpires: { [Op.lt]: new Date() } } },
   );
-  console.log(`[token-cleanup] cleared ${count} expired reset tokens`);
+  log.info({ count }, `Cleared ${count} expired reset tokens`);
   return count;
 };
 
@@ -16,8 +19,8 @@ export const startTokenCleanup = () => {
     try {
       await cleanupExpiredTokens();
     } catch (err) {
-      console.error("[token-cleanup] failed:", err);
+      log.error({ err }, "[token-cleanup] failed");
     }
   });
-  console.log("[token-cleanup] scheduler started");
+  log.info("Token cleanup scheduler started");
 };

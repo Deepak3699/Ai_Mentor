@@ -1,6 +1,9 @@
 import rateLimit from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 import Redis from "ioredis";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("AI_RATE_LIMIT");
 
 const DEFAULT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const DEFAULT_MAX_REQUESTS = 5;
@@ -65,7 +68,7 @@ export class FailClosedRedisStoreWrapper {
         this.policy === "degraded" ||
         process.env.ALLOW_IN_MEMORY_RATE_LIMIT_FALLBACK === "true"
       ) {
-        console.warn(
+        log.warn(
           "[AI Rate Limit] Redis store unavailable; falling back to in-memory mode per degraded policy.",
         );
         const now = Date.now();
@@ -79,7 +82,7 @@ export class FailClosedRedisStoreWrapper {
       }
 
       // Default production policy: fail-closed (reject expensive requests safely)
-      console.warn("[AI Rate Limit] Redis rate limit store error; enforcing fail-closed policy.");
+      log.warn("[AI Rate Limit] Redis rate limit store error; enforcing fail-closed policy.");
       return {
         totalHits: Number.MAX_SAFE_INTEGER,
         resetTime: new Date(Date.now() + this.windowMs),
@@ -183,11 +186,11 @@ export const createAIRateLimiter = (options = {}) => {
         throw new Error("[AI Rate Limit] Redis rate limit store failed to initialize on startup");
       }
       if (policy === "degraded" || process.env.ALLOW_IN_MEMORY_RATE_LIMIT_FALLBACK === "true") {
-        console.warn(
+        log.warn(
           "[AI Rate Limit] Redis store initialization failed; falling back to in-memory store per degraded policy.",
         );
       } else {
-        console.warn(
+        log.warn(
           "[AI Rate Limit] Redis store initialization failed; enforcing fail-closed policy.",
         );
         store = new FailClosedRedisStoreWrapper(null, "fail-closed", parsed.windowMs);
@@ -224,8 +227,9 @@ export const createAIRateLimiter = (options = {}) => {
         safeRetrySeconds < 60 ? `${safeRetrySeconds} second(s)` : `${retryMinutes} minute(s)`;
 
       // Safe logging: log event without raw user IDs, raw IPs, or raw error details
-      console.warn(
-        `[AI Rate Limit] Rate limit exceeded on ${req.method} ${req.originalUrl || req.url}`,
+      log.warn(
+        { method: req.method, route: req.originalUrl || req.url },
+        "[AI Rate Limit] Rate limit exceeded",
       );
 
       return res.status(429).json({
