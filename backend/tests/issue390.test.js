@@ -58,20 +58,13 @@ const response = () => {
   };
 };
 
-const askAssistant = async (
-  reply,
-  message = "Explain closures",
-  route = null,
-) => {
+const askAssistant = async (reply, message = "Explain closures", route = null) => {
   generatedText = reply;
   generatedRoute = route;
 
   const { state, res } = response();
 
-  await chatWithAssistant(
-    { user: { id: "user-1" }, body: { message } },
-    res,
-  );
+  await chatWithAssistant({ user: { id: "user-1" }, body: { message } }, res);
 
   return state;
 };
@@ -132,10 +125,7 @@ test("open-ended learning recommendations use AI service with learner context", 
   );
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, "http://127.0.0.1:8000/assistant/chat");
-  assert.equal(
-    requests[0].body.message,
-    "Can you recommend beginner React projects?",
-  );
+  assert.equal(requests[0].body.message, "Can you recommend beginner React projects?");
   assert.equal(requests[0].headers["x-service-key"], "test-service-key");
   assert.match(requests[0].body.context, /Machine learning/);
   assert.match(requests[0].body.context, /Beginner/);
@@ -179,11 +169,7 @@ test("unknown, external, protocol-relative and traversal routes are rejected", a
   ];
 
   for (const candidate of rejectedRoutes) {
-    const state = await askAssistant(
-      "Helpful answer.",
-      "Open the requested page",
-      candidate,
-    );
+    const state = await askAssistant("Helpful answer.", "Open the requested page", candidate);
 
     assert.equal(state.body.route, null, `${candidate} must be rejected`);
     assert.equal(state.body.reply, "Helpful answer.");
@@ -199,11 +185,7 @@ test("query-string, fragment, trailing-slash and case variants are rejected", as
   ];
 
   for (const candidate of rejectedRoutes) {
-    const state = await askAssistant(
-      "Helpful answer.",
-      "Open the requested page",
-      candidate,
-    );
+    const state = await askAssistant("Helpful answer.", "Open the requested page", candidate);
 
     assert.equal(state.body.route, null, `${candidate} must be rejected`);
   }
@@ -211,11 +193,7 @@ test("query-string, fragment, trailing-slash and case variants are rejected", as
 
 test("null and empty routes are rejected", async () => {
   for (const candidate of [null, "", "   ", "/"]) {
-    const state = await askAssistant(
-      "Helpful answer.",
-      "Open the requested page",
-      candidate,
-    );
+    const state = await askAssistant("Helpful answer.", "Open the requested page", candidate);
 
     assert.equal(state.body.route, null);
     assert.equal(state.body.reply, "Helpful answer.");
@@ -236,11 +214,7 @@ test("an approved route is returned with its visible reply", async () => {
 });
 
 test("an unapproved route never reaches the client payload", async () => {
-  const state = await askAssistant(
-    "Try this.",
-    "Open admin",
-    "/admin",
-  );
+  const state = await askAssistant("Try this.", "Open admin", "/admin");
 
   assert.deepEqual(state.body, {
     reply: "Try this.",

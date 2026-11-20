@@ -6,7 +6,8 @@ const TIMEOUT_MS = 20000;
 
 const MESSAGES = {
   config: "The AI Assistant is currently offline. Please try again later.",
-  rate_limited: "I am receiving too many requests right now. Please wait a moment and ask me again!",
+  rate_limited:
+    "I am receiving too many requests right now. Please wait a moment and ask me again!",
   unavailable: "The AI service is temporarily unavailable. Please try again shortly.",
   timeout: "The AI service took too long to respond. Please try again shortly.",
   network: "The AI service is temporarily unavailable. Please try again shortly.",
@@ -47,10 +48,7 @@ export const askAssistantAI = async ({ context, message, history = [], requestId
               ? "unavailable"
               : "generic";
 
-      logger.warn(
-        { requestId, category, status: response.status },
-        "Assistant AI request failed",
-      );
+      logger.warn({ requestId, category, status: response.status }, "Assistant AI request failed");
 
       return {
         ok: false,
@@ -94,14 +92,9 @@ export const askAssistantAI = async ({ context, message, history = [], requestId
     };
   } catch (error) {
     const category =
-      error.name === "TimeoutError" || error.name === "AbortError"
-        ? "timeout"
-        : "network";
+      error.name === "TimeoutError" || error.name === "AbortError" ? "timeout" : "network";
 
-    logger.warn(
-      { requestId, category },
-      "Assistant AI request failed",
-    );
+    logger.warn({ requestId, category }, "Assistant AI request failed");
 
     return {
       ok: false,
