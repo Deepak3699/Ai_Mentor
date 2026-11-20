@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 
 const probe = `
-  const [{ sequelize }, { default: cloudinary }, { default: admin }] = await Promise.all([
+  const [{ sequelize }, { default: cloudinary }, { getApps }] = await Promise.all([
     import("./config/db.js"),
     import("./config/cloudinary.js"),
     import("firebase-admin"),
@@ -14,7 +14,7 @@ const probe = `
     database: sequelize.config.database,
     host: sequelize.config.host,
     cloudName: cloudinaryConfig.cloud_name ?? null,
-    firebaseApps: admin.apps.length,
+    firebaseApps: getApps().length,
   }));
 `;
 
