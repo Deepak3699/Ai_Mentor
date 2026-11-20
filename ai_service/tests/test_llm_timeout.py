@@ -3,6 +3,7 @@ import http.server
 import json
 import threading
 import time
+import httpx2
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
