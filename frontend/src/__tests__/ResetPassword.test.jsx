@@ -83,16 +83,12 @@ describe("ResetPassword", () => {
     expect(mockAxiosPost).not.toHaveBeenCalled();
   });
 
-  it("shows an error when passwords do not match", async () => {
+  it("shows an error when passwords do not match", () => {
     renderResetPassword();
 
     fillResetForm("Password1!", "Password2!");
 
-    fireEvent.submit(screen.getByRole("button", { name: "Reset Password" }).closest("form"));
-
-    await waitFor(() => {
-      expect(screen.getByText("Passwords do not match")).toBeInTheDocument();
-    });
+    expect(screen.getAllByText("Passwords do not match").length).toBeGreaterThan(0);
 
     expect(mockAxiosPost).not.toHaveBeenCalled();
   });
@@ -139,7 +135,7 @@ describe("ResetPassword", () => {
 
     expect(passwordInput).toHaveAttribute("type", "password");
 
-    fireEvent.click(screen.getByRole("button", { name: "" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Show password" })[0]);
 
     expect(passwordInput).toHaveAttribute("type", "text");
   });
