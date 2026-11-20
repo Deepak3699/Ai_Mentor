@@ -11,6 +11,9 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 # LLM call timeout in seconds
 LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "60") or "60")
 
+# Maximum concurrent lesson-generation jobs
+MAX_ACTIVE_LESSON_JOBS = int(os.getenv("MAX_ACTIVE_LESSON_JOBS", "2") or "2")
+
 # Optional: Fallback AI provider
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
@@ -37,4 +40,5 @@ def validate_config():
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is required for the AI service.")
 
-
+    if MAX_ACTIVE_LESSON_JOBS < 1:
+        raise ValueError("MAX_ACTIVE_LESSON_JOBS must be at least 1.")
