@@ -1,4 +1,5 @@
 import os
+import threading
 import sys
 import asyncio
 import inspect
@@ -51,6 +52,12 @@ def test_tts_execution_awaited():
         celebrity="Modi"
     )
     base_filename = "test_tts_123"
+    main_thread_id = threading.get_ident()
+    generation_thread_ids = []
+
+    def mock_generate_content(*args, **kwargs):
+        generation_thread_ids.append(threading.get_ident())
+        return mock_gemini_resp
 
     mock_gemini_resp = MagicMock()
     mock_gemini_resp.text = "This is a test script explanation of asyncio."
@@ -59,7 +66,7 @@ def test_tts_execution_awaited():
     mock_proc.returncode = 0
     mock_proc.communicate.return_value = (b"", b"")
 
-    with patch.object(api.gemini_client.models, "generate_content", return_value=mock_gemini_resp), \
+    with patch.object(api.gemini_client.models, "generate_content", side_effect=mock_generate_content), \
          patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, \
          patch("api.create_avatar_video", side_effect=Exception("D-ID disabled")), \
          patch("os.path.exists", side_effect=lambda p: False if p.endswith(".mp3") else True), \
@@ -69,6 +76,8 @@ def test_tts_execution_awaited():
 
         asyncio.run(process_lesson(req, base_filename))
         mock_tts.assert_awaited_once()
+        assert generation_thread_ids
+        assert generation_thread_ids[0] != main_thread_id
 
 
 
