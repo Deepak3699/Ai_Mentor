@@ -9,7 +9,6 @@ import { normalizeHistory } from "../services/chatHistory.js";
 import { detectNavigation } from "../services/navigationService.js";
 import { APP_ROUTES } from "../services/routeMap.js";
 
-
 export const getChatContext = async (req, res, next) => {
   try {
     const user = await User.findByPk(req.user.id);

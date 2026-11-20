@@ -271,7 +271,6 @@ test("completed course generation returns a downloadable PDF", async () => {
   assert.equal(state.sent.subarray(0, 5).toString("ascii"), "%PDF-");
 });
 
-
 test("invalid AI service route is dropped while visible reply remains", async () => {
   const source = await import("node:fs/promises").then(({ readFile }) =>
     readFile(new URL("../controllers/chatController.js", import.meta.url), "utf8"),
