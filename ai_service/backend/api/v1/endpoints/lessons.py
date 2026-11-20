@@ -1,13 +1,12 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException
+from backend.config import MAX_ACTIVE_LESSON_JOBS
 from backend.schemas.lessons import LessonRequest
 from backend.services.job_tracker import (
-    active_jobs,
     compute_base_filename,
     compute_cache_key,
     generation_cache,
     job_status,
-    queue_job,
-    shutting_down,
+    try_queue_job,
 )
 from backend.services.lesson_pipeline import run_tracked_lesson
 
@@ -47,7 +46,17 @@ def generate_lesson(
             "cached": True,
         }
 
-    queue_job(base_filename, cache_key=cache_key, force=force)
+    if not try_queue_job(
+        base_filename,
+        cache_key=cache_key,
+        force=force,
+        max_active_jobs=MAX_ACTIVE_LESSON_JOBS,
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="Lesson generation is busy. Please try again later.",
+        )
+
     background_tasks.add_task(run_tracked_lesson, data, base_filename)
 
     return {

@@ -42,6 +42,7 @@
 - [Repository structure](#repository-structure)
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
+- [Contributor quick-start checklist](#contributor-quick-start-checklist)
 - [Environment configuration](#environment-configuration)
 - [Development commands](#development-commands)
 - [Quality and validation](#quality-and-validation)
@@ -109,7 +110,7 @@ User API / Admin API ─────────────┴──> AI servic
                               Cloudinary or local output
 ```
 
-The root development runner coordinates all five local services. It starts frontends only after their matching APIs are healthy, starts or reuses the Python AI service, and stops only processes started by the current terminal.
+The root development runner coordinates all five local services. It starts frontends only after their matching APIs are healthy, starts or reuses the Python AI service, and stops only processes started by the current terminal. For a quick startup guide, detailed service responsibilities, and direct service commands, see the [Contributor Service Map in CONTRIBUTING.md](./CONTRIBUTING.md#contributor-service-map-and-responsibilities).
 
 ## Applications and local ports
 
@@ -212,6 +213,32 @@ npm run dev:ai
 
 The runner labels AI output with `[AI/API]` and reports AI `Startup` and `Health` timing in the terminal dashboard. `Ctrl+C` stops only processes started by that terminal.
 
+## Contributor quick-start checklist
+
+Use this day-one sequence when setting up your local environment for the first time. For full variable tables and database options, see [`initalSetup.md`](./initalSetup.md); for branch and PR rules, see [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+### 1. Check prerequisites
+
+Verify these tools before cloning or running setup:
+
+- **Node.js 18+** (`node -v`, CI uses Node.js 20) and **npm** (`npm -v`)
+- **Python 3.10+** (`python --version`, CI uses Python 3.11)
+- **PostgreSQL 14+** (`psql --version`) or a [Neon](https://neon.tech) account
+- **Redis / Memurai** listening on port `6379` (required for queued AI video jobs)
+- **FFmpeg** (`ffmpeg -version`, required for AI video composition)
+- **Git** (`git --version`)
+
+### 2. Copy the five `.env` files
+
+From the repository root, copy each `.env.example` template and fill in your local values (never commit `.env` files):
+
+````bash
+cp backend/.env.example            backend/.env
+cp frontend/.env.example           frontend/.env
+cp backendAdmin/.env.example       backendAdmin/.env
+cp frontendAdmin/.env.example      frontendAdmin/.env
+cp ai_service/backend/.env.example ai_service/backend/.env
+
 ## Unified setup and development workflow
 
 | Command            | Purpose                                                 |
@@ -267,7 +294,7 @@ npm run build --prefix frontend
 npm run lint --prefix backendAdmin
 npm run test --prefix backendAdmin
 npm run build --prefix frontendAdmin
-```
+````
 
 From `ai_service/`, run Python tests with:
 
@@ -316,7 +343,7 @@ CI uses dummy frontend and AI-service values where configuration is required onl
 ## Documentation
 
 - [`initalSetup.md`](./initalSetup.md): first-time environment and database setup
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md): branch, commit, validation, review, and security workflow
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md): contributor service map, startup checklist, branch, commit, validation, review, and security workflow
 - [`backend/README.md`](./backend/README.md): user API setup and endpoints
 - [`backend/BACKEND_DOCUMENTATION.md`](./backend/BACKEND_DOCUMENTATION.md): detailed backend reference
 - [`frontend/README.md`](./frontend/README.md): learner application setup and routes
@@ -328,7 +355,7 @@ CI uses dummy frontend and AI-service values where configuration is required onl
 
 Contributions should use a focused branch and pull request. Run the relevant formatter, linter, tests, and builds before pushing. Do not push directly to `main`, bundle unrelated changes, or merge another contributor's pull request without authorization.
 
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the complete workflow, commit-message convention, secret-scanning process, and review requirements.
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the contributor service map, first-time startup guide, commit-message convention, secret-scanning process, and review requirements.
 
 ## Project context
 

@@ -6,6 +6,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import Analytics from "../pages/Analytics";
 import DateRangeSelector from "../components/DateRangeSelector";
+import { ok } from "node:assert";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const analyticsSource = readFileSync(resolve(here, "../pages/Analytics.jsx"), "utf8");
@@ -61,7 +62,7 @@ vi.mock("react-i18next", () => ({
       if (key === "analytics.hours_unit") return options?.defaultValue || "hrs";
       if (key === "analytics.total_study_time_label") return "Total Study Time";
       if (key === "analytics.loading") return "Loading...";
-
+      if (key === "common.retry") return "Try again";
       return translations[key] || options?.defaultValue || key;
     },
     i18n: { language: "en" },
@@ -76,11 +77,13 @@ describe("Analytics study hours bug fix (Issue #404)", () => {
       vi.fn((url) => {
         if (url.includes("/api/courses")) {
           return Promise.resolve({
+            ok: true,
             json: () => Promise.resolve([]),
           });
         }
         if (url.includes("/api/analytics")) {
           return Promise.resolve({
+            ok: true,
             json: () =>
               Promise.resolve({
                 studySessions: [
@@ -139,11 +142,15 @@ describe("Analytics study hours bug fix (Issue #404)", () => {
         "fetch",
         vi.fn((url) => {
           if (url.includes("/api/courses")) {
-            return Promise.resolve({ json: () => Promise.resolve([]) });
+            return Promise.resolve({
+              ok: true,
+              json: () => Promise.resolve([]),
+            });
           }
 
           if (url.includes("/api/analytics")) {
             return Promise.resolve({
+              ok: true,
               json: () =>
                 Promise.resolve({
                   studySessions: [
@@ -187,10 +194,14 @@ describe("Analytics study hours bug fix (Issue #404)", () => {
         "fetch",
         vi.fn((url) => {
           if (url.includes("/api/courses")) {
-            return Promise.resolve({ json: () => Promise.resolve([]) });
+            return Promise.resolve({
+              ok: true,
+              json: () => Promise.resolve([]),
+            });
           }
           if (url.includes("/api/analytics")) {
             return Promise.resolve({
+              ok: true,
               json: () =>
                 Promise.resolve({
                   studySessions: [
@@ -228,10 +239,14 @@ describe("Analytics study hours bug fix (Issue #404)", () => {
         "fetch",
         vi.fn((url) => {
           if (url.includes("/api/courses")) {
-            return Promise.resolve({ json: () => Promise.resolve([]) });
+            return Promise.resolve({
+              ok: true,
+              json: () => Promise.resolve([]),
+            });
           }
           if (url.includes("/api/analytics")) {
             return Promise.resolve({
+              ok: true,
               json: () => Promise.resolve({ studySessions: [] }),
             });
           }
@@ -256,6 +271,161 @@ describe("Analytics study hours bug fix (Issue #404)", () => {
       });
 
       expect(screen.getByText(/0\s*hrs/i)).toBeDefined();
+    });
+    describe("API error handling (Issue #629)", () => {
+      it("shows error state when Analytics API returns 500", async () => {
+        vi.stubGlobal(
+          "fetch",
+          vi.fn((url) => {
+            if (url.includes("/api/courses")) {
+              return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            }
+            if (url.includes("/api/analytics")) {
+              return Promise.resolve({ ok: false, status: 500 });
+            }
+            if (url.includes("/api/certificate/list")) {
+              return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            }
+          }),
+        );
+
+        render(
+          <MemoryRouter>
+            <Analytics />
+          </MemoryRouter>,
+        );
+
+        expect(await screen.findByRole("alert")).toBeDefined();
+      });
+
+      it("shows error state when Analytics API has a network failure", async () => {
+        vi.stubGlobal(
+          "fetch",
+          vi.fn((url) => {
+            if (url.includes("/api/courses")) {
+              return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            }
+            if (url.includes("/api/analytics")) {
+              return Promise.reject(new Error("Network error"));
+            }
+            if (url.includes("/api/certificate/list")) {
+              return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            }
+          }),
+        );
+
+        render(
+          <MemoryRouter>
+            <Analytics />
+          </MemoryRouter>,
+        );
+
+        expect(await screen.findByRole("alert")).toBeDefined();
+      });
+
+      it("shows error state when courses response is not an array", async () => {
+        vi.stubGlobal(
+          "fetch",
+          vi.fn((url) => {
+            if (url.includes("/api/courses")) {
+              return Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve({ invalid: true }),
+              });
+            }
+            if (url.includes("/api/analytics")) {
+              return Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve({ studySessions: [] }),
+              });
+            }
+            if (url.includes("/api/certificate/list")) {
+              return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            }
+          }),
+        );
+
+        render(
+          <MemoryRouter>
+            <Analytics />
+          </MemoryRouter>,
+        );
+
+        expect(await screen.findByRole("alert")).toBeDefined();
+      });
+
+      it("retries Analytics request when Try again is clicked", async () => {
+        let analyticsCalls = 0;
+
+        vi.stubGlobal(
+          "fetch",
+          vi.fn((url) => {
+            if (url.includes("/api/courses")) {
+              return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            }
+            if (url.includes("/api/analytics")) {
+              analyticsCalls++;
+              if (analyticsCalls === 1) {
+                return Promise.resolve({ ok: false, status: 500 });
+              }
+              return Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve({ studySessions: [] }),
+              });
+            }
+            if (url.includes("/api/certificate/list")) {
+              return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+            }
+          }),
+        );
+
+        render(
+          <MemoryRouter>
+            <Analytics />
+          </MemoryRouter>,
+        );
+
+        const retryButton = await screen.findByRole("button", {
+          name: "Try again",
+        });
+        retryButton.click();
+
+        await waitFor(() => {
+          expect(analyticsCalls).toBe(2);
+          expect(screen.queryByRole("alert")).toBeNull();
+        });
+      });
+      it("loads Analytics successfully when optional Certificates API fails", async () => {
+        vi.stubGlobal(
+          "fetch",
+          vi.fn((url) => {
+            if (url.includes("/api/courses")) {
+              return Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve([]),
+              });
+            }
+            if (url.includes("/api/analytics")) {
+              return Promise.resolve({
+                ok: true,
+                json: () => Promise.resolve({ studySessions: [] }),
+              });
+            }
+            if (url.includes("/api/certificate/list")) {
+              return Promise.reject(new Error("Certificates network error"));
+            }
+          }),
+        );
+
+        render(
+          <MemoryRouter>
+            <Analytics />
+          </MemoryRouter>,
+        );
+
+        expect(await screen.findByText("Total Study Time")).toBeDefined();
+        expect(screen.queryByRole("alert")).toBeNull();
+      });
     });
   });
   describe("DateRangeSelector", () => {
