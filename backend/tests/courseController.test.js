@@ -6,8 +6,9 @@ process.env.NODE_ENV = "test";
 const associations = await import("../models/modelAssociations.js");
 const { Course, Module, Lesson, LessonContent } = associations;
 const { sequelize } = await import("../config/db.js");
-const { addLessonsSchema } = await import("../schemas/courseSchema.js");
+const { addLessonsSchema, updateLessonVideoSchema } = await import("../schemas/courseSchema.js");
 const validate = (await import("../middleware/validate.js")).default;
+const { protect, admin } = await import("../middleware/authMiddleware.js");
 const {
   addCourse,
   addLessons,
@@ -18,6 +19,7 @@ const {
   getCourses,
   getMyCourses,
   getStatsCards,
+  updateLessonVideo,
 } = await import("../controllers/courseController.js");
 
 const originals = {
@@ -31,6 +33,7 @@ const originals = {
   moduleFindAll: Module.findAll,
   moduleMax: Module.max,
   moduleCreate: Module.create,
+  lessonFindByPk: Lesson.findByPk,
   lessonFindAll: Lesson.findAll,
   lessonMax: Lesson.max,
   lessonCreate: Lesson.create,
@@ -85,6 +88,7 @@ beforeEach(() => {
   Module.findOne = async () => ({ id: 10, courseId: 1 });
   Module.max = async () => 0;
   Module.create = async (data) => ({ id: 1, ...data });
+  Lesson.findByPk = async () => null;
   Lesson.findAll = async () => [];
   Lesson.max = async () => 0;
   Lesson.create = async (data) => ({ id: 1, ...data });
@@ -101,6 +105,7 @@ after(() => {
   Module.findOne = originals.moduleFindOne;
   Module.max = originals.moduleMax;
   Module.create = originals.moduleCreate;
+  Lesson.findByPk = originals.lessonFindByPk;
   Lesson.findAll = originals.lessonFindAll;
   Lesson.max = originals.lessonMax;
   Lesson.create = originals.lessonCreate;
@@ -643,4 +648,112 @@ test("addLessons rejects duplicate titles before opening a transaction", async (
   assert.equal(state.statusCode, 400);
   assert.equal(state.body.error.code, "BAD_REQUEST");
   assert.equal(transactionCalls, 0);
+});
+
+test("updateLessonVideo updates youtubeUrl and returns the updated lesson", async () => {
+  let saved = false;
+  const lessonRecord = {
+    id: 1,
+    moduleId: 10,
+    title: "What is React?",
+    youtubeUrl: null,
+    async save() {
+      saved = true;
+    },
+  };
+
+  Course.findByPk = async (id) => {
+    assert.equal(id, "2");
+    return course({ id: 2 });
+  };
+  Lesson.findByPk = async (id) => {
+    assert.equal(id, "1");
+    return lessonRecord;
+  };
+  Module.findOne = async (options) => {
+    assert.deepEqual(options.where, { id: 10, courseId: 2 });
+    return { id: 10, courseId: 2 };
+  };
+
+  const { state, res } = response();
+  await updateLessonVideo(
+    {
+      params: { courseId: "2", lessonId: "1" },
+      body: { videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 200);
+  assert.equal(saved, true);
+  assert.equal(lessonRecord.youtubeUrl, "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  assert.equal(state.body.youtubeUrl, "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+});
+
+test("updateLessonVideo returns 404 for missing course, missing lesson, or course/lesson mismatch", async () => {
+  let outcome = response();
+  await updateLessonVideo(
+    { params: { courseId: "999", lessonId: "1" }, body: { videoUrl: "https://example.com/v" } },
+    outcome.res,
+  );
+  assert.equal(outcome.state.statusCode, 404);
+  assert.equal(outcome.state.body.error.message, "Course not found");
+
+  Course.findByPk = async () => course({ id: 2 });
+  outcome = response();
+  await updateLessonVideo(
+    { params: { courseId: "2", lessonId: "999" }, body: { videoUrl: "https://example.com/v" } },
+    outcome.res,
+  );
+  assert.equal(outcome.state.statusCode, 404);
+  assert.equal(outcome.state.body.error.message, "Lesson not found");
+
+  let saveCalled = false;
+  Lesson.findByPk = async () => ({
+    id: 1,
+    moduleId: 99,
+    async save() {
+      saveCalled = true;
+    },
+  });
+  Module.findOne = async () => null;
+  outcome = response();
+  await updateLessonVideo(
+    { params: { courseId: "2", lessonId: "1" }, body: { videoUrl: "https://example.com/v" } },
+    outcome.res,
+  );
+  assert.equal(outcome.state.statusCode, 404);
+  assert.equal(outcome.state.body.error.message, "Lesson does not belong to the specified course");
+  assert.equal(saveCalled, false);
+});
+
+test("updateLessonVideo validation rejects invalid videoUrl", () => {
+  const { state, res } = response();
+  let nextCalled = false;
+
+  validate(updateLessonVideoSchema)({ body: { videoUrl: "not-a-valid-url" } }, res, () => {
+    nextCalled = true;
+  });
+
+  assert.equal(state.statusCode, 400);
+  assert.equal(state.body.error.message, "Validation failed");
+  assert.equal(nextCalled, false);
+});
+
+test("updateLessonVideo route middleware blocks unauthenticated and non-admin users", async () => {
+  const unauthOutcome = response();
+  let unauthNext = false;
+  await protect({ headers: {} }, unauthOutcome.res, () => {
+    unauthNext = true;
+  });
+  assert.equal(unauthOutcome.state.statusCode, 401);
+  assert.equal(unauthNext, false);
+
+  const nonAdminOutcome = response();
+  let adminNext = false;
+  admin({ user: { role: "user" } }, nonAdminOutcome.res, () => {
+    adminNext = true;
+  });
+  assert.equal(nonAdminOutcome.state.statusCode, 403);
+  assert.equal(adminNext, false);
 });
