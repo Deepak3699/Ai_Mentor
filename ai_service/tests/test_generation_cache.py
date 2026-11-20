@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from unittest.mock import patch
-from fastapi import BackgroundTasks
+from fastapi import BackgroundTasks, HTTPException
 
 # Preserve environment state while importing api with dummy configuration.
 _dummy_env = {
@@ -32,16 +32,20 @@ finally:
 backend_dir = Path(__file__).resolve().parent.parent / "backend"
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
-
+from backend.services.job_tracker import active_jobs
 
 
 @pytest.fixture(autouse=True)
 def clear_generation_caches():
     api.generation_cache.clear()
     api.job_status.clear()
+    active_jobs.clear()
+
     yield
+
     api.generation_cache.clear()
     api.job_status.clear()
+    active_jobs.clear()
 
 
 def make_request(**overrides):
@@ -96,6 +100,17 @@ def test_nested_preferences_are_canonicalized_for_cache_key():
 
     assert second["cached"] is True
     assert second["jobId"] == first["jobId"]
+
+
+def test_max_active_jobs_returns_503_when_limit_reached():
+    generate(make_request(topic="Job 1"))
+    generate(make_request(topic="Job 2"))
+
+    with pytest.raises(HTTPException) as exc_info:
+        generate(make_request(topic="Job 3"))
+
+    assert exc_info.value.status_code == 503
+    assert "busy" in exc_info.value.detail.lower()
 
 
 @pytest.mark.parametrize(

@@ -45,7 +45,7 @@ Generated media is temporary when Cloudinary delivery succeeds. The service remo
 
 The local environment requires:
 
-- Python available through `python`
+- Python 3.11 available through `python`
 - FFmpeg available on `PATH`
 - Redis or Memurai listening on port `6379` for queued video generation
 - `ai_service/backend/.env` with a real `GEMINI_API_KEY`
@@ -71,6 +71,26 @@ To set up the complete repository, including all Node and React applications, ru
 
 ```bash
 npm run setup
+```
+
+### Python Version
+
+The AI service requires **Python 3.11**.
+
+### Installing Dependencies
+
+The setup command `npm run setup:ai` automatically installs the AI service production dependencies.
+
+To install dependencies manually:
+
+```bash
+python -m pip install -r ai_service/backend/requirements.txt
+```
+
+To install development dependencies required for testing:
+
+```bash
+python -m pip install -r ai_service/backend/requirements-dev.txt
 ```
 
 ## Configuration
