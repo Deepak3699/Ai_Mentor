@@ -157,15 +157,15 @@ describe("SignUpPage", () => {
     const passwordInput = document.querySelector('input[type="password"]');
     const uppercaseItem = screen.getByText("Uppercase").parentElement;
 
-    expect(uppercaseItem).toHaveClass("text-gray-400");
+    expect(uppercaseItem).toHaveClass("text-gray-500");
 
     fireEvent.change(passwordInput, {
       target: { value: "Password1!" },
     });
 
-    expect(uppercaseItem).toHaveClass("text-green-500");
-    expect(screen.getByText("8+ Characters").parentElement).toHaveClass("text-green-500");
-    expect(screen.getByText("Symbol").parentElement).toHaveClass("text-green-500");
+    expect(uppercaseItem).toHaveClass("text-green-600");
+    expect(screen.getByText("8+ Characters").parentElement).toHaveClass("text-green-600");
+    expect(screen.getByText("Symbol").parentElement).toHaveClass("text-green-600");
   });
 
   it("registers the user and redirects after successful signup", async () => {

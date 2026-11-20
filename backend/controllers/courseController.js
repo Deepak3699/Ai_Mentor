@@ -376,18 +376,39 @@ const deleteCourse = async (req, res, next) => {
   }
 };
 
-const updateLessonVideo = async (_req, _res, next) => {
-  return forwardError(
-    next,
-    _res,
-    new AppError(
-      "Not Implemented",
-      501,
-      "NOT_IMPLEMENTED",
-      [],
-      "updateLessonVideo not implemented",
-    ),
-  );
+const updateLessonVideo = async (req, res, next) => {
+  try {
+    const { courseId, lessonId } = req.params;
+    const { videoUrl } = req.body;
+
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return forwardError(next, res, new NotFoundError("Course not found"));
+    }
+
+    const lesson = await Lesson.findByPk(lessonId);
+    if (!lesson) {
+      return forwardError(next, res, new NotFoundError("Lesson not found"));
+    }
+
+    const module = await Module.findOne({
+      where: { id: lesson.moduleId, courseId: course.id },
+    });
+    if (!module) {
+      return forwardError(
+        next,
+        res,
+        new NotFoundError("Lesson does not belong to the specified course"),
+      );
+    }
+
+    lesson.youtubeUrl = videoUrl;
+    await lesson.save();
+
+    return res.json(lesson);
+  } catch (error) {
+    return sendServerError(req, res, error, "courseController.updateLessonVideo");
+  }
 };
 
 const addSubtopics = async (_req, _res, next) => {

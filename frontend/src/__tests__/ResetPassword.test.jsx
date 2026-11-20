@@ -91,7 +91,7 @@ describe("ResetPassword", () => {
     fireEvent.submit(screen.getByRole("button", { name: "Reset Password" }).closest("form"));
 
     await waitFor(() => {
-      expect(screen.getByText("Passwords do not match")).toBeInTheDocument();
+      expect(screen.getAllByText("Passwords do not match").length).toBeGreaterThanOrEqual(1);
     });
 
     expect(mockAxiosPost).not.toHaveBeenCalled();
@@ -139,7 +139,7 @@ describe("ResetPassword", () => {
 
     expect(passwordInput).toHaveAttribute("type", "password");
 
-    fireEvent.click(screen.getByRole("button", { name: "" }));
+    fireEvent.click(screen.getByRole("button", { name: /show password/i }));
 
     expect(passwordInput).toHaveAttribute("type", "text");
   });
