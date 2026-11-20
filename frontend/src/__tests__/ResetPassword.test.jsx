@@ -83,7 +83,7 @@ describe("ResetPassword", () => {
     expect(mockAxiosPost).not.toHaveBeenCalled();
   });
 
-  it("shows an error when passwords do not match", async () => {
+  it("shows an error when passwords do not match", () => {
     renderResetPassword();
 
     fillResetForm("Password1!", "Password2!");
