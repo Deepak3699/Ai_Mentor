@@ -1,18 +1,13 @@
+import { askAssistantAI } from "../services/assistantAIService.js";
+import { buildUserContext } from "../services/contextBuilder.js";
 import User from "../models/User.js";
 import Lesson from "../models/Lesson.js";
 import Preference from "../models/Preference.js";
 import { AppError, forwardError } from "../utils/error.js";
-// import { GoogleGenAI } from "@google/genai";
 import { detectIntent } from "../services/intentService.js";
-import { buildUserContext } from "../services/contextBuilder.js";
-import { askGemini } from "../services/geminiChatService.js";
 import { normalizeHistory } from "../services/chatHistory.js";
 import { detectNavigation } from "../services/navigationService.js";
 import { APP_ROUTES } from "../services/routeMap.js";
-
-// const ai = new GoogleGenAI({
-//   apiKey: process.env.GEMINI_API_KEY,
-// });
 
 export const getChatContext = async (req, res, next) => {
   try {
@@ -222,15 +217,19 @@ export const chatWithAssistant = async (req, res, next) => {
 
     const context = buildUserContext(user, preferences);
 
-    const result = await askGemini(context, message, { requestId: req.id, history });
+    const result = await askAssistantAI({
+      context,
+      message,
+      history,
+      requestId: req.id,
+    });
     if (!result.ok) {
       return res.json({ reply: result.message, route: null, error: result.category });
     }
-    const routeMatch = result.text.match(/ROUTE:([^\r\n]*)/i);
-    const requestedRoute = routeMatch ? routeMatch[1].trim() : null;
     const route =
-      requestedRoute && Object.values(APP_ROUTES).includes(requestedRoute) ? requestedRoute : null;
-    const cleanedReply = result.text.replace(/ROUTE:[^\r\n]*/gi, "").trim();
+      result.route && Object.values(APP_ROUTES).includes(result.route) ? result.route : null;
+
+    const cleanedReply = result.text.trim();
     return res.json({
       reply:
         cleanedReply ||

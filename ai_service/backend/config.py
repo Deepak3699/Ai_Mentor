@@ -8,6 +8,9 @@ if not os.getenv("PYTEST_CURRENT_TEST"):
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
+# Internal authentication for backend requests
+AI_SERVICE_KEY = os.getenv("AI_SERVICE_KEY")
+
 # LLM call timeout in seconds
 LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "60") or "60")
 
