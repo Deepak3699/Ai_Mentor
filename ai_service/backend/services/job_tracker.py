@@ -62,7 +62,9 @@ def remove_failed_generation_cache(base_filename: str) -> None:
             generation_cache.pop(key, None)
 
 
-def queue_job(base_filename: str, cache_key: str | None = None, force: bool = False) -> None:
+def queue_job(
+    base_filename: str, cache_key: str | None = None, force: bool = False
+) -> None:
     """Register a new job in the queue and active tracking set."""
     if not force and cache_key:
         generation_cache[cache_key] = base_filename
@@ -85,7 +87,9 @@ def init_job_processing(base_filename: str) -> None:
             "status": "processing",
             "meta": {
                 "timestamps": {
-                    "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    "started_at": datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat()
                 }
             },
         }

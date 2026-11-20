@@ -93,7 +93,9 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
             "status": "processing",
             "meta": {
                 "timestamps": {
-                    "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    "started_at": datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat()
                 }
             },
         }
@@ -218,9 +220,7 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
-            _normalize_stdout, normalize_stderr = (
-                await normalize_process.communicate()
-            )
+            _normalize_stdout, normalize_stderr = await normalize_process.communicate()
             try:
                 if eff_os.path.exists(avatar_download):
                     eff_os.remove(avatar_download)
@@ -463,4 +463,6 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
                 else "generation_failed"
             ),
         )
-        log_event("ERROR", "Lesson generation failed", job=base_filename, error=short_error(e))
+        log_event(
+            "ERROR", "Lesson generation failed", job=base_filename, error=short_error(e)
+        )

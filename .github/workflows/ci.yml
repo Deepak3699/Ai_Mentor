@@ -100,6 +100,13 @@ jobs:
         working-directory: backend
         env:
           NODE_ENV: test
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: test_user
+          DB_PASSWORD: test_password
+          DB_NAME: ai_mentor_test
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/ai_mentor_test
+          TEST_DATABASE_URL: postgresql://test_user:test_password@localhost:5432/ai_mentor_test
         run: npm test
 
   # ─────────────────────────────────────────────────────────────
