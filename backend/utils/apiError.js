@@ -1,5 +1,9 @@
 export const GENERIC_500_MESSAGE = "Internal server error";
 
+import buildLogger from "./logger.js";
+
+const log = buildLogger("API_ERROR");
+
 // Only these values may ever appear as a log category
 const CATEGORIES = new Set([
   "database",
@@ -114,9 +118,8 @@ const routeOf = (req) =>
 
 export function logServerError(req, err, context) {
   try {
-    console.error(
-      JSON.stringify({
-        level: "error",
+    log.error(
+      {
         requestId: req.id,
         context: String(context)
           .replace(/[^\w.:-]/g, "_")
@@ -125,11 +128,12 @@ export function logServerError(req, err, context) {
         route: routeOf(req),
         userId: req.user?.id != null ? String(req.user.id).slice(0, 40) : undefined,
         ...describeError(err),
-      }),
+      },
+      "Server error",
     );
   } catch {
     // Logging must never stop the response from being sent
-    console.error('{"level":"error","message":"error logging failed"}');
+    log.error("error logging failed");
   }
 }
 

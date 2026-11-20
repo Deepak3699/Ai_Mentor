@@ -11,6 +11,9 @@ import { createNotification } from "./notificationController.js";
 import { Course } from "../models/modelAssociations.js";
 import Payment from "../models/Payment.js";
 import { sequelize } from "../config/db.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("USER");
 import {
   AppError,
   BadRequestError,
@@ -55,7 +58,7 @@ const changePassword = async (req, res, next) => {
 
     res.json({ message: "Password updated successfully" });
   } catch (error) {
-    console.error("CHANGE PASSWORD ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Change password error");
     return forwardError(
       next,
       res,
@@ -96,7 +99,7 @@ const getUserProfile = async (req, res, next) => {
       purchasedCourses: user.purchasedCourses,
     });
   } catch (error) {
-    console.error("PROFILE ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Profile error");
     return forwardError(
       next,
       res,
@@ -220,7 +223,7 @@ const purchaseCourse = async (req, res, next) => {
         metadata: { courseId: normalizedCourseId },
       });
     } catch (notificationError) {
-      console.error("ENROLLMENT NOTIFICATION ERROR:", notificationError);
+      log.error({ err: notificationError, reqId: req.id }, "Enrollment notification error");
     }
 
     return res.status(200).json({
@@ -228,7 +231,7 @@ const purchaseCourse = async (req, res, next) => {
       purchasedCourses,
     });
   } catch (error) {
-    console.error("PURCHASE ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Purchase error");
     return forwardError(
       next,
       res,
@@ -304,7 +307,7 @@ const updateCourseProgress = async (req, res, next) => {
       purchasedCourses: user.purchasedCourses,
     });
   } catch (error) {
-    console.error("PROGRESS ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Progress error");
     return forwardError(
       next,
       res,
@@ -406,7 +409,7 @@ const getWatchedVideos = async (req, res, next) => {
       courses: [...uniqueCourses.values()],
     });
   } catch (error) {
-    console.error("Failed to fetch watched videos:", error);
+    log.error({ err: error, reqId: req.id }, "Failed to fetch watched videos");
     return forwardError(
       next,
       res,
@@ -433,7 +436,7 @@ const getUserSettings = async (req, res, next) => {
 
     res.json(user.settings);
   } catch (error) {
-    console.error("Failed to fetch settings:", error);
+    log.error({ err: error, reqId: req.id }, "Failed to fetch settings");
     return forwardError(
       next,
       res,
@@ -476,7 +479,7 @@ const updateUserSettings = async (req, res, next) => {
       settings: user.settings,
     });
   } catch (error) {
-    console.error("Failed to update settings:", error);
+    log.error({ err: error, reqId: req.id }, "Failed to update settings");
     return forwardError(
       next,
       res,
@@ -533,7 +536,7 @@ const removeProfileAvatar = async (req, res, next) => {
       purchasedCourses: user.purchasedCourses,
     });
   } catch (error) {
-    console.error("REMOVE PROFILE AVATAR ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Remove profile avatar error");
     return forwardError(
       next,
       res,
@@ -605,7 +608,7 @@ const updateUserProfile = async (req, res, next) => {
     if (req.file?.path) {
       fs.unlink(req.file.path, () => {});
     }
-    console.error("UPDATE PROFILE ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Update profile error");
     return forwardError(
       next,
       res,
@@ -636,7 +639,7 @@ const removePurchasedCourse = async (req, res, next) => {
 
     res.json({ message: "Course removed successfully" });
   } catch (error) {
-    console.error("REMOVE COURSE ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Remove course error");
     return forwardError(
       next,
       res,
@@ -678,14 +681,14 @@ const deleteAccount = async (req, res, next) => {
       const avatarPublicId = `user_avatars/user_${userId}`;
       await cloudinary.uploader.destroy(avatarPublicId);
     } catch (cloudinaryError) {
-      console.error("Cloudinary avatar deletion error:", cloudinaryError);
+      log.error({ err: cloudinaryError, reqId: req.id }, "Cloudinary avatar deletion error");
     }
 
     res.status(200).json({
       message: "Account Deleted Successfully",
     });
   } catch (error) {
-    console.error("Delete Account Error", error);
+    log.error({ err: error, reqId: req.id }, "Delete account error");
     return forwardError(
       next,
       res,
@@ -794,7 +797,7 @@ const completeProfile = async (req, res, next) => {
       purchasedCourses: user.purchasedCourses,
     });
   } catch (error) {
-    console.error("COMPLETE PROFILE ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Complete profile error");
     return forwardError(
       next,
       res,

@@ -1,6 +1,9 @@
 // backend/middleware/adminAuthMiddleware.js
 import jwt from "jsonwebtoken";
 import Admin from "../models/Admin.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("ADMIN_AUTH");
 
 const protectAdmin = async (req, res, next) => {
   let token;
@@ -31,7 +34,7 @@ const protectAdmin = async (req, res, next) => {
       req.admin = admin;
       next();
     } catch (error) {
-      console.error("ADMIN AUTH ERROR:", error.message);
+      log.warn({ err: error }, "Admin auth failure");
       return res.status(401).json({
         success: false,
         error: { code: "UNAUTHORIZED", message: "Not authorized, token failed", details: [] },

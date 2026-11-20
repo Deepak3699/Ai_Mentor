@@ -5,6 +5,9 @@ import cors from "cors";
 import path from "path";
 import { fileURLToPath } from "url";
 import healthRoutes from "./routes/healthRoutes.js";
+import buildLogger from "./utils/logger.js";
+
+const log = buildLogger("SERVER");
 
 import { connectDB, sequelize } from "./config/db.js";
 import { createGracefulShutdown } from "./gracefulShutdown.js";
@@ -94,7 +97,7 @@ app.use(
         }
       }
 
-      console.warn("Blocked by CORS");
+      log.warn({ origin }, "Request blocked by CORS");
       const corsError = new Error("Not allowed by CORS");
       corsError.status = 403;
       corsError.expose = true;
@@ -167,6 +170,7 @@ const shutdown = createGracefulShutdown({
   getServer: () => server,
   database: sequelize,
   timeoutMs: SHUTDOWN_TIMEOUT,
+  logger: { log: (...a) => log.info(...a), error: (...a) => log.error(...a) },
 });
 process.once("SIGTERM", () => {
   void shutdown("SIGTERM");
@@ -177,22 +181,22 @@ process.once("SIGINT", () => {
 
 const startServer = async () => {
   try {
-    console.log("[STARTING] Backend startup");
-    console.log("[CHECK] Connecting to database...");
+    log.info("Backend startup");
+    log.info("Connecting to database...");
 
     await connectDB();
 
-    console.log("[OK] Database connected");
+    log.info("Database connected");
 
     const isDevelopment = process.env.NODE_ENV !== "production";
     const syncOptions = isDevelopment ? { alter: true } : {};
 
     await sequelize.sync(syncOptions);
 
-    console.log(
+    log.info(
       isDevelopment
-        ? "[OK] Database schema synchronized (development auto-alter enabled)"
-        : "[OK] Database schema synchronized",
+        ? "Database schema synchronized (development auto-alter enabled)"
+        : "Database schema synchronized",
     );
 
     server = http.createServer(app);
@@ -201,17 +205,16 @@ const startServer = async () => {
     server.headersTimeout = 65_000;
     server.keepAliveTimeout = 60_000;
     server.on("error", () => {
-      console.error("[FAILED] Backend HTTP server error.");
+      log.error("Backend HTTP server error.");
       process.exitCode = 1;
     });
     startTokenCleanup();
     server.listen(PORT, () => {
-      console.log(`[READY] Backend: http://localhost:${PORT}`);
-      console.log(`[INFO] Allowed frontend origins: ${allowedOrigins.join(", ")}`);
-      console.log("[INFO] Keep this terminal open. Press Ctrl+C to stop the backend.");
+      log.info({ port: PORT }, `Backend listening on http://localhost:${PORT}`);
+      log.info({ origins: allowedOrigins }, "Allowed frontend origins");
     });
   } catch {
-    console.error("[FAILED] Backend startup failed:");
+    log.error("Backend startup failed");
     process.exit(1);
   }
 };

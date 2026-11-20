@@ -1,5 +1,8 @@
 import User from "../models/User.js";
 import { AppError, NotFoundError, forwardError } from "../utils/error.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("ANALYTICS");
 
 // @desc    Get user analytics
 // @route   GET /api/analytics
@@ -28,7 +31,7 @@ const getUserAnalytics = async (req, res, next) => {
       certificates: analytics.certificates || [],
     });
   } catch (error) {
-    console.error("ANALYTICS ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Analytics error");
     return forwardError(
       next,
       res,
@@ -98,7 +101,7 @@ const recordStudySession = async (req, res, next) => {
       analytics: user.analytics,
     });
   } catch (error) {
-    console.error("STUDY SESSION ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Study session error");
     return forwardError(
       next,
       res,

@@ -1,5 +1,8 @@
 import { sendServerError } from "../utils/apiError.js";
 import fs from "fs";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("VALIDATE");
 
 const REQUEST_PARTS = ["params", "query", "body"];
 
@@ -51,14 +54,14 @@ const validate = (schema) => (req, res, next) => {
       }
 
       // Log field paths and codes only, never the request data.
-      console.warn(
-        JSON.stringify({
-          level: "warn",
+      log.warn(
+        {
           requestId: req.id,
           context: "VALIDATION_FAILED",
           route: req.originalUrl?.split("?")[0],
           issues: validationIssues.map(({ location, path, code }) => ({ location, path, code })),
-        }),
+        },
+        "Validation failed",
       );
 
       const details = validationIssues.map(({ location, path, message }) => ({

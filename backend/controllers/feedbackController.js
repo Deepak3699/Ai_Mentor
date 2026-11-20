@@ -8,6 +8,9 @@ import {
   NotFoundError,
   forwardError,
 } from "../utils/error.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("FEEDBACK");
 
 /* ===========================
    SUBMIT / UPDATE FEEDBACK
@@ -81,7 +84,7 @@ export const submitFeedback = async (req, res, next) => {
       totalReviews,
     });
   } catch (error) {
-    console.error("SUBMIT FEEDBACK ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Submit feedback error");
     return forwardError(
       next,
       res,
@@ -138,7 +141,7 @@ export const getCourseFeedback = async (req, res, next) => {
       })),
     });
   } catch (error) {
-    console.error("GET FEEDBACK ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Get feedback error");
     return forwardError(
       next,
       res,
@@ -177,7 +180,7 @@ export const getMyFeedback = async (req, res, next) => {
       },
     });
   } catch (error) {
-    console.error("GET MY FEEDBACK ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Get my feedback error");
     return forwardError(
       next,
       res,
@@ -226,7 +229,7 @@ export const deleteFeedback = async (req, res, next) => {
       totalReviews: parseInt(result[0]?.totalReviews || 0, 10),
     });
   } catch (error) {
-    console.error("DELETE FEEDBACK ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Delete feedback error");
     return forwardError(
       next,
       res,

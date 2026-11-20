@@ -1,5 +1,8 @@
 import Preference from "../models/Preference.js";
 import { AppError, BadRequestError, NotFoundError, forwardError } from "../utils/error.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("PREFERENCE");
 
 // @desc Get user preferences
 // @route GET /api/preferences
@@ -14,7 +17,7 @@ export const getPreferences = async (req, res, next) => {
 
     res.status(200).json(preferences);
   } catch (error) {
-    console.error("GET PREFERENCES ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Get preferences error");
     return forwardError(
       next,
       res,
@@ -59,7 +62,7 @@ export const createPreferences = async (req, res, next) => {
 
     res.status(201).json(preferences);
   } catch (error) {
-    console.error("CREATE PREFERENCES ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Create preferences error");
     return forwardError(
       next,
       res,
@@ -102,7 +105,7 @@ export const updatePreferences = async (req, res, next) => {
 
     res.status(200).json(preferences);
   } catch (error) {
-    console.error("UPDATE PREFERENCES ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Update preferences error");
     return forwardError(
       next,
       res,

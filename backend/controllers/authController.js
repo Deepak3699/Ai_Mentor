@@ -14,6 +14,10 @@ import {
   forwardError,
 } from "../utils/error.js";
 
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("AUTH_CTRL");
+
 // Initialize Firebase Admin only outside tests and only when real keys are provided.
 if (process.env.NODE_ENV !== "test") {
   if (
@@ -29,12 +33,12 @@ if (process.env.NODE_ENV !== "test") {
           privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
         }),
       });
-      console.log("🔥 Firebase initialized successfully");
+      log.info("Firebase initialized successfully");
     } catch {
-      console.warn("⚠️ Firebase failed to initialize. Google Login will not work.");
+      log.warn("Firebase failed to initialize. Google Login will not work.");
     }
   } else {
-    console.warn("⚠️ No valid Firebase keys found in .env. Skipping Firebase init.");
+    log.warn("No valid Firebase keys found in .env. Skipping Firebase init.");
   }
 }
 
@@ -81,7 +85,7 @@ const register = async (req, res, next) => {
       token: generateToken(user.id),
     });
   } catch (error) {
-    console.error("Register Error:", error);
+    log.error({ err: error, reqId: req.id }, "Register error");
     return forwardError(
       next,
       res,
@@ -140,13 +144,13 @@ const login = async (req, res, next) => {
           });
         })
         .catch((error) => {
-          console.error("Failed to load notificationController or send login notification:", error);
+          log.error({ err: error }, "Failed to send login notification");
         });
     } else {
       return forwardError(next, res, new UnauthorizedError("Invalid email or password"));
     }
   } catch (error) {
-    console.error("Login Error:", error);
+    log.error({ err: error, reqId: req.id }, "Login error");
     return forwardError(
       next,
       res,
@@ -166,7 +170,7 @@ const refreshAvatarInBackground = async (userId, googlePictureUrl) => {
   try {
     const user = await User.findByPk(userId);
     if (!user) {
-      console.warn(`Skipping background avatar refresh because user ${userId} was not found`);
+      log.warn({ userId }, "Skipping background avatar refresh: user not found");
       return;
     }
 
@@ -180,7 +184,7 @@ const refreshAvatarInBackground = async (userId, googlePictureUrl) => {
     await user.save();
     await ensureProfileCompleteness(user);
   } catch (err) {
-    console.error("Background avatar refresh failed:", err);
+    log.error({ err }, "Background avatar refresh failed");
   }
 };
 
@@ -194,7 +198,7 @@ const googleLogin = async (req, res, next) => {
     try {
       decodedToken = await authServices.verifyGoogleIdToken(idToken);
     } catch (verifyError) {
-      console.error("Google token verification failed:", verifyError.message);
+      log.warn({ err: verifyError }, "Google token verification failed");
       return forwardError(next, res, new UnauthorizedError("Invalid Google token"));
     }
 
@@ -275,7 +279,7 @@ const googleLogin = async (req, res, next) => {
           user.avatar_url = result.secure_url;
           await user.save();
         } catch (err) {
-          console.error("Sync avatar re-hosting failed:", err);
+          log.error({ err }, "Sync avatar re-hosting failed");
         }
       } else if (isCurrentlyGoogleHosted || isMissing) {
         refreshAvatarInBackground(user.id, avatar_url);
@@ -301,7 +305,7 @@ const googleLogin = async (req, res, next) => {
       token,
     });
   } catch (error) {
-    console.error("Google login error:", error);
+    log.error({ err: error, reqId: req.id }, "Google login error");
     return forwardError(
       next,
       res,
@@ -371,7 +375,7 @@ const forgotPassword = async (req, res, next) => {
 
       res.status(200).json(genericResponse);
     } catch {
-      console.error("Email could not be sent");
+      log.error("Email could not be sent");
       user.resetPasswordToken = null;
       user.resetPasswordExpires = null;
       await user.save();
@@ -388,7 +392,7 @@ const forgotPassword = async (req, res, next) => {
       );
     }
   } catch (error) {
-    console.error("Forgot Password Error:", error);
+    log.error({ err: error, reqId: req.id }, "Forgot password error");
     return forwardError(
       next,
       res,
@@ -437,12 +441,12 @@ const resetPassword = async (req, res, next) => {
         });
       })
       .catch((error) => {
-        console.error("Password reset notification error:", error);
+        log.error({ err: error }, "Password reset notification error");
       });
 
     res.status(200).json({ message: "Password updated successfully" });
   } catch (error) {
-    console.error("Reset Password Error:", error);
+    log.error({ err: error, reqId: req.id }, "Reset password error");
     return forwardError(
       next,
       res,

@@ -1,5 +1,8 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("AUTH");
 
 class AuthError extends Error {
   constructor(status, message, classification, code) {
@@ -14,13 +17,14 @@ class AuthError extends Error {
 
 const logAuthFailure = (scope, classification, error = null) => {
   // Avoid logging tokens, credentials, or raw internal error messages.
-  console.error(
-    JSON.stringify({
+  log.warn(
+    {
       event: "auth_failure",
       scope,
       classification,
       ...(error && process.env.NODE_ENV !== "production" ? { internalMessage: error.message } : {}),
-    }),
+    },
+    "Auth failure",
   );
 };
 

@@ -2,6 +2,9 @@ import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import { AppError, UnauthorizedError, forwardError } from "../utils/error.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("SIDEBAR");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,7 +51,7 @@ const getNavigationItems = async (req, res, next) => {
 
     res.json(filteredItems);
   } catch (error) {
-    console.error("SIDEBAR ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Sidebar error");
     return forwardError(
       next,
       res,

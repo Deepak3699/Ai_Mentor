@@ -8,6 +8,9 @@ import { buildUserContext } from "../services/contextBuilder.js";
 import { askGemini } from "../services/geminiChatService.js";
 import { normalizeHistory } from "../services/chatHistory.js";
 import { detectNavigation } from "../services/navigationService.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("CHAT");
 import { APP_ROUTES } from "../services/routeMap.js";
 
 // const ai = new GoogleGenAI({
@@ -37,7 +40,7 @@ export const getChatContext = async (req, res, next) => {
       preferences: preferences || {},
     });
   } catch (error) {
-    console.error(error);
+    log.error({ err: error, reqId: req.id }, "Chat context error");
     return forwardError(
       next,
       res,
@@ -240,7 +243,7 @@ export const chatWithAssistant = async (req, res, next) => {
       route,
     });
   } catch (error) {
-    console.error("CHAT ERROR:", error);
+    log.error({ err: error, reqId: req.id }, "Chat error");
 
     res.status(500).json({
       message: "Failed to process chat",

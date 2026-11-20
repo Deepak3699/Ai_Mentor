@@ -1,4 +1,7 @@
 import nodemailer from "nodemailer";
+import buildLogger from "./logger.js";
+
+const log = buildLogger("EMAIL");
 
 const sendEmail = async (options) => {
   const transporter = nodemailer.createTransport({
@@ -22,17 +25,11 @@ const sendEmail = async (options) => {
   try {
     const info = await transporter.sendMail(message);
 
-    console.info("[email] send success", {
-      event: "email_send",
-      outcome: "success",
-    });
+    log.info({ event: "email_send", outcome: "success" }, "[email] send success");
 
     return info;
   } catch (error) {
-    console.error("[email] send failed", {
-      event: "email_send",
-      outcome: "failure",
-    });
+    log.error({ event: "email_send", outcome: "failure" }, "[email] send failed");
 
     throw error;
   }

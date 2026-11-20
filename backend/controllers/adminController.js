@@ -2,6 +2,9 @@ import Admin from "../models/Admin.js";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Course from "../models/Course.js";
+import buildLogger from "../utils/logger.js";
+
+const log = buildLogger("ADMIN");
 import {
   AppError,
   BadRequestError,
@@ -43,7 +46,7 @@ const registerAdmin = async (req, res, next) => {
       role: admin.role,
     });
   } catch (error) {
-    console.error("REGISTER ADMIN ERROR:", error.message);
+    log.error({ err: error, reqId: req.id }, "Register admin error");
     return forwardError(
       next,
       res,
@@ -91,7 +94,7 @@ const loginAdmin = async (req, res, next) => {
       return forwardError(next, res, new UnauthorizedError("Invalid email or password"));
     }
   } catch (error) {
-    console.error("LOGIN ADMIN ERROR:", error.message);
+    log.error({ err: error, reqId: req.id }, "Login admin error");
     return forwardError(
       next,
       res,
@@ -143,7 +146,7 @@ const deleteAdmin = async (req, res, next) => {
     await adminToDelete.destroy();
     res.json({ message: "Admin removed" });
   } catch (error) {
-    console.error("DELETE ADMIN ERROR:", error.message);
+    log.error({ err: error, reqId: req.id }, "Delete admin error");
     return forwardError(
       next,
       res,
@@ -456,7 +459,7 @@ const getAllEnrollments = async (req, res, next) => {
     // fallback
     return forwardError(next, res, new BadRequestError("Invalid type parameter"));
   } catch (error) {
-    console.error("ENROLLMENTS ERROR:", error.message);
+    log.error({ err: error, reqId: req.id }, "Enrollments error");
     return forwardError(
       next,
       res,
@@ -567,7 +570,7 @@ const getAllPayments = async (req, res, next) => {
       data,
     });
   } catch (error) {
-    console.error("GET PAYMENTS ERROR:", error.message);
+    log.error({ err: error, reqId: req.id }, "Get payments error");
     return forwardError(
       next,
       res,
@@ -590,7 +593,7 @@ const getAllCourses = async (req, res, next) => {
       data: courses,
     });
   } catch (error) {
-    console.error("GET COURSES ERROR:", error.message);
+    log.error({ err: error, reqId: req.id }, "Get courses error");
     return forwardError(
       next,
       res,
@@ -615,7 +618,7 @@ const getAllUsers = async (req, res, next) => {
       data: users,
     });
   } catch (error) {
-    console.error("GET USERS ERROR:", error.message);
+    log.error({ err: error, reqId: req.id }, "Get users error");
     return forwardError(
       next,
       res,
