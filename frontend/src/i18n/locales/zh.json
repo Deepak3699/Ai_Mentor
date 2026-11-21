@@ -339,6 +339,19 @@
     "due_tomorrow": "明天",
     "delete_task_confirm": "您确定要删除此任务吗？",
     "task_exists_error": "该日期的任务已存在。",
+    "weekly_study": {
+      "title": "每周学习时间",
+      "subtitle": "本周记录的学习时长",
+      "hours_unit": "小时",
+      "total_label": "本周",
+      "empty_title": "本周未记录任何学习时间",
+      "empty_subtitle": "完成课程以开始构建您的每周图表。",
+      "aria_summary": "每周学习时间：共 {{total}} 小时，{{peak}} 最多",
+      "aria_empty": "每周学习时间图表：本周无数据记录",
+      "sr_caption": "每日每周学习时间",
+      "sr_day": "日期",
+      "sr_hours": "小时"
+    },
     "achievements": {
       "title": "成就",
       "view_all": "查看全部",
