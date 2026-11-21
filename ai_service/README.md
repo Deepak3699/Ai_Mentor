@@ -89,9 +89,10 @@ Create `ai_service/backend/.env` from `ai_service/backend/.env.example`.
 | `DID_API_URL`           | Optional                                        | Uses the service default when omitted                                                |
 | `DID_SOURCE_URL`        | Optional                                        | D-ID rendering falls back to the local FFmpeg renderer                               |
 | `AI_SERVICE_LOG_LEVEL`  | Optional                                        | Uses `INFO` by default; supports `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL` |
-| `LLM_TIMEOUT_SECONDS`   | Optional                                        | Sets the LLM call timeout in seconds; defaults to `60` when omitted                  |
+| `LLM_TIMEOUT_SECONDS`   | Optional                                        | Sets the LLM call timeout in seconds; must be a positive integer between 1 and 300 (defaults to `60` when omitted) |
 
 Setup output reports only variable names and `<configured>` markers. Do not commit `.env` files or share credential values.
+Configuration validates that `LLM_TIMEOUT_SECONDS` is bounded between 1 and 300 seconds; non-numeric, zero, negative, or excessive values fail with a clear configuration error without printing secret credentials.
 
 ### Celebrity source videos
 
