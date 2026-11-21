@@ -3,7 +3,12 @@ from __future__ import annotations
 import logging
 import re
 
-from backend.config import GEMINI_MODEL
+from backend.config import (
+    GEMINI_EXPLAIN_MODEL,
+    GEMINI_MODEL,
+    GROQ_EXPLAIN_MODEL,
+    GROQ_MODEL,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +127,9 @@ def log_event(level: str, message: str, **details) -> None:
         elif key == "model":
             if isinstance(value, str) and value in {
                 GEMINI_MODEL,
-                "llama-3.3-70b-versatile",
+                GEMINI_EXPLAIN_MODEL,
+                GROQ_MODEL,
+                GROQ_EXPLAIN_MODEL,
             }:
                 safe_details[key] = value
         elif key == "code":
