@@ -234,3 +234,8 @@ Lesson preferences are validated against the supported fields
 - Never commit `.env` files, provider keys, database credentials, or generated authentication tokens.
 - Do not print raw request objects, generated secrets, full credential values, or provider authorization headers.
 - Keep celebrity source selection restricted to validated files inside the configured input directory.
+- Configure trusted frontend origins using `CORS_ALLOWED_ORIGINS` in the AI service environment. Use comma-separated origins without trailing slashes.
+- For local development, set `CORS_ALLOWED_ORIGINS=http://localhost:5173`.
+- For production, set the actual deployed frontend origin in the environment configuration. Do not use wildcard (`*`) origins.
+- CORS credentials are disabled. Authentication should use the Authorization header rather than cross-origin cookies.
+\ No newline at end of file

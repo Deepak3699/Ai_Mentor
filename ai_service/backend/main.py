@@ -3,9 +3,12 @@ from __future__ import annotations
 import logging
 import os
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
+from backend.config import CORS_ALLOWED_ORIGINS
 
 from backend.api.v1.router import api_v1_router
 from backend.job_shutdown import wait_for_jobs_to_finish
@@ -52,10 +55,10 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=CORS_ALLOWED_ORIGINS,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "HEAD"],
+        allow_headers=["Authorization", "Content-Type"],
     )
 
     # Static file routes
