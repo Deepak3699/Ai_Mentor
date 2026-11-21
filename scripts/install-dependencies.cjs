@@ -70,6 +70,18 @@ function validateEnvNames(file) {
     "CLOUDINARY_CLOUD_NAME",
     "CLOUDINARY_API_KEY",
     "CLOUDINARY_API_SECRET",
+    "AI_SERVICE_KEY",
+    "RAG_ENABLED",
+    "RAG_EMBEDDING_MODEL",
+    "RAG_EMBEDDING_DIMENSIONS",
+    "RAG_EMBEDDING_BATCH_SIZE",
+    "RAG_TOP_K",
+    "RAG_MAX_TOP_K",
+    "RAG_SIMILARITY_THRESHOLD",
+    "RAG_CHUNK_SIZE",
+    "RAG_CHUNK_OVERLAP",
+    "RAG_MAX_CONTEXT_SIZE",
+    "RAG_MAX_UPLOAD_BYTES",
   ]) {
     if (configured.has(optional))
       console.log(`[OK] Optional AI setting | ${optional}=<configured>`);
