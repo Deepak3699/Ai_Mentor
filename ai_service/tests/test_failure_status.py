@@ -135,7 +135,7 @@ def test_failure_paths_update_status_cache_and_public_response(
     assert status["local_video_url"] == "/video-stream/previous.mp4"
     assert not any(value == job_id for value in api.generation_cache.values())
 
-    with patch.object(api, "check_ffmpeg", return_value=None), TestClient(api.app) as client:
+    with patch("backend.main.check_ffmpeg", return_value=None), TestClient(api.app) as client:
         response = client.get(f"/status/{job_id}")
 
     assert response.status_code == 200
@@ -177,7 +177,7 @@ def test_invalid_speech_settings_return_422(field, invalid_value):
         field: invalid_value,
     }
 
-    with patch.object(api, "check_ffmpeg", return_value=None), TestClient(api.app) as client:
+    with patch("backend.main.check_ffmpeg", return_value=None), TestClient(api.app) as client:
         response = client.post("/generate", json=payload)
 
     assert response.status_code == 422
@@ -239,7 +239,7 @@ def test_successful_generation_reaches_ready_status(
     assert status["local_video_url"] == f"/video-stream/{job_id}.mp4"
     assert status["meta"]["timestamps"]["completed_at"]
 
-    with patch.object(api, "check_ffmpeg", return_value=None), TestClient(api.app) as client:
+    with patch("backend.main.check_ffmpeg", return_value=None), TestClient(api.app) as client:
         response = client.get(f"/status/{job_id}")
 
     assert response.status_code == 200
