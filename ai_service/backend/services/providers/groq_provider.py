@@ -6,7 +6,13 @@ import sys
 from typing import Any
 from groq import Groq
 
-from backend.config import GROQ_API_KEY, GROQ_ENABLED, LLM_TIMEOUT_SECONDS
+from backend.config import (
+    GROQ_API_KEY,
+    GROQ_ENABLED,
+    GROQ_EXPLAIN_MODEL,
+    GROQ_MODEL,
+    LLM_TIMEOUT_SECONDS,
+)
 from backend.schemas.lessons import (
     ExplainCodeRequest,
     Flashcard,
@@ -50,7 +56,7 @@ def generate_groq_content(
     max_tokens: int,
     temperature: float = 0.7,
     timeout: int = LLM_TIMEOUT_SECONDS,
-    model: str = "llama-3.3-70b-versatile",
+    model: str = GROQ_MODEL,
 ):
     """Direct wrapper around Groq chat completions create with timeout."""
     client = get_groq_client()
@@ -107,7 +113,7 @@ class GroqProvider(BaseAIProvider):
         return (
             groq_response.choices[0].message.content.strip().replace("\n", " "),
             "groq",
-            "llama-3.3-70b-versatile",
+            GROQ_MODEL,
         )
 
     def generate_syllabus(self, data: SyllabusRequest) -> dict[str, Any]:
@@ -320,7 +326,7 @@ class GroqProvider(BaseAIProvider):
 
         client = get_groq_client()
         groq_response = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+            model=GROQ_EXPLAIN_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.2,
             max_tokens=4000,
