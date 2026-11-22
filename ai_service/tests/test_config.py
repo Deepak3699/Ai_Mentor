@@ -32,7 +32,6 @@ def test_config_imports_without_external_credentials(monkeypatch):
     config = import_config(monkeypatch)
     assert not config.GEMINI_API_KEY
     assert not config.GROQ_API_KEY
-    assert config.GEMINI_MODEL == "gemini-2.5-flash"
     assert config.LLM_TIMEOUT_SECONDS == 60
 
 
@@ -42,36 +41,28 @@ def test_config_custom_llm_timeout(monkeypatch):
     assert config.LLM_TIMEOUT_SECONDS == 45
 
 
-def test_config_uses_default_provider_models(monkeypatch):
+def test_get_model_config_uses_default_when_environment_value_is_unset(monkeypatch):
     config = import_config(monkeypatch)
+    monkeypatch.delenv("TEST_MODEL", raising=False)
 
-    assert config.GEMINI_MODEL == "gemini-2.5-flash"
-    assert config.GEMINI_EXPLAIN_MODEL == "gemini-3.8-flash"
-    assert config.GROQ_MODEL == "llama-3.3-70b-versatile"
-    assert config.GROQ_EXPLAIN_MODEL == "openai/gpt-oss-120b"
+    assert config.get_model_config("TEST_MODEL", "fallback-model") == "fallback-model"
 
 
-def test_config_uses_custom_provider_models(monkeypatch):
+def test_get_model_config_accepts_custom_environment_value(monkeypatch):
     config = import_config(monkeypatch)
+    monkeypatch.setenv("TEST_MODEL", "custom-model")
 
-    monkeypatch.setenv("GEMINI_MODEL", "custom-gemini")
-    monkeypatch.setenv("GEMINI_EXPLAIN_MODEL", "custom-gemini-explain")
-    monkeypatch.setenv("GROQ_MODEL", "custom-groq")
-    monkeypatch.setenv("GROQ_EXPLAIN_MODEL", "custom-groq-explain")
-
-    config = importlib.reload(config)
-
-    assert config.GEMINI_MODEL == "custom-gemini"
-    assert config.GEMINI_EXPLAIN_MODEL == "custom-gemini-explain"
-    assert config.GROQ_MODEL == "custom-groq"
-    assert config.GROQ_EXPLAIN_MODEL == "custom-groq-explain"
+    assert config.get_model_config("TEST_MODEL", "fallback-model") == "custom-model"
 
 
-def test_config_uses_defaults_for_whitespace_model_values(monkeypatch):
-    monkeypatch.setenv("GEMINI_MODEL", "   ")
-    monkeypatch.setenv("GEMINI_EXPLAIN_MODEL", " ")
-    monkeypatch.setenv("GROQ_MODEL", "  ")
-    monkeypatch.setenv("GROQ_EXPLAIN_MODEL", "\t")
+@pytest.mark.parametrize("value", ["", "   ", "\t"])
+def test_get_model_config_uses_default_for_empty_or_whitespace_values(
+    monkeypatch, value
+):
+    config = import_config(monkeypatch)
+    monkeypatch.setenv("TEST_MODEL", value)
+
+    assert config.get_model_config("TEST_MODEL", "fallback-model") == "fallback-model"
 
     config = import_config(monkeypatch)
 
@@ -107,5 +98,3 @@ def test_validate_config_accepts_complete_configuration(monkeypatch):
     config.CLOUDINARY_API_KEY = "key"
     config.CLOUDINARY_API_SECRET = "secret"
     assert config.validate_config() is None
-
-
