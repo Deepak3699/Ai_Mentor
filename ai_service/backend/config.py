@@ -4,6 +4,22 @@ from dotenv import load_dotenv
 if not os.getenv("PYTEST_CURRENT_TEST"):
     load_dotenv(override=False)
 
+# CORS trusted frontend origins
+CORS_ALLOWED_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv(
+        "CORS_ALLOWED_ORIGINS",
+        "http://localhost:5173",
+    ).split(",")
+    if origin.strip()
+]
+
+if "*" in CORS_ALLOWED_ORIGINS:
+    raise ValueError(
+        "CORS_ALLOWED_ORIGINS must not contain wildcard (*)"
+    )
+
+
 # Required: Primary AI provider
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
