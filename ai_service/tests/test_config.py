@@ -119,8 +119,8 @@ def test_config_llm_timeout_over_limit_fails(monkeypatch, over_limit_value):
 
 
 def test_config_llm_timeout_error_never_prints_secrets(monkeypatch):
-    secret_key = "AIzaSyDUMMY_SECRET_KEY_123456789"
-    secret_in_timeout = "SECRET_TOKEN_IN_TIMEOUT_XYZ"
+    secret_key = "my-dummy-gemini-secret-key-12345"
+    secret_in_timeout = "my-dummy-timeout-secret-token-67890"
     monkeypatch.setenv("GEMINI_API_KEY", secret_key)
     monkeypatch.setenv("LLM_TIMEOUT_SECONDS", secret_in_timeout)
 
