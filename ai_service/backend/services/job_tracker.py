@@ -7,6 +7,7 @@ import json
 import os
 import re
 import uuid
+import time
 from typing import Any
 from cachetools import TTLCache
 
@@ -18,8 +19,45 @@ job_lock = threading.Lock()
 shutdown_failed_jobs: set[str] = set()
 shutting_down: bool = False
 
+class JobStatusCache(TTLCache):
+    """Keep active job statuses available while applying TTL to terminal jobs."""
+
+    def __init__(self, maxsize: int, ttl: int, timer=time.monotonic):
+        super().__init__(maxsize=maxsize, ttl=ttl, timer=timer)
+        self.active_statuses: dict[str, dict] = {}
+
+    def __getitem__(self, key):
+        if key in self.active_statuses:
+            return self.active_statuses[key]
+
+        return super().__getitem__(key)
+
+    def __contains__(self, key):
+        return key in self.active_statuses or super().__contains__(key)
+
+    def get(self, key, default=None):
+        if key in self.active_statuses:
+            return self.active_statuses[key]
+
+        return super().get(key, default)
+
+    def set_active(self, key, status):
+        self.active_statuses[key] = status
+        super().__setitem__(key, status)
+
+    def finish(self, key):
+        status = self.active_statuses.pop(key, None)
+
+        if status is not None:
+            super().__setitem__(key, status)
+
+    def clear(self):
+        self.active_statuses.clear()
+        super().clear()
+
+
 # Cache configs: 1000 jobs, 1 hour TTL
-job_status: TTLCache = TTLCache(maxsize=1000, ttl=3600)
+job_status: JobStatusCache = JobStatusCache(maxsize=1000, ttl=3600)
 generation_cache: TTLCache = TTLCache(maxsize=1000, ttl=3600)
 
 
@@ -69,7 +107,7 @@ def queue_job(base_filename: str, cache_key: str | None = None, force: bool = Fa
     if not force and cache_key:
         generation_cache[cache_key] = base_filename
 
-    job_status[base_filename] = {
+    status = {
         "status": "queued",
         "meta": {
             "timestamps": {
@@ -77,6 +115,7 @@ def queue_job(base_filename: str, cache_key: str | None = None, force: bool = Fa
             }
         },
     }
+    job_status.set_active(base_filename, status)
     active_jobs.add(base_filename)
 
 
@@ -97,24 +136,20 @@ def try_queue_job(
 
 def init_job_processing(base_filename: str) -> None:
     """Update job status to processing with a timestamp."""
-    if base_filename not in job_status:
-        job_status[base_filename] = {
-            "status": "processing",
-            "meta": {
-                "timestamps": {
-                    "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
-                }
-            },
-        }
-    else:
-        job_status[base_filename]["status"] = "processing"
-        if "meta" not in job_status[base_filename]:
-            job_status[base_filename]["meta"] = {"timestamps": {}}
-        if "timestamps" not in job_status[base_filename]["meta"]:
-            job_status[base_filename]["meta"]["timestamps"] = {}
-        job_status[base_filename]["meta"]["timestamps"]["started_at"] = (
-            datetime.datetime.now(datetime.timezone.utc).isoformat()
-        )
+    status = job_status.get(base_filename, {})
+    status["status"] = "processing"
+
+    if "meta" not in status:
+        status["meta"] = {"timestamps": {}}
+
+    if "timestamps" not in status["meta"]:
+        status["meta"]["timestamps"] = {}
+
+    status["meta"]["timestamps"]["started_at"] = (
+        datetime.datetime.now(datetime.timezone.utc).isoformat()
+    )
+
+    job_status.set_active(base_filename, status)
 
 
 def mark_job_failed(
@@ -137,6 +172,7 @@ def mark_job_failed(
 
     try:
         status = job_status.setdefault(base_filename, {})
+
         if base_filename not in shutdown_failed_jobs:
             message = public_messages[failure_code]
             status["status"] = "failed"
@@ -150,9 +186,12 @@ def mark_job_failed(
             "failed_at",
             datetime.datetime.now(datetime.timezone.utc).isoformat(),
         )
+
+        job_status.set_active(base_filename, status)
+        job_status.finish(base_filename)
+
     finally:
         remove_failed_generation_cache(base_filename)
-
 
 def mark_job_ready(
     base_filename: str,
@@ -165,20 +204,25 @@ def mark_job_ready(
     """Mark a job as ready, store delivery URLs, and finalize metadata and completion timestamp."""
     if base_filename not in shutdown_failed_jobs:
         if base_filename in job_status:
-            job_status[base_filename]["status"] = "ready"
-            job_status[base_filename]["cloudinary_url"] = cloudinary_url
-            job_status[base_filename]["local_video_url"] = local_video_url
-            job_status[base_filename]["subtitle_url"] = subtitle_vtt_url
-            job_status[base_filename]["subtitle_vtt_url"] = subtitle_vtt_url
-            job_status[base_filename]["subtitle_srt_url"] = subtitle_srt_url
+            status = job_status[base_filename]
+            status["status"] = "ready"
+            status["cloudinary_url"] = cloudinary_url
+            status["local_video_url"] = local_video_url
+            status["subtitle_url"] = subtitle_vtt_url
+            status["subtitle_vtt_url"] = subtitle_vtt_url
+            status["subtitle_srt_url"] = subtitle_srt_url
 
-            meta = job_status[base_filename].setdefault("meta", {})
+            meta = status.setdefault("meta", {})
             timestamps = meta.setdefault("timestamps", {})
+
             for key, val in meta_info.items():
                 meta[key] = val
+
             timestamps["completed_at"] = datetime.datetime.now(
                 datetime.timezone.utc
             ).isoformat()
+
+            job_status.finish(base_filename)
 
 
 def get_job_status(job_id: str) -> dict[str, Any]:

@@ -17,8 +17,8 @@ from backend.services.job_tracker import (
     job_lock,
     job_status,
     mark_job_failed,
+    mark_job_ready,
     shutdown_failed_jobs,
-    remove_failed_generation_cache,
 )
 from backend.services import media_processor
 from backend.services.providers import manager as provider_manager
@@ -344,12 +344,6 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
                 error=short_error(cloud_err),
             )
 
-        job_status[base_filename].update(
-            {
-                "status": "ready",
-                "cloudinary_url": cloudinary_url,
-            }
-        )
 
         local_video_url = f"/video-stream/{base_filename}.mp4"
         local_vtt_url = f"/video-stream/{base_filename}.vtt" if vtt_path else None
@@ -397,26 +391,22 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
             )
 
         if base_filename not in shutdown_failed_jobs:
-            if base_filename in job_status:
-                job_status[base_filename]["status"] = "ready"
-                job_status[base_filename]["cloudinary_url"] = cloudinary_url
-                job_status[base_filename]["local_video_url"] = local_video_url
-                job_status[base_filename]["subtitle_url"] = subtitle_vtt_url
-                job_status[base_filename]["subtitle_vtt_url"] = subtitle_vtt_url
-                job_status[base_filename]["subtitle_srt_url"] = subtitle_srt_url
-
-                meta = job_status[base_filename].setdefault("meta", {})
-                timestamps = meta.setdefault("timestamps", {})
-                meta["provider"] = provider_used
-                meta["model"] = model_used
-                meta["duration_ms"] = duration_ms
-                meta["audio_seconds"] = audio_seconds
-                meta["word_count"] = len(script.split())
-                meta["renderer"] = renderer_used
-                meta["media"] = media_metadata
-                timestamps["completed_at"] = datetime.datetime.now(
-                    datetime.timezone.utc
-                ).isoformat()
+            mark_job_ready(
+                base_filename=base_filename,
+                cloudinary_url=cloudinary_url,
+                local_video_url=local_video_url,
+                subtitle_vtt_url=subtitle_vtt_url,
+                subtitle_srt_url=subtitle_srt_url,
+                meta_info={
+                    "provider": provider_used,
+                    "model": model_used,
+                    "duration_ms": duration_ms,
+                    "audio_seconds": audio_seconds,
+                    "word_count": len(script.split()),
+                    "renderer": renderer_used,
+                    "media": media_metadata,
+                },
+            )
 
         log_event(
             "READY",

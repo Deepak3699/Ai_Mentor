@@ -3,6 +3,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from backend.services.job_tracker import JobStatusCache
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -167,6 +168,34 @@ def test_job_tracker_lifecycle():
     assert job_status[job_id]["status"] == "ready"
     assert job_status[job_id]["cloudinary_url"] == "https://cloud.com/video.mp4"
     assert job_status[job_id]["meta"]["provider"] == "gemini"
+
+
+def test_active_job_status_survives_ttl():
+    import backend.services.job_tracker as job_tracker
+
+    job_id = "long_running_job"
+    fake_time = [0]
+    original_job_status = job_tracker.job_status
+
+    job_tracker.job_status = JobStatusCache(
+        maxsize=1000,
+        ttl=10,
+        timer=lambda: fake_time[0],
+    )
+
+    try:
+        job_tracker.queue_job(job_id)
+        job_tracker.init_job_processing(job_id)
+
+        fake_time[0] = 11
+
+        assert job_id in active_jobs
+        assert job_id in job_tracker.job_status
+        assert job_tracker.job_status[job_id]["status"] == "processing"
+    finally:
+        job_tracker.job_status = original_job_status
+        active_jobs.discard(job_id)
+
 
 
 def test_job_tracker_failure_clears_cache():
