@@ -137,3 +137,38 @@ def test_assistant_handles_blocked_response():
     assert result["error"] is None
     assert result["route"] is None
     assert "safe" in result["reply"]
+
+def _run(text):
+    response = SimpleNamespace(text=text, candidates=[])
+    with patch.object(
+        assistant_service, "GEMINI_API_KEY", "test-key"
+    ), patch.object(
+        assistant_service,
+        "generate_gemini_chat_content",
+        return_value=response,
+    ) as mock_gemini:
+        result = assistant_service.generate_assistant_response(create_request())
+    return result, mock_gemini
+
+
+def test_scope_rules_are_passed_to_model():
+    _, mock_gemini = _run("Python loops repeat instructions.")
+    system_instruction = mock_gemini.call_args.kwargs["system_instruction"]
+
+    assert "Scope rules" in system_instruction
+    assert "SCOPE:OUT" in system_instruction
+    assert "Explain Python loops" not in system_instruction
+
+
+def test_out_of_scope_reply_is_refused():
+    result, _ = _run("SCOPE:OUT Here is a script to scrape Instagram")
+
+    assert result["refused"] is True
+    assert result["reply"] == assistant_service.MESSAGES["out_of_scope"]
+    assert "Instagram" not in result["reply"]
+
+
+def test_in_scope_reply_is_not_refused():
+    result, _ = _run("Python loops repeat instructions.")
+
+    assert result["refused"] is False    
