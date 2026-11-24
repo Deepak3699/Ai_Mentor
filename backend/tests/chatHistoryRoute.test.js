@@ -249,7 +249,10 @@ test("built-in answers still work and still validate the history first", async (
   );
 
   assert.equal(ok.status, 200);
-  assert.deepEqual(ok.body, { reply: "You are not enrolled in any courses." });
+  assert.deepEqual(ok.body, {
+    replyKey: "assistant.responses.no_courses",
+    replyParams: {},
+  });
 
   const bad = await post(
     "/api/assistant/chat",

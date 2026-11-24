@@ -150,8 +150,7 @@ export const chatWithAssistant = async (req, res, next) => {
         lessonTitle = lesson?.title;
       }
 
-      const displayLesson =
-        lessonTitle || lessonId || savedLesson;
+      const displayLesson = lessonTitle || lessonId || savedLesson;
 
       return localizedReply(
         res,

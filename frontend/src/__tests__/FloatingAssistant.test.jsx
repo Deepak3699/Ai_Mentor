@@ -17,7 +17,18 @@ import jaLocale from "../i18n/locales/ja.json";
 import deLocale from "../i18n/locales/de.json";
 import i18n from "../i18n/index.js";
 
-const locales = [enLocale, esLocale, zhLocale, hiLocale, arLocale, ptLocale, frLocale, ruLocale, jaLocale, deLocale];
+const locales = [
+  enLocale,
+  esLocale,
+  zhLocale,
+  hiLocale,
+  arLocale,
+  ptLocale,
+  frLocale,
+  ruLocale,
+  jaLocale,
+  deLocale,
+];
 
 vi.mock("axios", () => ({
   default: { post: vi.fn() },
