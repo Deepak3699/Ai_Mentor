@@ -9,6 +9,9 @@ import { normalizeHistory } from "../services/chatHistory.js";
 import { detectNavigation } from "../services/navigationService.js";
 import { APP_ROUTES } from "../services/routeMap.js";
 
+const localizedReply = (res, key, params = {}, extra = {}) =>
+  res.json({ replyKey: `assistant.responses.${key}`, replyParams: params, ...extra });
+
 export const getChatContext = async (req, res, next) => {
   try {
     const user = await User.findByPk(req.user.id);
@@ -78,7 +81,7 @@ export const chatWithAssistant = async (req, res, next) => {
       );
     }
 
-    const userName = user.firstName || user.name || "Student";
+    const userName = user.firstName || user.name || "__student__";
 
     const preferences = await Preference.findOne({
       where: {
@@ -91,10 +94,7 @@ export const chatWithAssistant = async (req, res, next) => {
 
     // Navigation
     if (intent.type === "navigation") {
-      return res.json({
-        reply: `You can open ${intent.route}`,
-        route: intent.route,
-      });
+      return localizedReply(res, "open_route", { route: intent.route }, { route: intent.route });
     }
 
     // Enrolled Courses
@@ -102,42 +102,28 @@ export const chatWithAssistant = async (req, res, next) => {
       const courses = user.purchasedCourses || [];
 
       if (!courses.length) {
-        return res.json({
-          reply: "You are not enrolled in any courses.",
-        });
+        return localizedReply(res, "no_courses");
       }
 
       const list = courses.map((course, index) => `${index + 1}. ${course.courseTitle}`).join("\n");
 
-      return res.json({
-        reply: `Hi ${userName}, you are currently enrolled in:\n\n${list}`,
-      });
+      return localizedReply(res, "course_list", { name: userName, courses: list });
     }
 
     // Preferences
     if (intent.type === "preference_info") {
       if (!preferences) {
-        return res.json({
-          reply: "No learning preferences found.",
-        });
+        return localizedReply(res, "no_preferences");
       }
 
-      return res.json({
-        reply: `
-        Learning Goal: ${preferences.learning_goal || "Unknown"}
-
-        Experience Level: ${preferences.experience_level || "Unknown"}
-        
-        Explanation Type: ${preferences.explanation_type || "Unknown"}
-
-        Learning Style: ${preferences.learning_style || "Unknown"}
-
-        Teaching Pace: ${preferences.teaching_pace || "Unknown"}
-
-        Example Type: ${preferences.example_type || "Unknown"}
-
-        Focus Area: ${preferences.focus_area || "Unknown"}
-        `,
+      return localizedReply(res, "preferences", {
+        goal: preferences.learning_goal || "__unknown__",
+        experience: preferences.experience_level || "__unknown__",
+        explanation: preferences.explanation_type || "__unknown__",
+        style: preferences.learning_style || "__unknown__",
+        pace: preferences.teaching_pace || "__unknown__",
+        examples: preferences.example_type || "__unknown__",
+        focus: preferences.focus_area || "__unknown__",
       });
     }
 
@@ -147,7 +133,7 @@ export const chatWithAssistant = async (req, res, next) => {
       const activeCourse = courses.find((course) => course.progress?.currentLesson);
 
       if (!activeCourse) {
-        return res.json({ reply: "I couldn't find an active lesson." });
+        return localizedReply(res, "no_active_lesson");
       }
 
       const savedLesson = activeCourse.progress.currentLesson;
@@ -165,21 +151,23 @@ export const chatWithAssistant = async (req, res, next) => {
       }
 
       const displayLesson =
-        lessonTitle || (lessonId ? `lesson ${lessonId}` : `lesson ${savedLesson}`);
+        lessonTitle || lessonId || savedLesson;
 
-      return res.json({
-        reply: `You were last studying ${displayLesson} in ${activeCourse.courseTitle}.`,
-        route: activeCourse.courseId && lessonId ? `/learning/${activeCourse.courseId}` : null,
-        lessonId: lessonId || null,
-      });
+      return localizedReply(
+        res,
+        "current_lesson",
+        { lesson: displayLesson, course: activeCourse.courseTitle },
+        {
+          route: activeCourse.courseId && lessonId ? `/learning/${activeCourse.courseId}` : null,
+          lessonId: lessonId || null,
+        },
+      );
     }
     // Settings
     if (intent.type === "settings_info") {
-      return res.json({
-        reply: `
-          Theme: ${user.settings?.appearance?.theme || "light"}
-          Language: ${user.settings?.appearance?.language || "en"}
-        `,
+      return localizedReply(res, "settings", {
+        theme: user.settings?.appearance?.theme || "light",
+        language: user.settings?.appearance?.language || "en",
       });
     }
 
@@ -195,24 +183,21 @@ export const chatWithAssistant = async (req, res, next) => {
 
         completedLessons += completed;
 
-        courseProgress.push(`${course.courseTitle}: ${completed} completed lessons`);
+        courseProgress.push({ course: course.courseTitle, completedCount: completed });
       });
 
-      return res.json({
-        reply: `Hi ${userName},
-        You are enrolled in ${courses.length} course(s).
-        Total completed lessons: ${completedLessons}
-        ${courseProgress.join("\n")}`,
+      return localizedReply(res, "progress", {
+        name: userName,
+        courseCount: courses.length,
+        completedCount: completedLessons,
+        courseProgress,
       });
     }
 
     const detectedRoute = detectNavigation(message);
 
     if (detectedRoute) {
-      return res.json({
-        reply: "I can take you there.",
-        route: detectedRoute,
-      });
+      return localizedReply(res, "take_you_there", {}, { route: detectedRoute });
     }
 
     const context = buildUserContext(user, preferences);
@@ -224,25 +209,27 @@ export const chatWithAssistant = async (req, res, next) => {
       requestId: req.id,
     });
     if (!result.ok) {
-      return res.json({ reply: result.message, route: null, error: result.category });
+      return res.json({ route: null, error: result.category });
     }
     const route =
       result.route && Object.values(APP_ROUTES).includes(result.route) ? result.route : null;
 
     const cleanedReply = result.text.trim();
-    return res.json({
-      reply:
-        cleanedReply ||
-        (route
-          ? "I can take you to that page."
-          : "I couldn't generate a response. Please try asking in a different way."),
-      route,
-    });
+    return res.json(
+      cleanedReply
+        ? { reply: cleanedReply, route }
+        : {
+            replyKey: route
+              ? "assistant.responses.take_you_there"
+              : "assistant.responses.empty_response",
+            route,
+          },
+    );
   } catch (error) {
     console.error("CHAT ERROR:", error);
 
     res.status(500).json({
-      message: "Failed to process chat",
+      error: "generic",
     });
   }
 };

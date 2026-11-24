@@ -479,5 +479,33 @@
     "continue_learning": "学習を続ける",
     "download": "証明書をダウンロード",
     "generating": "生成中..."
+  },
+  "assistant": {
+    "errors": {
+      "config": "AI アシスタントは現在利用できません。後でもう一度お試しください。",
+      "rate_limited": "リクエストが多すぎます。少し待ってからもう一度お試しください。",
+      "unavailable": "AI サービスは一時的に利用できません。しばらくしてからお試しください。",
+      "timeout": "AI サービスの応答に時間がかかりすぎました。もう一度お試しください。",
+      "generic": "AI アシスタントは利用できません。後でもう一度お試しください。",
+      "malformed_response": "AI アシスタントは応答を生成できませんでした。もう一度お試しください。",
+      "moderated": "安全で教育的な方法でこのトピックを一緒に探求できます。質問を言い換えてください。",
+      "network": "AI サービスは一時的に利用できません。しばらくしてからお試しください。"
+    },
+    "responses": {
+      "unknown": "不明",
+      "student": "学習者",
+      "open_route": "{{route}}を開けます。",
+      "no_courses": "登録しているコースはありません。",
+      "course_list": "{{name}}さん、現在登録しているコースはこちらです。\n\n{{courses}}",
+      "no_preferences": "学習設定が見つかりませんでした。",
+      "preferences": "学習目標：{{goal}}\n経験レベル：{{experience}}\n説明方法：{{explanation}}\n学習スタイル：{{style}}\n学習ペース：{{pace}}\n例の種類：{{examples}}\n重点分野：{{focus}}",
+      "no_active_lesson": "現在のレッスンが見つかりませんでした。",
+      "current_lesson": "最後に{{course}}の{{lesson}}を学習していました。",
+      "settings": "テーマ：{{theme}}\n言語：{{language}}",
+      "progress": "{{name}}さん、\n{{courseCount}}件のコースに登録しています。\n完了したレッスンの合計：{{completedCount}}\n{{courseProgress}}",
+      "take_you_there": "そこへ移動できます。",
+      "empty_response": "回答を生成できませんでした。別の質問をお試しください。",
+      "course_progress_line": "{{course}}：完了したレッスン {{completedCount}} 件"
+    }
   }
 }

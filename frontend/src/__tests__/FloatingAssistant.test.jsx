@@ -5,6 +5,19 @@ import "@testing-library/jest-dom/vitest";
 import { MemoryRouter } from "react-router-dom";
 import axios from "axios";
 import FloatingAssistant from "../components/common/FloatingAssistant.jsx";
+import enLocale from "../i18n/locales/en.json";
+import esLocale from "../i18n/locales/es.json";
+import zhLocale from "../i18n/locales/zh.json";
+import hiLocale from "../i18n/locales/hi.json";
+import arLocale from "../i18n/locales/ar.json";
+import ptLocale from "../i18n/locales/pt.json";
+import frLocale from "../i18n/locales/fr.json";
+import ruLocale from "../i18n/locales/ru.json";
+import jaLocale from "../i18n/locales/ja.json";
+import deLocale from "../i18n/locales/de.json";
+import i18n from "../i18n/index.js";
+
+const locales = [enLocale, esLocale, zhLocale, hiLocale, arLocale, ptLocale, frLocale, ruLocale, jaLocale, deLocale];
 
 vi.mock("axios", () => ({
   default: { post: vi.fn() },
@@ -44,6 +57,79 @@ describe("FloatingAssistant regression tests", () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
+  });
+
+  it("provides consistent translated errors and controller shortcut keys in all locales", () => {
+    const errorKeys = Object.keys(enLocale.assistant.errors).sort();
+    const responseKeys = Object.keys(enLocale.assistant.responses).sort();
+
+    for (const locale of locales) {
+      expect(Object.keys(locale.assistant.errors).sort()).toEqual(errorKeys);
+      expect(Object.keys(locale.assistant.responses).sort()).toEqual(responseKeys);
+      for (const value of Object.values(locale.assistant.errors)) {
+        expect(value.trim()).not.toBe("");
+      }
+      for (const value of Object.values(locale.assistant.responses)) {
+        expect(value.trim()).not.toBe("");
+      }
+      if (locale !== enLocale) {
+        for (const key of errorKeys) {
+          expect(locale.assistant.errors[key]).not.toBe(enLocale.assistant.errors[key]);
+        }
+      }
+    }
+  });
+
+  it("renders a localized controller shortcut while preserving its route", async () => {
+    await i18n.changeLanguage("hi");
+    axios.post.mockResolvedValue({
+      data: {
+        replyKey: "assistant.responses.open_route",
+        replyParams: { route: "/settings" },
+        route: "/settings",
+      },
+    });
+    const { input, sendButton } = openAssistant();
+    fireEvent.change(input, { target: { value: "Open settings" } });
+    fireEvent.click(sendButton);
+
+    expect(await screen.findByText("आप /settings खोल सकते हैं।")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /go to page/i })).toBeInTheDocument();
+    await i18n.changeLanguage("en");
+  });
+
+  it("localizes moderation errors using the active interface locale", async () => {
+    await i18n.changeLanguage("hi");
+    axios.post.mockResolvedValue({ data: { reply: null, error: "moderated" } });
+    const { input, sendButton } = openAssistant();
+    fireEvent.change(input, { target: { value: "question" } });
+    fireEvent.click(sendButton);
+
+    expect(await screen.findByText(hiLocale.assistant.errors.moderated)).toBeInTheDocument();
+    await i18n.changeLanguage("en");
+  });
+
+  it("omits localized service errors from follow-up conversation history", async () => {
+    axios.post
+      .mockResolvedValueOnce({ data: { reply: null, error: "moderated" } })
+      .mockResolvedValueOnce({ data: { reply: "A new answer." } });
+    const { input, sendButton } = openAssistant();
+
+    fireEvent.change(input, { target: { value: "First question" } });
+    fireEvent.click(sendButton);
+    expect(await screen.findByText(enLocale.assistant.errors.moderated)).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: "Second question" } });
+    fireEvent.click(sendButton);
+    expect(await screen.findByText("A new answer.")).toBeInTheDocument();
+    expect(axios.post).toHaveBeenLastCalledWith(
+      "/api/assistant/chat",
+      {
+        message: "Second question",
+        history: [{ role: "user", text: "First question" }],
+      },
+      { headers: { Authorization: "Bearer test-token" } },
+    );
   });
 
   it("prevents duplicate Enter submissions", async () => {
@@ -130,13 +216,13 @@ describe("FloatingAssistant regression tests", () => {
 
   it("releases the request lock after failure", async () => {
     axios.post
-      .mockRejectedValueOnce({ response: { data: { message: "Request failed" } } })
+      .mockRejectedValueOnce({ response: { data: { error: "generic" } } })
       .mockResolvedValueOnce({ data: { reply: "Recovered successfully" } });
     const { input, sendButton } = openAssistant();
 
     fireEvent.change(input, { target: { value: "First question" } });
     fireEvent.click(sendButton);
-    expect(await screen.findByText("Request failed")).toBeInTheDocument();
+    expect(await screen.findByText(enLocale.assistant.errors.generic)).toBeInTheDocument();
 
     fireEvent.change(input, { target: { value: "Try again" } });
     fireEvent.click(sendButton);
@@ -166,7 +252,7 @@ describe("FloatingAssistant regression tests", () => {
   it("sends conversation history without failed assistant bubbles", async () => {
     axios.post
       .mockResolvedValueOnce({ data: { reply: "First reply" } })
-      .mockRejectedValueOnce({ response: { data: { message: "Request failed" } } })
+      .mockRejectedValueOnce({ response: { data: { error: "generic" } } })
       .mockResolvedValueOnce({ data: { reply: "Third reply" } });
     const { input, sendButton } = openAssistant();
     fireEvent.change(input, { target: { value: "First question" } });
@@ -174,7 +260,7 @@ describe("FloatingAssistant regression tests", () => {
     expect(await screen.findByText("First reply")).toBeInTheDocument();
     fireEvent.change(input, { target: { value: "Second question" } });
     fireEvent.click(sendButton);
-    expect(await screen.findByText("Request failed")).toBeInTheDocument();
+    expect(await screen.findByText(enLocale.assistant.errors.generic)).toBeInTheDocument();
     fireEvent.change(input, { target: { value: "Third question" } });
     fireEvent.click(sendButton);
     expect(await screen.findByText("Third reply")).toBeInTheDocument();

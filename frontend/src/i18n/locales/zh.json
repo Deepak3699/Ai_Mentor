@@ -479,5 +479,33 @@
     "continue_learning": "继续学习",
     "download": "下载证书",
     "generating": "生成中..."
+  },
+  "assistant": {
+    "errors": {
+      "config": "AI 助手当前不可用，请稍后重试。",
+      "rate_limited": "当前请求过多，请稍等片刻后重试。",
+      "unavailable": "AI 服务暂时不可用，请稍后重试。",
+      "timeout": "AI 服务响应超时，请重试。",
+      "generic": "AI 助手当前不可用，请稍后重试。",
+      "malformed_response": "AI 助手无法生成回复，请重试。",
+      "moderated": "我可以用安全且有教育意义的方式帮助你探索此主题。请换一种方式提问。",
+      "network": "AI 服务暂时不可用，请稍后重试。"
+    },
+    "responses": {
+      "unknown": "未知",
+      "student": "学生",
+      "open_route": "你可以打开 {{route}}。",
+      "no_courses": "你尚未报名任何课程。",
+      "course_list": "你好，{{name}}，你目前报名了以下课程：\n\n{{courses}}",
+      "no_preferences": "未找到学习偏好设置。",
+      "preferences": "学习目标：{{goal}}\n经验水平：{{experience}}\n讲解类型：{{explanation}}\n学习方式：{{style}}\n教学节奏：{{pace}}\n示例类型：{{examples}}\n关注领域：{{focus}}",
+      "no_active_lesson": "未找到正在学习的课程。",
+      "current_lesson": "你上次在 {{course}} 学习的是 {{lesson}}。",
+      "settings": "主题：{{theme}}\n语言：{{language}}",
+      "progress": "你好，{{name}}，\n你已报名 {{courseCount}} 门课程。\n已完成课程总数：{{completedCount}}\n{{courseProgress}}",
+      "take_you_there": "我可以带你前往那里。",
+      "empty_response": "无法生成回复。请尝试提出其他问题。",
+      "course_progress_line": "{{course}}：已完成 {{completedCount}} 节课程"
+    }
   }
 }

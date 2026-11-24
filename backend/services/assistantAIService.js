@@ -4,17 +4,6 @@ const logger = buildLogger("ASSISTANT_AI");
 
 const TIMEOUT_MS = 20000;
 
-const MESSAGES = {
-  config: "The AI Assistant is currently offline. Please try again later.",
-  rate_limited:
-    "I am receiving too many requests right now. Please wait a moment and ask me again!",
-  unavailable: "The AI service is temporarily unavailable. Please try again shortly.",
-  timeout: "The AI service took too long to respond. Please try again shortly.",
-  network: "The AI service is temporarily unavailable. Please try again shortly.",
-  generic: "The AI Assistant is currently unavailable. Please try again later.",
-  malformed_response: "The AI Assistant couldn't generate a response. Please try again.",
-};
-
 export const askAssistantAI = async ({ context, message, history = [], requestId }) => {
   const url = process.env.AI_SERVICE_URL;
   const key = process.env.AI_SERVICE_KEY;
@@ -23,7 +12,7 @@ export const askAssistantAI = async ({ context, message, history = [], requestId
     return {
       ok: false,
       category: "config",
-      message: MESSAGES.config,
+      message: null,
     };
   }
 
@@ -53,7 +42,7 @@ export const askAssistantAI = async ({ context, message, history = [], requestId
       return {
         ok: false,
         category,
-        message: MESSAGES[category],
+        message: null,
       };
     }
 
@@ -65,7 +54,15 @@ export const askAssistantAI = async ({ context, message, history = [], requestId
       return {
         ok: false,
         category: "malformed_response",
-        message: MESSAGES.malformed_response,
+        message: null,
+      };
+    }
+
+    if (data?.error) {
+      return {
+        ok: false,
+        category: data.error,
+        message: null,
       };
     }
 
@@ -73,15 +70,7 @@ export const askAssistantAI = async ({ context, message, history = [], requestId
       return {
         ok: false,
         category: "malformed_response",
-        message: MESSAGES.malformed_response,
-      };
-    }
-
-    if (data.error) {
-      return {
-        ok: false,
-        category: data.error,
-        message: data.reply,
+        message: null,
       };
     }
 
@@ -99,7 +88,7 @@ export const askAssistantAI = async ({ context, message, history = [], requestId
     return {
       ok: false,
       category,
-      message: MESSAGES[category],
+      message: null,
     };
   }
 };
