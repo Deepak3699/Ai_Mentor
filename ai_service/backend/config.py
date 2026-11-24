@@ -53,6 +53,26 @@ CLOUDINARY_ENABLED = all([
     CLOUDINARY_API_SECRET,
 ])
 
+# Optional: RAG settings
+# Feature flag to enable or disable RAG functionality
+RAG_ENABLED = os.getenv("RAG_ENABLED", "false").strip().lower() in ("true", "1", "yes")
+
+# Embedding model and vector dimensions
+RAG_EMBEDDING_MODEL = os.getenv("RAG_EMBEDDING_MODEL") or "text-embedding-004"
+RAG_EMBEDDING_DIMENSIONS = int(os.getenv("RAG_EMBEDDING_DIMENSIONS", "768") or "768")
+RAG_EMBEDDING_BATCH_SIZE = int(os.getenv("RAG_EMBEDDING_BATCH_SIZE", "32") or "32")
+
+# Retrieval search parameters
+RAG_TOP_K = int(os.getenv("RAG_TOP_K", "4") or "4")
+RAG_MAX_TOP_K = int(os.getenv("RAG_MAX_TOP_K", "10") or "10")
+RAG_SIMILARITY_THRESHOLD = float(os.getenv("RAG_SIMILARITY_THRESHOLD", "0.7") or "0.7")
+
+# Document chunking and upload limits
+RAG_CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "1000") or "1000")
+RAG_CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "200") or "200")
+RAG_MAX_CONTEXT_SIZE = int(os.getenv("RAG_MAX_CONTEXT_SIZE", "4000") or "4000")
+RAG_MAX_UPLOAD_BYTES = int(os.getenv("RAG_MAX_UPLOAD_BYTES", "10485760") or "10485760")  # 10 MB default
+
 
 def validate_config():
     if not GEMINI_API_KEY:
@@ -60,3 +80,39 @@ def validate_config():
 
     if MAX_ACTIVE_LESSON_JOBS < 1:
         raise ValueError("MAX_ACTIVE_LESSON_JOBS must be at least 1.")
+
+    # Only validate RAG settings when RAG is enabled
+    if RAG_ENABLED:
+        # Embedding dimensions must be positive and within pgvector HNSW limit (max 2000)
+        if RAG_EMBEDDING_DIMENSIONS <= 0:
+            raise ValueError("RAG_EMBEDDING_DIMENSIONS must be greater than 0")
+        if RAG_EMBEDDING_DIMENSIONS > 2000:
+            raise ValueError("RAG_EMBEDDING_DIMENSIONS exceeds pgvector limit of 2000 for HNSW index")
+        if RAG_EMBEDDING_BATCH_SIZE <= 0:
+            raise ValueError("RAG_EMBEDDING_BATCH_SIZE must be greater than 0")
+
+        # Retrieval limits: top_k cannot exceed max_top_k
+        if RAG_TOP_K <= 0:
+            raise ValueError("RAG_TOP_K must be greater than 0")
+        if RAG_MAX_TOP_K <= 0:
+            raise ValueError("RAG_MAX_TOP_K must be greater than 0")
+        if RAG_TOP_K > RAG_MAX_TOP_K:
+            raise ValueError("RAG_TOP_K cannot exceed RAG_MAX_TOP_K")
+
+        # Chunking rules: overlap must be non-negative and smaller than chunk size
+        if RAG_CHUNK_SIZE <= 0:
+            raise ValueError("RAG_CHUNK_SIZE must be greater than 0")
+        if RAG_CHUNK_OVERLAP < 0:
+            raise ValueError("RAG_CHUNK_OVERLAP must be non-negative")
+        if RAG_CHUNK_OVERLAP >= RAG_CHUNK_SIZE:
+            raise ValueError("RAG_CHUNK_OVERLAP must be less than RAG_CHUNK_SIZE")
+
+        # Similarity threshold must be between 0.0 and 1.0
+        if not (0.0 <= RAG_SIMILARITY_THRESHOLD <= 1.0):
+            raise ValueError("RAG_SIMILARITY_THRESHOLD must be between 0.0 and 1.0")
+
+        # Context and upload size bounds
+        if RAG_MAX_CONTEXT_SIZE <= 0:
+            raise ValueError("RAG_MAX_CONTEXT_SIZE must be greater than 0")
+        if RAG_MAX_UPLOAD_BYTES <= 0:
+            raise ValueError("RAG_MAX_UPLOAD_BYTES must be greater than 0")
