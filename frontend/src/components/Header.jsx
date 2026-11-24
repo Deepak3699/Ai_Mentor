@@ -11,7 +11,7 @@ import {
   Search,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import ThemeToggle from "../components/common/ThemeToggle";
 import { useSidebar } from "../context/SidebarContext";
 import { useTranslation } from "react-i18next";
@@ -372,26 +372,28 @@ const Header = () => {
                     </div>
 
                     <div className="p-2 text-left">
-                      <button
-                        onClick={() => {
-                          navigate("/settings");
-                          setDropdownOpen(false);
-                        }}
-                        className="group flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-semibold text-main transition-colors hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-300"
+                      <Link
+                        to="/settings"
+                        onClick={() => setDropdownOpen(false)}
+                        className="group flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-semibold text-main transition-colors hover:bg-blue-500/10 hover:text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3867D6] dark:hover:text-blue-300"
                       >
-                        <User className="mr-3 w-4 h-4 group-hover:scale-110 transition-transform" />{" "}
+                        <User
+                          className="mr-3 w-4 h-4 group-hover:scale-110 transition-transform"
+                          aria-hidden="true"
+                        />{" "}
                         {t("nav.profile")}
-                      </button>
-                      <button
-                        onClick={() => {
-                          navigate("/settings");
-                          setDropdownOpen(false);
-                        }}
-                        className="group mt-1 flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-semibold text-main transition-colors hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-300"
+                      </Link>
+                      <Link
+                        to="/settings"
+                        onClick={() => setDropdownOpen(false)}
+                        className="group mt-1 flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-semibold text-main transition-colors hover:bg-blue-500/10 hover:text-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#3867D6] dark:hover:text-blue-300"
                       >
-                        <Settings className="mr-3 w-4 h-4 group-hover:rotate-45 transition-transform" />{" "}
+                        <Settings
+                          className="mr-3 w-4 h-4 group-hover:rotate-45 transition-transform"
+                          aria-hidden="true"
+                        />{" "}
                         {t("nav.settings")}
-                      </button>
+                      </Link>
 
                       <div className="my-2 border-t border-border/50 mx-2" />
 

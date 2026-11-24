@@ -1,6 +1,6 @@
 import { apiFetch as fetch } from "../lib/api";
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   ChevronRight,
@@ -34,7 +34,6 @@ const Sidebar = ({ activePage = "dashboard" }) => {
   const { sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed } = useSidebar();
 
   const { user } = useAuth();
-  const navigate = useNavigate();
 
   const [navigationItems, setNavigationItems] = useState([]);
 
@@ -90,8 +89,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
     };
   }, []);
 
-  const handleNavigation = (path) => {
-    navigate(path);
+  const handleCloseMobileSidebar = () => {
     setSidebarOpen(false);
   };
 
@@ -167,22 +165,30 @@ const Sidebar = ({ activePage = "dashboard" }) => {
         <div
           className={`shrink-0 pt-5 px-3 pb-2 transition-all duration-300 ${sidebarCollapsed ? "flex justify-center" : ""}`}
         >
-          <div
-            className={`border border-border/50 rounded-2xl p-4 flex flex-col items-center justify-center bg-card shadow-sm w-full ${sidebarCollapsed ? "hidden" : "flex"}`}
-          >
-            <img src="/upto.png" alt="UptoSkills Logo" className="h-8 mb-2 object-contain" />
-            <h2 className="text-[1.2rem] font-bold text-slate-900 dark:text-white tracking-wide">
-              AI Mentor
-            </h2>
-            <p className="text-[11px] text-muted-foreground mt-1 tracking-wide">
-              Learn · Build · Grow
-            </p>
-          </div>
-          {/* Logo when collapsed */}
-          {sidebarCollapsed && (
-            <div className="w-12 h-12 bg-card border border-border/50 rounded-xl flex items-center justify-center shadow-sm">
-              <img src="/upto.png" alt="Logo" className="h-6 object-contain" />
-            </div>
+          {!sidebarCollapsed ? (
+            <Link
+              to="/dashboard"
+              onClick={handleCloseMobileSidebar}
+              aria-label="AI Mentor Dashboard"
+              className="border border-border/50 rounded-2xl p-4 flex flex-col items-center justify-center bg-card shadow-sm w-full transition-colors hover:border-[#2f5cc4]/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5cc4]"
+            >
+              <img src="/upto.png" alt="UptoSkills Logo" className="h-8 mb-2 object-contain" />
+              <h2 className="text-[1.2rem] font-bold text-slate-900 dark:text-white tracking-wide">
+                AI Mentor
+              </h2>
+              <p className="text-[11px] text-muted-foreground mt-1 tracking-wide">
+                Learn · Build · Grow
+              </p>
+            </Link>
+          ) : (
+            <Link
+              to="/dashboard"
+              onClick={handleCloseMobileSidebar}
+              aria-label="AI Mentor Dashboard"
+              className="w-12 h-12 bg-card border border-border/50 rounded-xl flex items-center justify-center shadow-sm transition-colors hover:border-[#2f5cc4]/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2f5cc4]"
+            >
+              <img src="/upto.png" alt="UptoSkills Logo" className="h-6 object-contain" />
+            </Link>
           )}
         </div>
 
@@ -192,11 +198,15 @@ const Sidebar = ({ activePage = "dashboard" }) => {
             {navigationItems.map((item) => {
               const isActive = activePage === item.id;
               const Icon = iconMap[item.id] || LayoutDashboard;
+              const label = t(`nav.${item.id}`);
 
               return (
-                <button
+                <Link
                   key={item.id}
-                  onClick={() => handleNavigation(item.path)}
+                  to={item.path}
+                  onClick={handleCloseMobileSidebar}
+                  aria-current={isActive ? "page" : undefined}
+                  aria-label={sidebarCollapsed ? label : undefined}
                   className={`
                     group
                     relative
@@ -211,6 +221,10 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                     cursor-pointer
                     transition-all
                     duration-200
+                    focus-visible:outline
+                    focus-visible:outline-2
+                    focus-visible:outline-offset-2
+                    focus-visible:outline-[#2f5cc4]
 
                     ${
                       isActive
@@ -220,6 +234,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                   `}
                 >
                   <Icon
+                    aria-hidden="true"
                     className={`
                       w-5
                       h-5
@@ -246,7 +261,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                         }
                       `}
                     >
-                      {t(`nav.${item.id}`)}
+                      {label}
                     </span>
                   )}
 
@@ -267,6 +282,7 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                         rounded-md
                         opacity-0
                         group-hover:opacity-100
+                        group-focus-visible:opacity-100
                         pointer-events-none
                         whitespace-nowrap
                         transition-opacity
@@ -274,10 +290,10 @@ const Sidebar = ({ activePage = "dashboard" }) => {
                         shadow-lg
                       "
                     >
-                      {t(`nav.${item.id}`)}
+                      {label}
                     </span>
                   )}
-                </button>
+                </Link>
               );
             })}
           </div>
