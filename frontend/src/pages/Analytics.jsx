@@ -34,6 +34,7 @@ import LoadingSpinner from "../components/common/LoadingSpinner";
 import AchievementsCard from "../components/dashboard/AchievementsCard";
 import StatCard from "../components/StatCard";
 import DateRangeSelector from "../components/DateRangeSelector";
+import WeeklyStudyTimeCard from "../components/dashboard/WeeklyStudyTimeCard";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -552,6 +553,11 @@ const Analytics = () => {
               {t("analytics.need_attention")}
             </div>
           </div>
+        </div>
+
+        {/* Weekly Study Time Card — first slot of the first chart row */}
+        <div className="mb-8">
+          <WeeklyStudyTimeCard studySessions={studySessions} />
         </div>
 
         {/* Achievements Card */}

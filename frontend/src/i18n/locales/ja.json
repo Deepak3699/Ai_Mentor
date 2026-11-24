@@ -339,6 +339,19 @@
     "due_tomorrow": "明日",
     "delete_task_confirm": "このタスクを削除してもよろしいですか？",
     "task_exists_error": "この日付のタスクは既に存在します。",
+    "weekly_study": {
+      "title": "週間学習時間",
+      "subtitle": "今週の記録された学習時間",
+      "hours_unit": "時間",
+      "total_label": "今週",
+      "empty_title": "今週の学習時間は記録されていません",
+      "empty_subtitle": "レッスンを完了して、週間チャートの作成を開始しましょう。",
+      "aria_summary": "週間学習時間：合計{{total}}時間、最多は{{peak}}",
+      "aria_empty": "週間学習時間チャート：今週はデータが記録されていません",
+      "sr_caption": "1日ごとの週間学習時間",
+      "sr_day": "曜日",
+      "sr_hours": "時間"
+    },
     "achievements": {
       "title": "実績",
       "view_all": "すべて表示",

@@ -339,6 +339,19 @@
     "due_tomorrow": "Amanhã",
     "delete_task_confirm": "Tem certeza que deseja excluir esta tarefa?",
     "task_exists_error": "Já existe uma tarefa para esta data.",
+    "weekly_study": {
+      "title": "Tempo de estudo semanal",
+      "subtitle": "Horas de estudo registadas esta semana",
+      "hours_unit": "horas",
+      "total_label": "Esta semana",
+      "empty_title": "Nenhum tempo de estudo registado esta semana",
+      "empty_subtitle": "Conclua lições para começar a construir o seu gráfico semanal.",
+      "aria_summary": "Tempo de estudo semanal: total {{total}} horas, mais em {{peak}}",
+      "aria_empty": "Gráfico de tempo de estudo semanal: sem dados registados esta semana",
+      "sr_caption": "Tempo de estudo semanal por dia",
+      "sr_day": "Dia",
+      "sr_hours": "Horas"
+    },
     "achievements": {
       "title": "Conquistas",
       "view_all": "Ver todas",

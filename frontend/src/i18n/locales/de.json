@@ -339,6 +339,19 @@
     "due_tomorrow": "Morgen",
     "delete_task_confirm": "Sind Sie sicher, dass Sie diese Aufgabe löschen möchten?",
     "task_exists_error": "Aufgabe für dieses Datum existiert bereits.",
+    "weekly_study": {
+      "title": "Wöchentliche Lernzeit",
+      "subtitle": "Lernstunden in dieser Woche",
+      "hours_unit": "Stunden",
+      "total_label": "Diese Woche",
+      "empty_title": "Keine Lernzeit in dieser Woche erfasst",
+      "empty_subtitle": "Schließe Lektionen ab, um dein Wochendiagramm zu starten.",
+      "aria_summary": "Wöchentliche Lernzeit: gesamt {{total}} Stunden, am meisten am {{peak}}",
+      "aria_empty": "Wöchentliches Lernzeitdiagramm: keine Daten für diese Woche",
+      "sr_caption": "Wöchentliche Lernzeit pro Tag",
+      "sr_day": "Tag",
+      "sr_hours": "Stunden"
+    },
     "achievements": {
       "title": "Erfolge",
       "view_all": "Alle anzeigen",

@@ -339,6 +339,19 @@
     "due_tomorrow": "Demain",
     "delete_task_confirm": "Êtes-vous sûr de vouloir supprimer cette tâche ?",
     "task_exists_error": "La tâche existe déjà pour cette date.",
+    "weekly_study": {
+      "title": "Temps d'étude hebdomadaire",
+      "subtitle": "Heures d'étude enregistrées cette semaine",
+      "hours_unit": "heures",
+      "total_label": "Cette semaine",
+      "empty_title": "Aucun temps d'étude enregistré cette semaine",
+      "empty_subtitle": "Terminez des leçons pour commencer à construire votre graphique hebdomadaire.",
+      "aria_summary": "Temps d'étude hebdomadaire : total {{total}} heures, le plus le {{peak}}",
+      "aria_empty": "Graphique du temps d'étude hebdomadaire : aucune donnée enregistrée cette semaine",
+      "sr_caption": "Temps d'étude hebdomadaire par jour",
+      "sr_day": "Jour",
+      "sr_hours": "Heures"
+    },
     "achievements": {
       "title": "Réussites",
       "view_all": "Tout voir",
