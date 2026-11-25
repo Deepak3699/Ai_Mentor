@@ -33,6 +33,7 @@ import ErrorState from "../components/common/ErrorState";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import AchievementsCard from "../components/dashboard/AchievementsCard";
 import StatCard from "../components/StatCard";
+import CompletionBreakdownCard from "../components/CompletionBreakdownCard";
 import DateRangeSelector from "../components/DateRangeSelector";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
@@ -397,7 +398,6 @@ const Analytics = () => {
       ? Math.round(myCourses.reduce((acc, c) => acc + c.progress, 0) / myCourses.length)
       : 0;
 
-  // Calculate ongoing courses (courses with progress > 0)
   if (pageLoading) {
     return <LoadingSpinner label={t("analytics.loading")} />;
   }
@@ -415,8 +415,6 @@ const Analytics = () => {
   return (
     <>
       <main className="p-4 md:p-6 lg:p-8">
-        {/* Welcome Section */}
-
         {/* Welcome Section */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">
@@ -441,7 +439,6 @@ const Analytics = () => {
           />
         </div>
 
-        {/* METRICS CARDS */}
         {/* METRICS CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* 1. Enrolled Courses (Links to /courses) */}
@@ -682,6 +679,11 @@ const Analytics = () => {
               </button>
             </div>
           )}
+        </div>
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <CompletionBreakdownCard courses={myCourses} />
         </div>
 
         {/* Tab Navigation */}
