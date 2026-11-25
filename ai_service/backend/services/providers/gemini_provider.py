@@ -7,7 +7,12 @@ from typing import Any
 from google import genai
 from google.genai import types
 
-from backend.config import GEMINI_API_KEY, GEMINI_MODEL, LLM_TIMEOUT_SECONDS
+from backend.config import (
+    GEMINI_API_KEY,
+    GEMINI_EXPLAIN_MODEL,
+    GEMINI_MODEL,
+    LLM_TIMEOUT_SECONDS,
+)
 from backend.schemas.lessons import (
     ExplainCodeRequest,
     Flashcard,
@@ -54,6 +59,25 @@ def generate_gemini_content(
     return client.models.generate_content(
         model=model,
         contents=serialize_user_data(user_data),
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            http_options=types.HttpOptions(
+                timeout=LLM_TIMEOUT_SECONDS * 1000
+            ),
+        ),
+    )
+
+
+def generate_gemini_chat_content(
+    system_instruction: str,
+    contents: list[dict[str, Any]],
+    model: str = GEMINI_MODEL,
+):
+    """Generate a Gemini response using structured conversation history."""
+    client = get_gemini_client()
+    return client.models.generate_content(
+        model=model,
+        contents=contents,
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
             http_options=types.HttpOptions(
@@ -296,7 +320,7 @@ class GeminiProvider(BaseAIProvider):
         print("Trying Gemini for code analysis...")
         client = get_gemini_client()
         response = client.models.generate_content(
-            model="gemini-3.8-flash",
+            model=GEMINI_EXPLAIN_MODEL,
             contents=prompt,
         )
         result_text = response.text.strip()

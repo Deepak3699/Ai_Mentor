@@ -14,6 +14,7 @@ import cloudinary.uploader
 from backend.schemas.lessons import LessonRequest
 from backend.services.job_tracker import (
     active_jobs,
+    job_lock,
     job_status,
     mark_job_failed,
     shutdown_failed_jobs,
@@ -62,7 +63,8 @@ async def run_tracked_lesson(data: LessonRequest, base_filename: str) -> None:
     try:
         await process_lesson(data, base_filename)
     finally:
-        active_jobs.discard(base_filename)
+        with job_lock:
+            active_jobs.discard(base_filename)
 
 
 async def process_lesson(data: LessonRequest, base_filename: str) -> None:
@@ -121,7 +123,9 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
         script_generator = _resolve_callable(
             "generate_lesson_script", provider_manager.generate_lesson_script
         )
-        script, provider_used, model_used = script_generator(data)
+        script, provider_used, model_used = await eff_asyncio.to_thread(
+            script_generator, data
+        )
         script = validate_lesson_script(script)
         log_event("INFO", "Script prepared", words=len(script.split()))
 

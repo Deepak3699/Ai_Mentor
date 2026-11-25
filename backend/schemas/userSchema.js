@@ -19,17 +19,32 @@ const positiveIntId = (fieldName = "ID") =>
     )
     .transform((value) => Number(value));
 
-export const updateProfileSchema = z.object({
-  firstName: z.string().trim().min(1, "First name is required").optional(),
-  lastName: z.string().trim().min(1, "Last name is required").optional(),
-  email: z.string().email("Invalid email format").optional(),
-  bio: z
-    .string()
-    .trim()
-    .min(1, "Bio is required")
-    .max(500, "Bio must be at most 500 characters")
-    .optional(),
-});
+const ALLOWED_ROLES = ["user", "admin", "superadmin"];
+
+export const updateProfileSchema = z
+  .object({
+    firstName: z.string().trim().min(1, "First name is required").optional(),
+    lastName: z.string().trim().min(1, "Last name is required").optional(),
+    email: z.string().email("Invalid email format").optional(),
+    bio: z
+      .string()
+      .trim()
+      .min(1, "Bio is required")
+      .max(500, "Bio must be at most 500 characters")
+      .optional(),
+    role: z
+      .enum(ALLOWED_ROLES, {
+        errorMap: () => ({
+          message: `Role must be one of: ${ALLOWED_ROLES.join(", ")}`,
+        }),
+      })
+      .optional(),
+  })
+  .strict({ message: "Unknown fields are not allowed in profile updates" })
+  .refine((data) => !("role" in data), {
+    message: "Role cannot be changed via profile update",
+    path: ["role"],
+  });
 
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Current password is required"),

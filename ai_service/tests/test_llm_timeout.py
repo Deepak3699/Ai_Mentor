@@ -3,6 +3,7 @@ import http.server
 import json
 import threading
 import time
+import httpx2
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -343,7 +344,15 @@ def test_slow_gemini_provider_aborts_with_timeout(slow_upstream_server):
     test_client = genai.Client(api_key="test-key")
     start = time.time()
 
-    with pytest.raises((httpx.TimeoutException, requests.exceptions.Timeout)):
+    expected_timeouts = [httpx.TimeoutException, requests.exceptions.Timeout]
+    try:
+        import httpx2
+
+        expected_timeouts.append(httpx2.TimeoutException)
+    except ImportError:
+        pass
+
+    with pytest.raises(tuple(expected_timeouts)):
         test_client.models.generate_content(
             model="gemini-2.5-flash",
             contents="hello",

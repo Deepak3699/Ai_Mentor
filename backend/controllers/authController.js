@@ -330,6 +330,16 @@ const forgotPassword = async (req, res, next) => {
     if (!user) {
       return res.status(200).json(genericResponse);
     }
+    // Keep active token and avoid spamming inbox if requested within 60s
+    const RESET_EXPIRY_MS = 3600000; // 1 hour token validity
+    const COOLDOWN_MS = 60 * 1000; // 60 seconds cooldown window
+    if (
+      user.resetPasswordToken &&
+      user.resetPasswordExpires &&
+      new Date(user.resetPasswordExpires).getTime() - Date.now() > RESET_EXPIRY_MS - COOLDOWN_MS
+    ) {
+      return res.status(200).json(genericResponse);
+    }
 
     const resetToken = crypto.randomBytes(20).toString("hex");
 

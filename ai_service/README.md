@@ -45,7 +45,7 @@ Generated media is temporary when Cloudinary delivery succeeds. The service remo
 
 The local environment requires:
 
-- Python available through `python`
+- Python 3.11 available through `python`
 - FFmpeg available on `PATH`
 - Redis or Memurai listening on port `6379` for queued video generation
 - `ai_service/backend/.env` with a real `GEMINI_API_KEY`
@@ -73,14 +73,33 @@ To set up the complete repository, including all Node and React applications, ru
 npm run setup
 ```
 
+### Python Version
+
+The AI service requires **Python 3.11**.
+
+### Installing Dependencies
+
+The setup command `npm run setup:ai` automatically installs the AI service production dependencies.
+
+To install dependencies manually:
+
+```bash
+python -m pip install -r ai_service/backend/requirements.txt
+```
+
+To install development dependencies required for testing:
+
+```bash
+python -m pip install -r ai_service/backend/requirements-dev.txt
+```
+
 ## Configuration
 
 Create `ai_service/backend/.env` from `ai_service/backend/.env.example`.
 
 | Variable                | Requirement                                     | Behavior when unavailable                                                            |
 | ----------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `GEMINI_API_KEY`        | Required                                        | Setup and AI startup fail with a clear error                                         |
-| `GEMINI_MODEL`          | Optional                                        | Uses the default model configured by the service                                     |
+| `GEMINI_API_KEY`        | Required                                        | Setup and AI startup fail with a clear error                                         |     |
 | `GROQ_API_KEY`          | Optional                                        | Groq fallback is disabled                                                            |
 | `CLOUDINARY_CLOUD_NAME` | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete                                |
 | `CLOUDINARY_API_KEY`    | Optional as part of the complete Cloudinary set | Cloud delivery is disabled when the set is incomplete                                |
@@ -90,6 +109,10 @@ Create `ai_service/backend/.env` from `ai_service/backend/.env.example`.
 | `DID_SOURCE_URL`        | Optional                                        | D-ID rendering falls back to the local FFmpeg renderer                               |
 | `AI_SERVICE_LOG_LEVEL`  | Optional                                        | Uses `INFO` by default; supports `DEBUG`, `INFO`, `WARNING`, `ERROR`, and `CRITICAL` |
 | `LLM_TIMEOUT_SECONDS`   | Optional                                        | Sets the LLM call timeout in seconds; defaults to `60` when omitted                  |
+| `GEMINI_MODEL`          | Optional                                        | Uses `gemini-2.5-flash` by default for general Gemini generation                     |
+| `GEMINI_EXPLAIN_MODEL`  | Optional                                        | Uses `gemini-3.8-flash` by default for Gemini code explanations                      |
+| `GROQ_MODEL`            | Optional                                        | Uses `llama-3.3-70b-versatile` by default for general Groq generation                |
+| `GROQ_EXPLAIN_MODEL`    | Optional                                        | Uses `openai/gpt-oss-120b` by default for Groq code explanations                     |
 
 Setup output reports only variable names and `<configured>` markers. Do not commit `.env` files or share credential values.
 

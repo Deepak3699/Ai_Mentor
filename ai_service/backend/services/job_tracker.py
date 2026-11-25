@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 import datetime
 import hashlib
 import json
@@ -13,6 +14,7 @@ from backend.schemas.lessons import LessonRequest
 
 # Shared state
 active_jobs: set[str] = set()
+job_lock = threading.Lock()
 shutdown_failed_jobs: set[str] = set()
 shutting_down: bool = False
 
@@ -76,6 +78,21 @@ def queue_job(base_filename: str, cache_key: str | None = None, force: bool = Fa
         },
     }
     active_jobs.add(base_filename)
+
+
+def try_queue_job(
+    base_filename: str,
+    cache_key: str | None = None,
+    force: bool = False,
+    max_active_jobs: int = 2,
+) -> bool:
+    """Register a job only when active-job capacity is available."""
+    with job_lock:
+        if len(active_jobs) >= max_active_jobs:
+            return False
+
+        queue_job(base_filename, cache_key=cache_key, force=force)
+        return True
 
 
 def init_job_processing(base_filename: str) -> None:
