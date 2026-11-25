@@ -7,6 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "seed:payments": "cross-env NODE_ENV=development node scripts/seedPayments.js",
+    "seed:payments:dry": "cross-env NODE_ENV=development node scripts/seedPayments.js --dry-run",
     "seed:superadmin": "node scripts/seedSuperAdmin.js",
     "lint": "eslint .",
     "test:postgres-rollback": "node --test tests/syllabusTransaction.integration.test.js",
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "cross-env": "^10.1.0",
     "eslint": "^10.15.0",
     "globals": "^17.14.0",
     "nodemon": "^3.1.11"
