@@ -22,8 +22,16 @@ const SAMPLE_USERS = [
     email: "rahul@example.com",
     role: "user",
     purchases: [
-      { course: "Mastering React", transactionId: "GP-UPI-AXI-2025-0012345678", purchaseDate: "2025-01-15" },
-      { course: "Node.js for Backend", transactionId: "UTR-2025-02-10-9876543210", purchaseDate: "2025-02-10" },
+      {
+        course: "Mastering React",
+        transactionId: "GP-UPI-AXI-2025-0012345678",
+        purchaseDate: "2025-01-15",
+      },
+      {
+        course: "Node.js for Backend",
+        transactionId: "UTR-2025-02-10-9876543210",
+        purchaseDate: "2025-02-10",
+      },
     ],
   },
   {
@@ -33,7 +41,11 @@ const SAMPLE_USERS = [
     email: "priya@example.com",
     role: "user",
     purchases: [
-      { course: "Full‑Stack Web Dev", transactionId: "T10F8G6H4J2K1L9M7N5P3R0Q.token.2025-03-05", purchaseDate: "2025-03-05" },
+      {
+        course: "Full‑Stack Web Dev",
+        transactionId: "T10F8G6H4J2K1L9M7N5P3R0Q.token.2025-03-05",
+        purchaseDate: "2025-03-05",
+      },
     ],
   },
   {
@@ -43,7 +55,11 @@ const SAMPLE_USERS = [
     email: "amit@example.com",
     role: "user",
     purchases: [
-      { course: "Mastering React", transactionId: "HDFC-25-03-20-123456789012", purchaseDate: "2025-03-20" },
+      {
+        course: "Mastering React",
+        transactionId: "HDFC-25-03-20-123456789012",
+        purchaseDate: "2025-03-20",
+      },
     ],
   },
 ];
@@ -56,13 +72,13 @@ export const assertSeedingAllowed = ({
   if (!ALLOWED_ENVS.includes(env)) {
     throw new Error(
       `Refusing to seed: NODE_ENV is "${env ?? "undefined"}". ` +
-        `Allowed environments: ${ALLOWED_ENVS.join(", ")}.`
+        `Allowed environments: ${ALLOWED_ENVS.join(", ")}.`,
     );
   }
   if (remoteDb && !allowRemote) {
     throw new Error(
       "Refusing to seed: NEON_DATABASE_URL points to a remote database. " +
-        "Set ALLOW_SEED_ON_REMOTE_DB=true only if it is a disposable dev/test database."
+        "Set ALLOW_SEED_ON_REMOTE_DB=true only if it is a disposable dev/test database.",
     );
   }
 };
@@ -78,9 +94,14 @@ export const seedPaymentData = async ({ dryRun = false, closeConnection = false 
       const coursesByTitle = {};
       for (const courseData of SAMPLE_COURSES) {
         if (dryRun) {
-          const existing = await Course.findOne({ where: { title: courseData.title }, transaction });
+          const existing = await Course.findOne({
+            where: { title: courseData.title },
+            transaction,
+          });
           existing ? summary.coursesExisting++ : summary.coursesCreated++;
-          console.log(`[dry-run] course "${courseData.title}": ${existing ? "exists, skip" : "would create"}`);
+          console.log(
+            `[dry-run] course "${courseData.title}": ${existing ? "exists, skip" : "would create"}`,
+          );
           coursesByTitle[courseData.title] = existing ?? { id: null, ...courseData };
           continue;
         }
@@ -112,7 +133,9 @@ export const seedPaymentData = async ({ dryRun = false, closeConnection = false 
         if (dryRun) {
           const existing = await User.findOne({ where: { email: userFields.email }, transaction });
           existing ? summary.usersExisting++ : summary.usersCreated++;
-          console.log(`[dry-run] user ${userFields.email}: ${existing ? "exists, skip" : "would create"}`);
+          console.log(
+            `[dry-run] user ${userFields.email}: ${existing ? "exists, skip" : "would create"}`,
+          );
           continue;
         }
 
@@ -129,7 +152,7 @@ export const seedPaymentData = async ({ dryRun = false, closeConnection = false 
 
     console.log(`${dryRun ? "[dry-run] " : ""}Done.`, summary);
     return summary;
-    } finally {
+  } finally {
     if (closeConnection) await sequelize.close().catch(() => {});
   }
 };
@@ -137,7 +160,7 @@ export const seedPaymentData = async ({ dryRun = false, closeConnection = false 
 // Run only when executed directly (not when imported by tests)
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const dryRun = process.argv.includes("--dry-run");
-    seedPaymentData({ dryRun, closeConnection: true })
+  seedPaymentData({ dryRun, closeConnection: true })
     .then(() => process.exit(0))
     .catch((error) => {
       console.error("Failed to seed payment data:", error.message);

@@ -62,28 +62,22 @@ describe("seedPayments", () => {
 
     test("refuses production and staging", () => {
       for (const env of ["production", "staging"]) {
-        assert.throws(
-          () => assertSeedingAllowed({ env, remoteDb: false }),
-          /Refusing to seed/
-        );
+        assert.throws(() => assertSeedingAllowed({ env, remoteDb: false }), /Refusing to seed/);
       }
     });
 
     test("refuses when NODE_ENV is not set at all", () => {
       delete process.env.NODE_ENV; // afterEach restores it
-      assert.throws(
-        () => assertSeedingAllowed({ remoteDb: false }),
-        /Refusing to seed/
-      );
+      assert.throws(() => assertSeedingAllowed({ remoteDb: false }), /Refusing to seed/);
     });
 
     test("refuses a remote DB without explicit opt-in", () => {
       assert.throws(
         () => assertSeedingAllowed({ env: "development", remoteDb: true, allowRemote: false }),
-        /remote database/
+        /remote database/,
       );
       assert.doesNotThrow(() =>
-        assertSeedingAllowed({ env: "development", remoteDb: true, allowRemote: true })
+        assertSeedingAllowed({ env: "development", remoteDb: true, allowRemote: true }),
       );
     });
   });
@@ -138,7 +132,10 @@ describe("seedPayments", () => {
 
   test("never overwrites an existing real user", async () => {
     const users = new Map([
-      ["rahul@example.com", { email: "rahul@example.com", name: "Real Rahul", purchasedCourses: [] }],
+      [
+        "rahul@example.com",
+        { email: "rahul@example.com", name: "Real Rahul", purchasedCourses: [] },
+      ],
     ]);
     const db = installFakeDb({ users });
 
