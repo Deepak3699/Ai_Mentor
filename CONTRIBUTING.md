@@ -1,216 +1,361 @@
-# Contributing to AI Mentor
+# Contributing
 
-New to the project? Start here.
+Please read and understand this guide carefully before contributing to AI Mentor. It outlines the steps to prepare, validate, and submit your changes effectively.
+
+## Table of contents
+
+- [Get started](#get-started)
+- [First-time contributor checklist](#first-time-contributor-checklist)
+- [Starting services via root commands](#starting-services-via-root-commands)
+- [Contributor service map and responsibilities](#contributor-service-map-and-responsibilities)
+  - [1. `frontend/` — Learner Web Application](#1-frontend--learner-web-application)
+  - [2. `backend/` — User API and AI Gateway](#2-backend--user-api-and-ai-gateway)
+  - [3. `frontendAdmin/` — Administrator Web Application](#3-frontendadmin--administrator-web-application)
+  - [4. `backendAdmin/` — Administrator API](#4-backendadmin--administrator-api)
+  - [5. `ai_service/` — AI Video and Lesson Microservice](#5-ai_service--ai-video-and-lesson-microservice)
+  - [Quick "Start Here" service directory and commands table](#quick-start-here-service-directory-and-commands-table)
+  - [Root orchestration vs. direct service commands](#root-orchestration-vs-direct-service-commands)
+- [Make changes](#make-changes)
+- [Validate your changes](#validate-your-changes)
+- [Commit messages](#commit-messages)
+- [Submit a pull request](#submit-a-pull-request)
+- [AI use policy and guidelines](#ai-use-policy-and-guidelines)
+- [Security](#security)
+
+## Get started
+
+1. Fork [Deepak3699/Ai_Mentor](https://github.com/Deepak3699/Ai_Mentor) and clone your fork:
+
+   ```bash
+   git clone https://github.com/<your-username>/Ai_Mentor.git
+   cd Ai_Mentor
+   ```
+
+2. Add the original repository as the `upstream` remote:
+
+   ```bash
+   git remote add upstream https://github.com/Deepak3699/Ai_Mentor.git
+   git remote -v
+   ```
+
+3. Keep your local base branch up to date with upstream. Fetch and integrate the latest changes daily, and always do this before starting new work. Replace `<base-branch>` with the branch you are contributing against, such as `main` or `dev`:
+
+   ```bash
+   git fetch upstream
+   git switch <base-branch>
+   git pull --ff-only upstream <base-branch>
+   git push origin <base-branch>
+   ```
+
+   If the fast-forward update fails, your local branch may have diverged. Resolve that before continuing; do not force-push to the upstream repository.
+
+4. Review the documentation for the application you plan to contribute to. Each guide covers its architecture, technologies, configuration, and local development setup:
+
+   - [BACKEND](./backend/BACKEND_DOCUMENTATION.md)
+   - [BACKEND ADMIN](./backendAdmin/backendAdmin_Documentation.md)
+   - [FRONTEND](./frontend/FRONTEND_DOCUMENTATION.md)
+   - [FRONTEND ADMIN](./frontendAdmin/FRONTEND_ADMIN_DOCUMENTATION.md)
+   - [AI SERVICE](./ai_service/README.md)
+
+   Then install project dependencies:
+
+   ```bash
+   npm run setup
+   ```
+
+5. Configure the required environment variables using the `.env.example` files and [`initalSetup.md`](initalSetup.md). Never commit `.env` files or credentials.
 
 ---
 
-# 1. Fork the repository
+### First-time contributor checklist
 
-First, fork the repository to your own GitHub account:
+Follow this checklist to get from a fresh repository clone to a fully functional local development stack:
 
-https://github.com/Deepak3699/Ai_Mentor
-
-Click the **Fork** button in the top-right corner and create a fork under your GitHub account.
-
-# 2. Clone your fork
-
-Clone **your forked repository**, not the original repository:
-
-    git clone https://github.com/<your-github-username>/Ai_Mentor.git
+- [ ] **1. Verify Prerequisites**:
+  - **Node.js**: version 18 or newer (Node.js 20 recommended)
+  - **npm**: installed with Node.js
+  - **Python**: version 3.10 or newer (Python 3.11 recommended)
+  - **PostgreSQL**: local instance or hosted connection string (e.g. Neon)
+  - **Redis**: local Redis or Memurai listening on port `6379` (required for asynchronous video generation jobs)
+  - **FFmpeg**: installed and discoverable on your system `PATH` (required for AI video rendering)
+  - **Git**: installed and configured
+- [ ] **2. Clone & Add Upstream**:
+  - Clone your fork and link the main repository as `upstream`:
+    ```bash
+    git clone https://github.com/<your-username>/Ai_Mentor.git
     cd Ai_Mentor
+    git remote add upstream https://github.com/Deepak3699/Ai_Mentor.git
+    ```
+- [ ] **3. Configure Environment Files**:
+  - Copy `.env.example` to `.env` in all five runtime locations as documented in `initalSetup.md`:
+    - `backend/.env`
+    - `frontend/.env`
+    - `backendAdmin/.env`
+    - `frontendAdmin/.env`
+    - `ai_service/backend/.env`
+- [ ] **4. Install Dependencies**:
+  - From the repository root, run the setup orchestrator:
+    ```bash
+    npm run setup
+    ```
+  - _(This installs dependencies across the root and all four Node apps, creates `ai_service/.venv`, installs `requirements.txt`, and validates tool paths)._
+- [ ] **5. Start Local Services**:
+  - Run `npm run dev` to boot all five services simultaneously, or use `npm run dev:user` / `npm run dev:admin` to launch a targeted subset.
+- [ ] **6. Quality Checks Before Submitting**:
+  - Before committing or pushing, verify that your code conforms to project standards:
+    ```bash
+    npm run lint          # Run ESLint across all JavaScript/React packages
+    npm run format:check  # Check Prettier code style
+    ```
 
-Replace `<your-github-username>` with your GitHub username.
+---
 
-# 3. Follow the detailed environment setup
-
-    # Read initalSetup.md (Neon database + .env files)
-
-# 4. Install dependencies and run locally
+### Starting services via root commands
 
 From the repository root:
 
 ```bash
-npm run setup
+npm run setup          # Full installation (Node apps + Python venv)
+npm run setup:ai       # AI-only installation
 ```
 
-Configure the five `.env` files as described in `initalSetup.md`, then use the root commands:
+Then start the stack using the root orchestration runner:
 
 ```bash
-npm run dev          # User and Admin API/WEB services
-npm run dev:user     # User API + User WEB
-npm run dev:admin    # Admin API + Admin WEB
+npm run dev            # Start or reuse all 5 services with unified dashboard
+npm run dev:user       # User API (:5000) + Learner Web (:5173)
+npm run dev:admin      # Admin API (:5001) + Admin Web (:5174)
+npm run dev:ai         # Python AI Service only (:8000)
 ```
 
-Use `npm run dev:backend`, `npm run dev:frontend`, `npm run dev:backend-admin`, or `npm run dev:frontend-admin` for one service. The runner checks backend health before starting a frontend and safely reuses healthy services already running in another terminal.
+Target individual services from root with:
 
-The Python AI service still runs separately:
+- `npm run dev:backend` (User API)
+- `npm run dev:frontend` (Learner Web)
+- `npm run dev:backend-admin` (Admin API)
+- `npm run dev:frontend-admin` (Admin Web)
 
-```bash
-cd ai_service/backend
-python graceful_server.py
-```
-
-`Ctrl+C` stops only processes started by the current runner. Reused services remain running in their original terminal.
-
-### Formatting
-
-Use the project-local Prettier installation before committing frontend, JavaScript, JSON, Markdown, CSS, or HTML changes:
-
-```bash
-npm run format
-npm run format:check
-```
-
-Do not use an unpinned global or temporary Prettier version. Keep functional changes separate from repository-wide formatting changes so pull-request diffs remain reviewable.
-
-## How to work on a task
-
-```bash
-# 1. Always start from the latest code
-git checkout main
-git pull origin main
-
-# 2. Create your own branch
-git checkout -b fix/short-description
-
-# 3. Write code, run it locally, test it
-
-# 4. Run the linter, otherwise CI will fail
-npm run lint                  # from the repo root — checks all four Node/React services
-npm run lint:backend-admin    # Backend Admin only
-
-# 5. Commit
-git add .
-git commit -m "fix: admin panel pointing to wrong port"
-
-# 6. Push
-git push origin fix/short-description
-
-# 7. Open a pull request on GitHub
-```
+The root runner checks backend health (`/health`) before starting frontends and safely reuses healthy services already running in other terminal windows. `Ctrl+C` cleanly stops only processes started by the active terminal runner.
 
 ---
 
-## Rules
+## Contributor service map and responsibilities
 
-### Do
+AI Mentor is organized as five cooperating runtime services sharing one PostgreSQL database and coordinated through root development scripts.
 
-- One pull request does one thing — keep it under roughly 400 changed lines
-- Run the service locally before you push
-- `npm run lint` must pass
-- Attach screenshots for any UI change
-- Use the commit format `type: description` (see below)
-- Try on your own for 30 minutes before asking for help
-
-### Do not
-
-- Push directly to `main`
-- Commit a `.env` file — ever
-- Put API keys or passwords in the code
-- Merge someone else's pull request without being asked
-- Leave `console.log` statements behind
-- Bundle five unrelated changes into one pull request
-
----
-
-## Secret scanning
-
-CI job **Check for committed secrets** does two things:
-
-1. Fails if any file named `.env` is tracked by git.
-2. Runs [gitleaks](https://github.com/gitleaks/gitleaks) over the full commit history and file content, looking for API keys, tokens, private keys, webhook URLs and passwords inside database connection strings, whatever the file is called. Findings are redacted in the logs.
-
-Run it locally before you push (install gitleaks first):
-
-    gitleaks git . --config .gitleaks.toml --redact --no-banner
-    scripts/test-secret-scan.sh        # self-test with fake credentials
-
-### If the scan fails
-
-- **It is a real secret:** rotate it at the provider first. Removing it from the code is not enough, because it stays in git history.
-- **It is a false positive:** keep the exception as narrow as possible.
-  1. Run the scan with `--report-format json --report-path report.json` and copy the `Fingerprint` of the finding.
-  2. Add it to `.gitleaksignore` with a comment line above it saying why it is safe.
-  3. Only for a whole test fixture file, add its exact path to `[allowlist]` in `.gitleaks.toml` instead.
-  4. Open the pull request. Changes to these files need Team Lead review (see `.github/CODEOWNERS`). Never allowlist something you have not confirmed is fake.
-
-Use obvious placeholders in docs and examples (`your_password`, `xxxxx`), which the scanner ignores.
-
----
-
-## Commit message format
-
-```
-type: short description (lowercase, present tense)
-```
-
-| Type       | When to use it                |
-| ---------- | ----------------------------- |
-| `feat`     | A new feature                 |
-| `fix`      | A bug fix                     |
-| `docs`     | Documentation only            |
-| `style`    | Formatting, no logic change   |
-| `refactor` | Better code, same behaviour   |
-| `test`     | Adding tests                  |
-| `chore`    | Dependencies or configuration |
-
-Examples:
-
-```
-feat: add certificate download button
-fix: point admin frontend to port 5001
-docs: add backendAdmin setup to README
-chore: bump express to v5
-```
-
----
-
-## Review process
-
-1. Open your pull request and fill in the template
-2. Automated checks run (lint and build, about three minutes)
-3. Red cross? Click "Details", read the error, fix it, push again
-4. Green checks plus one approval — then merge
-5. Delete your branch after merging
-
----
-
-## Project structure (five services)
-
-```
+```text
 Ai_Mentor/
-├── frontend/        Learner app      React 19 + Vite + Tailwind      :5173
-├── backend/         Main API         Express 4 + Sequelize + Postgres :5000
-├── frontendAdmin/   Admin panel      React 19 + Vite + Tailwind      :5174
-├── backendAdmin/    Admin API        Express 5 + Sequelize            :5001
-└── ai_service/      AI video         FastAPI + Gemini + FFmpeg        :8000
+├── frontend/        Learner Web Application     React 19 + Vite 7 + Tailwind 4      :5173
+├── backend/         User API & AI Gateway        Express 5 + Sequelize 6 + Postgres  :5000
+├── frontendAdmin/   Administrator Web Portal     React 19 + Vite 7 + Tailwind 4      :5174
+├── backendAdmin/    Administrator API            Express 5 + Sequelize 6 + Postgres  :5001
+└── ai_service/      AI Video & Lesson Service    FastAPI + Gemini + TTS + FFmpeg     :8000
 ```
 
-`backend` and `backendAdmin` share the **same PostgreSQL database**.
+`backend` and `backendAdmin` share the **same PostgreSQL database**. The User API (`backend`) acts as the application-facing bridge and security boundary to the Python `ai_service`.
+
+### 1. `frontend/` — Learner Web Application
+
+- **Directory**: `frontend/`
+- **Local URL**: [http://localhost:5173](http://localhost:5173)
+- **Primary Tech**: React 19, Vite 7, Tailwind CSS 4, React Router DOM v7, Axios, Lucide React, Recharts, i18next
+- **Responsibilities & Intent**:
+  - The primary student-facing learning portal.
+  - User authentication with email/password and Firebase Google OAuth sign-in.
+  - Course discovery catalog, course previews, and checkout (Stripe and Razorpay integration).
+  - Learning workspace (`/learning/:id`) with video player, subtitle toggling, and real-time transcript synchronization.
+  - Learner analytics dashboard (`/analytics`) featuring course progress, completion breakdown donut charts, and task calendar.
+  - Community discussion boards, bookmarks, watched-video history, and profile settings.
+  - Automatically redirects authenticated administrators to the `frontendAdmin` portal.
+
+### 2. `backend/` — User API and AI Gateway
+
+- **Directory**: `backend/`
+- **Local URL**: [http://localhost:5000](http://localhost:5000) (`http://localhost:5000/health` for health status)
+- **Primary Tech**: Node.js, Express 5, Sequelize 6, PostgreSQL, JWT, BullMQ, Redis, Zod, Firebase Admin
+- **Responsibilities & Intent**:
+  - Core REST API serving the learner application.
+  - Learner authentication, JWT issuance, password reset workflows, and user profile management.
+  - Course catalog queries, module metadata, and student enrollment records.
+  - Payment authorization and webhook listeners for Stripe and Razorpay.
+  - Background asynchronous video generation queue processing (BullMQ backed by Redis).
+  - Secure gateway and proxy between the frontend and the Python `ai_service`.
+
+### 3. `frontendAdmin/` — Administrator Web Application
+
+- **Directory**: `frontendAdmin/`
+- **Local URL**: [http://localhost:5174](http://localhost:5174)
+- **Primary Tech**: React 19, Vite 7, Tailwind CSS 4, React Router DOM v7, Axios, Lucide React, ExcelJS, jsPDF
+- **Responsibilities & Intent**:
+  - Dedicated management portal for instructors, admins, and super-administrators.
+  - Course authoring, syllabus composition, module ordering, and publishing state management.
+  - User account moderation (viewing learners, updating roles, banning, unblocking, and account deletion).
+  - Platform enrollment metrics, revenue analytics, and report export tools (CSV, Excel, PDF).
+  - Community moderation and reported course resolution.
+
+### 4. `backendAdmin/` — Administrator API
+
+- **Directory**: `backendAdmin/`
+- **Local URL**: [http://localhost:5001](http://localhost:5001) (`http://localhost:5001/health` for health status)
+- **Primary Tech**: Node.js, Express 5, Sequelize 6, PostgreSQL, JWT, Zod
+- **Responsibilities & Intent**:
+  - Role-protected API for administrator and super-administrator workflows.
+  - Shares the underlying PostgreSQL database with `backend` while isolating administrative privilege checks.
+  - Transactional syllabus and course operations with rollback safety.
+  - Admin audit trails, course reporting handlers, and administrative notifications.
+
+### 5. `ai_service/` — AI Video and Lesson Microservice
+
+- **Directory**: `ai_service/backend/`
+- **Local URL**: [http://127.0.0.1:8000](http://127.0.0.1:8000) (`/` for health, `/docs` for interactive Swagger UI)
+- **Primary Tech**: Python 3.10+, FastAPI, Uvicorn, Google Gemini (`google-genai`), Groq, Edge TTS (`edge-tts`), FFmpeg, Cloudinary
+- **Responsibilities & Intent**:
+  - Generates structured educational lesson scripts using Google Gemini (with Groq fallback).
+  - Synthesizes narration audio from scripts using Edge TTS.
+  - Composes video slides, narration audio, and animated subtitles via FFmpeg.
+  - Delivers generated media to Cloudinary (with local storage fallback) and cleans up temporary local files.
+  - Generates course syllabi, quizzes, flashcards, and transcripts.
 
 ---
 
-## Stuck?
+### Quick "Start Here" service directory and commands table
 
-1. Try on your own first — give it 30 minutes and read the error carefully
-2. Search Google or Stack Overflow with the exact error message
-3. Still stuck? Ask in the team group, and include:
-   - What you already tried
-   - The full error message (screenshot or pasted text)
-   - Which service and which file
-
-Asking for help is fine. Just do not ask with "it is not working" — nobody can
-help you from that alone.
-
----
-
-## Further reading
-
-- `initalSetup.md` — environment setup
-- `backend/BACKEND_DOCUMENTATION.md` — the most detailed backend reference
-- `ai_service/README.md` — the AI video pipeline
+| Service Name      | Directory             | Local URL / Port        | Root Orchestration Command   | Direct Service Command                               | Intent / Primary Function                        |
+| :---------------- | :-------------------- | :---------------------- | :--------------------------- | :--------------------------------------------------- | :----------------------------------------------- |
+| **Learner Web**   | `frontend/`           | `http://localhost:5173` | `npm run dev:frontend`       | `cd frontend && npm run dev`                         | Learner portal, course player, analytics         |
+| **User API**      | `backend/`            | `http://localhost:5000` | `npm run dev:backend`        | `cd backend && npm run dev`                          | Main learner API & AI service gateway            |
+| **Admin Web**     | `frontendAdmin/`      | `http://localhost:5174` | `npm run dev:frontend-admin` | `cd frontendAdmin && npm run dev`                    | Admin management portal & reports                |
+| **Admin API**     | `backendAdmin/`       | `http://localhost:5001` | `npm run dev:backend-admin`  | `cd backendAdmin && npm run dev`                     | Role-protected admin & course API                |
+| **AI Service**    | `ai_service/backend/` | `http://127.0.0.1:8000` | `npm run dev:ai`             | `cd ai_service/backend && python graceful_server.py` | FastAPI video/audio generation & syllabus engine |
+| **All Services**  | Root (`.`)            | Ports 5000–8000         | `npm run dev`                | _N/A (use root runner)_                              | Spawns all 5 services with unified dashboard     |
+| **Learner Stack** | Root (`.`)            | Ports 5000 & 5173       | `npm run dev:user`           | _N/A (use root runner)_                              | Spawns User API + Learner Web                    |
+| **Admin Stack**   | Root (`.`)            | Ports 5001 & 5174       | `npm run dev:admin`          | _N/A (use root runner)_                              | Spawns Admin API + Admin Web                     |
 
 ---
 
-_Questions? Ask the team lead. If you spot a mistake in these rules, send a pull
-request — this file should improve too._
+### Root orchestration vs. direct service commands
+
+Understanding when to run commands from the repository root versus inside a specific service directory will save you time and prevent common setup issues:
+
+#### Root Orchestration Commands (Recommended for everyday development)
+
+- **Where to run**: Repository root (`Ai_Mentor/`).
+- **How they work**: Implemented via `scripts/dev-runner.cjs` and `scripts/install-dependencies.cjs`.
+- **Key benefits**:
+  - **Coordinated startup**: Frontends wait for their matching backend `/health` endpoint before starting, eliminating connection errors on launch.
+  - **Port awareness & reuse**: Detects whether a service is already running on its port in another terminal or background process and reuses it without failing.
+  - **Safe cleanup**: `Ctrl+C` cleanly shuts down only the processes started by that specific terminal session.
+  - **Unified tooling**:
+    - `npm run setup`: Installs dependencies for root, all four Node apps, creates the Python virtual environment (`ai_service/.venv`), and checks system prerequisites (Node, npm, Python, FFmpeg, Redis).
+    - `npm run lint`: Runs ESLint across `backend`, `backendAdmin`, `frontend`, and `frontendAdmin` in a single pass.
+    - `npm run format`: Runs project-pinned Prettier across all markdown, code, and config files.
+    - `npm test`: Runs all service test suites in sequence.
+
+#### Direct Service Commands (For focused, deep debugging)
+
+- **Where to run**: Inside the individual service folder (`cd frontend`, `cd backend`, etc.).
+- **When to use**:
+  - Inspecting raw, unbuffered server logs without the multi-app dashboard.
+  - Running service-specific database migrations or seeds:
+    - `backend/`: `npm run seed:courses` (populate sample course catalog).
+    - `backendAdmin/`: `npm run seed:superadmin` (seed default super-administrator).
+  - Running single-app test runners during active development:
+    - `frontend/`: `npm test` or `npx vitest run`.
+    - `frontendAdmin/`: `npm test` (Vitest).
+    - `backendAdmin/`: `npm run test:postgres-rollback` (transaction rollback integration tests).
+    - `ai_service/`: `pytest` (using `ai_service/.venv`).
+
+---
+
+## Make changes
+
+- Create a descriptive branch from the updated base branch, such as `feat/course-search` or `fix/login-validation`.
+- Keep each change focused and consistent with the conventions of the service you are editing.
+- Include or update tests and documentation when relevant.
+- Avoid unrelated formatting changes and generated files.
+
+## Validate your changes
+
+Run the checks relevant to your changes before opening a pull request:
+
+```bash
+npm run format:check
+npm run lint
+npm test
+```
+
+For AI service changes, run the Python tests from `ai_service/`:
+
+```bash
+cd ai_service
+python -m pytest
+```
+
+For frontend changes, run the production build for the affected application:
+
+```bash
+npm run build --prefix frontend
+npm run build --prefix frontendAdmin
+```
+
+If a check cannot be run, explain why in your pull request. Confirm that your changes do not include credentials, environment files, generated media, or build output.
+
+## Commit messages
+
+Use short, descriptive commit messages in the `type: description` format:
+
+```text
+feat: add course search
+fix: handle expired login tokens
+docs: update setup instructions
+test: cover course enrollment
+```
+
+Common types include `feat`, `fix`, `docs`, `test`, `refactor`, and `chore`. Keep commits coherent and avoid combining unrelated changes.
+
+## Submit a pull request
+
+A pull request (PR) presents your proposed changes for review. A clear description and a focused, well-tested change help reviewers understand your work and make review more efficient.
+
+Before submitting:
+
+1. Write code that is clear and consistent with the surrounding project.
+2. Organize your work into coherent commits that make the change easy to follow.
+3. Review your own changes for correctness, scope, and accidental files.
+4. Run the relevant tests, linters, formatters, and builds.
+5. Open a PR against the appropriate project branch.
+
+In your PR description:
+
+- Summarize the problem and the reason for the change.
+- Explain the approach and any important design decisions.
+- Mention differences from the original plan, if applicable.
+- Call out open questions or areas where you would like reviewer input.
+- Include screenshots or recordings for user-facing changes. For UI changes, show the relevant updated screens and note any important interaction changes.
+- List the checks you ran and their results. Be accurate about anything you did not test.
+
+Use GitHub Markdown to keep the description easy to read. Put questions about specific code in a review comment on the relevant lines when possible. Respond to feedback constructively and update the PR description if the scope or validation changes.
+
+## AI use policy and guidelines
+
+AI tools may help you understand the codebase, write code, or improve wording. You are responsible for every change you submit, whether or not you used an AI tool. You must understand the changes, explain why they are appropriate, and verify them with relevant tests. Do not submit AI-generated code that you have not personally reviewed and tested.
+
+### Using AI as a coding assistant
+
+- Become familiar with the relevant part of the project before asking an AI tool to suggest or change code.
+- Verify AI-generated explanations against project documentation and source code. AI tools can be wrong about how the project works.
+- Treat generated code, commands, and recommendations as suggestions. Check their correctness, compatibility, security, and behavior before using them.
+- Break work into focused, reviewable changes and coherent commits, even if a tool produces a large change at once.
+- Avoid comments that merely restate what the code already makes clear. Keep necessary comments concise and accurate.
+
+### Using AI for project communication
+
+Use your own judgment and words when communicating with maintainers. AI tools may help with spelling, grammar, or translation, but read and verify all generated text before posting it. Do not paste generic AI-generated responses to review feedback; explain your reasoning directly.
+
+PR descriptions should focus on the motivation, important design choices, and validation rather than repeating details already visible in the diff. Keep communication concise and accurate, and complete any PR template without replacing its checklist or requested information with generated text.
+
+## Security
+
+Never commit passwords, API keys, tokens, private keys, or other sensitive information. If a real secret is exposed, rotate it with the relevant provider and notify the maintainers. Do not report security vulnerabilities in public issues; contact the project maintainers privately.
+
+For local setup and project-service details, see [`README.md`](README.md) and [`initalSetup.md`](initalSetup.md).

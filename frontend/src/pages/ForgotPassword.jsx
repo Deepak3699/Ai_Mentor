@@ -4,6 +4,7 @@ import { Mail, ArrowLeft } from "lucide-react";
 import AuthLayout from "../components/auth/AuthLayout";
 import axios from "axios";
 import { z } from "zod";
+import { getErrorMessage } from "../lib/errorHandling.js";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -32,9 +33,9 @@ const ForgotPassword = () => {
       );
     } catch (err) {
       if (err instanceof z.ZodError) {
-        setError(err.errors[0].message);
+        setError(err.issues[0].message);
       } else {
-        setError(err.response?.data?.message || err.message);
+        setError(getErrorMessage(err, "Unable to send reset link."));
       }
     } finally {
       setLoading(false);

@@ -84,16 +84,19 @@ def test_upload_audio_returns_the_did_url_without_network(monkeypatch, tmp_path)
     assert avatar_service.upload_audio(str(audio)) == "https://media.test/audio.mp3"
     assert captured["url"].endswith("/audios")
     assert captured["kwargs"]["timeout"] == 60
+    assert captured["kwargs"]["files"]["audio"][0] == "voice.mp3"
     assert "Content-Type" not in captured["kwargs"]["headers"]
 
 
 def test_create_avatar_requires_a_source_url_before_upload(monkeypatch):
     monkeypatch.setattr(avatar_service, "DID_SOURCE_URL", None)
+
     monkeypatch.setattr(
         avatar_service,
         "upload_audio",
         lambda path: pytest.fail("audio must not upload without a source URL"),
     )
+
     with pytest.raises(RuntimeError, match="DID_SOURCE_URL is not configured"):
         asyncio.run(avatar_service.create_avatar_video("voice.mp3"))
 
@@ -108,8 +111,7 @@ def test_create_avatar_validates_creation_response_before_polling(monkeypatch):
         lambda *args, **kwargs: FakeResponse(201, {}),
     )
     with pytest.raises(RuntimeError, match="did not return a talk ID"):
-        asyncio.run(avatar_service.create_avatar_video("voice.mp3"))
-
+         asyncio.run(avatar_service.create_avatar_video("voice.mp3"))
 
 def test_poll_returns_completed_video_and_rejects_missing_result(monkeypatch):
     monkeypatch.setattr(avatar_service, "DID_API_KEY", "user:pass")
@@ -132,3 +134,113 @@ def test_poll_returns_completed_video_and_rejects_missing_result(monkeypatch):
     )
     with pytest.raises(RuntimeError, match="returned no video URL"):
         asyncio.run(avatar_service._poll_for_video("talk-2"))
+def test_poll_raises_did_error_immediately(monkeypatch):
+    avatar_service.DID_API_KEY = "user:pass"
+    avatar_service.POLL_INTERVAL = 0
+    avatar_service.MAX_POLL_ATTEMPTS = 5
+
+    polls = []
+
+    def fake_get(*args, **kwargs):
+        polls.append(1)
+        return FakeResponse(
+            200,
+            {
+                "status": "error",
+                "error": {"description": "bad audio"},
+            },
+        )
+
+    monkeypatch.setattr(avatar_service.requests, "get", fake_get)
+
+    with pytest.raises(RuntimeError, match="bad audio"):
+        asyncio.run(avatar_service._poll_for_video("t1"))
+
+    assert len(polls) == 1
+
+
+@pytest.mark.parametrize(
+    "audio_path_input,expected_filename",
+    [
+        (r"D:\Ai_Mentor\ai_service\outputs\audio\lesson.mp3", "lesson.mp3"),
+        (r"C:\Users\test\lesson_final.mp3", "lesson_final.mp3"),
+        ("/var/data/ai_service/audio/lesson.mp3", "lesson.mp3"),
+        ("simple_lesson.mp3", "simple_lesson.mp3"),
+        (r"D:\mixed/path\to/lesson.mp3", "lesson.mp3"),
+    ],
+)
+def test_upload_audio_extracts_basename_from_windows_and_posix_paths(
+    monkeypatch, audio_path_input, expected_filename
+):
+    import io
+    monkeypatch.setattr(avatar_service, "DID_API_KEY", "user:pass")
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["files"] = kwargs.get("files")
+        return FakeResponse(201, {"url": "https://media.test/audio.mp3"})
+
+    monkeypatch.setattr(avatar_service.requests, "post", fake_post)
+    monkeypatch.setattr("builtins.open", lambda *args, **kwargs: io.BytesIO(b"dummy audio data"))
+
+    result = avatar_service.upload_audio(audio_path_input)
+    assert result == "https://media.test/audio.mp3"
+    uploaded_filename = captured["files"]["audio"][0]
+    assert uploaded_filename == expected_filename
+
+
+def test_awaitable_str_deleted():
+    """Verify AwaitableStr hack has been deleted entirely."""
+    assert not hasattr(avatar_service, "AwaitableStr")
+
+
+def test_create_avatar_video_is_coroutine_function_with_accurate_type_hints():
+    """Verify create_avatar_video is an async def coroutine function with accurate type hints."""
+    import inspect
+    from typing import get_type_hints
+
+    assert inspect.iscoroutinefunction(avatar_service.create_avatar_video)
+    hints = get_type_hints(avatar_service.create_avatar_video)
+    assert hints.get("audio_path") is str
+    assert hints.get("return") is str
+
+
+def test_create_avatar_video_returns_coroutine_not_str():
+    """Test asserting the coroutine is returned to be awaited, not an immediate str."""
+    import inspect
+
+    coro = avatar_service.create_avatar_video("voice.mp3")
+    assert inspect.iscoroutine(coro)
+    assert not isinstance(coro, str)
+    coro.close()
+
+
+@pytest.mark.asyncio
+async def test_create_avatar_video_awaited_in_running_event_loop_without_asyncio_run(monkeypatch):
+    """Verify create_avatar_video awaits successfully without invoking asyncio.run or blocking thread pools."""
+    monkeypatch.setattr(avatar_service, "DID_API_KEY", "user:pass")
+    monkeypatch.setattr(avatar_service, "DID_SOURCE_URL", "https://media.test/source.jpg")
+    monkeypatch.setattr(avatar_service, "upload_audio", lambda path: "https://media.test/audio.mp3")
+
+    def fail_if_asyncio_run(*args, **kwargs):
+        raise AssertionError("asyncio.run() must not be executed while an event loop is running")
+
+    monkeypatch.setattr(asyncio, "run", fail_if_asyncio_run)
+    monkeypatch.setattr(avatar_service.asyncio, "run", fail_if_asyncio_run)
+
+    monkeypatch.setattr(
+        avatar_service.requests,
+        "post",
+        lambda *args, **kwargs: FakeResponse(201, {"id": "talk-123"}),
+    )
+
+    async def fake_poll(talk_id: str) -> str:
+        assert talk_id == "talk-123"
+        return "https://media.test/avatar_result.mp4"
+
+    monkeypatch.setattr(avatar_service, "_poll_for_video", fake_poll)
+
+    result = await avatar_service.create_avatar_video("voice.mp3")
+    assert result == "https://media.test/avatar_result.mp4"
+    assert type(result) is str
+

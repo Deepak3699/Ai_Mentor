@@ -8,6 +8,7 @@ const routeToPage = {
   "/dashboard": "dashboard",
   "/analytics": "analytics",
   "/courses": "courses",
+  "/code-explainer": "code-explainer",
   "/discussions": "discussions",
   "/settings": "settings",
   "/watchedvideos": "watched",
@@ -38,8 +39,8 @@ const DashboardLayout = () => {
       <Sidebar activePage={activePage} />
       <div
         ref={routeScrollRef}
-        className={`app-route-scroll h-[calc(100dvh-4.5rem)] min-h-0 flex-none overflow-x-hidden overflow-y-auto bg-canvas-alt transition-[margin-left] duration-300 mt-[4.5rem] ${
-          isDesktop ? (sidebarCollapsed ? "ml-[72px]" : "ml-[245px]") : ""
+        className={`flex-1 flex flex-col transition-[margin-left] duration-300 mt-18 app-route-scroll h-[calc(100dvh-4.5rem)] min-h-0 overflow-x-hidden overflow-y-auto ${
+          isDesktop ? (sidebarCollapsed ? "ml-18" : "ml-61.25") : ""
         }`}
       >
         <Outlet />

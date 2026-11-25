@@ -2,6 +2,14 @@ import Admin from "../models/Admin.js";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Course from "../models/Course.js";
+import {
+  AppError,
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+  UnauthorizedError,
+  forwardError,
+} from "../utils/error.js";
 
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -12,13 +20,13 @@ const generateToken = (id) => {
 // @desc    Register a new Admin (restricted to superAdmin)
 // @route   POST /api/admin/register
 // @access  Private/SuperAdmin
-const registerAdmin = async (req, res) => {
+const registerAdmin = async (req, res, next) => {
   const { name, email, password, role } = req.body;
 
   try {
     const adminExists = await Admin.findOne({ where: { email } });
     if (adminExists) {
-      return res.status(400).json({ message: "Admin already exists" });
+      return forwardError(next, res, new BadRequestError("Admin already exists"));
     }
 
     const admin = await Admin.create({
@@ -36,18 +44,28 @@ const registerAdmin = async (req, res) => {
     });
   } catch (error) {
     console.error("REGISTER ADMIN ERROR:", error.message);
-    res.status(500).json({ message: "Server Error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Admin registration failed",
+      ),
+    );
   }
 };
 
 // @desc    Login Admin
 // @route   POST /api/admin/login
 // @access  Public
-const loginAdmin = async (req, res) => {
+const loginAdmin = async (req, res, next) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({ message: "Email and password are required" });
+    return forwardError(next, res, new BadRequestError("Email and password are required"));
   }
 
   try {
@@ -55,9 +73,11 @@ const loginAdmin = async (req, res) => {
 
     if (admin && (await admin.matchPassword(password))) {
       if (admin.status === "on-hold") {
-        return res
-          .status(403)
-          .json({ message: "Your account has been suspended. Please contact a superadmin." });
+        return forwardError(
+          next,
+          res,
+          new ForbiddenError("Your account has been suspended. Please contact a superadmin."),
+        );
       }
       res.json({
         id: admin.id,
@@ -68,18 +88,28 @@ const loginAdmin = async (req, res) => {
         token: generateToken(admin.id),
       });
     } else {
-      res.status(401).json({ message: "Invalid email or password" });
+      return forwardError(next, res, new UnauthorizedError("Invalid email or password"));
     }
   } catch (error) {
     console.error("LOGIN ADMIN ERROR:", error.message);
-    res.status(500).json({ message: "Server Error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Admin login failed",
+      ),
+    );
   }
 };
 
 // @desc    Get Current Admin Profile
 // @route   GET /api/admin/profile
 // @access  Private
-const getAdminProfile = async (req, res) => {
+const getAdminProfile = async (req, res, next) => {
   if (req.admin) {
     res.json({
       id: req.admin.id,
@@ -89,32 +119,42 @@ const getAdminProfile = async (req, res) => {
       status: req.admin.status,
     });
   } else {
-    res.status(404).json({ message: "Admin not found" });
+    return forwardError(next, res, new NotFoundError("Admin not found"));
   }
 };
 
 // @desc    Delete an Admin (restricted to superAdmin)
 // @route   DELETE /api/admin/:id
 // @access  Private/SuperAdmin
-const deleteAdmin = async (req, res) => {
+const deleteAdmin = async (req, res, next) => {
   const { id } = req.params;
 
   try {
     const adminToDelete = await Admin.findByPk(id);
     if (!adminToDelete) {
-      return res.status(404).json({ message: "Admin not found" });
+      return forwardError(next, res, new NotFoundError("Admin not found"));
     }
 
     // prevent superAdmin from deleting themselves
     if (adminToDelete.id === req.admin.id) {
-      return res.status(400).json({ message: "You cannot delete yourself" });
+      return forwardError(next, res, new BadRequestError("You cannot delete yourself"));
     }
 
     await adminToDelete.destroy();
     res.json({ message: "Admin removed" });
   } catch (error) {
     console.error("DELETE ADMIN ERROR:", error.message);
-    res.status(500).json({ message: "Server Error" });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Admin deletion failed",
+      ),
+    );
   }
 };
 
@@ -126,7 +166,7 @@ const logoutAdmin = async (req, res) => {
 };
 
 //
-const getAllEnrollments = async (req, res) => {
+const getAllEnrollments = async (req, res, next) => {
   try {
     const { type = "stats" } = req.query;
 
@@ -306,19 +346,13 @@ const getAllEnrollments = async (req, res) => {
       const { userId } = req.query;
 
       if (!userId) {
-        return res.status(400).json({
-          success: false,
-          message: "userId is required",
-        });
+        return forwardError(next, res, new BadRequestError("userId is required"));
       }
 
       const user = await User.findByPk(userId);
 
       if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
+        return forwardError(next, res, new NotFoundError("User not found"));
       }
 
       const purchased = user.purchasedCourses || [];
@@ -360,19 +394,13 @@ const getAllEnrollments = async (req, res) => {
       const { courseId } = req.query;
 
       if (!courseId) {
-        return res.status(400).json({
-          success: false,
-          message: "courseId is required",
-        });
+        return forwardError(next, res, new BadRequestError("courseId is required"));
       }
 
       const course = courses.find((c) => c.id == courseId);
 
       if (!course) {
-        return res.status(404).json({
-          success: false,
-          message: "Course not found",
-        });
+        return forwardError(next, res, new NotFoundError("Course not found"));
       }
 
       let totalEnrollments = 0;
@@ -426,20 +454,24 @@ const getAllEnrollments = async (req, res) => {
     //course ends
 
     // fallback
-    res.status(400).json({
-      success: false,
-      message: "Invalid type parameter",
-    });
+    return forwardError(next, res, new BadRequestError("Invalid type parameter"));
   } catch (error) {
     console.error("ENROLLMENTS ERROR:", error.message);
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-    });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Enrollment lookup failed",
+      ),
+    );
   }
 };
 
-const getAllPayments = async (req, res) => {
+const getAllPayments = async (req, res, next) => {
   try {
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
@@ -536,14 +568,21 @@ const getAllPayments = async (req, res) => {
     });
   } catch (error) {
     console.error("GET PAYMENTS ERROR:", error.message);
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-    });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Payments lookup failed",
+      ),
+    );
   }
 };
 
-const getAllCourses = async (req, res) => {
+const getAllCourses = async (req, res, next) => {
   try {
     const courses = await Course.findAll();
     res.status(200).json({
@@ -552,14 +591,21 @@ const getAllCourses = async (req, res) => {
     });
   } catch (error) {
     console.error("GET COURSES ERROR:", error.message);
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-    });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "Course lookup failed",
+      ),
+    );
   }
 };
 
-const getAllUsers = async (req, res) => {
+const getAllUsers = async (req, res, next) => {
   try {
     const users = await User.findAll({
       attributes: ["id", "name", "email", "purchasedCourses", "createdAt"],
@@ -570,10 +616,17 @@ const getAllUsers = async (req, res) => {
     });
   } catch (error) {
     console.error("GET USERS ERROR:", error.message);
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-    });
+    return forwardError(
+      next,
+      res,
+      new AppError(
+        "Internal Server Error",
+        500,
+        "INTERNAL_SERVER_ERROR",
+        [],
+        error?.message || "User lookup failed",
+      ),
+    );
   }
 };
 

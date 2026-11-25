@@ -31,6 +31,10 @@ const Admin = sequelize.define(
       type: DataTypes.ENUM("active", "on-hold"),
       defaultValue: "active",
     },
+    passwordChangedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
   },
   {
     timestamps: true,

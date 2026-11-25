@@ -65,12 +65,22 @@ const ensureVideoWorker = () => {
   return videoWorker;
 };
 
+let customVideoQueue;
+
+export const setVideoQueue = (queue) => {
+  customVideoQueue = queue;
+};
+
 export const getVideoQueue = () => {
+  if (customVideoQueue) return customVideoQueue;
+
   videoQueue ??= new Queue("video", {
     connection,
     defaultJobOptions: {
       attempts: 3,
       backoff: { type: "exponential", delay: 5000 },
+      removeOnComplete: true,
+      removeOnFail: true,
     },
   });
   ensureVideoWorker();
@@ -78,6 +88,7 @@ export const getVideoQueue = () => {
 };
 
 export const closeVideoQueue = async () => {
+  customVideoQueue = undefined;
   const resources = [videoWorker, videoQueue].filter(Boolean);
   videoWorker = undefined;
   videoQueue = undefined;

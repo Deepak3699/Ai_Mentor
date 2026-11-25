@@ -31,6 +31,7 @@ import {
 import FloatingAssistant from "../components/common/FloatingAssistant";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import DiscussionSidebar from "../components/discussions/DiscussionSidebar";
+import { getErrorMessage } from "../lib/errorHandling.js";
 
 const COURSE_ARTWORK = {
   "React Fundamentals": "/AI_Tutor_New_UI/Dashboard/react_fundamentals.png",
@@ -626,7 +627,9 @@ const DiscussionsPage = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showInfoModal(data.message || "Failed to moderate report");
+        showInfoModal(
+          getErrorMessage({ response: { status: res.status, data } }, "Failed to moderate report"),
+        );
         return;
       }
 
@@ -668,7 +671,9 @@ const DiscussionsPage = () => {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showInfoModal(data.message || "Failed to unhide content");
+        showInfoModal(
+          getErrorMessage({ response: { status: res.status, data } }, "Failed to unhide content"),
+        );
         return;
       }
 

@@ -6,27 +6,34 @@ process.env.NODE_ENV = "test";
 const associations = await import("../models/modelAssociations.js");
 const { Course, Module, Lesson, LessonContent } = associations;
 const { sequelize } = await import("../config/db.js");
-const { addLessonsSchema } = await import("../schemas/courseSchema.js");
+const { addLessonsSchema, updateLessonVideoSchema } = await import("../schemas/courseSchema.js");
 const validate = (await import("../middleware/validate.js")).default;
+const { protect, admin } = await import("../middleware/authMiddleware.js");
 const {
   addCourse,
   addLessons,
+  addModules,
   deleteCourse,
   getCourseById,
   getCourseLearningData,
   getCourses,
   getMyCourses,
   getStatsCards,
+  updateLessonVideo,
 } = await import("../controllers/courseController.js");
 
 const originals = {
   courseFindAndCountAll: Course.findAndCountAll,
   courseFindByPk: Course.findByPk,
   courseFindAll: Course.findAll,
+  moduleFindOne: Module.findOne,
   courseCount: Course.count,
   courseCreate: Course.create,
   courseDestroy: Course.destroy,
   moduleFindAll: Module.findAll,
+  moduleMax: Module.max,
+  moduleCreate: Module.create,
+  lessonFindByPk: Lesson.findByPk,
   lessonFindAll: Lesson.findAll,
   lessonMax: Lesson.max,
   lessonCreate: Lesson.create,
@@ -78,6 +85,10 @@ beforeEach(() => {
   Course.create = async (data) => ({ id: 1, ...data });
   Course.destroy = async () => 0;
   Module.findAll = async () => [];
+  Module.findOne = async () => ({ id: 10, courseId: 1 });
+  Module.max = async () => 0;
+  Module.create = async (data) => ({ id: 1, ...data });
+  Lesson.findByPk = async () => null;
   Lesson.findAll = async () => [];
   Lesson.max = async () => 0;
   Lesson.create = async (data) => ({ id: 1, ...data });
@@ -91,6 +102,10 @@ after(() => {
   Course.create = originals.courseCreate;
   Course.destroy = originals.courseDestroy;
   Module.findAll = originals.moduleFindAll;
+  Module.findOne = originals.moduleFindOne;
+  Module.max = originals.moduleMax;
+  Module.create = originals.moduleCreate;
+  Lesson.findByPk = originals.lessonFindByPk;
   Lesson.findAll = originals.lessonFindAll;
   Lesson.max = originals.lessonMax;
   Lesson.create = originals.lessonCreate;
@@ -120,7 +135,14 @@ test("getCourseById returns 404 for missing and 403 for unpublished courses", as
   let outcome = response();
   await getCourseById({ params: { id: "99" } }, outcome.res);
   assert.equal(outcome.state.statusCode, 404);
-  assert.deepEqual(outcome.state.body, { message: "Course not found" });
+  assert.deepEqual(outcome.state.body, {
+    success: false,
+    error: {
+      code: "NOT_FOUND",
+      message: "Course not found",
+      details: [],
+    },
+  });
 
   Course.findByPk = async () => course({ status: "disabled" });
   outcome = response();
@@ -148,12 +170,17 @@ test("getMyCourses returns empty without purchases and queries only owned publis
   let query;
   Course.findAll = async (options) => {
     query = options;
-    return [course({ id: "2" })];
+    return [
+      course({ id: "2", modules: [{ lessons: [{ duration: "45 min" }, { duration: "30 min" }] }] }),
+    ];
   };
   outcome = response();
   await getMyCourses({ user: { purchasedCourses: [{ courseId: 2 }] } }, outcome.res);
   assert.deepEqual(query.where, { id: ["2"], status: "published" });
   assert.equal(outcome.state.body[0].id, "2");
+  assert.equal(outcome.state.body[0].duration, "1h 15m");
+  assert.equal(query.include[0].as, "modules");
+  assert.equal(query.include[0].include[0].as, "lessons");
   assert.equal("priceValue" in outcome.state.body[0], false);
 });
 
@@ -185,14 +212,14 @@ test("learning data blocks missing, disabled, deleted, and unowned paid courses"
     outcome.res,
   );
   assert.equal(outcome.state.statusCode, 403);
-  assert.match(outcome.state.body.message, /purchase\/enroll/);
+  assert.match(outcome.state.body.error.message, /purchase\/enroll/);
 });
 
 test("learning data permits an owner, admin, and free course", async () => {
   const scenarios = [
     { user: { role: "user", purchasedCourses: [{ courseId: 1 }] }, priceValue: 499 },
     { user: { role: "admin", purchasedCourses: [] }, priceValue: 499 },
-    { user: { role: "user", purchasedCourses: [] }, priceValue: 1 },
+    { user: { role: "user", purchasedCourses: [] }, priceValue: 0 },
   ];
   for (const scenario of scenarios) {
     Course.findByPk = async () => course({ priceValue: scenario.priceValue });
@@ -205,6 +232,17 @@ test("learning data permits an owner, admin, and free course", async () => {
   }
 });
 
+test("learning data rejects unpurchased ₹1 course", async () => {
+  Course.findByPk = async () => course({ priceValue: 1 });
+  const outcome = response();
+  await getCourseLearningData(
+    { params: { id: "1" }, user: { role: "user", purchasedCourses: [] } },
+    outcome.res,
+  );
+  assert.equal(outcome.state.statusCode, 403);
+  assert.match(outcome.state.body.error.message, /purchase\/enroll/);
+});
+
 test("learning data returns ordered modules, lessons, content, and first current lesson", async () => {
   Course.findByPk = async () => course();
   Module.findAll = async (options) => {
@@ -212,6 +250,7 @@ test("learning data returns ordered modules, lessons, content, and first current
       ["order", "ASC"],
       ["createdAt", "ASC"],
     ]);
+    Module.findOne = async () => ({ id: 10, courseId: 1 });
     return [{ id: 10, title: "Module One" }];
   };
   Lesson.findAll = async (options) => {
@@ -361,7 +400,14 @@ test("addLessons rolls back earlier inserts when a later lesson fails", async ()
   );
 
   assert.equal(state.statusCode, 500);
-  assert.deepEqual(state.body, { message: "Failed to add lessons" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Internal Server Error",
+      details: [],
+    },
+  });
   assert.equal(transactionRolledBack, true);
   assert.deepEqual(saved, []);
   assert.equal(createCalls, 3);
@@ -396,7 +442,14 @@ test("addLessons rolls back when the order lookup fails", async () => {
   );
 
   assert.equal(state.statusCode, 500);
-  assert.deepEqual(state.body, { message: "Failed to add lessons" });
+  assert.deepEqual(state.body, {
+    success: false,
+    error: {
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Internal Server Error",
+      details: [],
+    },
+  });
   assert.equal(transactionRolledBack, true);
   assert.equal(createCalls, 0);
 });
@@ -444,6 +497,263 @@ test("addLessons route validation rejects invalid input before the controller ru
   });
 
   assert.equal(state.statusCode, 400);
-  assert.equal(state.body.message, "Validation failed");
+  assert.equal(state.body.error.message, "Validation failed");
   assert.equal(nextCalled, false);
+});
+
+test("addLessons accepts a module belonging to the requested course", async () => {
+  const { res, state } = response();
+  const created = [];
+
+  Module.findOne = async (options) => {
+    assert.deepEqual(options.where, { id: "10", courseId: "1" });
+    return { id: 10, courseId: 1 };
+  };
+  Lesson.max = async () => 2;
+  Lesson.create = async (data) => {
+    created.push(data);
+    return { id: created.length, ...data };
+  };
+
+  await addLessons(
+    {
+      params: { courseId: "1", moduleId: "10" },
+      body: {
+        lessons: [{ title: "Lesson One" }, { title: "Lesson Two" }],
+      },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 201);
+  assert.equal(created.length, 2);
+  assert.equal(created[0].order, 3);
+  assert.equal(created[1].order, 4);
+});
+
+test("addLessons rejects a module belonging to another course", async () => {
+  const { res, state } = response();
+  let createCalled = false;
+  let maxCalled = false;
+
+  Module.findOne = async () => null;
+  Lesson.max = async () => {
+    maxCalled = true;
+    return 0;
+  };
+  Lesson.create = async () => {
+    createCalled = true;
+    return {};
+  };
+
+  await addLessons(
+    {
+      params: { courseId: "1", moduleId: "10" },
+      body: { lessons: [{ title: "Lesson One" }] },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 404);
+  assert.equal(state.body.error.message, "Module not found for the specified course");
+  assert.equal(maxCalled, false);
+  assert.equal(createCalled, false);
+});
+
+test("addModules creates a locked transactional batch with sequential order", async () => {
+  const transaction = {};
+  const created = [];
+  sequelize.transaction = async (work) => work(transaction);
+  Course.findByPk = async (id, options) => {
+    assert.equal(id, "7");
+    assert.equal(options.transaction, transaction);
+    assert.equal(options.lock, true);
+    return { id: 7 };
+  };
+  Module.max = async (field, options) => {
+    assert.equal(field, "order");
+    assert.deepEqual(options.where, { courseId: "7" });
+    assert.equal(options.transaction, transaction);
+    return 2;
+  };
+  Module.create = async (data, options) => {
+    assert.equal(options.transaction, transaction);
+    created.push(data);
+    return { id: created.length, ...data };
+  };
+  const { state, res } = response();
+  await addModules(
+    { params: { courseId: "7" }, body: { modules: [{ title: " One " }, { title: "Two" }] } },
+    res,
+  );
+  assert.equal(state.statusCode, 201);
+  assert.deepEqual(
+    created.map(({ title, order }) => ({ title, order })),
+    [
+      { title: "One", order: 3 },
+      { title: "Two", order: 4 },
+    ],
+  );
+});
+
+test("addModules rejects duplicate titles before opening a transaction", async () => {
+  let transactionCalls = 0;
+  sequelize.transaction = async () => {
+    transactionCalls += 1;
+  };
+  const { state, res } = response();
+  await addModules(
+    { params: { courseId: "7" }, body: { modules: [{ title: "Intro" }, { title: " intro " }] } },
+    res,
+  );
+  assert.equal(state.statusCode, 400);
+  assert.equal(state.body.error.code, "BAD_REQUEST");
+  assert.equal(transactionCalls, 0);
+});
+
+test("addLessons locks the parent module inside the transaction", async () => {
+  const transaction = {};
+  let lookupOptions;
+  sequelize.transaction = async (work) => work(transaction);
+  Module.findOne = async (options) => {
+    lookupOptions = options;
+    return { id: 10, courseId: 1 };
+  };
+  Lesson.max = async () => 0;
+  Lesson.create = async (data, options) => ({ id: 1, ...data, transaction: options.transaction });
+  const { state, res } = response();
+  await addLessons(
+    { params: { courseId: "1", moduleId: "10" }, body: { lessons: [{ title: "Lesson" }] } },
+    res,
+  );
+  assert.equal(state.statusCode, 201);
+  assert.deepEqual(lookupOptions.where, { id: "10", courseId: "1" });
+  assert.equal(lookupOptions.transaction, transaction);
+  assert.equal(lookupOptions.lock, true);
+});
+
+test("addLessons rejects duplicate titles before opening a transaction", async () => {
+  let transactionCalls = 0;
+  sequelize.transaction = async () => {
+    transactionCalls += 1;
+  };
+  const { state, res } = response();
+  await addLessons(
+    {
+      params: { courseId: "1", moduleId: "10" },
+      body: { lessons: [{ title: "Intro" }, { title: " intro " }] },
+    },
+    res,
+  );
+  assert.equal(state.statusCode, 400);
+  assert.equal(state.body.error.code, "BAD_REQUEST");
+  assert.equal(transactionCalls, 0);
+});
+
+test("updateLessonVideo updates youtubeUrl and returns the updated lesson", async () => {
+  let saved = false;
+  const lessonRecord = {
+    id: 1,
+    moduleId: 10,
+    title: "What is React?",
+    youtubeUrl: null,
+    async save() {
+      saved = true;
+    },
+  };
+
+  Course.findByPk = async (id) => {
+    assert.equal(id, "2");
+    return course({ id: 2 });
+  };
+  Lesson.findByPk = async (id) => {
+    assert.equal(id, "1");
+    return lessonRecord;
+  };
+  Module.findOne = async (options) => {
+    assert.deepEqual(options.where, { id: 10, courseId: 2 });
+    return { id: 10, courseId: 2 };
+  };
+
+  const { state, res } = response();
+  await updateLessonVideo(
+    {
+      params: { courseId: "2", lessonId: "1" },
+      body: { videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+    },
+    res,
+  );
+
+  assert.equal(state.statusCode, 200);
+  assert.equal(saved, true);
+  assert.equal(lessonRecord.youtubeUrl, "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+  assert.equal(state.body.youtubeUrl, "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+});
+
+test("updateLessonVideo returns 404 for missing course, missing lesson, or course/lesson mismatch", async () => {
+  let outcome = response();
+  await updateLessonVideo(
+    { params: { courseId: "999", lessonId: "1" }, body: { videoUrl: "https://example.com/v" } },
+    outcome.res,
+  );
+  assert.equal(outcome.state.statusCode, 404);
+  assert.equal(outcome.state.body.error.message, "Course not found");
+
+  Course.findByPk = async () => course({ id: 2 });
+  outcome = response();
+  await updateLessonVideo(
+    { params: { courseId: "2", lessonId: "999" }, body: { videoUrl: "https://example.com/v" } },
+    outcome.res,
+  );
+  assert.equal(outcome.state.statusCode, 404);
+  assert.equal(outcome.state.body.error.message, "Lesson not found");
+
+  let saveCalled = false;
+  Lesson.findByPk = async () => ({
+    id: 1,
+    moduleId: 99,
+    async save() {
+      saveCalled = true;
+    },
+  });
+  Module.findOne = async () => null;
+  outcome = response();
+  await updateLessonVideo(
+    { params: { courseId: "2", lessonId: "1" }, body: { videoUrl: "https://example.com/v" } },
+    outcome.res,
+  );
+  assert.equal(outcome.state.statusCode, 404);
+  assert.equal(outcome.state.body.error.message, "Lesson does not belong to the specified course");
+  assert.equal(saveCalled, false);
+});
+
+test("updateLessonVideo validation rejects invalid videoUrl", () => {
+  const { state, res } = response();
+  let nextCalled = false;
+
+  validate(updateLessonVideoSchema)({ body: { videoUrl: "not-a-valid-url" } }, res, () => {
+    nextCalled = true;
+  });
+
+  assert.equal(state.statusCode, 400);
+  assert.equal(state.body.error.message, "Validation failed");
+  assert.equal(nextCalled, false);
+});
+
+test("updateLessonVideo route middleware blocks unauthenticated and non-admin users", async () => {
+  const unauthOutcome = response();
+  let unauthNext = false;
+  await protect({ headers: {} }, unauthOutcome.res, () => {
+    unauthNext = true;
+  });
+  assert.equal(unauthOutcome.state.statusCode, 401);
+  assert.equal(unauthNext, false);
+
+  const nonAdminOutcome = response();
+  let adminNext = false;
+  admin({ user: { role: "user" } }, nonAdminOutcome.res, () => {
+    adminNext = true;
+  });
+  assert.equal(nonAdminOutcome.state.statusCode, 403);
+  assert.equal(adminNext, false);
 });

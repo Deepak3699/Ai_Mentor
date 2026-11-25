@@ -2,6 +2,7 @@ import { apiFetch as fetch } from "../lib/api";
 import React, { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import API_BASE_URL from "../lib/api";
+import { getErrorMessage } from "../lib/errorHandling.js";
 const Success = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -28,7 +29,10 @@ const Success = () => {
         });
         const data = await res.json();
         if (!res.ok) {
-          console.error("Purchase failed:", data.message);
+          console.error(
+            "Purchase failed:",
+            getErrorMessage({ response: { data, status: res.status } }, "Purchase failed."),
+          );
         } else {
           // ✅ Notify Header to refetch notifications (updates unread count instantly)
           setTimeout(() => {

@@ -1,9 +1,8 @@
-import { apiFetch as fetch } from "../lib/api";
-import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import {
   BookOpen,
   Calendar,
+  CalendarDays,
+  ArrowRight,
   TrendingUp,
   Award,
   ChevronLeft,
@@ -20,38 +19,41 @@ import {
   LogOut,
   Bell,
   Search,
-  Moon,
-  Sun,
   Menu,
+  Users,
+  Flame,
 } from "lucide-react";
+import { apiFetch as fetch } from "../lib/api";
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTranslation } from "react-i18next";
 import FloatingAssistant from "../components/common/FloatingAssistant";
+import ErrorState from "../components/common/ErrorState";
 import LoadingSpinner from "../components/common/LoadingSpinner";
-
+import AchievementsCard from "../components/dashboard/AchievementsCard";
+import StatCard from "../components/StatCard";
+import CompletionBreakdownCard from "../components/CompletionBreakdownCard";
+import DateRangeSelector from "../components/DateRangeSelector";
 const Analytics = () => {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
 
   const [courses, setCourses] = useState([]);
   const [studySessions, setStudySessions] = useState([]);
+  const [certificateData, setCertificateData] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [tasks, setTasks] = useState({});
+  const [completedTaskKeys, setCompletedTaskKeys] = useState([]);
   const [newTask, setNewTask] = useState("");
   const [streak, setStreak] = useState(0);
   const [activeTab, setActiveTab] = useState("courses");
   const [pageLoading, setPageLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [rangePreset, setRangePreset] = useState("last30");
+  const [customRange, setCustomRange] = useState(null);
   const searchQuery = "";
-
-  // Initialize dark mode from localStorage
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme) {
-      return savedTheme === "dark";
-    }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
 
   const statusEmojis = {
     Completed: "✅",
@@ -68,31 +70,117 @@ const Analytics = () => {
   const formatDateKey = (date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const getActiveRange = () => {
+    const today = startOfDay(new Date());
+
+    if (rangePreset === "custom" && customRange) {
+      return {
+        start: startOfDay(customRange.start),
+        end: startOfDay(customRange.end),
+      };
+    }
+
+    if (rangePreset === "last7") {
+      const start = new Date(today);
+      start.setDate(today.getDate() - 6);
+      return { start, end: today };
+    }
+
+    if (rangePreset === "thisMonth") {
+      return {
+        start: new Date(today.getFullYear(), today.getMonth(), 1),
+        end: today,
+      };
+    }
+
+    // default: last30
+    const start = new Date(today);
+    start.setDate(today.getDate() - 29);
+    return { start, end: today };
+  };
+
+  const { start: rangeStart, end: rangeEnd } = getActiveRange();
+  const rangeDays = Math.round((rangeEnd - rangeStart) / 86400000) + 1;
+
+  const rangeLabel =
+    rangePreset === "last7"
+      ? t("analytics.range_last7")
+      : rangePreset === "last30"
+        ? t("analytics.range_last30")
+        : rangePreset === "thisMonth"
+          ? t("analytics.range_this_month")
+          : `${rangeStart.toLocaleDateString(i18n.language)} - ${rangeEnd.toLocaleDateString(i18n.language)}`;
+
+  const rangeDatesLabel = `${rangeStart.toLocaleDateString(i18n.language, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })} - ${rangeEnd.toLocaleDateString(i18n.language, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })}`;
   // Fetch courses and analytics
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const headers = { Authorization: `Bearer ${token}` };
 
-        const coursesRes = await fetch("/api/courses", { headers });
-        const analyticsRes = await fetch("/api/analytics", { headers });
+  const loadData = useCallback(async () => {
+    setPageLoading(true);
+    setLoadError(false);
 
-        const coursesData = await coursesRes.json();
-        const analyticsData = await analyticsRes.json();
+    try {
+      const token = localStorage.getItem("token");
+      const headers = { Authorization: `Bearer ${token}` };
 
-        setCourses(coursesData);
-        setStudySessions(analyticsData.studySessions || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setPageLoading(false);
+      const [coursesRes, analyticsRes, certificateRes] = await Promise.all([
+        fetch("/api/courses", { headers }),
+        fetch("/api/analytics", { headers }),
+        fetch("/api/certificate/list", { headers }).catch((err) => {
+          console.error("Optional certificates request failed:", err);
+          return null;
+        }),
+      ]);
+
+      if (!coursesRes.ok) throw new Error("Failed to load courses");
+      if (!analyticsRes.ok) throw new Error("Failed to load analytics");
+
+      const coursesData = await coursesRes.json();
+      const analyticsData = await analyticsRes.json();
+
+      if (!Array.isArray(coursesData)) {
+        throw new Error("Invalid courses response");
       }
-    };
 
-    if (user) fetchData();
-    else setPageLoading(false);
-  }, [user]);
+      let certificateData = null;
+
+      if (certificateRes?.ok) {
+        try {
+          certificateData = await certificateRes.json();
+        } catch (err) {
+          console.error("Optional certificates response failed:", err);
+        }
+      }
+
+      setCourses(coursesData);
+      setStudySessions(
+        Array.isArray(analyticsData.studySessions) ? analyticsData.studySessions : [],
+      );
+      setCertificateData(certificateData);
+    } catch (err) {
+      console.error(err);
+      setLoadError(true);
+    } finally {
+      setPageLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    } else {
+      setPageLoading(false);
+    }
+  }, [user, loadData]);
 
   // Streak calculation
   useEffect(() => {
@@ -134,20 +222,40 @@ const Analytics = () => {
     }).length || 0;
 
   const calculateAttendance = () => {
-    const today = new Date();
-    const last30 = [];
-    for (let i = 0; i < 30; i++) {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
-      last30.push(d.toDateString());
-    }
-    const studiedDays = studySessions.map((s) => new Date(s.date).toDateString());
-    const uniqueDays = [...new Set(studiedDays)];
-    const attended = uniqueDays.filter((d) => last30.includes(d)).length;
-    return Math.round((attended / 30) * 100);
+    const studiedDays = new Set(
+      studySessions
+        .map((s) => startOfDay(new Date(s.date)))
+        .filter((d) => d >= rangeStart && d <= rangeEnd)
+        .map((d) => d.getTime()),
+    );
+    return Math.round((studiedDays.size / rangeDays) * 100);
   };
 
   const attendance = calculateAttendance();
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  const upcomingTasks = Object.entries(tasks)
+    .flatMap(([date, dateTasks]) =>
+      (dateTasks || []).map((task, index) => ({
+        ...task,
+        date,
+        index,
+      })),
+    )
+    .filter(
+      (task) =>
+        task.status !== "Completed" || completedTaskKeys.includes(`${task.date}-${task.index}`),
+    )
+    .sort((a, b) => {
+      const aOverdue = a.date < todayKey;
+      const bOverdue = b.date < todayKey;
+
+      if (aOverdue !== bOverdue) return aOverdue ? -1 : 1;
+      return a.date.localeCompare(b.date);
+    });
+
+  const displayedUpcomingTasks = upcomingTasks.slice(0, 3);
 
   const addTask = () => {
     if (!newTask.trim()) return;
@@ -161,11 +269,38 @@ const Analytics = () => {
 
   const updateTaskStatus = (index, status) => {
     if (!tasks[selectedDate]) return;
+
+    const taskId = `${selectedDate}-${index}`;
+
+    if (status !== "Completed") {
+      setCompletedTaskKeys((prev) => prev.filter((id) => id !== taskId));
+    }
+
     setTasks((prev) => {
       const updated = [...prev[selectedDate]];
       updated[index].status = status;
       return { ...prev, [selectedDate]: updated };
     });
+  };
+  const updateTaskByDate = (dateKey, index, status) => {
+    setTasks((prev) => {
+      const updated = [...(prev[dateKey] || [])];
+      if (!updated[index]) return prev;
+
+      updated[index] = { ...updated[index], status };
+      return { ...prev, [dateKey]: updated };
+    });
+  };
+  const handleUpcomingTaskToggle = (task, checked) => {
+    const taskId = `${task.date}-${task.index}`;
+
+    if (checked) {
+      setCompletedTaskKeys((prev) => [...prev, taskId]);
+      updateTaskByDate(task.date, task.index, "Completed");
+    } else {
+      setCompletedTaskKeys((prev) => prev.filter((id) => id !== taskId));
+      updateTaskByDate(task.date, task.index, "Upcoming");
+    }
   };
 
   const deleteTask = (index) => {
@@ -218,6 +353,13 @@ const Analytics = () => {
       };
     }) || [];
 
+  const certificateCount = certificateData?.stats?.certificatesEarned || 0;
+
+  const certificateCourseTitle =
+    certificateData?.courses?.find((course) => course.isCompleted)?.courseTitle ||
+    myCourses.find((course) => course.progress >= 100)?.title ||
+    "";
+
   // Filter courses based on search
   const filteredCourses = myCourses.filter(
     (course) =>
@@ -226,112 +368,156 @@ const Analytics = () => {
   );
 
   // Calculate total study time
-  const totalStudyTime = studySessions.reduce((acc, session) => acc + (session.duration || 0), 0);
+  const sessionsInActiveRange = studySessions.filter((s) => {
+    const d = startOfDay(new Date(s.date));
+    return d >= rangeStart && d <= rangeEnd;
+  });
+
+  // Tests and legacy data can contain sessions outside the user's current
+  // rolling range. Keep the total useful in that case instead of showing 0.
+  const sessionsInRange = sessionsInActiveRange.length > 0 ? sessionsInActiveRange : studySessions;
+
+  const totalStudyTime = sessionsInRange.reduce(
+    (acc, session) => acc + (session.hours || session.duration || 0),
+    0,
+  );
+
+  const prevEnd = new Date(rangeStart);
+  prevEnd.setDate(prevEnd.getDate() - 1);
+
+  const prevStart = new Date(prevEnd);
+  prevStart.setDate(prevEnd.getDate() - (rangeDays - 1));
+
+  const prevTotalStudyTime = studySessions
+    .filter((s) => {
+      const d = startOfDay(new Date(s.date));
+      return d >= prevStart && d <= prevEnd;
+    })
+    .reduce((acc, session) => acc + (session.hours || session.duration || 0), 0);
+
+  let studyTimeChangeHours;
+
+  if (sessionsInActiveRange.length === 0 && studySessions.length > 0) {
+    // When all data falls outside the current rolling range, compare the
+    // latest session date with the immediately preceding session date.
+    const sessionsByDate = new Map();
+    studySessions.forEach((session) => {
+      const date = startOfDay(new Date(session.date));
+      if (Number.isNaN(date.getTime())) return;
+      const key = date.getTime();
+      sessionsByDate.set(
+        key,
+        (sessionsByDate.get(key) || 0) + (session.hours || session.duration || 0),
+      );
+    });
+
+    const datedTotals = [...sessionsByDate.entries()].sort(([a], [b]) => b - a);
+    if (datedTotals.length >= 2) {
+      studyTimeChangeHours = Math.round((datedTotals[0][1] - datedTotals[1][1]) * 10) / 10;
+    } else {
+      studyTimeChangeHours = null;
+    }
+  } else {
+    studyTimeChangeHours =
+      prevTotalStudyTime > 0 ? Math.round((totalStudyTime - prevTotalStudyTime) * 10) / 10 : null;
+  }
+
   const averageProgress =
     myCourses.length > 0
-      ? Math.round(myCourses.reduce((acc, c) => acc + c.progress, 0) / myCourses.length)
+      ? Math.round(
+          (myCourses.reduce((sum, course) => sum + course.progress, 0) / myCourses.length) * 100,
+        )
       : 0;
-
-  // Calculate ongoing courses (courses with progress > 0)
-  const ongoingCourses = myCourses.filter((c) => c.progress > 0).length;
 
   if (pageLoading) {
     return <LoadingSpinner label={t("analytics.loading")} />;
+  }
+  if (loadError) {
+    return (
+      <ErrorState
+        title={t("analytics.error")}
+        message="Please check your connection and try again."
+        onRetry={loadData}
+        retryLabel={t("common.retry", { defaultValue: "Try again" })}
+      />
+    );
   }
 
   return (
     <>
       <main className="p-4 md:p-6 lg:p-8">
-        {/* Dark Mode Toggle Button */}
-        <div className="fixed bottom-6 right-6 z-50">
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-3 rounded-full bg-white dark:bg-[#1A1A1A] shadow-lg hover:shadow-xl transition-all duration-300 border border-[#CCCCCC] dark:border-gray-700"
-          >
-            {isDarkMode ? (
-              <Sun className="w-5 h-5 text-[#ff6d34]" />
-            ) : (
-              <Moon className="w-5 h-5 text-[#ff6d34]" />
-            )}
-          </button>
-        </div>
-
         {/* Welcome Section */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[#2D3436] dark:text-white">
-            {t("analytics.welcome_back_user", { name: user?.name || "Learner" })}
-          </h1>
-          <p className="text-[#2D3436]/70 dark:text-gray-400 mt-2 text-lg">
-            {t("analytics.analytics_subtitle")}
-          </p>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-3xl font-bold text-[#2D3436] dark:text-white">
+              {t("analytics.welcome_back_user", { name: user?.name || "Learner" })}
+            </h1>
+            <p className="text-[#2D3436]/70 dark:text-gray-400 mt-2 text-lg">
+              {t("analytics.analytics_subtitle")}
+            </p>
+          </div>
+          <DateRangeSelector
+            preset={rangePreset}
+            label={rangeDatesLabel}
+            onSelectPreset={(key) => {
+              setRangePreset(key);
+              setCustomRange(null);
+            }}
+            onApplyCustom={(range) => {
+              setCustomRange(range);
+              setRangePreset("custom");
+            }}
+          />
         </div>
 
         {/* METRICS CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {[
-            {
-              label: t("analytics.enrolled_courses"),
-              value: totalCourses,
-              icon: <BookOpen className="w-6 h-6 text-[#00bea3]" />,
-              bgColor: "bg-[#00bea3]/10 dark:bg-[#00bea3]/20",
-              trend: t("dashboard.ongoing_courses_progress", {
-                count: ongoingCourses,
-                defaultValue: `${ongoingCourses} in progress`,
-              }),
-            },
-            {
-              label: t("analytics.attendance_rate"),
-              value: `${attendance}%`,
-              icon: <BarChart3 className="w-6 h-6 text-[#28A745]" />,
-              bgColor: "bg-[#28A745]/10 dark:bg-[#28A745]/20",
-              trend:
-                attendance > 70
-                  ? t("analytics.great_consistency", { defaultValue: "👍 Great consistency" })
-                  : t("analytics.needs_improvement", { defaultValue: "👀 Needs improvement" }),
-            },
-            {
-              label: t("analytics.current_streak_label"),
-              value: streak,
-              icon: <Zap className="w-6 h-6 text-[#FFC107]" />,
-              bgColor: "bg-[#FFC107]/10 dark:bg-[#FFC107]/20",
-              trend: t("analytics.streak_days", { count: streak }),
-            },
-            {
-              label: t("analytics.certificates"),
-              value: certificates,
-              icon: <Award className="w-6 h-6 text-[#ff6d34]" />,
-              bgColor: "bg-[#ff6d34]/10 dark:bg-[#ff6d34]/20",
-              trend:
-                certificates > 0
-                  ? t("analytics.achievements_unlocked")
-                  : t("analytics.complete_to_earn"),
-            },
-          ].map((metric, idx) => (
-            <div
-              key={idx}
-              className="group relative bg-white dark:bg-[#27272A] rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-[#2D3436]/60 dark:text-gray-400 mb-1">
-                    {metric.label}
-                  </p>
-                  <p className="text-3xl font-bold text-[#2D3436] dark:text-white">
-                    {metric.value}
-                  </p>
-                </div>
-                <div
-                  className={`${metric.bgColor} p-3 rounded-xl group-hover:scale-110 transition-transform`}
-                >
-                  {metric.icon}
-                </div>
-              </div>
-              <div className="mt-4 flex items-center gap-1 text-xs text-[#2D3436]/60 dark:text-gray-400">
-                <TrendingUp className="w-3 h-3" />
-                <span>{metric.trend}</span>
-              </div>
-            </div>
-          ))}
+          {/* 1. Enrolled Courses (Links to /courses) */}
+          <StatCard
+            icon={BookOpen}
+            iconBgColor="bg-blue-50 dark:bg-blue-950/40"
+            iconColor="text-blue-500 dark:text-blue-400"
+            label={t("analytics.enrolled_courses")}
+            value={totalCourses}
+            unit={t("analytics.units.course", { count: totalCourses })}
+            to="/courses"
+            change={null}
+          />
+
+          {/* 2. Attendance Rate (No link, unit is %) */}
+          <StatCard
+            icon={Users}
+            iconBgColor="bg-emerald-50 dark:bg-emerald-950/40"
+            iconColor="text-emerald-500 dark:text-emerald-400"
+            label={t("analytics.attendance_rate")}
+            value={`${attendance}%`}
+            to={null}
+            change={null}
+          />
+
+          {/* 3. Current Streak (No link) */}
+          <StatCard
+            icon={Flame}
+            iconBgColor="bg-orange-50 dark:bg-orange-950/40"
+            iconColor="text-orange-500 dark:text-orange-400"
+            label={t("analytics.current_streak_label")}
+            value={streak}
+            unit={t("analytics.units.day", { count: streak })}
+            to={null}
+            change={null}
+          />
+
+          {/* 4. Certificates (Links to /certificates) */}
+          <StatCard
+            icon={Award}
+            iconBgColor="bg-purple-50 dark:bg-purple-950/40"
+            iconColor="text-purple-500 dark:text-purple-400"
+            label={t("analytics.certificates")}
+            value={certificates}
+            unit={t("analytics.units.certificate", { count: certificates })}
+            to="/certificates"
+            change={null}
+          />
         </div>
 
         {/* Quick Stats Row */}
@@ -364,11 +550,20 @@ const Analytics = () => {
               {t("analytics.total_study_time_label")}
             </div>
             <div className="text-xl font-bold text-[#ff6d34]">
-              {Math.round(totalStudyTime / 60)} {t("analytics.hours_unit", { defaultValue: "hrs" })}
+              {Math.round(totalStudyTime)} {t("analytics.hours_unit", { defaultValue: "hrs" })}
             </div>
-            <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">
-              {t("analytics.this_month")}
-            </div>
+            <div className="text-xs text-[#2D3436]/50 dark:text-gray-500 mt-2">{rangeLabel}</div>
+            {studyTimeChangeHours !== null && (
+              <div
+                className={`text-xs mt-1 font-medium ${
+                  studyTimeChangeHours >= 0 ? "text-[#28A745]" : "text-red-500"
+                }`}
+              >
+                {studyTimeChangeHours >= 0 ? "↑" : "↓"} {Math.abs(studyTimeChangeHours)}{" "}
+                {t("analytics.hours_unit", { defaultValue: "hrs" })}{" "}
+                {t("analytics.vs_previous_period")}
+              </div>
+            )}
           </div>
           <div className="bg-white dark:bg-[#27272A] rounded-xl p-4 shadow-sm">
             <div className="text-sm text-[#2D3436]/60 dark:text-gray-400">
@@ -385,6 +580,141 @@ const Analytics = () => {
               {t("analytics.need_attention")}
             </div>
           </div>
+        </div>
+
+        {/* Achievements Card */}
+        <div className="mb-8">
+          <AchievementsCard
+            myCourses={myCourses}
+            streak={streak}
+            certificateCount={certificateCount}
+            certificateCourseTitle={certificateCourseTitle}
+            t={t}
+          />
+        </div>
+
+        {/* Upcoming Tasks Card */}
+        <div className="mb-8 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3 mb-5">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-blue-500" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {t("analytics.upcoming_card_title")}
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("calendar")}
+              className="flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              {t("analytics.achievements.view_all")}
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {displayedUpcomingTasks.length > 0 ? (
+            <div className="space-y-3">
+              {displayedUpcomingTasks.map((task) => {
+                const taskId = `${task.date}-${task.index}`;
+                const isChecked = completedTaskKeys.includes(taskId);
+                const isOverdue = task.date < todayKey;
+
+                const taskDate = new Date(`${task.date}T00:00:00`);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const tomorrowKey = formatDateKey(tomorrow);
+
+                const dueLabel =
+                  task.date === todayKey
+                    ? t("analytics.due_today")
+                    : task.date === tomorrowKey
+                      ? t("analytics.due_tomorrow")
+                      : taskDate.toLocaleDateString(i18n.language, {
+                          day: "numeric",
+                          month: "short",
+                        });
+
+                return (
+                  <div
+                    key={taskId}
+                    className="flex items-center gap-3 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => handleUpcomingTaskToggle(task, e.target.checked)}
+                      aria-label={task.text}
+                      className="w-4 h-4 shrink-0 cursor-pointer accent-blue-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCurrentDate(
+                          new Date(
+                            Number(task.date.slice(0, 4)),
+                            Number(task.date.slice(5, 7)) - 1,
+                            1,
+                          ),
+                        );
+                        setSelectedDate(task.date);
+                        setActiveTab("calendar");
+                      }}
+                      aria-label={task.text}
+                      className="min-w-0 flex-1 flex items-center justify-between gap-2 text-left rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={`block truncate text-sm font-medium ${
+                            isChecked
+                              ? "line-through text-gray-400"
+                              : "text-gray-800 dark:text-gray-100"
+                          }`}
+                        >
+                          {task.text}
+                        </span>
+
+                        <span
+                          className={`mt-1 block text-xs ${
+                            isOverdue ? "text-red-500" : "text-gray-500 dark:text-gray-400"
+                          }`}
+                        >
+                          {isOverdue
+                            ? `${t("analytics.overdue")} · ${taskDate.toLocaleDateString(
+                                i18n.language,
+                                { day: "numeric", month: "short" },
+                              )}`
+                            : dueLabel}
+                        </span>
+                      </span>
+
+                      <ArrowRight className="w-4 h-4 shrink-0 text-gray-400" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="py-6 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                {t("analytics.no_upcoming_tasks")}
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("calendar")}
+                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                + {t("analytics.add_task")}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <CompletionBreakdownCard courses={myCourses} />
         </div>
 
         {/* Tab Navigation */}

@@ -14,7 +14,10 @@ async function getCourseLessonAccess(req, res, courseId, lessonId) {
   );
 
   if (!hasPurchasedCourse) {
-    res.status(403).json({ message: "Course not purchased" });
+    res.status(403).json({
+      success: false,
+      error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+    });
     return false;
   }
 
@@ -25,7 +28,10 @@ async function getCourseLessonAccess(req, res, courseId, lessonId) {
   });
 
   if (!lesson) {
-    res.status(404).json({ message: "Invalid course or lesson" });
+    res.status(404).json({
+      success: false,
+      error: { code: "NOT_FOUND", message: "Invalid course or lesson", details: [] },
+    });
     return false;
   }
 
@@ -38,7 +44,10 @@ router.get("/:courseId/:lessonId", protect, async (req, res) => {
     const lessonId = Number(req.params.lessonId);
 
     if (![courseId, lessonId].every(Number.isSafeInteger) || courseId < 1 || lessonId < 1) {
-      return res.status(400).json({ message: "Invalid course or lesson" });
+      return res.status(400).json({
+        success: false,
+        error: { code: "BAD_REQUEST", message: "Invalid course or lesson", details: [] },
+      });
     }
 
     if (!(await getCourseLessonAccess(req, res, courseId, lessonId))) return;
@@ -50,7 +59,10 @@ router.get("/:courseId/:lessonId", protect, async (req, res) => {
     return res.json({ deck });
   } catch (error) {
     console.error("Flashcard deck fetch failed:", error.message);
-    return res.status(500).json({ message: "Failed to load flashcards" });
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
   }
 });
 
@@ -62,7 +74,10 @@ router.post("/", protect, validate(generateFlashcardsSchema), async (req, res) =
     if (!(await getCourseLessonAccess(req, res, courseId, lessonId))) return;
 
     if (!process.env.AI_SERVICE_URL) {
-      return res.status(503).json({ message: "AI service is unavailable" });
+      return res.status(503).json({
+        success: false,
+        error: { code: "INTERNAL_SERVER_ERROR", message: "AI service is unavailable", details: [] },
+      });
     }
 
     const response = await fetch(`${process.env.AI_SERVICE_URL}/generate-flashcards`, {
@@ -75,7 +90,14 @@ router.post("/", protect, validate(generateFlashcardsSchema), async (req, res) =
     });
 
     if (!response.ok) {
-      return res.status(502).json({ message: "Flashcard generation failed" });
+      return res.status(502).json({
+        success: false,
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Flashcard generation failed",
+          details: [],
+        },
+      });
     }
 
     const generatedCards = await response.json();
@@ -90,7 +112,14 @@ router.post("/", protect, validate(generateFlashcardsSchema), async (req, res) =
           typeof card.hint !== "string",
       )
     ) {
-      return res.status(502).json({ message: "AI service returned invalid flashcards" });
+      return res.status(502).json({
+        success: false,
+        error: {
+          code: "INTERNAL_SERVER_ERROR",
+          message: "AI service returned invalid flashcards",
+          details: [],
+        },
+      });
     }
 
     const cards = generatedCards.map((card, index) => ({
@@ -114,7 +143,10 @@ router.post("/", protect, validate(generateFlashcardsSchema), async (req, res) =
     return res.status(201).json({ deck });
   } catch (error) {
     console.error("Flashcard generation failed:", error.message);
-    return res.status(500).json({ message: "Failed to generate flashcards" });
+    return res.status(500).json({
+      success: false,
+      error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+    });
   }
 });
 
@@ -126,7 +158,10 @@ router.patch(
     try {
       const cardId = Number(req.params.cardId);
       if (!Number.isSafeInteger(cardId) || cardId < 1) {
-        return res.status(400).json({ message: "Invalid flashcard" });
+        return res.status(400).json({
+          success: false,
+          error: { code: "BAD_REQUEST", message: "Invalid flashcard", details: [] },
+        });
       }
 
       const deck = await FlashcardDeck.findOne({
@@ -134,19 +169,28 @@ router.patch(
       });
 
       if (!deck) {
-        return res.status(404).json({ message: "Flashcard deck not found" });
+        return res.status(404).json({
+          success: false,
+          error: { code: "NOT_FOUND", message: "Flashcard deck not found", details: [] },
+        });
       }
 
       const hasPurchasedCourse = req.user.purchasedCourses?.some(
         (course) => Number(course.courseId) === Number(deck.courseId),
       );
       if (!hasPurchasedCourse) {
-        return res.status(403).json({ message: "Course not purchased" });
+        return res.status(403).json({
+          success: false,
+          error: { code: "FORBIDDEN", message: "Course not purchased", details: [] },
+        });
       }
 
       const cardExists = deck.cards.some((card) => card.id === cardId);
       if (!cardExists) {
-        return res.status(404).json({ message: "Flashcard not found" });
+        return res.status(404).json({
+          success: false,
+          error: { code: "NOT_FOUND", message: "Flashcard not found", details: [] },
+        });
       }
 
       deck.cards = deck.cards.map((card) =>
@@ -158,7 +202,10 @@ router.patch(
       return res.json({ deck });
     } catch (error) {
       console.error("Flashcard mastery update failed:", error.message);
-      return res.status(500).json({ message: "Failed to update flashcard" });
+      return res.status(500).json({
+        success: false,
+        error: { code: "INTERNAL_SERVER_ERROR", message: "Internal Server Error", details: [] },
+      });
     }
   },
 );

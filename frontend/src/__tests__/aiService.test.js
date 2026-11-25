@@ -16,7 +16,8 @@ describe("getAIVideo", () => {
 
     await expect(getAIVideo({ lessonId: 1 }, { signal })).resolves.toEqual({ jobId: "j" });
 
-    expect(fetchMock.mock.calls[0][1].signal).toBe(signal);
+    expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+    expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(false);
   });
 
   it("keeps working without options", async () => {
@@ -58,6 +59,59 @@ describe("getAIVideo", () => {
       "fetch",
       vi.fn(async () => json({ message: "nope" }, false)),
     );
-    await expect(getAIVideo({})).rejects.toThrow("nope");
+    await expect(getAIVideo({})).rejects.toThrow("temporarily unavailable");
+  });
+});
+
+describe("generation submission reliability", () => {
+  it("aborts an in-flight submission when its parent is cancelled", async () => {
+    let child;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url, init) => {
+        child = init.signal;
+        return new Promise(() => {});
+      }),
+    );
+    const parent = new AbortController();
+    const promise = getAIVideo({}, { signal: parent.signal });
+    parent.abort();
+    await expect(promise).rejects.toSatisfy(isAbortError);
+    expect(child.aborted).toBe(true);
+  });
+  it("times out a stuck submission once, without automatically posting again", async () => {
+    const fetchMock = vi.fn(() => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(getAIVideo({}, { timeoutMs: 10 })).rejects.toMatchObject({
+      type: "request_timeout",
+      details: { submissionUncertain: true },
+    });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+  it("times out a stuck submission response body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: true, status: 200, json: () => new Promise(() => {}) })),
+    );
+    await expect(getAIVideo({}, { timeoutMs: 10 })).rejects.toMatchObject({
+      type: "request_timeout",
+    });
+  });
+  it("preserves expired authentication as a non-retryable error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 401 })),
+    );
+    await expect(getAIVideo({})).rejects.toMatchObject({
+      type: "authentication",
+      retryable: false,
+    });
+  });
+  it("rejects cached responses with no playable URL", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => json({ cached: true, videoUrl: "" })),
+    );
+    await expect(getAIVideo({})).rejects.toMatchObject({ type: "invalid_response" });
   });
 });

@@ -20,7 +20,7 @@
   <p>
     <a href="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/ci.yml"><img src="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
     <a href="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/code-review.yml"><img src="https://github.com/Deepak3699/Ai_Mentor/actions/workflows/code-review.yml/badge.svg" alt="Code Review" /></a>
-    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-20%20CI-339933?logo=node.js&logoColor=white" alt="Node.js 20 CI" /></a>
+    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-22%20CI-339933?logo=node.js&logoColor=white" alt="Node.js 22 CI" /></a>
     <a href="https://react.dev/"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111" alt="React 19" /></a>
     <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%20CI-3776AB?logo=python&logoColor=white" alt="Python 3.11 CI" /></a>
     <a href="https://prettier.io/"><img src="https://img.shields.io/badge/code_style-Prettier-F7B93E?logo=prettier&logoColor=111" alt="Prettier" /></a>
@@ -42,6 +42,7 @@
 - [Repository structure](#repository-structure)
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
+- [Contributor quick-start checklist](#contributor-quick-start-checklist)
 - [Environment configuration](#environment-configuration)
 - [Development commands](#development-commands)
 - [Quality and validation](#quality-and-validation)
@@ -109,7 +110,7 @@ User API / Admin API ─────────────┴──> AI servic
                               Cloudinary or local output
 ```
 
-The root development runner coordinates the four Node.js and React services. It starts frontends only after their matching APIs are healthy, reuses services already running, and stops only processes started by the current terminal. The Python AI service runs separately.
+The root development runner coordinates all five local services. It starts frontends only after their matching APIs are healthy, starts or reuses the Python AI service, and stops only processes started by the current terminal. For a quick startup guide, detailed service responsibilities, and direct service commands, see the [Contributor Service Map in CONTRIBUTING.md](./CONTRIBUTING.md#contributor-service-map-and-responsibilities).
 
 ## Applications and local ports
 
@@ -155,7 +156,7 @@ Ai_Mentor/
 
 Install the following before setting up the repository:
 
-- Node.js 18 or newer. GitHub CI currently uses Node.js 20.
+- Node.js 22.13 or newer. Vite 7 and the frontend test toolchain do not support Node.js 18. GitHub CI uses Node.js 22.
 - npm
 - Python 3.10 or newer. GitHub CI currently uses Python 3.11.
 - PostgreSQL, or a hosted PostgreSQL provider such as Neon
@@ -165,55 +166,87 @@ Install the following before setting up the repository:
 
 ## Quick start
 
-### 1. Clone the repository
+### 1. Clone and configure
+
+Clone the repository and enter its directory:
 
 ```bash
 git clone https://github.com/Deepak3699/Ai_Mentor.git
 cd Ai_Mentor
 ```
 
-Contributors should clone their own fork and follow [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+Then copy each required `.env.example` file to `.env`. Use [`initalSetup.md`](./initalSetup.md) for the complete variable list. Never commit `.env` files or credentials.
 
-### 2. Configure environment files
-
-Create local `.env` files from the templates for each service that you intend to run:
-
-```text
-backend/.env.example                  -> backend/.env
-backendAdmin/.env.example             -> backendAdmin/.env
-frontend/.env.example                 -> frontend/.env
-frontendAdmin/.env.example            -> frontendAdmin/.env
-ai_service/backend/.env.example       -> ai_service/backend/.env
-```
-
-Use [`initalSetup.md`](./initalSetup.md) for the complete first-time setup. Never commit `.env` files or credentials.
-
-### 3. Install dependencies
-
-From the repository root:
+### 2. Install the complete project
 
 ```bash
 npm run setup
 ```
 
-The setup command installs root, backend, frontend, backend-admin, and frontend-admin Node dependencies. It also installs the Python AI-service requirements. Existing environment files are not created, changed, or printed.
+The complete setup command:
 
-### 4. Start the Node.js and React applications
+- installs dependencies for the root workspace and all four Node/React applications;
+- creates or reuses `ai_service/.venv`;
+- installs `ai_service/backend/requirements.txt`;
+- verifies Node.js, npm, Python, FFmpeg, AI configuration names, AI imports, and Redis/Memurai availability;
+- does not create, overwrite, or print secrets from `.env` files.
+
+To prepare only the AI service, use:
+
+```bash
+npm run setup:ai
+```
+
+### 3. Start development
 
 ```bash
 npm run dev
 ```
 
-This starts the user API, learner web application, admin API, and admin web application through the root development runner.
+This starts or reuses all five services: User API, learner web, Admin API, admin web, and AI API.
 
-### 5. Start the AI service separately
+To start only the AI service, use:
 
 ```bash
-cd ai_service/backend
-python graceful_server.py
+npm run dev:ai
 ```
 
-The AI service is available on `http://localhost:8000`. Interactive FastAPI documentation is available at `http://localhost:8000/docs` while the service is running.
+The runner labels AI output with `[AI/API]` and reports AI `Startup` and `Health` timing in the terminal dashboard. `Ctrl+C` stops only processes started by that terminal.
+
+## Contributor quick-start checklist
+
+Use this day-one sequence when setting up your local environment for the first time. For full variable tables and database options, see [`initalSetup.md`](./initalSetup.md); for branch and PR rules, see [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+
+### 1. Check prerequisites
+
+Verify these tools before cloning or running setup:
+
+- **Node.js 18+** (`node -v`, CI uses Node.js 20) and **npm** (`npm -v`)
+- **Python 3.10+** (`python --version`, CI uses Python 3.11)
+- **PostgreSQL 14+** (`psql --version`) or a [Neon](https://neon.tech) account
+- **Redis / Memurai** listening on port `6379` (required for queued AI video jobs)
+- **FFmpeg** (`ffmpeg -version`, required for AI video composition)
+- **Git** (`git --version`)
+
+### 2. Copy the five `.env` files
+
+From the repository root, copy each `.env.example` template and fill in your local values (never commit `.env` files):
+
+````bash
+cp backend/.env.example            backend/.env
+cp frontend/.env.example           frontend/.env
+cp backendAdmin/.env.example       backendAdmin/.env
+cp frontendAdmin/.env.example      frontendAdmin/.env
+cp ai_service/backend/.env.example ai_service/backend/.env
+
+## Unified setup and development workflow
+
+| Command            | Purpose                                                 |
+| ------------------ | ------------------------------------------------------- |
+| `npm run setup`    | Install and validate the complete project, including AI |
+| `npm run setup:ai` | Create/reuse and validate only the AI environment       |
+| `npm run dev`      | Start or reuse all five services                        |
+| `npm run dev:ai`   | Start or reuse only the AI service                      |
 
 ## Environment configuration
 
@@ -229,14 +262,18 @@ The following table summarizes the main variable groups. Use the committed `.env
 
 Both Node.js APIs must point to the same PostgreSQL database. For production database connections, follow the TLS requirements documented in the environment templates.
 
+Required AI configuration is `ai_service/backend/.env` with a real `GEMINI_API_KEY`. Groq, Cloudinary, and D-ID are optional. Missing required configuration stops setup with a clear error; missing optional configuration disables that provider or uses the supported fallback. Redis/Memurai is required for queued video generation, and FFmpeg is required for local video rendering.
+
 ## Development commands
 
 Run root commands from the repository root.
 
 | Command                      | Purpose                                                            |
 | ---------------------------- | ------------------------------------------------------------------ |
-| `npm run setup`              | Install dependencies for all detected services                     |
-| `npm run dev`                | Start user and admin API/web applications                          |
+| `npm run setup`              | Install and validate all Node/React and AI dependencies            |
+| `npm run setup:ai`           | Create/reuse and validate only the AI environment                  |
+| `npm run dev`                | Start or reuse User, Admin, and AI services                        |
+| `npm run dev:ai`             | Start or reuse only the AI service                                 |
 | `npm run dev:user`           | Start the user API and learner web application                     |
 | `npm run dev:admin`          | Start the admin API and admin web application                      |
 | `npm run dev:backend`        | Start only the user API                                            |
@@ -257,7 +294,7 @@ npm run build --prefix frontend
 npm run lint --prefix backendAdmin
 npm run test --prefix backendAdmin
 npm run build --prefix frontendAdmin
-```
+````
 
 From `ai_service/`, run Python tests with:
 
@@ -306,7 +343,7 @@ CI uses dummy frontend and AI-service values where configuration is required onl
 ## Documentation
 
 - [`initalSetup.md`](./initalSetup.md): first-time environment and database setup
-- [`CONTRIBUTING.md`](./CONTRIBUTING.md): branch, commit, validation, review, and security workflow
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md): contributor service map, startup checklist, branch, commit, validation, review, and security workflow
 - [`backend/README.md`](./backend/README.md): user API setup and endpoints
 - [`backend/BACKEND_DOCUMENTATION.md`](./backend/BACKEND_DOCUMENTATION.md): detailed backend reference
 - [`frontend/README.md`](./frontend/README.md): learner application setup and routes
@@ -318,7 +355,7 @@ CI uses dummy frontend and AI-service values where configuration is required onl
 
 Contributions should use a focused branch and pull request. Run the relevant formatter, linter, tests, and builds before pushing. Do not push directly to `main`, bundle unrelated changes, or merge another contributor's pull request without authorization.
 
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the complete workflow, commit-message convention, secret-scanning process, and review requirements.
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the contributor service map, first-time startup guide, commit-message convention, secret-scanning process, and review requirements.
 
 ## Project context
 

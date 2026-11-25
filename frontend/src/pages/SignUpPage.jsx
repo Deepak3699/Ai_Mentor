@@ -1,15 +1,18 @@
 import { apiFetch as fetch } from "../lib/api";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeOff, Lock, Moon, Sun, Check, X } from "lucide-react";
+import { Eye, EyeOff, Moon, Sun } from "lucide-react";
 import { Helmet } from "react-helmet-async";
 import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import AuthLayout from "../components/auth/AuthLayout";
 import SocialLogin from "../components/auth/SocialLogin";
+import PasswordChecklist from "../components/auth/PasswordChecklist.jsx";
+import { passwordSchema, getPasswordChecks } from "../lib/passwordRules.js";
 import toast from "react-hot-toast";
 import { z } from "zod";
 import API_BASE_URL from "../lib/api";
+import { getErrorMessage, getFieldErrors } from "../lib/errorHandling.js";
 
 const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(50, "First name too long"),
@@ -19,13 +22,7 @@ const signupSchema = z.object({
     .string()
     .min(3, "Username must be at least 3 characters")
     .max(20, "Username too long"),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
-    .regex(/[0-9]/, "Password must contain at least one number")
-    .regex(/[!@#$%^&*(),.?":{}|<>]/, "Password must contain at least one symbol"),
+  password: passwordSchema,
 });
 
 /* FormInput stays UI-only */
@@ -47,14 +44,6 @@ const FormInput = ({ label, type, placeholder, value, onChange }) => {
   );
 };
 
-/* Password Validation UI Helper */
-const ValidationItem = ({ label, met }) => (
-  <div className={`flex items-center gap-1 ${met ? "text-green-500" : "text-gray-400"}`}>
-    {met ? <Check size={10} /> : <X size={10} />}
-    <span className="text-[10px]">{label}</span>
-  </div>
-);
-
 const SignUpPage = () => {
   /* 🔹 NEW STATES FOR NAMES */
   const [firstName, setFirstName] = useState("");
@@ -70,15 +59,7 @@ const SignUpPage = () => {
   const navigate = useNavigate();
 
   /* 🔹 PASSWORD REQUIREMENTS LOGIC */
-  const passwordRequirements = {
-    length: password.length >= 8,
-    capital: /[A-Z]/.test(password),
-    lower: /[a-z]/.test(password),
-    number: /[0-9]/.test(password),
-    symbol: /[!@#$%^&*(),.?":{}|<>]/.test(password),
-  };
-
-  const isPasswordValid = Object.values(passwordRequirements).every(Boolean);
+  const isPasswordValid = Object.values(getPasswordChecks(password)).every(Boolean);
 
   const togglePasswordVisibility = () => {
     setShowPassword((prev) => !prev);
@@ -110,10 +91,16 @@ const SignUpPage = () => {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(data.message || "Something went wrong");
+        throw {
+          response: { status: response.status, data },
+          message: getErrorMessage(
+            { response: { status: response.status, data } },
+            "Something went wrong",
+          ),
+        };
       }
 
       login(data);
@@ -122,11 +109,12 @@ const SignUpPage = () => {
       navigate("/complete-profile");
     } catch (error) {
       if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-      } else if (error.name === "TypeError" && error.message.includes("fetch")) {
-        toast.error("Cannot connect to server. Please check if the backend server is running.");
+        toast.error(error.issues[0].message);
       } else {
-        toast.error(error.message || "Sign up failed");
+        const fieldErrors = getFieldErrors(error);
+        toast.error(
+          fieldErrors.email || fieldErrors.password || getErrorMessage(error, "Sign up failed"),
+        );
       }
     } finally {
       setLoading(false);
@@ -220,13 +208,7 @@ const SignUpPage = () => {
           </div>
 
           {/* 🔹 PASSWORD CHECKLIST UI */}
-          <div className="mt-2 grid grid-cols-2 gap-1">
-            <ValidationItem label="8+ Characters" met={passwordRequirements.length} />
-            <ValidationItem label="Uppercase" met={passwordRequirements.capital} />
-            <ValidationItem label="Lowercase" met={passwordRequirements.lower} />
-            <ValidationItem label="Number" met={passwordRequirements.number} />
-            <ValidationItem label="Symbol" met={passwordRequirements.symbol} />
-          </div>
+          <PasswordChecklist password={password} />
         </div>
 
         <button

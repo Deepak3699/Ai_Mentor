@@ -18,6 +18,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const WatchedVideos = lazy(() => import("./pages/WatchedVideos"));
 const CoursePreview = lazy(() => import("./pages/CoursePreview"));
 const LearningPage = lazy(() => import("./pages/LearningPage"));
+const CodeExplainerPage = lazy(() => import("./pages/CodeExplainer"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CertificatesPage = lazy(() => import("./pages/CertificatesPage"));
@@ -86,6 +87,7 @@ const App = () => {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/courses" element={<CoursesPage />} />
+            <Route path="/code-explainer" element={<CodeExplainerPage />} />
             <Route path="/discussions" element={<DiscussionsPage />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/certificates" element={<CertificatesPage />} />

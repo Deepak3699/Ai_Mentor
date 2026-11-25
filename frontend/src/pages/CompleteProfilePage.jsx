@@ -6,6 +6,7 @@ import AuthLayout from "../components/auth/AuthLayout";
 import LoadingSpinner from "../components/common/LoadingSpinner";
 import { Eye, EyeOff, Check, X, Camera, User as UserIcon } from "lucide-react";
 import toast from "react-hot-toast";
+import { getErrorMessage } from "../lib/errorHandling.js";
 
 /* ─── Reusable form input (consistent with Login/Signup) ─── */
 const FormInput = ({ label, type, placeholder, value, onChange, required = true }) => (
@@ -196,10 +197,16 @@ const CompleteProfilePage = () => {
         },
       );
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(data.message || "Failed to complete profile");
+        throw {
+          response: { status: response.status, data },
+          message: getErrorMessage(
+            { response: { status: response.status, data } },
+            "Failed to complete profile",
+          ),
+        };
       }
 
       // Update auth context with the new user data (preserves token)
@@ -212,7 +219,7 @@ const CompleteProfilePage = () => {
       toast.success("Profile completed successfully! 🎉");
       navigate("/dashboard", { replace: true });
     } catch (error) {
-      toast.error(error.message || "Something went wrong");
+      toast.error(getErrorMessage(error, "Something went wrong"));
     } finally {
       setLoading(false);
     }
