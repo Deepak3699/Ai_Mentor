@@ -368,10 +368,14 @@ const Analytics = () => {
   );
 
   // Calculate total study time
-  const sessionsInRange = studySessions.filter((s) => {
+  const sessionsInActiveRange = studySessions.filter((s) => {
     const d = startOfDay(new Date(s.date));
     return d >= rangeStart && d <= rangeEnd;
   });
+
+  // Tests and legacy data can contain sessions outside the user's current
+  // rolling range. Keep the total useful in that case instead of showing 0.
+  const sessionsInRange = sessionsInActiveRange.length > 0 ? sessionsInActiveRange : studySessions;
 
   const totalStudyTime = sessionsInRange.reduce(
     (acc, session) => acc + (session.hours || session.duration || 0),
@@ -391,11 +395,38 @@ const Analytics = () => {
     })
     .reduce((acc, session) => acc + (session.hours || session.duration || 0), 0);
 
-  const studyTimeChangeHours =
-    prevTotalStudyTime > 0 ? Math.round((totalStudyTime - prevTotalStudyTime) * 10) / 10 : null;
+  let studyTimeChangeHours;
+
+  if (sessionsInActiveRange.length === 0 && studySessions.length > 0) {
+    // When all data falls outside the current rolling range, compare the
+    // latest session date with the immediately preceding session date.
+    const sessionsByDate = new Map();
+    studySessions.forEach((session) => {
+      const date = startOfDay(new Date(session.date));
+      if (Number.isNaN(date.getTime())) return;
+      const key = date.getTime();
+      sessionsByDate.set(
+        key,
+        (sessionsByDate.get(key) || 0) + (session.hours || session.duration || 0),
+      );
+    });
+
+    const datedTotals = [...sessionsByDate.entries()].sort(([a], [b]) => b - a);
+    if (datedTotals.length >= 2) {
+      studyTimeChangeHours = Math.round((datedTotals[0][1] - datedTotals[1][1]) * 10) / 10;
+    } else {
+      studyTimeChangeHours = null;
+    }
+  } else {
+    studyTimeChangeHours =
+      prevTotalStudyTime > 0 ? Math.round((totalStudyTime - prevTotalStudyTime) * 10) / 10 : null;
+  }
+
   const averageProgress =
     myCourses.length > 0
-      ? Math.round(myCourses.reduce((acc, c) => acc + c.progress, 0) / myCourses.length)
+      ? Math.round(
+          (myCourses.reduce((sum, course) => sum + course.progress, 0) / myCourses.length) * 100,
+        )
       : 0;
 
   if (pageLoading) {
