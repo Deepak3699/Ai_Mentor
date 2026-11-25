@@ -375,8 +375,7 @@ const Analytics = () => {
 
   // Tests and legacy data can contain sessions outside the user's current
   // rolling range. Keep the total useful in that case instead of showing 0.
-  const sessionsInRange =
-    sessionsInActiveRange.length > 0 ? sessionsInActiveRange : studySessions;
+  const sessionsInRange = sessionsInActiveRange.length > 0 ? sessionsInActiveRange : studySessions;
 
   const totalStudyTime = sessionsInRange.reduce(
     (acc, session) => acc + (session.hours || session.duration || 0),
@@ -414,23 +413,20 @@ const Analytics = () => {
 
     const datedTotals = [...sessionsByDate.entries()].sort(([a], [b]) => b - a);
     if (datedTotals.length >= 2) {
-      studyTimeChangeHours =
-        Math.round((datedTotals[0][1] - datedTotals[1][1]) * 10) / 10;
+      studyTimeChangeHours = Math.round((datedTotals[0][1] - datedTotals[1][1]) * 10) / 10;
     } else {
       studyTimeChangeHours = null;
     }
   } else {
     studyTimeChangeHours =
-      prevTotalStudyTime > 0
-        ? Math.round((totalStudyTime - prevTotalStudyTime) * 10) / 10
-        : null;
+      prevTotalStudyTime > 0 ? Math.round((totalStudyTime - prevTotalStudyTime) * 10) / 10 : null;
   }
 
   const averageProgress =
     myCourses.length > 0
       ? Math.round(
-        (myCourses.reduce((sum, course) => sum + course.progress, 0) / myCourses.length) * 100,
-      )
+          (myCourses.reduce((sum, course) => sum + course.progress, 0) / myCourses.length) * 100,
+        )
       : 0;
 
   if (pageLoading) {
