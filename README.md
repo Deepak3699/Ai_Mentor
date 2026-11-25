@@ -151,7 +151,25 @@ Ai_Mentor/
 ├── package.json             Root commands and development tooling
 └── README.md                Repository overview
 ```
+### Service directory glossary
 
+This table explains what each main application directory does and where its code starts.
+
+| Directory | Purpose | Main entry files | Key responsibilities |
+|---|---|---|---|
+| `backend/` | Learner-facing Node.js API. | `backend/server.js` | Handles learner requests, authentication, database operations, and background jobs. |
+| `frontend/` | Learner-facing React application. | `frontend/src/main.jsx`, `frontend/src/App.jsx`, `frontend/vite.config.js` | Provides the learner interface, including dashboards, courses, and authentication. |
+| `frontendAdmin/` | Administrator React application. | `frontendAdmin/src/main.jsx`, `frontendAdmin/src/App.jsx`, `frontendAdmin/vite.config.js` | Provides administrative pages and tools for managing platform content and operations. |
+| `backendAdmin/` | Administrative Node.js API. | `backendAdmin/server.js` | Handles protected administrative requests, authentication, and database operations. |
+| `ai_service/` | Python FastAPI AI service. | `ai_service/backend/main.py` | Provides AI lesson generation, API endpoints, media processing, and background job management. |
+| `scripts/` | Shared setup and development scripts. | `scripts/dev-runner.cjs`, `scripts/install-dependencies.cjs` | Starts development services, installs dependencies, and provides testing, review, and security scripts. |
+
+**Additional AI service locations:**
+- `ai_service/backend/api/v1/router.py` connects the versioned API routes.
+- `ai_service/backend/api/v1/endpoints/` contains individual API endpoint modules.
+- `ai_service/backend/services/` contains AI generation, media processing, and job-management logic.
+
+**Note:** The `vite.config.js` files configure the frontend development and build process. The React applications start from their respective `src/main.jsx` files.
 ## Prerequisites
 
 Install the following before setting up the repository:
@@ -181,8 +199,8 @@ Then copy each required `.env.example` file to `.env`. Use [`initalSetup.md`](./
 
 ```bash
 npm run setup
-```
 
+```
 The complete setup command:
 
 - installs dependencies for the root workspace and all four Node/React applications;
