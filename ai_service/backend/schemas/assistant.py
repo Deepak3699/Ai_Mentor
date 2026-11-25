@@ -18,3 +18,4 @@ class AssistantResponse(APIRequest):
     reply: str = Field(..., min_length=1)
     route: str | None = None
     error: str | None = None
+    refused: bool = False
