@@ -1,4 +1,4 @@
-from backend.utils.logging_utils import log_event, short_error
+from backend.utils.logging_utils import configure_logging, log_event, short_error
 from backend.utils.subtitles import (
     build_cues,
     chunk_script,
@@ -13,6 +13,7 @@ from backend.utils.cloud_storage import (
 )
 
 __all__ = [
+    "configure_logging",
     "log_event",
     "short_error",
     "get_audio_duration",

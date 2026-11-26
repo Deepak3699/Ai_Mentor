@@ -2,6 +2,7 @@ from uvicorn import Config
 from uvicorn.server import Server
 
 import backend.services.job_tracker as job_tracker
+from backend.utils.logging_utils import configure_logging
 
 
 class GracefulServer(Server):
@@ -10,8 +11,8 @@ class GracefulServer(Server):
         await super().shutdown(sockets=sockets)
 
 
-if __name__ == "__main__":
-    api.configure_logging()
+def main():
+    configure_logging()
     config = Config(
         "backend.main:app",
         host="127.0.0.1",
@@ -19,3 +20,7 @@ if __name__ == "__main__":
         timeout_graceful_shutdown=30,
     )
     GracefulServer(config).run()
+
+
+if __name__ == "__main__":
+    main()

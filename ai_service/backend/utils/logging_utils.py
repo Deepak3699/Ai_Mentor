@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 
 from backend.config import (
@@ -82,6 +83,13 @@ SAFE_MESSAGES = {
     "Trying Groq fallback for lesson script",
     "Groq fallback lesson script generated",
 }
+def configure_logging() -> None:
+    """Configure application logging when explicitly called by the entry point."""
+    log_level = os.getenv("AI_SERVICE_LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, log_level, logging.INFO),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
 
 def log_event(level: str, message: str, **details) -> None:
     """Log approved operational metadata only."""
@@ -164,3 +172,4 @@ def short_error(error: Exception | str, limit: int = 180) -> str:
     if isinstance(error, Exception):
         return "provider_failed" if "provider" in type(error).__name__.lower() else "processing_error"
     return "processing_error"
+
