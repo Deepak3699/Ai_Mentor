@@ -1,3 +1,4 @@
+import math
 import os
 
 from dotenv import load_dotenv
@@ -24,6 +25,23 @@ AI_SERVICE_KEY = os.getenv("AI_SERVICE_KEY")
 
 # LLM call timeout in seconds
 LLM_TIMEOUT_SECONDS = int(os.getenv("LLM_TIMEOUT_SECONDS", "60") or "60")
+# Grace period for active jobs during service shutdown
+try:
+    JOB_SHUTDOWN_GRACE_PERIOD_SECONDS = float(
+        os.getenv("JOB_SHUTDOWN_GRACE_PERIOD_SECONDS", "30")
+    )
+except ValueError as exc:
+    raise ValueError(
+        "JOB_SHUTDOWN_GRACE_PERIOD_SECONDS must be a valid non-negative number."
+    ) from exc
+
+if (
+    not math.isfinite(JOB_SHUTDOWN_GRACE_PERIOD_SECONDS)
+    or JOB_SHUTDOWN_GRACE_PERIOD_SECONDS < 0
+):
+    raise ValueError(
+        "JOB_SHUTDOWN_GRACE_PERIOD_SECONDS must be a valid non-negative number."
+    )
 
 # Maximum concurrent lesson-generation jobs
 MAX_ACTIVE_LESSON_JOBS = int(os.getenv("MAX_ACTIVE_LESSON_JOBS", "2") or "2")

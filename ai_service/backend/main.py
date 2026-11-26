@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.v1.router import api_v1_router
+from backend.config import JOB_SHUTDOWN_GRACE_PERIOD_SECONDS
 from backend.job_shutdown import wait_for_jobs_to_finish
 from backend.services.job_tracker import (
     active_jobs,
@@ -39,7 +40,8 @@ async def lifespan(app: FastAPI):
         active_jobs=active_jobs,
         job_status=job_status,
         shutdown_failed_jobs=shutdown_failed_jobs,
-        timeout_seconds=0,
+        timeout_seconds=JOB_SHUTDOWN_GRACE_PERIOD_SECONDS,
+        generation_cache=job_tracker.generation_cache,
     )
 
 

@@ -12,6 +12,7 @@ LESSON_ENDPOINT_PATH = (
 )
 
 from job_shutdown import wait_for_jobs_to_finish
+
 from backend.services import job_tracker
 
 os.environ.setdefault("GEMINI_API_KEY", "dummy_gemini_key")
@@ -19,6 +20,7 @@ os.environ.setdefault("GROQ_API_KEY", "dummy_groq_key")
 os.environ.setdefault("CLOUDINARY_CLOUD_NAME", "dummy_cloud")
 os.environ.setdefault("CLOUDINARY_API_KEY", "dummy_key")
 os.environ.setdefault("CLOUDINARY_API_SECRET", "dummy_secret")
+
 
 
 def test_shutdown_waits_for_job_that_finishes():
@@ -29,23 +31,47 @@ def test_shutdown_waits_for_job_that_finishes():
 
         async def finish_job():
             await asyncio.sleep(0.02)
+            job_status["job-1"]["status"] = "completed"
             active_jobs.discard("job-1")
 
         task = asyncio.create_task(finish_job())
+
         await wait_for_jobs_to_finish(
             active_jobs,
             job_status,
             failed_jobs,
-            timeout_seconds=0.5,
-            poll_interval=0.005,
+            timeout_seconds=1,
+            poll_interval=0.01,
         )
+
         await task
 
         assert active_jobs == set()
         assert failed_jobs == set()
-        assert job_status["job-1"]["status"] == "processing"
+        assert job_status["job-1"]["status"] == "completed"
 
     asyncio.run(scenario())
+
+
+def test_shutdown_with_no_active_jobs():
+    async def scenario():
+        active_jobs = set()
+        job_status = {}
+        failed_jobs = set()
+
+        await wait_for_jobs_to_finish(
+            active_jobs,
+            job_status,
+            failed_jobs,
+            timeout_seconds=30,
+        )
+
+        assert active_jobs == set()
+        assert failed_jobs == set()
+        assert job_status == {}
+
+    asyncio.run(scenario())
+
 
 
 def test_shutdown_marks_unfinished_job_failed():
