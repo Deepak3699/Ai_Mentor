@@ -120,3 +120,137 @@ def test_build_cues_falls_back_when_metadata_is_missing():
     cues = build_cues("Hello there.", 5.0, None)
 
     assert cues == [(0.0, 5.0, "Hello there.")]
+
+
+def test_build_cues_falls_back_for_empty_timing_events():
+    assert build_cues("Hello there.", 5.0, []) == [
+        (0.0, 5.0, "Hello there.")
+    ]
+
+
+def test_build_cues_rejects_malformed_word_event():
+    events = [
+        {
+            "type": "WordBoundary",
+            "offset": 0,
+            "duration": 0,
+            "text": "Hello",
+        }
+    ]
+    assert build_cues("Hello there.", 5.0, events) == [
+        (0.0, 5.0, "Hello there.")
+    ]
+
+
+def test_build_cues_clips_events_to_audio_duration():
+    events = [
+        {
+            "type": "WordBoundary",
+            "offset": 35_000_000,
+            "duration": 20_000_000,
+            "text": "Hello",
+        }
+    ]
+    assert build_cues("Hello", 4.0, events) == [
+        (3.5, 4.0, "Hello")
+    ]
+
+
+def test_build_cues_respects_maximum_12_words_per_cue():
+    words = [f"word{i}" for i in range(13)]
+    events = [
+        {
+            "type": "WordBoundary",
+            "offset": i * 1_000_000,
+            "duration": 500_000,
+            "text": f" {word}" if i else word,
+        }
+        for i, word in enumerate(words)
+    ]
+
+    cues = build_cues(" ".join(words), 5.0, events)
+
+    assert len(cues) == 2
+    assert len(cues[0][2].split()) == 12
+    assert len(cues[1][2].split()) == 1
+
+
+def test_timed_vtt_and_srt_use_identical_cue_timestamps(
+    monkeypatch, tmp_path
+):
+    events = [
+        {
+            "type": "WordBoundary",
+            "offset": 0,
+            "duration": 5_000_000,
+            "text": "Hello",
+        },
+        {
+            "type": "WordBoundary",
+            "offset": 20_000_000,
+            "duration": 5_000_000,
+            "text": " there.",
+        },
+    ]
+
+    monkeypatch.setattr("backend.subtitles.get_audio_duration", lambda _: 5.0)
+
+    out_base = str(tmp_path / "timed")
+    vtt_path, srt_path = write_subtitles(
+        "Hello there.", "audio.mp3", out_base, timing_events=events
+    )
+
+    vtt = (tmp_path / "timed.vtt").read_text(encoding="utf-8")
+    srt = (tmp_path / "timed.srt").read_text(encoding="utf-8")
+
+    assert "00:00:00.000 --> 00:00:00.500" in vtt
+    assert "00:00:02.000 --> 00:00:02.500" in vtt
+    assert "00:00:00,000 --> 00:00:00,500" in srt
+    assert "00:00:02,000 --> 00:00:02,500" in srt
+
+
+@pytest.mark.parametrize(
+    "offset,event_duration",
+    [
+        (-1, 1_000_000),
+        (0, -1_000_000),
+        (float("nan"), 1_000_000),
+        (float("inf"), 1_000_000),
+        (float("-inf"), 1_000_000),
+        (0, float("nan")),
+        (0, float("inf")),
+        (0, float("-inf")),
+        (True, 1_000_000),
+        (0, True),
+        (0, 0),
+    ],
+)
+def test_build_cues_falls_back_for_invalid_numeric_timing(
+    offset, event_duration
+):
+    events = [
+        {
+            "type": "WordBoundary",
+            "offset": offset,
+            "duration": event_duration,
+            "text": "Hello",
+        }
+    ]
+    assert build_cues("Hello there.", 5.0, events) == [
+        (0.0, 5.0, "Hello there.")
+    ]
+
+
+def test_build_cues_falls_back_when_all_events_start_after_audio():
+    events = [
+        {
+            "type": "WordBoundary",
+            "offset": 60_000_000,
+            "duration": 1_000_000,
+            "text": "Hello",
+        }
+    ]
+
+    assert build_cues("Hello there.", 5.0, events) == [
+        (0.0, 5.0, "Hello there.")
+    ]

@@ -6,6 +6,7 @@ import subprocess
 
 TICKS_PER_SECOND = 10_000_000
 MAX_WORDS_PER_CUE = 12
+MAX_PAUSE_BETWEEN_WORDS = 0.75
 
 
 def get_audio_duration(audio_path: str) -> float:
@@ -167,6 +168,10 @@ def _word_events_to_cues(
     for event in normalized:
         start, end, text = event
         word_count = max(1, len(text.split()))
+
+        # Split subtitle cues when speech contains a meaningful pause.
+        if group and start - group[-1][1] > MAX_PAUSE_BETWEEN_WORDS:
+            flush_group()
 
         if group and group_words + word_count > max_words:
             flush_group()
