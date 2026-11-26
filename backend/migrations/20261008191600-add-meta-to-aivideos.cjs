@@ -7,15 +7,11 @@ module.exports = {
     const tables = await queryInterface.showAllTables();
 
     const tableExists = tables.some(
-      (table) =>
-        (typeof table === "string" ? table : table.tableName).toLowerCase() ===
-        "aivideos",
+      (table) => (typeof table === "string" ? table : table.tableName).toLowerCase() === "aivideos",
     );
 
     if (!tableExists) {
-      throw new Error(
-        "AIVideos table does not exist. Run the application schema setup first.",
-      );
+      throw new Error("AIVideos table does not exist. Run the application schema setup first.");
     }
 
     const columns = await queryInterface.describeTable("AIVideos");
@@ -26,11 +22,7 @@ module.exports = {
         allowNull: true,
       });
 
-      await queryInterface.recordOwnership(
-        migrationName,
-        "column",
-        "AIVideos.meta",
-      );
+      await queryInterface.recordOwnership(migrationName, "column", "AIVideos.meta");
     }
   },
 
@@ -40,18 +32,12 @@ module.exports = {
     const tables = await queryInterface.showAllTables();
 
     const tableExists = tables.some(
-      (table) =>
-        (typeof table === "string" ? table : table.tableName).toLowerCase() ===
-        "aivideos",
+      (table) => (typeof table === "string" ? table : table.tableName).toLowerCase() === "aivideos",
     );
 
     if (!tableExists) return;
 
-    const ownsColumn = await queryInterface.hasOwnership(
-      migrationName,
-      "column",
-      "AIVideos.meta",
-    );
+    const ownsColumn = await queryInterface.hasOwnership(migrationName, "column", "AIVideos.meta");
 
     if (ownsColumn) {
       const columns = await queryInterface.describeTable("AIVideos");
@@ -60,11 +46,7 @@ module.exports = {
         await queryInterface.removeColumn("AIVideos", "meta");
       }
 
-      await queryInterface.clearOwnership(
-        migrationName,
-        "column",
-        "AIVideos.meta",
-      );
+      await queryInterface.clearOwnership(migrationName, "column", "AIVideos.meta");
     }
   },
 };

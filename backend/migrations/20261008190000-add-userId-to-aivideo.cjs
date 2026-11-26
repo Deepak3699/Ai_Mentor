@@ -7,15 +7,11 @@ module.exports = {
     const tables = await queryInterface.showAllTables();
 
     const tableExists = tables.some(
-      (table) =>
-        (typeof table === "string" ? table : table.tableName).toLowerCase() ===
-        "aivideos",
+      (table) => (typeof table === "string" ? table : table.tableName).toLowerCase() === "aivideos",
     );
 
     if (!tableExists) {
-      throw new Error(
-        "AIVideos table does not exist. Run the application schema setup first.",
-      );
+      throw new Error("AIVideos table does not exist. Run the application schema setup first.");
     }
 
     const columns = await queryInterface.describeTable("AIVideos");
@@ -32,11 +28,7 @@ module.exports = {
         onDelete: "SET NULL",
       });
 
-      await queryInterface.recordOwnership(
-        migrationName,
-        "column",
-        "AIVideos.userId",
-      );
+      await queryInterface.recordOwnership(migrationName, "column", "AIVideos.userId");
     }
   },
 
@@ -46,9 +38,7 @@ module.exports = {
     const tables = await queryInterface.showAllTables();
 
     const tableExists = tables.some(
-      (table) =>
-        (typeof table === "string" ? table : table.tableName).toLowerCase() ===
-        "aivideos",
+      (table) => (typeof table === "string" ? table : table.tableName).toLowerCase() === "aivideos",
     );
 
     if (!tableExists) return;
@@ -66,11 +56,7 @@ module.exports = {
         await queryInterface.removeColumn("AIVideos", "userId");
       }
 
-      await queryInterface.clearOwnership(
-        migrationName,
-        "column",
-        "AIVideos.userId",
-      );
+      await queryInterface.clearOwnership(migrationName, "column", "AIVideos.userId");
     }
   },
 };

@@ -7,9 +7,7 @@ module.exports = {
     const tables = await queryInterface.showAllTables();
 
     const tableExists = tables.some(
-      (table) =>
-        (typeof table === "string" ? table : table.tableName).toLowerCase() ===
-        "payments",
+      (table) => (typeof table === "string" ? table : table.tableName).toLowerCase() === "payments",
     );
 
     if (!tableExists) {
@@ -76,11 +74,7 @@ module.exports = {
         },
       });
 
-      await queryInterface.recordOwnership(
-        migrationName,
-        "table",
-        "Payments",
-      );
+      await queryInterface.recordOwnership(migrationName, "table", "Payments");
     }
 
     const indexes = [
@@ -99,9 +93,7 @@ module.exports = {
 
     for (const index of indexes) {
       const equivalentExists = existingIndexes.some((existing) => {
-        const existingFields = existing.fields.map(
-          (field) => field.attribute || field.name,
-        );
+        const existingFields = existing.fields.map((field) => field.attribute || field.name);
 
         const sameFields =
           existingFields.length === index.fields.length &&
@@ -118,11 +110,7 @@ module.exports = {
           unique: Boolean(index.unique),
         });
 
-        await queryInterface.recordOwnership(
-          migrationName,
-          "index",
-          index.name,
-        );
+        await queryInterface.recordOwnership(migrationName, "index", index.name);
       }
     }
   },
@@ -130,20 +118,12 @@ module.exports = {
   async down(queryInterface) {
     const migrationName = "20250531000000-create-payment.cjs";
 
-    const ownsTable = await queryInterface.hasOwnership(
-      migrationName,
-      "table",
-      "Payments",
-    );
+    const ownsTable = await queryInterface.hasOwnership(migrationName, "table", "Payments");
 
     if (ownsTable) {
       await queryInterface.dropTable("Payments");
 
-      await queryInterface.clearOwnership(
-        migrationName,
-        "table",
-        "Payments",
-      );
+      await queryInterface.clearOwnership(migrationName, "table", "Payments");
 
       const indexNames = [
         "payments_user_id",
@@ -154,11 +134,7 @@ module.exports = {
       ];
 
       for (const name of indexNames) {
-        await queryInterface.clearOwnership(
-          migrationName,
-          "index",
-          name,
-        );
+        await queryInterface.clearOwnership(migrationName, "index", name);
       }
 
       return;
@@ -167,20 +143,12 @@ module.exports = {
     const indexes = await queryInterface.showIndex("Payments");
 
     for (const index of indexes) {
-      const owned = await queryInterface.hasOwnership(
-        migrationName,
-        "index",
-        index.name,
-      );
+      const owned = await queryInterface.hasOwnership(migrationName, "index", index.name);
 
       if (owned) {
         await queryInterface.removeIndex("Payments", index.name);
 
-        await queryInterface.clearOwnership(
-          migrationName,
-          "index",
-          index.name,
-        );
+        await queryInterface.clearOwnership(migrationName, "index", index.name);
       }
     }
   },
