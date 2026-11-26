@@ -38,7 +38,11 @@ from backend.services.job_tracker import (
     remove_failed_generation_cache,
     shutdown_failed_jobs,
 )
-from backend.services.lesson_pipeline import process_lesson, run_tracked_lesson
+from backend.services.lesson_pipeline import (
+    download_avatar_source,
+    process_lesson,
+    run_tracked_lesson,
+)
 from backend.services.media_processor import (
     VIDEO_HEIGHT,
     VIDEO_WIDTH,
@@ -95,6 +99,7 @@ __all__ = [
     "compute_base_filename",
     "compute_cache_key",
     "create_avatar_video",
+    "download_avatar_source",
     "generate_flashcards",
     "generate_lesson",
     "generate_lesson_script",

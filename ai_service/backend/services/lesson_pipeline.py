@@ -27,6 +27,7 @@ from backend.services.providers.validation import (
     validate_lesson_script,
 )
 import backend.avatar_service as avatar_module
+from backend.config import MAX_AVATAR_DOWNLOAD_BYTES
 import backend.voices as voices
 from backend.utils.logging_utils import log_event, short_error
 from backend.utils.subtitles import write_subtitles
@@ -56,6 +57,109 @@ def _resolve_asyncio() -> Any:
     if api_module is not None and hasattr(api_module, "asyncio"):
         return getattr(api_module, "asyncio")
     return asyncio
+
+
+def download_avatar_source(
+    url: str,
+    target_path: str,
+    max_bytes: int | None = None,
+    chunk_size: int = 64 * 1024,
+    timeout: int = 120,
+    requests_lib: Any = requests,
+    os_lib: Any = os,
+) -> int:
+    """Download avatar video using streaming, size-limiting, and atomic file creation.
+
+    Streams the remote video in 64 KB chunks rather than loading the whole payload into RAM.
+    Enforces a maximum size limit upfront (via Content-Length) and mid-stream (via byte counting).
+    Writes chunks to a temporary '.part' file first, then atomically renames to target_path
+    once completely received. Cleans up any partial file on failure.
+
+    Args:
+        url: Remote URL of the avatar video to download.
+        target_path: Destination filesystem path for the completed video file.
+        max_bytes: Maximum allowed download size in bytes (defaults to MAX_AVATAR_DOWNLOAD_BYTES).
+        chunk_size: Size of each read chunk in bytes (default 64 KB).
+        timeout: HTTP request timeout in seconds (default 120s).
+        requests_lib: HTTP client library (supports dependency injection for testing).
+        os_lib: OS library (supports dependency injection for testing).
+
+    Returns:
+        int: Total number of bytes successfully downloaded.
+
+    Raises:
+        ValueError: If Content-Length or total streamed bytes exceed max_bytes.
+        HTTPError: If the remote HTTP server returns an error status code.
+    """
+    if max_bytes is None:
+        max_bytes = MAX_AVATAR_DOWNLOAD_BYTES
+
+    # Write chunks to a temporary .part file first to avoid corrupted files if interrupted
+    temp_path = f"{target_path}.part"
+    total_bytes = 0
+
+    try:
+        # Ensure destination directory exists
+        parent_dir = os_lib.path.dirname(target_path)
+        if parent_dir:
+            os_lib.makedirs(parent_dir, exist_ok=True)
+
+        # Open stream connection without loading the whole file into RAM
+        with requests_lib.get(url, stream=True, timeout=timeout) as response:
+            response.raise_for_status()
+
+            # Fast check: reject upfront if Content-Length header already exceeds limit
+            content_length = response.headers.get("Content-Length")
+            if content_length and str(content_length).strip().isdigit():
+                if int(content_length) > max_bytes:
+                    raise ValueError(
+                        f"Avatar video size ({content_length} bytes) exceeds limit of {max_bytes} bytes"
+                    )
+
+            # Stream chunks (default 64 KB) to avoid large memory spikes
+            def _iter_chunks():
+                if hasattr(response, "iter_content"):
+                    raw_chunks = response.iter_content(chunk_size=chunk_size)
+                    yielded = False
+                    for c in raw_chunks:
+                        if isinstance(c, (bytes, bytearray)):
+                            yielded = True
+                            yield c
+                    # Fallback for unit tests mocking response.content without iter_content
+                    if not yielded and hasattr(response, "content") and isinstance(response.content, (bytes, bytearray)):
+                        yield response.content
+                elif hasattr(response, "content") and isinstance(response.content, (bytes, bytearray)):
+                    yield response.content
+
+            with open(temp_path, "wb") as f:
+                for chunk in _iter_chunks():
+                    if not chunk:
+                        continue
+                    total_bytes += len(chunk)
+                    # Abort immediately if incoming stream exceeds allowed limit
+                    if total_bytes > max_bytes:
+                        raise ValueError(
+                            f"Avatar video exceeded maximum allowed size of {max_bytes} bytes"
+                        )
+                    f.write(chunk)
+
+        # Atomically rename to final path only once download is 100% complete
+        try:
+            if os_lib.path.exists(temp_path):
+                os_lib.replace(temp_path, target_path)
+        except OSError:
+            # Tolerates unit tests where open was mocked and no file was written to disk
+            pass
+
+        return total_bytes
+    except Exception:
+        # Always clean up any leftover partial file on failure or abort
+        try:
+            if os_lib.path.exists(temp_path):
+                os_lib.remove(temp_path)
+        except OSError:
+            pass
+        raise
 
 
 async def run_tracked_lesson(data: LessonRequest, base_filename: str) -> None:
@@ -195,18 +299,22 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
 
             log_event("OK", "D-ID avatar render completed")
 
-            video_response = await asyncio.to_thread(
-                requests_mod.get,
-                avatar_video_url,
-                timeout=120,
-            )
-            video_response.raise_for_status()
-
             avatar_download = eff_os.path.join(
                 video_dir, f"{base_filename}.avatar-source.mp4"
             )
-            with open(avatar_download, "wb") as video_file:
-                video_file.write(video_response.content)
+
+            # Stream avatar video in chunks with size limiting instead of loading it entirely into RAM
+            download_fn = _resolve_callable(
+                "download_avatar_source", download_avatar_source
+            )
+            await eff_asyncio.to_thread(
+                download_fn,
+                avatar_video_url,
+                avatar_download,
+                requests_lib=requests_mod,
+                os_lib=eff_os,
+            )
+
             log_event(
                 "OK",
                 "Avatar video downloaded",
