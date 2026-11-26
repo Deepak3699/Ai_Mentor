@@ -33,6 +33,24 @@ def test_config_imports_without_external_credentials(monkeypatch):
     assert not config.GEMINI_API_KEY
     assert not config.GROQ_API_KEY
     assert config.LLM_TIMEOUT_SECONDS == 60
+    # Verifies avatar video download size defaults to 100 MB when not overridden
+    assert config.MAX_AVATAR_DOWNLOAD_BYTES == 100 * 1024 * 1024
+
+
+# Verify that a custom MAX_AVATAR_DOWNLOAD_BYTES env variable is properly parsed
+def test_config_custom_avatar_download_limit(monkeypatch):
+    monkeypatch.setenv("MAX_AVATAR_DOWNLOAD_BYTES", "52428800")
+    config = import_config(monkeypatch)
+    assert config.MAX_AVATAR_DOWNLOAD_BYTES == 52428800
+
+
+# Verify that validate_config() raises a ValueError if MAX_AVATAR_DOWNLOAD_BYTES is <= 0
+def test_validate_config_rejects_non_positive_avatar_download_limit(monkeypatch):
+    monkeypatch.setenv("MAX_AVATAR_DOWNLOAD_BYTES", "0")
+    config = import_config(monkeypatch)
+    config.GEMINI_API_KEY = "test"
+    with pytest.raises(ValueError, match="MAX_AVATAR_DOWNLOAD_BYTES"):
+        config.validate_config()
 
 
 def test_config_custom_llm_timeout(monkeypatch):

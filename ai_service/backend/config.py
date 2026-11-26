@@ -44,6 +44,12 @@ CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 DID_API_KEY = os.getenv("DID_API_KEY")
 DID_API_URL = os.getenv("DID_API_URL", "https://api.d-id.com")
 DID_SOURCE_URL = os.getenv("DID_SOURCE_URL")
+# Maximum avatar video download size in bytes (defaults to 100 MB).
+# Limits incoming D-ID avatar video downloads to prevent memory exhaustion and disk overflow.
+MAX_AVATAR_DOWNLOAD_BYTES = int(
+    os.getenv("MAX_AVATAR_DOWNLOAD_BYTES", str(100 * 1024 * 1024))
+    or str(100 * 1024 * 1024)
+)
 
 GROQ_ENABLED = bool(GROQ_API_KEY)
 
@@ -80,6 +86,10 @@ def validate_config():
 
     if MAX_ACTIVE_LESSON_JOBS < 1:
         raise ValueError("MAX_ACTIVE_LESSON_JOBS must be at least 1.")
+
+    # Avatar download limit must be positive to ensure bounds are enforced
+    if MAX_AVATAR_DOWNLOAD_BYTES <= 0:
+        raise ValueError("MAX_AVATAR_DOWNLOAD_BYTES must be greater than 0.")
 
     # Only validate RAG settings when RAG is enabled
     if RAG_ENABLED:
