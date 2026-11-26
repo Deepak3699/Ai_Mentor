@@ -51,3 +51,72 @@ def test_write_subtitles_creates_valid_vtt_and_srt(monkeypatch, tmp_path):
     assert "00:00:10.000 --> 00:00:20.000" in vtt
     assert "1\n00:00:00,000 --> 00:00:10,000" in srt
     assert "2\n00:00:10,000 --> 00:00:20,000" in srt
+
+
+def test_build_cues_uses_word_boundary_timestamps():
+    events = [
+        {
+            "type": "WordBoundary",
+            "offset": 0,
+            "duration": 4_000_000,
+            "text": "Hello",
+        },
+        {
+            "type": "WordBoundary",
+            "offset": 5_000_000,
+            "duration": 4_000_000,
+            "text": " there.",
+        },
+        {
+            "type": "WordBoundary",
+            "offset": 20_000_000,
+            "duration": 3_000_000,
+            "text": "How",
+        },
+        {
+            "type": "WordBoundary",
+            "offset": 23_000_000,
+            "duration": 2_000_000,
+            "text": " are",
+        },
+        {
+            "type": "WordBoundary",
+            "offset": 25_000_000,
+            "duration": 3_000_000,
+            "text": " you?",
+        },
+    ]
+
+    cues = build_cues("Hello there. How are you?", 5.0, events)
+
+    assert cues == [
+        (0.0, 0.9, "Hello there."),
+        (2.0, 2.8, "How are you?"),
+    ]
+
+
+def test_build_cues_falls_back_for_invalid_word_metadata():
+    events = [
+        {
+            "type": "WordBoundary",
+            "offset": 10_000_000,
+            "duration": 2_000_000,
+            "text": "Hello",
+        },
+        {
+            "type": "WordBoundary",
+            "offset": 0,
+            "duration": 2_000_000,
+            "text": "there",
+        },
+    ]
+
+    cues = build_cues("Hello there.", 5.0, events)
+
+    assert cues == [(0.0, 5.0, "Hello there.")]
+
+
+def test_build_cues_falls_back_when_metadata_is_missing():
+    cues = build_cues("Hello there.", 5.0, None)
+
+    assert cues == [(0.0, 5.0, "Hello there.")]

@@ -160,7 +160,7 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
             pitch = data.speech_pitch if data.speech_pitch else "+0Hz"
 
             tts_fn = _resolve_callable("generate_tts", media_processor.generate_tts)
-            await tts_fn(
+            timing_events = await tts_fn(
                 script, audio_path, voice_id=selected_voice, rate=rate, pitch=pitch
             )
 
@@ -313,7 +313,8 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
         vtt_path, srt_path = None, None
         try:
             vtt_path, srt_path = subtitles_writer(
-                script, audio_path, eff_os.path.join(video_dir, base_filename)
+                script, audio_path, eff_os.path.join(video_dir, base_filename),
+                timing_events=timing_events,
             )
             log_event("OK", "Subtitle files created")
         except Exception as sub_err:
