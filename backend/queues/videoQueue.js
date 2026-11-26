@@ -1,6 +1,7 @@
 // backend/queues/videoQueue.js
 import dotenv from "dotenv";
 import AIVideo from "../models/AIVideo.js";
+import { getAiServiceHeaders } from "../utils/aiService.js";
 dotenv.config();
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL;
@@ -23,7 +24,7 @@ async function processNext() {
 
     const response = await fetch(`${AI_SERVICE_URL}/generate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAiServiceHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         course: courseTitle,
         topic: lessonTitle,
