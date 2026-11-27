@@ -1,7 +1,7 @@
 import express from "express";
 import crypto from "crypto";
 import { razorpayPaymentLimiter } from "../middleware/rateLimiter.js";
-import { Transaction } from "sequelize";
+import { Transaction, UniqueConstraintError } from "sequelize";
 
 import User from "../models/User.js";
 import Payment from "../models/Payment.js";
@@ -263,6 +263,17 @@ router.post(
         if (payment.status === "success") {
           await transaction.rollback();
 
+          if (payment.razorpayPaymentId !== razorpay_payment_id) {
+            return res.status(409).json({
+              success: false,
+              error: {
+                code: "CONFLICT",
+                message: "Order was already verified with a different payment",
+                details: [],
+              },
+            });
+          }
+
           return res.status(200).json({
             success: true,
             message: "Payment already verified",
@@ -389,6 +400,21 @@ router.post(
         message: "Payment verified successfully",
       });
     } catch (error) {
+      if (error instanceof UniqueConstraintError) {
+        log.warn(
+          { razorpayOrderId: orderIdForLog },
+          "Razorpay verification conflicts with an existing payment",
+        );
+        return res.status(409).json({
+          success: false,
+          error: {
+            code: "CONFLICT",
+            message: "Payment or course has already been verified",
+            details: [],
+          },
+        });
+      }
+
       log.error(
         {
           razorpayOrderId: orderIdForLog,
