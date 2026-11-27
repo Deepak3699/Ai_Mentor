@@ -794,3 +794,9 @@ The AI Mentor backend is a modular and scalable Node.js API designed to support:
 - Authentication
 - Media processing
 - Admin management
+
+---
+
+## Related Documentation
+
+- [Current AI Assistant Flow (Baseline)](../docs/rag/CURRENT_ASSISTANT_FLOW.md)

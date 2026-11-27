@@ -1069,3 +1069,9 @@ The AI Mentor frontend is a scalable and modular React application designed to p
 - Learning analytics
 - Secure authentication
 - Responsive user interfaces
+
+---
+
+## Related Documentation
+
+- [Current AI Assistant Flow (Baseline)](../docs/rag/CURRENT_ASSISTANT_FLOW.md)
