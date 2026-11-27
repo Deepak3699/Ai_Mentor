@@ -53,18 +53,18 @@ const POLL_MAX_ROUNDS = 75; // 75 × 4 s = 5 minutes max
 
 /** Human-readable labels for the status badge */
 const STATUS_META = {
-  pending:    { label: "Pending",    color: "text-amber-600  bg-amber-500/10  border-amber-500/20"   },
-  processing: { label: "Processing", color: "text-blue-600   bg-blue-500/10   border-blue-500/20"    },
-  indexed:    { label: "Indexed",    color: "text-teal-600   bg-teal-500/10   border-teal-500/20"    },
-  failed:     { label: "Failed",     color: "text-red-600    bg-red-500/10    border-red-500/20"      },
+  pending: { label: "Pending", color: "text-amber-600  bg-amber-500/10  border-amber-500/20" },
+  processing: { label: "Processing", color: "text-blue-600   bg-blue-500/10   border-blue-500/20" },
+  indexed: { label: "Indexed", color: "text-teal-600   bg-teal-500/10   border-teal-500/20" },
+  failed: { label: "Failed", color: "text-red-600    bg-red-500/10    border-red-500/20" },
 };
 
 /** Friendly messages for known server error codes */
 const FRIENDLY_ERRORS = {
-  FILE_TOO_LARGE:    "The file exceeds the 10 MB limit.",
-  UNSUPPORTED_TYPE:  "File type not supported. Use PDF, TXT, DOC or DOCX.",
-  COURSE_NOT_FOUND:  "Course not found. Please refresh and try again.",
-  QUOTA_EXCEEDED:    "Storage quota exceeded. Contact support.",
+  FILE_TOO_LARGE: "The file exceeds the 10 MB limit.",
+  UNSUPPORTED_TYPE: "File type not supported. Use PDF, TXT, DOC or DOCX.",
+  COURSE_NOT_FOUND: "Course not found. Please refresh and try again.",
+  QUOTA_EXCEEDED: "Storage quota exceeded. Contact support.",
 };
 
 function friendlyError(err) {
@@ -102,12 +102,18 @@ function formatDate(iso) {
 // ─── StatusBadge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
-  const meta = STATUS_META[status] ?? { label: status, color: "text-muted bg-canvas-alt border-border" };
+  const meta = STATUS_META[status] ?? {
+    label: status,
+    color: "text-muted bg-canvas-alt border-border",
+  };
   const Icon =
-    status === "indexed"    ? CheckCircle2 :
-    status === "failed"     ? XCircle       :
-    status === "processing" ? RefreshCw     :
-                              Clock;
+    status === "indexed"
+      ? CheckCircle2
+      : status === "failed"
+        ? XCircle
+        : status === "processing"
+          ? RefreshCw
+          : Clock;
 
   return (
     <span
@@ -130,11 +136,17 @@ function MaterialRow({ material, onDeleteRequest }) {
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-muted shrink-0" aria-hidden="true" />
-          <span className="text-sm font-medium text-main truncate max-w-[200px]" title={material.title}>
+          <span
+            className="text-sm font-medium text-main truncate max-w-[200px]"
+            title={material.title}
+          >
             {material.title}
           </span>
         </div>
-        <div className="text-xs text-muted mt-0.5 ml-6 truncate max-w-[200px]" title={material.filename}>
+        <div
+          className="text-xs text-muted mt-0.5 ml-6 truncate max-w-[200px]"
+          title={material.filename}
+        >
           {material.filename}
         </div>
       </td>
@@ -198,9 +210,15 @@ function DeleteConfirmRow({ material, onConfirm, onCancel, isDeleting }) {
               aria-label={`Confirm delete ${material.title}`}
             >
               {isDeleting ? (
-                <><Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />Deleting…</>
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" />
+                  Deleting…
+                </>
               ) : (
-                <><Trash2 className="w-3 h-3" aria-hidden="true" />Delete</>
+                <>
+                  <Trash2 className="w-3 h-3" aria-hidden="true" />
+                  Delete
+                </>
               )}
             </button>
           </div>
@@ -266,7 +284,10 @@ function UploadZone({ courseId, onUploaded }) {
     <div
       role="region"
       aria-label="Upload course material"
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
       className={`rounded-2xl border-2 border-dashed transition-all p-6 flex flex-col items-center gap-3 text-center
@@ -317,19 +338,19 @@ function UploadZone({ courseId, onUploaded }) {
 
 export default function CourseMaterialsPanel({ courseId }) {
   const { showToast } = useToast();
-  const [materials, setMaterials]       = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [pendingDelete, setPendingDelete] = useState(null);   // material being confirmed
-  const [deleting, setDeleting]         = useState(false);
-  const pollRoundRef                    = useRef(0);
-  const pollTimerRef                    = useRef(null);
+  const [materials, setMaterials] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [pendingDelete, setPendingDelete] = useState(null); // material being confirmed
+  const [deleting, setDeleting] = useState(false);
+  const pollRoundRef = useRef(0);
+  const pollTimerRef = useRef(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
   const fetchMaterials = useCallback(async () => {
     try {
       const data = await materialsApi.list(courseId);
-      setMaterials(Array.isArray(data) ? data : data?.materials ?? []);
+      setMaterials(Array.isArray(data) ? data : (data?.materials ?? []));
     } catch (err) {
       showToast(friendlyError(err), "error");
     } finally {
@@ -371,7 +392,7 @@ export default function CourseMaterialsPanel({ courseId }) {
       }
       try {
         const data = await materialsApi.list(courseId);
-        const updated = Array.isArray(data) ? data : data?.materials ?? [];
+        const updated = Array.isArray(data) ? data : (data?.materials ?? []);
         setMaterials(updated);
         if (!hasTransient(updated)) stopPolling();
       } catch {
@@ -437,16 +458,31 @@ export default function CourseMaterialsPanel({ courseId }) {
           <p className="text-sm text-muted mt-1">Upload a document to get started.</p>
         </div>
       ) : (
-        <div className="rounded-2xl border border-border overflow-hidden" data-testid="materials-table">
+        <div
+          className="rounded-2xl border border-border overflow-hidden"
+          data-testid="materials-table"
+        >
           <table className="w-full text-left" aria-label="Course materials">
             <thead className="bg-canvas-alt/60">
               <tr className="text-[11px] font-black uppercase tracking-widest text-muted border-b border-border">
-                <th scope="col" className="px-4 py-2.5">Title / File</th>
-                <th scope="col" className="px-4 py-2.5">Size</th>
-                <th scope="col" className="px-4 py-2.5">Status</th>
-                <th scope="col" className="px-4 py-2.5">Chunks</th>
-                <th scope="col" className="px-4 py-2.5">Indexed</th>
-                <th scope="col" className="px-4 py-2.5 sr-only">Actions</th>
+                <th scope="col" className="px-4 py-2.5">
+                  Title / File
+                </th>
+                <th scope="col" className="px-4 py-2.5">
+                  Size
+                </th>
+                <th scope="col" className="px-4 py-2.5">
+                  Status
+                </th>
+                <th scope="col" className="px-4 py-2.5">
+                  Chunks
+                </th>
+                <th scope="col" className="px-4 py-2.5">
+                  Indexed
+                </th>
+                <th scope="col" className="px-4 py-2.5 sr-only">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -460,11 +496,7 @@ export default function CourseMaterialsPanel({ courseId }) {
                     isDeleting={deleting}
                   />
                 ) : (
-                  <MaterialRow
-                    key={m.id}
-                    material={m}
-                    onDeleteRequest={setPendingDelete}
-                  />
+                  <MaterialRow key={m.id} material={m} onDeleteRequest={setPendingDelete} />
                 ),
               )}
             </tbody>

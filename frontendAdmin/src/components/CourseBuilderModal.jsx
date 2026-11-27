@@ -5,8 +5,8 @@ import { useToast } from "../context/ToastContext";
 import CourseMaterialsPanel from "./CourseMaterialsPanel";
 
 const TABS = [
-  { id: "syllabus",   label: "Syllabus"   },
-  { id: "materials",  label: "Materials"  },
+  { id: "syllabus", label: "Syllabus" },
+  { id: "materials", label: "Materials" },
 ];
 
 export default function CourseBuilderModal({ course, onClose }) {
@@ -71,7 +71,11 @@ export default function CourseBuilderModal({ course, onClose }) {
         </div>
 
         {/* Tab navigation */}
-        <div className="flex border-b border-border bg-canvas-alt/50 px-6 gap-1" role="tablist" aria-label="Course builder sections">
+        <div
+          className="flex border-b border-border bg-canvas-alt/50 px-6 gap-1"
+          role="tablist"
+          aria-label="Course builder sections"
+        >
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -81,11 +85,15 @@ export default function CourseBuilderModal({ course, onClose }) {
               id={`tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-3 text-sm font-semibold border-b-2 transition-all -mb-px
-                ${activeTab === tab.id
-                  ? "border-teal-500 text-teal-600 dark:text-teal-400"
-                  : "border-transparent text-muted hover:text-main"}`}
+                ${
+                  activeTab === tab.id
+                    ? "border-teal-500 text-teal-600 dark:text-teal-400"
+                    : "border-transparent text-muted hover:text-main"
+                }`}
             >
-              {tab.id === "materials" && <FileText className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" aria-hidden="true" />}
+              {tab.id === "materials" && (
+                <FileText className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" aria-hidden="true" />
+              )}
               {tab.label}
             </button>
           ))}
