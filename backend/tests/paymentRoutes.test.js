@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
+import { UniqueConstraintError } from "sequelize";
 
 process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = "payment-route-test-secret";
@@ -984,7 +985,10 @@ test("Razorpay verify rejects a course that differs from the paid course", async
 });
 
 test("Razorpay verify replay: an already successful payment is not processed again", async () => {
-  const payment = makeStoredPayment({ status: "success" });
+  const payment = makeStoredPayment({
+    status: "success",
+    razorpayPaymentId: "payment-1",
+  });
   const state = setupVerify(payment);
   const res = await verifyRequest();
   assert.equal(res.status, 200);
@@ -993,6 +997,30 @@ test("Razorpay verify replay: an already successful payment is not processed aga
   assert.deepEqual(payment.updates, []);
   assert.equal(state.user.saves, 0);
   assert.equal(state.notifications, 0);
+});
+
+test("Razorpay verify rejects a replay using a different payment id for a successful order", async () => {
+  const payment = makeStoredPayment({
+    status: "success",
+    razorpayPaymentId: "payment-original",
+  });
+  const state = setupVerify(payment);
+  const res = await verifyRequest({
+    razorpay_payment_id: "payment-different",
+    razorpay_signature: verifySignature("order-1", "payment-different"),
+  });
+
+  assert.equal(res.status, 409);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: {
+      code: "CONFLICT",
+      message: "Order was already verified with a different payment",
+      details: [],
+    },
+  });
+  assert.equal(state.transaction.finished, "rollback");
+  assert.deepEqual(payment.updates, []);
 });
 
 test("Razorpay verify duplicate: verifying twice updates, enrolls and notifies once", async () => {
@@ -1008,6 +1036,85 @@ test("Razorpay verify duplicate: verifying twice updates, enrolls and notifies o
   assert.equal(state.user.purchasedCourses.length, 1);
   assert.equal(state.user.saves, 1);
   assert.equal(state.notifications, 1);
+});
+
+test("concurrent duplicate Razorpay verification requests process the order once", async () => {
+  const payment = makeStoredPayment();
+  const state = { user: makeStoredUser(), notifications: 0 };
+  let lockTail = Promise.resolve();
+
+  sequelize.transaction = async () => ({
+    finished: undefined,
+    async commit() {
+      this.finished = "commit";
+      this.releaseLock?.();
+    },
+    async rollback() {
+      this.finished = "rollback";
+      this.releaseLock?.();
+    },
+  });
+  Payment.findOne = async ({ transaction }) => {
+    const previous = lockTail;
+    let release;
+    lockTail = new Promise((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    transaction.releaseLock = release;
+    return payment;
+  };
+  User.findByPk = async () => state.user;
+  Notification.create = async (data) => {
+    state.notifications += 1;
+    return { id: "notification", ...data };
+  };
+
+  const responses = await Promise.all([verifyRequest(), verifyRequest()]);
+  const bodies = await Promise.all(responses.map((response) => response.json()));
+
+  assert.deepEqual(
+    responses.map((response) => response.status),
+    [200, 200],
+  );
+  assert.deepEqual(
+    bodies.map((body) => body.message).sort(),
+    ["Payment already verified", "Payment verified successfully"].sort(),
+  );
+  assert.equal(payment.updates.length, 1);
+  assert.equal(state.user.purchasedCourses.length, 1);
+  assert.equal(state.user.saves, 1);
+  assert.equal(state.notifications, 1);
+});
+
+test("Razorpay verify returns conflict when a database uniqueness constraint rejects success", async () => {
+  const payment = makeStoredPayment({
+    async update() {
+      throw new UniqueConstraintError({ message: "duplicate successful payment" });
+    },
+  });
+  const state = setupVerify(payment);
+  const originalError = console.error;
+  console.error = () => {};
+  let res;
+  try {
+    res = await verifyRequest();
+  } finally {
+    console.error = originalError;
+  }
+
+  assert.equal(res.status, 409);
+  assert.deepEqual(await res.json(), {
+    success: false,
+    error: {
+      code: "CONFLICT",
+      message: "Payment or course has already been verified",
+      details: [],
+    },
+  });
+  assert.equal(state.transaction.finished, "rollback");
+  assert.equal(state.user.purchasedCourses.length, 0);
+  assert.equal(state.notifications, 0);
 });
 
 // ---- Schema validation wiring (the full list of bad values lives in paymentSchema.test.js) ----
