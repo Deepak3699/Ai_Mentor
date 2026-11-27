@@ -47,21 +47,70 @@ def check_ffmpeg() -> None:
         ) from exc
 
 
+
 async def generate_tts(
     text: str,
     output_file: str,
     voice_id: str = "en-US-GuyNeural",
     rate: str = "+0%",
     pitch: str = "+0Hz",
-) -> None:
-    """Generate audio narration using edge_tts."""
+) -> list[dict] | None:
+    """Generate narration and capture Edge TTS word-boundary metadata."""
     communicate = edge_tts.Communicate(
         text=text,
         voice=voice_id,
         rate=rate,
         pitch=pitch,
+        boundary="WordBoundary",
     )
-    await communicate.save(output_file)
+
+    metadata_file = output_file + ".word-boundaries.jsonl"
+
+    if os.path.exists(metadata_file):
+        os.remove(metadata_file)
+
+    # Keep audio-generation errors visible to the caller.
+    # Audio and word-boundary metadata are captured in one TTS stream.
+    await communicate.save(
+        output_file,
+        metadata_fname=metadata_file,
+    )
+
+    try:
+        events = []
+
+        with open(metadata_file, "r", encoding="utf-8") as file:
+            for line in file:
+                if not line.strip():
+                    continue
+
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    logger.warning(
+                        "Malformed Edge TTS metadata; using fallback subtitles."
+                    )
+                    return None
+
+                if not isinstance(event, dict):
+                    logger.warning(
+                        "Invalid Edge TTS metadata; using fallback subtitles."
+                    )
+                    return None
+
+                events.append(event)
+
+        return events or None
+
+    except OSError:
+        logger.warning(
+            "Edge TTS metadata unavailable; using fallback subtitles."
+        )
+        return None
+
+    finally:
+        if os.path.exists(metadata_file):
+            os.remove(metadata_file)
 
 
 def get_celebrity_video(celebrity_name: str, base_dir: str | None = None) -> str:
