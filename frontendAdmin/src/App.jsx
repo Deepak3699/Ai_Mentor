@@ -7,6 +7,7 @@ import Toast from "./components/Toast";
 import { PAGE_TITLES } from "./constants/adminNavigation";
 import { ToastProvider } from "./context/ToastContext";
 import CoursesPage from "./pages/CoursesPage";
+import CourseDetailsPage from "./pages/CourseDetailsPage";
 import DashboardPage from "./pages/DashboardPage";
 import DiscussionsPage from "./pages/DiscussionsPage";
 import EnrollmentsPage from "./pages/EnrollmentsPage";
@@ -32,6 +33,9 @@ const PAGE_COMPONENTS = {
 
 function App() {
   const location = useLocation();
+  const isCourseDetailsRoute = location.pathname.startsWith("/courses/");
+  const courseDetailsMatch = location.pathname.match(/^\/courses\/(.*)$/);
+  const courseDetailsId = courseDetailsMatch?.[1] || null;
   const token = localStorage.getItem("token");
 
   let isAuthenticated = false;
@@ -57,18 +61,25 @@ function App() {
 
   useEffect(() => {
     const pathName = location.pathname.replace("/", "");
-    if (pathName === "" || pathName === "dashboard") {
+
+    if (isCourseDetailsRoute) {
+      setPage("courses");
+      setIsNotFound(false);
+    } else if (pathName === "" || pathName === "dashboard") {
       setPage("dashboard");
       setIsNotFound(false);
     } else if (PAGE_COMPONENTS[pathName]) {
       setPage(pathName);
       setIsNotFound(false);
     } else {
-      setIsNotFound(true); // ✅ 404!
+      setIsNotFound(true);
     }
-  }, [location.pathname]);
+  }, [location.pathname, isCourseDetailsRoute]);
 
-  const title = useMemo(() => PAGE_TITLES[page] ?? PAGE_TITLES.dashboard, [page]);
+  const title = useMemo(
+    () => (courseDetailsId ? "Course Details" : (PAGE_TITLES[page] ?? PAGE_TITLES.dashboard)),
+    [page, courseDetailsId],
+  );
   const CurrentPage = PAGE_COMPONENTS[page];
   const isLoginRoute = location.pathname === "/login";
 
@@ -109,7 +120,13 @@ function App() {
 
           <section className="p-4 md:p-8">
             <div className="rounded-2xl bg-card border border-border overflow-hidden shadow-[0_2px_8px_rgba(26,26,26,0.06)]">
-              {CurrentPage ? <CurrentPage /> : <DashboardPage />}
+              {isCourseDetailsRoute ? (
+                <CourseDetailsPage courseId={courseDetailsId} />
+              ) : CurrentPage ? (
+                <CurrentPage />
+              ) : (
+                <DashboardPage />
+              )}
             </div>
           </section>
         </main>

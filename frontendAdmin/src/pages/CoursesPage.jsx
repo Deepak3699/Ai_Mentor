@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   X,
@@ -8,6 +8,10 @@ import {
   ArrowUpDown,
   Check,
   BookOpen,
+  MoreVertical,
+  Eye,
+  Pencil,
+  Archive,
 } from "lucide-react";
 import { callApi } from "../utils/api";
 import CourseStatusDropdown from "../components/CourseStatusDropdown";
@@ -16,6 +20,62 @@ import CourseBuilderModal from "../components/CourseBuilderModal";
 import { useToast } from "../context/ToastContext";
 
 // ─── MultiSelect Dropdown ─────────────────────────────────────────────────────
+// ─── Course Actions Menu ──────────────────────────────────────────────────────
+function CourseActionsMenu({ course, onView, onEdit }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="p-2 rounded-lg border border-border hover:bg-canvas-alt transition-colors"
+        aria-label={`Actions for ${course.title}`}
+        aria-expanded={open}
+      >
+        <MoreVertical className="w-4 h-4" />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-2 z-50 w-44 rounded-xl border border-border bg-card shadow-xl py-1">
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onView(course);
+            }}
+            className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-main hover:bg-canvas-alt"
+          >
+            <Eye className="w-4 h-4" />
+            View
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onEdit(course);
+            }}
+            className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-main hover:bg-canvas-alt"
+          >
+            <Pencil className="w-4 h-4" />
+            Edit
+          </button>
+
+          <button
+            type="button"
+            disabled
+            title="Archive API is not available yet"
+            className="w-full px-4 py-2.5 flex items-center gap-3 text-sm text-muted opacity-50 cursor-not-allowed"
+          >
+            <Archive className="w-4 h-4" />
+            Archive
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 function MultiSelectDropdown({ label, options, selected, onChange }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -170,11 +230,13 @@ function FilterChip({ label, onRemove }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 function CoursesPage() {
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingCourse, setEditingCourse] = useState(null);
   const [newCourse, setNewCourse] = useState({
     title: "",
     category: "",
@@ -369,8 +431,32 @@ function CoursesPage() {
     setSearch("");
   };
   // ── Add course ────────────────────────────────────────────────────────────
+  const handleCloseCourseModal = () => {
+    setShowAddModal(false);
+    setEditingCourse(null);
+    setNewCourse({
+      title: "",
+      category: "",
+      priceValue: "",
+      currency: "INR",
+    });
+  };
+  const handleEditRequest = (course) => {
+    setEditingCourse(course);
+    setNewCourse({
+      title: course.title || "",
+      category: course.category || "",
+      priceValue: course.priceValue ?? "",
+      currency: course.currency || "INR",
+    });
+    setShowAddModal(true);
+  };
   const handleAddCourse = async (e) => {
     e.preventDefault();
+    if (editingCourse) {
+      showToast("Edit API is not available yet. Please contact the backend team.", "error");
+      return;
+    }
     try {
       setSubmitting(true);
       await callApi("/admin/courses", {
@@ -378,6 +464,7 @@ function CoursesPage() {
         body: JSON.stringify(newCourse),
       });
       setShowAddModal(false);
+      showToast("Course added successfully!", "success");
       setNewCourse({
         title: "",
         category: "",
@@ -416,6 +503,7 @@ function CoursesPage() {
           method: "PATCH",
           body: JSON.stringify({ status: newStatus }),
         });
+        showToast("Course status updated successfully!", "success");
       } catch (err) {
         // Rollback on failure
         setCourses(prevCourses);
@@ -472,6 +560,7 @@ function CoursesPage() {
 
       // Remove from local state
       setCourses((prev) => prev.filter((c) => c.id !== courseId));
+      showToast("Course deleted successfully!", "success");
 
       setDeleteModal({
         open: false,
@@ -606,7 +695,16 @@ function CoursesPage() {
 
           <button
             type="button"
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setEditingCourse(null);
+              setNewCourse({
+                title: "",
+                category: "",
+                priceValue: "",
+                currency: "INR",
+              });
+              setShowAddModal(true);
+            }}
             className="h-9 sm:h-10 px-3 sm:px-4 rounded-xl bg-teal-500 text-white hover:bg-teal-600 transition-colors flex items-center gap-2 font-semibold text-sm shadow-lg shadow-teal-500/20"
           >
             <Plus className="w-4 h-4" />
@@ -736,6 +834,7 @@ function CoursesPage() {
               <th className="pr-4">Currency</th>
               <th className="pr-4">Added On</th>
               <th className="pr-4">Status</th>
+              <th className="pr-4">Actions</th>
             </tr>
           </thead>
           <tbody className="text-sm">
@@ -746,16 +845,18 @@ function CoursesPage() {
                   className={`border-b border-border hover:bg-canvas-alt transition-colors group ${getRowClass(course.status)}`}
                 >
                   <td className="p-5">
-                    <div
-                      className={`font-semibold text-main group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors ${course.status === "deleted" ? "line-through opacity-70" : ""}`}
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/courses/${course.id}`)}
+                      className={`text-left font-semibold text-main group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors ${course.status === "deleted" ? "line-through opacity-70" : ""}`}
                     >
                       {course.title}
-                    </div>
+                    </button>
                     <div className="text-muted text-[10px] uppercase tracking-tighter mt-0.5 flex gap-2 items-center">
                       <span>ID: {course.id}</span>
                       <span>•</span>
                       <button
-                        onClick={() => setBuilderCourse(course)}
+                        onClick={() => navigate(`/courses/${course.id}`)}
                         className="text-purple-500 hover:text-purple-600 font-bold transition-colors"
                       >
                         Builder
@@ -801,11 +902,18 @@ function CoursesPage() {
                       onDeleteRequest={handleDeleteRequest}
                     />
                   </td>
+                  <td className="pr-4">
+                    <CourseActionsMenu
+                      course={course}
+                      onView={(selectedCourse) => navigate(`/courses/${selectedCourse.id}`)}
+                      onEdit={handleEditRequest}
+                    />
+                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="6">
+                <td colSpan="7">
                   <EmptyState onClear={clearAll} loading={loading} />
                 </td>
               </tr>
@@ -831,6 +939,11 @@ function CoursesPage() {
                 <span className="text-teal-500 font-black text-[9px] uppercase tracking-widest shrink-0 mt-0.5">
                   {course.status || "published"}
                 </span>
+                <CourseActionsMenu
+                  course={course}
+                  onView={(selectedCourse) => navigate(`/courses/${selectedCourse.id}`)}
+                  onEdit={handleEditRequest}
+                />
               </div>
               <div className="flex flex-wrap gap-1.5 mt-2.5 items-center">
                 {course.category && (
@@ -867,10 +980,10 @@ function CoursesPage() {
           <div className="bg-card border border-border w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom sm:zoom-in-95 duration-300">
             <div className="p-5 sm:p-6 border-b border-border flex items-center justify-between bg-gradient-to-r from-teal-500/5 to-transparent">
               <h3 className="text-lg sm:text-xl font-bold text-main tracking-tight uppercase">
-                Add New Course
+                {editingCourse ? "Edit Course" : "Add New Course"}
               </h3>
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={handleCloseCourseModal}
                 className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
               >
                 <X className="w-4 h-4" />
@@ -935,7 +1048,7 @@ function CoursesPage() {
               <div className="pt-2 flex gap-3">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={handleCloseCourseModal}
                   className="flex-1 h-12 rounded-2xl border border-border font-bold uppercase tracking-widest text-[11px] hover:bg-canvas-alt transition-all"
                 >
                   Cancel
@@ -945,7 +1058,13 @@ function CoursesPage() {
                   disabled={submitting}
                   className="flex-[2] h-12 rounded-2xl bg-teal-500 text-white font-bold uppercase tracking-widest text-[11px] hover:bg-teal-600 shadow-xl shadow-teal-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? "Adding…" : "Confirm & Save"}
+                  {submitting
+                    ? editingCourse
+                      ? "Updating…"
+                      : "Adding…"
+                    : editingCourse
+                      ? "Update Course"
+                      : "Confirm & Save"}
                 </button>
               </div>
             </form>
