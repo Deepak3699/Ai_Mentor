@@ -1,3 +1,4 @@
+
 import os
 import sys
 from pathlib import Path
@@ -43,12 +44,34 @@ def request_data():
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
-            ("  A lesson" + "\n" + " with   spacing  ", "A lesson with spacing"),
+        ("  A lesson" + "\n" + " with   spacing  ", "A lesson with spacing"),
         ("A valid narration.", "A valid narration."),
     ],
 )
 def test_valid_lesson_output_is_normalized(value, expected):
     assert validate_lesson_script(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("# Lesson Title\nThis is **bold** text.", "Lesson Title This is bold text."),
+        ("- First point\n- Second point", "First point Second point"),
+        ("[OpenAI](https://example.com)", "OpenAI"),
+        ("Use `print('hello')` in Python.", "Use print('hello') in Python."),
+        ("![diagram](https://example.com/image.png)", "diagram"),
+        ("> A quoted lesson", "A quoted lesson"),
+        ("A lesson 😊 with symbols!", "A lesson with symbols!"),
+        ("C++ and C# are programming languages.", "C++ and C# are programming languages."),
+    ],
+)
+def test_markdown_lesson_output_is_sanitized(value, expected):
+    assert validate_lesson_script(value) == expected
+
+
+def test_formatting_only_lesson_output_is_rejected():
+    with pytest.raises(ValueError, match="empty"):
+        validate_lesson_script("### ** ~~")
 
 
 @pytest.mark.parametrize("value", [None, 123, "", "   ", " " + "\n" + "  "])
