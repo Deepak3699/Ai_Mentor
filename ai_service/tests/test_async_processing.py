@@ -99,6 +99,7 @@ def test_ffmpeg_execution_async_and_success():
 
     with patch.object(api.gemini_client.models, "generate_content", return_value=mock_gemini_resp), \
          patch("api.generate_tts", new_callable=AsyncMock), \
+        patch("api.apply_ai_disclosure_watermark", new_callable=AsyncMock), \
          patch("api.create_avatar_video", side_effect=Exception("D-ID disabled")), \
          patch("os.path.exists", side_effect=lambda p: False if p.endswith(".mp3") else True), \
          patch("os.remove"), \
@@ -170,6 +171,7 @@ def test_did_video_is_normalized_before_delivery():
 
     with patch.object(api.gemini_client.models, "generate_content", return_value=mock_gemini_resp), \
          patch("api.generate_tts", new_callable=AsyncMock), \
+        patch("api.apply_ai_disclosure_watermark", new_callable=AsyncMock), \
          patch("api.create_avatar_video", return_value="https://example.test/avatar.mp4") as mock_avatar, \
          patch("api.requests.get", return_value=mock_response), \
          patch("os.path.exists", return_value=True), \

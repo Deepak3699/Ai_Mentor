@@ -64,6 +64,7 @@ async def test_gemini_metadata():
     with patch("api.gemini_client.models.generate_content", return_value=mock_gemini_response), \
          patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, \
          patch("api.create_avatar_video") as mock_avatar, \
+         patch("api.apply_ai_disclosure_watermark", new_callable=AsyncMock) as mock_disclosure, \
          patch("api.requests.get") as mock_get, \
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock, return_value=mock_process) as mock_exec, \
          patch("api.os.path.exists", return_value=True), \
@@ -93,6 +94,9 @@ async def test_gemini_metadata():
     assert "-filter_complex" in ffmpeg_args
     assert "0:a?" in ffmpeg_args
     assert job_status[base_filename]["status"] == "ready"
+    assert job_status[base_filename]["ai_disclosure"] is True
+    assert job_status[base_filename]["ai_disclosure_label"] == "AI-GENERATED CONTENT"
+    mock_disclosure.assert_awaited_once()
     assert job_status[base_filename]["meta"]["provider"] == "gemini"
     assert job_status[base_filename]["meta"]["renderer"] == "did"
     assert job_status[base_filename]["meta"]["media"] == {"width": 1280, "height": 720}
@@ -130,6 +134,7 @@ async def test_groq_metadata_and_mp3_duration():
          patch("api.groq_client.chat.completions.create", return_value=mock_groq_response), \
          patch("api.generate_tts", new_callable=AsyncMock) as mock_tts, \
          patch("api.create_avatar_video", side_effect=Exception("Avatar failed")), \
+         patch("api.apply_ai_disclosure_watermark", new_callable=AsyncMock) as mock_disclosure, \
          patch("api.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_exec, \
          patch("api.os.path.exists", side_effect=safe_exists), \
          patch("api.os.makedirs") as mock_makedirs, \
@@ -151,6 +156,9 @@ async def test_groq_metadata_and_mp3_duration():
             await process_lesson(data, base_filename)
 
     assert job_status[base_filename]["status"] == "ready"
+    assert job_status[base_filename]["ai_disclosure"] is True
+    assert job_status[base_filename]["ai_disclosure_label"] == "AI-GENERATED CONTENT"
+    mock_disclosure.assert_awaited_once()
     assert job_status[base_filename]["meta"]["provider"] == "groq"
     assert isinstance(job_status[base_filename]["meta"]["model"], str)
     assert job_status[base_filename]["meta"]["model"].strip()

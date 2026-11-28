@@ -18,6 +18,8 @@ class JobStatusResponse(BaseModel):
     subtitle_url: str | None = None
     subtitle_vtt_url: str | None = None
     subtitle_srt_url: str | None = None
+    ai_disclosure: bool | None = None
+    ai_disclosure_label: str | None = None
     meta: dict[str, Any] | None = None
 
 

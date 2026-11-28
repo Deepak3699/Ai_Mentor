@@ -13,3 +13,5 @@ python-dotenv==1.2.4
 requests==2.34.2
 uvicorn==0.54.0
 cachetools==5.5.2
+
+Pillow==10.4.0

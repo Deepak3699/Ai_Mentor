@@ -309,6 +309,26 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
 
             log_event("OK", "FFmpeg video render completed")
 
+        # 6.4 Apply mandatory AI-generated content disclosure.
+        try:
+            disclosure_fn = _resolve_callable(
+                "apply_ai_disclosure_watermark",
+                media_processor.apply_ai_disclosure_watermark,
+            )
+            await disclosure_fn(final_video)
+            log_event("OK", "AI-generated disclosure watermark applied")
+        except Exception as disclosure_error:
+            log_event(
+                "ERROR",
+                "AI disclosure watermark failed; refusing video delivery",
+                error=short_error(disclosure_error),
+            )
+            mark_job_failed(
+                base_filename,
+                failure_code="ai_disclosure_failed",
+            )
+            return
+
         # 6.5 Generate subtitles (.vtt + .srt)
         vtt_path, srt_path = None, None
         try:
@@ -344,12 +364,6 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
                 error=short_error(cloud_err),
             )
 
-        job_status[base_filename].update(
-            {
-                "status": "ready",
-                "cloudinary_url": cloudinary_url,
-            }
-        )
 
         local_video_url = f"/video-stream/{base_filename}.mp4"
         local_vtt_url = f"/video-stream/{base_filename}.vtt" if vtt_path else None
@@ -399,6 +413,8 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
         if base_filename not in shutdown_failed_jobs:
             if base_filename in job_status:
                 job_status[base_filename]["status"] = "ready"
+                job_status[base_filename]["ai_disclosure"] = True
+                job_status[base_filename]["ai_disclosure_label"] = "AI-GENERATED CONTENT"
                 job_status[base_filename]["cloudinary_url"] = cloudinary_url
                 job_status[base_filename]["local_video_url"] = local_video_url
                 job_status[base_filename]["subtitle_url"] = subtitle_vtt_url
@@ -413,6 +429,8 @@ async def process_lesson(data: LessonRequest, base_filename: str) -> None:
                 meta["audio_seconds"] = audio_seconds
                 meta["word_count"] = len(script.split())
                 meta["renderer"] = renderer_used
+                meta["ai_disclosure"] = True
+                meta["ai_disclosure_label"] = "AI-GENERATED CONTENT"
                 meta["media"] = media_metadata
                 timestamps["completed_at"] = datetime.datetime.now(
                     datetime.timezone.utc
