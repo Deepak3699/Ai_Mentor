@@ -17,6 +17,69 @@ ALLOWED_CELEBRITIES = {"modi", "owl", "salman", "srk"}
 VIDEO_WIDTH = 1280
 VIDEO_HEIGHT = 720
 
+DEFAULT_FFMPEG_TIMEOUT_SECONDS = 300.0
+FFMPEG_KILL_GRACE_SECONDS = 5.0
+
+
+def _get_ffmpeg_timeout(timeout: float | None = None) -> float:
+    """Resolve and validate the FFmpeg timeout in seconds."""
+    if timeout is not None:
+        if timeout <= 0:
+            raise ValueError("FFmpeg timeout must be greater than 0.")
+        return float(timeout)
+
+    raw_env = os.getenv("FFMPEG_TIMEOUT_SECONDS")
+    if raw_env:
+        try:
+            parsed = float(raw_env)
+            if parsed > 0:
+                return parsed
+            logger.warning("Invalid non-positive FFMPEG_TIMEOUT_SECONDS=%r; using default.", raw_env)
+        except ValueError:
+            logger.warning("Invalid FFMPEG_TIMEOUT_SECONDS=%r; using default.", raw_env)
+
+    return DEFAULT_FFMPEG_TIMEOUT_SECONDS
+
+
+def _cleanup_partial_output(output_path: str | None) -> None:
+    """Remove an incomplete output file without touching successful artifacts."""
+    if not output_path:
+        return
+    try:
+        if os.path.isfile(output_path):
+            os.remove(output_path)
+            logger.info("Removed partial FFmpeg output file: %s", output_path)
+    except OSError as exc:
+        logger.warning("Failed to remove partial FFmpeg output %s: %s", output_path, exc)
+
+
+async def _terminate_and_reap(
+    process: asyncio.subprocess.Process,
+    grace_seconds: float = FFMPEG_KILL_GRACE_SECONDS,
+) -> None:
+    """Terminate a timed-out subprocess, escalate to kill if needed, and reap it."""
+    if process.returncode is not None:
+        return
+
+    try:
+        process.terminate()
+    except ProcessLookupError:
+        return
+
+    try:
+        await asyncio.wait_for(process.wait(), timeout=grace_seconds)
+    except asyncio.TimeoutError:
+        logger.warning(
+            "FFmpeg process (pid=%s) did not terminate within %ss; escalating to kill.",
+            process.pid,
+            grace_seconds,
+        )
+        try:
+            process.kill()
+        except ProcessLookupError:
+            return
+        await process.wait()
+
 
 def check_ffmpeg() -> None:
     """Verify that FFmpeg is available before starting the service."""
@@ -27,6 +90,7 @@ def check_ffmpeg() -> None:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=15,
         )
         logger.info("FFmpeg is available.")
     except FileNotFoundError:
@@ -37,10 +101,10 @@ def check_ffmpeg() -> None:
         raise RuntimeError(
             "FFmpeg is required to start the AI service but was not found in PATH."
         )
-    except subprocess.CalledProcessError as exc:
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         logger.error(
-            "FFmpeg availability check failed with exit code %s.",
-            exc.returncode,
+            "FFmpeg availability check failed: %s",
+            exc,
         )
         raise RuntimeError(
             "FFmpeg is required to start the AI service but the availability check failed."
@@ -121,16 +185,46 @@ def build_fallback_ffmpeg_args(input_video: str, audio_path: str, output_path: s
     ]
 
 
-async def run_ffmpeg_command(args: list[str]) -> tuple[int, str]:
-    """Run FFmpeg and always return its exit code and safely decoded diagnostics."""
+async def run_ffmpeg_command(
+    args: list[str],
+    timeout: float | None = None,
+    output_path: str | None = None,
+    kill_grace_seconds: float = FFMPEG_KILL_GRACE_SECONDS,
+) -> tuple[int, str]:
+    """Run FFmpeg with a bounded timeout and return its exit code and diagnostics."""
+    effective_timeout = _get_ffmpeg_timeout(timeout)
+    target_output = output_path or (
+        args[-1] if len(args) > 1 and not args[-1].startswith("-") else None
+    )
+
     process = await asyncio.create_subprocess_exec(
         *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    _stdout, stderr = await process.communicate()
+
+    try:
+        _stdout, stderr = await asyncio.wait_for(
+            process.communicate(),
+            timeout=effective_timeout,
+        )
+    except asyncio.TimeoutError:
+        logger.error(
+            "FFmpeg timed out after %.2fs (pid=%s).",
+            effective_timeout,
+            process.pid,
+        )
+        await _terminate_and_reap(process, grace_seconds=kill_grace_seconds)
+        _cleanup_partial_output(target_output)
+        return -1, f"FFmpeg process timed out after {effective_timeout:g}s"
+
     error_message = stderr.decode(errors="replace") if stderr else ""
-    return process.returncode, error_message
+    returncode = process.returncode if process.returncode is not None else -1
+
+    if returncode != 0:
+        _cleanup_partial_output(target_output)
+
+    return returncode, error_message
 
 
 def probe_video_metadata(video_path: str) -> dict:
@@ -138,7 +232,7 @@ def probe_video_metadata(video_path: str) -> dict:
     result = subprocess.run(
         ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
          "stream=width,height,codec_name,avg_frame_rate,bit_rate", "-of", "json", video_path],
-        check=True, capture_output=True, text=True,
+        check=True, capture_output=True, text=True, timeout=30,
     )
     stream = (json.loads(result.stdout).get("streams") or [{}])[0]
     return {
