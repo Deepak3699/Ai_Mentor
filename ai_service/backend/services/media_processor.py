@@ -5,7 +5,9 @@ import json
 import logging
 import os
 import subprocess
+import shutil
 import edge_tts
+from PIL import Image, ImageDraw, ImageFont
 
 logger = logging.getLogger(__name__)
 
@@ -148,3 +150,99 @@ def probe_video_metadata(video_path: str) -> dict:
         "frame_rate": stream.get("avg_frame_rate") or "unknown",
         "bit_rate": int(stream.get("bit_rate") or 0),
     }
+
+
+
+async def apply_ai_disclosure_watermark(video_path: str) -> None:
+    """Burn a visible AI-generated disclosure into a rendered video.
+
+    The original video is replaced only after FFmpeg successfully renders
+    the disclosed version. An undisclosed video is never left for delivery
+    when this operation fails.
+    """
+    watermark_path = f"{video_path}.disclosure.png"
+    output_path = f"{video_path}.disclosed.mp4"
+
+    try:
+        image = Image.new("RGBA", (500, 70), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(image)
+
+        font_path = None
+
+        if shutil.which("fc-match"):
+            match = subprocess.run(
+                ["fc-match", "-f", "%{file}", "Arial"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            candidate = match.stdout.strip()
+            if candidate and os.path.isfile(candidate):
+                font_path = candidate
+
+        if not font_path:
+            for candidate in (
+                "/System/Library/Fonts/Supplemental/Arial.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "C:/Windows/Fonts/arial.ttf",
+            ):
+                if os.path.isfile(candidate):
+                    font_path = candidate
+                    break
+
+        font = (
+            ImageFont.truetype(font_path, 28)
+            if font_path
+            else ImageFont.load_default()
+        )
+
+        draw.rounded_rectangle(
+            (5, 5, 495, 65),
+            radius=10,
+            fill=(0, 0, 0, 190),
+        )
+        draw.text(
+            (22, 19),
+            "AI-GENERATED CONTENT",
+            font=font,
+            fill=(255, 255, 255, 255),
+        )
+        image.save(watermark_path)
+
+        args = [
+            "ffmpeg", "-y",
+            "-i", video_path,
+            "-i", watermark_path,
+            "-filter_complex",
+            "overlay=W-w-30:H-h-30:format=auto",
+            "-map", "0:v:0",
+            "-map", "0:a?",
+            "-map_metadata", "0",
+            "-c:v", "libx264",
+            "-preset", "medium",
+            "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-movflags", "+faststart",
+            output_path,
+        ]
+
+        returncode, stderr = await run_ffmpeg_command(args)
+
+        if returncode != 0 or not os.path.isfile(output_path):
+            raise RuntimeError(
+                f"AI disclosure watermark rendering failed: {stderr[-2000:]}"
+            )
+
+        os.replace(output_path, video_path)
+        logger.info("AI disclosure watermark applied to generated video.")
+
+    except Exception:
+        if os.path.isfile(video_path):
+            os.remove(video_path)
+        raise
+
+    finally:
+        for temporary_path in (watermark_path, output_path):
+            if os.path.isfile(temporary_path):
+                os.remove(temporary_path)

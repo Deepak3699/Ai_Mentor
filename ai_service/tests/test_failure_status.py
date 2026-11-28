@@ -218,6 +218,11 @@ def test_successful_generation_reaches_ready_status(
         return 0, ""
 
     monkeypatch.setattr(api, "run_ffmpeg_command", fake_ffmpeg)
+
+    async def fake_disclosure(_video_path):
+        return None
+
+    monkeypatch.setattr(api, "apply_ai_disclosure_watermark", fake_disclosure)
     monkeypatch.setattr(api, "write_subtitles", lambda *_args: (None, None))
     monkeypatch.setattr(api, "probe_video_metadata", lambda *_args: {})
 
@@ -236,6 +241,8 @@ def test_successful_generation_reaches_ready_status(
 
     status = api.job_status[job_id]
     assert status["status"] == "ready"
+    assert status["ai_disclosure"] is True
+    assert status["ai_disclosure_label"] == "AI-GENERATED CONTENT"
     assert status["local_video_url"] == f"/video-stream/{job_id}.mp4"
     assert status["meta"]["timestamps"]["completed_at"]
 
@@ -245,3 +252,66 @@ def test_successful_generation_reaches_ready_status(
     assert response.status_code == 200
     assert response.json()["status"] == "ready"
     assert response.json()["local_video_url"] == f"/video-stream/{job_id}.mp4"
+
+
+def test_disclosure_failure_prevents_video_delivery(tmp_path, monkeypatch):
+    job_id = "disclosure-failure"
+    monkeypatch.setattr(lesson_pipeline, "BASE_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        api,
+        "generate_lesson_script",
+        lambda _data: ("A test lesson.", "gemini", "test-model"),
+    )
+
+    async def fake_tts(_text, output_file, **_kwargs):
+        Path(output_file).write_bytes(b"test audio")
+
+    monkeypatch.setattr(api, "generate_tts", fake_tts)
+    monkeypatch.setattr(
+        api,
+        "create_avatar_video",
+        AsyncMock(side_effect=RuntimeError("Avatar unavailable")),
+    )
+
+    source_video = tmp_path / "source.mp4"
+    source_video.write_bytes(b"test source")
+    monkeypatch.setattr(
+        api, "get_celebrity_video", lambda _celebrity: str(source_video)
+    )
+
+    async def fake_ffmpeg(command):
+        Path(command[-1]).write_bytes(b"rendered video")
+        return 0, ""
+
+    monkeypatch.setattr(api, "run_ffmpeg_command", fake_ffmpeg)
+
+    async def fail_disclosure(_video_path):
+        raise RuntimeError("Watermark rendering failed")
+
+    monkeypatch.setattr(
+        api, "apply_ai_disclosure_watermark", fail_disclosure
+    )
+
+    upload_called = False
+
+    def fake_upload(*_args, **_kwargs):
+        nonlocal upload_called
+        upload_called = True
+        raise AssertionError("Undisclosed video must not be uploaded")
+
+    monkeypatch.setattr(api.cloudinary.uploader, "upload", fake_upload)
+
+    request = api.LessonRequest(
+        course="Python",
+        topic="Testing",
+        celebrity="modi",
+    )
+
+    asyncio.run(api.process_lesson(request, job_id))
+
+    status = api.job_status[job_id]
+    assert status["status"] == "failed"
+    assert status["failure_code"] == "ai_disclosure_failed"
+    assert status["error"] == "AI disclosure watermark failed."
+    assert "ai_disclosure" not in status
+    assert upload_called is False

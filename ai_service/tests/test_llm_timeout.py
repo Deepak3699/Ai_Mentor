@@ -3,7 +3,6 @@ import http.server
 import json
 import threading
 import time
-import httpx2
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -121,6 +120,7 @@ async def test_process_lesson_gemini_call_site_explicit_timeout():
 
     with patch.object(api.gemini_client.models, "generate_content", return_value=mock_resp) as mock_gen, \
          patch("api.generate_tts", new_callable=AsyncMock), \
+        patch("api.apply_ai_disclosure_watermark", new_callable=AsyncMock), \
          patch("api.create_avatar_video", side_effect=RuntimeError("Skip avatar")), \
          patch("api.get_celebrity_video", return_value="dummy.mp4"), \
          patch("api.os.path.exists", return_value=True), \
@@ -155,6 +155,7 @@ async def test_process_lesson_groq_call_site_explicit_timeout():
     with patch.object(api.gemini_client.models, "generate_content", side_effect=TimeoutError("Gemini timed out")), \
          patch.object(api.groq_client.chat.completions, "create", return_value=mock_groq_resp) as mock_groq, \
          patch("api.generate_tts", new_callable=AsyncMock), \
+        patch("api.apply_ai_disclosure_watermark", new_callable=AsyncMock), \
          patch("api.create_avatar_video", side_effect=RuntimeError("Skip avatar")), \
          patch("api.get_celebrity_video", return_value="dummy.mp4"), \
          patch("api.os.path.exists", return_value=True), \
@@ -230,6 +231,7 @@ async def test_process_lesson_gemini_timeout_triggers_groq_fallback():
     with patch.object(api.gemini_client.models, "generate_content", side_effect=TimeoutError("Gemini timed out")), \
          patch.object(api.groq_client.chat.completions, "create", return_value=mock_groq_resp) as mock_groq, \
          patch("api.generate_tts", new_callable=AsyncMock), \
+        patch("api.apply_ai_disclosure_watermark", new_callable=AsyncMock), \
          patch("api.create_avatar_video", side_effect=RuntimeError("Skip avatar")), \
          patch("api.get_celebrity_video", return_value="dummy.mp4"), \
          patch("api.os.path.exists", return_value=True), \

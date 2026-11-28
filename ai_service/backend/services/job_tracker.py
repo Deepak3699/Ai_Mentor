@@ -129,6 +129,7 @@ def mark_job_failed(
         "source_video_missing": "Video rendering failed.",
         "ffmpeg_failed": "Video rendering failed.",
         "output_missing": "Video rendering failed.",
+        "ai_disclosure_failed": "AI disclosure watermark failed.",
         "provider_failed": "AI provider generation failed.",
         "generation_failed": "Lesson generation failed.",
     }

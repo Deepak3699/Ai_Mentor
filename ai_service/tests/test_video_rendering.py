@@ -78,3 +78,64 @@ async def test_run_ffmpeg_command_tolerates_missing_stderr(monkeypatch):
 
     assert returncode == 1
     assert error_message == ""
+
+
+@pytest.mark.asyncio
+async def test_ai_disclosure_watermark_renders_and_replaces_original(
+    tmp_path, monkeypatch
+):
+    from pathlib import Path
+    from PIL import Image
+    from backend.services import media_processor
+
+    video_path = tmp_path / "lesson.mp4"
+    video_path.write_bytes(b"original-video")
+
+    async def fake_ffmpeg(args):
+        watermark_path = Path(f"{video_path}.disclosure.png")
+        output_path = Path(args[-1])
+
+        assert watermark_path.is_file()
+        with Image.open(watermark_path) as watermark:
+            assert watermark.size == (500, 70)
+            assert watermark.getbbox() is not None
+
+        assert "-filter_complex" in args
+        assert "overlay=W-w-30:H-h-30:format=auto" in args
+        assert "-map" in args
+        assert "0:a?" in args
+
+        output_path.write_bytes(b"watermarked-video")
+        return 0, ""
+
+    monkeypatch.setattr(media_processor, "run_ffmpeg_command", fake_ffmpeg)
+
+    await api.apply_ai_disclosure_watermark(str(video_path))
+
+    assert video_path.read_bytes() == b"watermarked-video"
+    assert not Path(f"{video_path}.disclosure.png").exists()
+    assert not Path(f"{video_path}.disclosed.mp4").exists()
+
+
+@pytest.mark.asyncio
+async def test_ai_disclosure_watermark_failure_removes_undisclosed_video(
+    tmp_path, monkeypatch
+):
+    from pathlib import Path
+    from backend.services import media_processor
+
+    video_path = tmp_path / "lesson.mp4"
+    video_path.write_bytes(b"original-video")
+
+    async def failed_ffmpeg(args):
+        Path(args[-1]).write_bytes(b"partial-output")
+        return 1, "simulated watermark rendering failure"
+
+    monkeypatch.setattr(media_processor, "run_ffmpeg_command", failed_ffmpeg)
+
+    with pytest.raises(RuntimeError, match="AI disclosure watermark rendering failed"):
+        await api.apply_ai_disclosure_watermark(str(video_path))
+
+    assert not video_path.exists()
+    assert not Path(f"{video_path}.disclosure.png").exists()
+    assert not Path(f"{video_path}.disclosed.mp4").exists()
