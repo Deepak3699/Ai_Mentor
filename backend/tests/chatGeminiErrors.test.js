@@ -99,14 +99,14 @@ test("chat returns the AI service reply and validated route on success", async (
 });
 
 const failures = [
-  ["429", 429, "rate_limited", /too many requests/i],
-  ["500", 500, "unavailable", /temporarily unavailable/i],
-  ["503", 503, "unavailable", /temporarily unavailable/i],
-  ["401", 401, "generic", /currently unavailable/i],
+  ["429", 429, "rate_limited"],
+  ["500", 500, "unavailable"],
+  ["503", 503, "unavailable"],
+  ["401", 401, "generic"],
 ];
 
-for (const [label, status, category, wording] of failures) {
-  test(`chat returns a safe fallback on AI service ${label}`, async () => {
+for (const [label, status, category] of failures) {
+  test(`chat returns a translatable error category on AI service ${label}`, async () => {
     stubAIService(status, {
       detail: SECRET,
     });
@@ -116,12 +116,12 @@ for (const [label, status, category, wording] of failures) {
     assert.equal(statusCode, 200);
     assert.equal(body.error, category);
     assert.equal(body.route, null);
-    assert.match(body.reply, wording);
+    assert.equal(body.reply, undefined);
     assert.ok(!JSON.stringify(body).includes(SECRET));
   });
 }
 
-test("chat returns a safe fallback on AI service network failure", async () => {
+test("chat returns a translatable error category on AI service network failure", async () => {
   globalThis.fetch = async () => {
     throw new TypeError("fetch failed");
   };
@@ -130,7 +130,7 @@ test("chat returns a safe fallback on AI service network failure", async () => {
 
   assert.equal(statusCode, 200);
   assert.equal(body.error, "network");
-  assert.match(body.reply, /temporarily unavailable/i);
+  assert.equal(body.reply, undefined);
 });
 
 test("chat handles malformed AI service responses safely", async () => {
@@ -145,5 +145,6 @@ test("chat handles malformed AI service responses safely", async () => {
   assert.equal(statusCode, 200);
   assert.equal(body.error, "malformed_response");
   assert.equal(body.route, null);
+  assert.equal(body.reply, undefined);
   assert.ok(!JSON.stringify(body).includes(SECRET));
 });

@@ -499,5 +499,33 @@
     "continue_learning": "Continue Learning",
     "download": "Download Certificate",
     "generating": "Generating..."
+  },
+  "assistant": {
+    "errors": {
+      "config": "The AI assistant is offline. Please try again later.",
+      "rate_limited": "Too many requests. Please wait a moment and try again.",
+      "unavailable": "The AI service is temporarily unavailable. Please try again shortly.",
+      "timeout": "The AI service took too long to respond. Please try again shortly.",
+      "generic": "The AI assistant is unavailable. Please try again later.",
+      "malformed_response": "The AI assistant could not generate a response. Please try again.",
+      "moderated": "I can help you explore this topic in a safe, educational way. Please try rephrasing your question.",
+      "network": "The AI service is temporarily unavailable. Please try again shortly."
+    },
+    "responses": {
+      "unknown": "Unknown",
+      "student": "Student",
+      "open_route": "You can open {{route}}.",
+      "no_courses": "You are not enrolled in any courses.",
+      "course_list": "Hi {{name}}, you are currently enrolled in:\n\n{{courses}}",
+      "no_preferences": "No learning preferences found.",
+      "preferences": "Learning Goal: {{goal}}\nExperience Level: {{experience}}\nExplanation Type: {{explanation}}\nLearning Style: {{style}}\nTeaching Pace: {{pace}}\nExample Type: {{examples}}\nFocus Area: {{focus}}",
+      "no_active_lesson": "I couldn't find an active lesson.",
+      "current_lesson": "You were last studying {{lesson}} in {{course}}.",
+      "settings": "Theme: {{theme}}\nLanguage: {{language}}",
+      "progress": "Hi {{name}},\nYou are enrolled in {{courseCount}} course(s).\nTotal completed lessons: {{completedCount}}\n{{courseProgress}}",
+      "take_you_there": "I can take you there.",
+      "empty_response": "I couldn't generate a response. Please try asking in a different way.",
+      "course_progress_line": "{{course}}: {{completedCount}} completed lessons"
+    }
   }
 }

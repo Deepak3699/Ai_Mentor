@@ -6,7 +6,8 @@ import jwt from "jsonwebtoken";
 // Configure test environment variables before module imports
 process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = "test-secret-chat-validation";
-process.env.GEMINI_API_KEY = "test-gemini-key";
+process.env.AI_SERVICE_URL = "http://127.0.0.1:8000";
+process.env.AI_SERVICE_KEY = "test-service-key";
 
 const { default: User } = await import("../models/User.js");
 const { default: Preference } = await import("../models/Preference.js");
@@ -34,10 +35,11 @@ before(async () => {
   Preference.findOne = async () => null;
 
   globalThis.fetch = async (url, init) => {
-    if (String(url).includes("generativelanguage.googleapis.com")) {
+    if (String(url) === "http://127.0.0.1:8000/assistant/chat") {
       return new Response(
         JSON.stringify({
-          candidates: [{ content: { role: "model", parts: [{ text: "Hello! How can I help?" }] } }],
+          reply: "Hello! How can I help?",
+          route: null,
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
@@ -135,7 +137,10 @@ test("1001-character message returns 400 VALIDATION_ERROR and 1000-character mes
     await aiChatLimiter.resetKey("user:1");
     const resMaxAllowed = await post(path, { message: maxAllowed }, 1);
     assert.equal(resMaxAllowed.status, 200, `${path} should accept 1000 characters`);
-    assert.ok(resMaxAllowed.body.reply);
+    assert.deepEqual(resMaxAllowed.body, {
+      reply: "Hello! How can I help?",
+      route: null,
+    });
   }
 });
 

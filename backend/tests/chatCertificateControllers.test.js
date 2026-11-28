@@ -118,7 +118,11 @@ test("chat navigation intent returns a route without external AI", async () => {
   User.findByPk = async () => ({ id: "u", name: "Learner", purchasedCourses: [] });
   const { state, res } = response();
   await chatWithAssistant({ user: { id: "u" }, body: { message: "Open settings" } }, res);
-  assert.deepEqual(state.body, { reply: "You can open /settings", route: "/settings" });
+  assert.deepEqual(state.body, {
+    replyKey: "assistant.responses.open_route",
+    replyParams: { route: "/settings" },
+    route: "/settings",
+  });
 });
 
 test("chat course and progress responses use only the authenticated user's courses", async () => {
@@ -135,14 +139,21 @@ test("chat course and progress responses use only the authenticated user's cours
     { user: { id: "u" }, body: { message: "What courses am I enrolled in?" } },
     outcome.res,
   );
-  assert.match(outcome.state.body.reply, /1\. Node/);
-  assert.match(outcome.state.body.reply, /2\. React/);
+  assert.equal(outcome.state.body.replyKey, "assistant.responses.course_list");
+  assert.equal(outcome.state.body.replyParams.name, "Neeraj");
+  assert.match(outcome.state.body.replyParams.courses, /1\. Node/);
+  assert.match(outcome.state.body.replyParams.courses, /2\. React/);
   outcome = response();
   await chatWithAssistant(
     { user: { id: "u" }, body: { message: "Show my course progress" } },
     outcome.res,
   );
-  assert.match(outcome.state.body.reply, /Total completed lessons: 3/);
+  assert.equal(outcome.state.body.replyKey, "assistant.responses.progress");
+  assert.equal(outcome.state.body.replyParams.completedCount, 3);
+  assert.deepEqual(outcome.state.body.replyParams.courseProgress, [
+    { course: "Node", completedCount: 2 },
+    { course: "React", completedCount: 1 },
+  ]);
 });
 
 test("chat exposes preferences, settings, and current lesson deterministically", async () => {
@@ -163,20 +174,23 @@ test("chat exposes preferences, settings, and current lesson deterministically",
     { user: { id: "u" }, body: { message: "Show my learning style" } },
     outcome.res,
   );
-  assert.match(outcome.state.body.reply, /Learning Goal: Backend/);
+  assert.equal(outcome.state.body.replyKey, "assistant.responses.preferences");
+  assert.equal(outcome.state.body.replyParams.goal, "Backend");
   outcome = response();
   await chatWithAssistant(
     { user: { id: "u" }, body: { message: "What is my current lesson?" } },
     outcome.res,
   );
-  assert.match(outcome.state.body.reply, /lesson 4 in Node/);
+  assert.equal(outcome.state.body.replyKey, "assistant.responses.current_lesson");
+  assert.equal(outcome.state.body.replyParams.lesson, 4);
+  assert.equal(outcome.state.body.replyParams.course, "Node");
   outcome = response();
   await chatWithAssistant(
     { user: { id: "u" }, body: { message: "Show my settings" } },
     outcome.res,
   );
-  assert.match(outcome.state.body.reply, /Theme: dark/);
-  assert.match(outcome.state.body.reply, /Language: hi/);
+  assert.equal(outcome.state.body.replyKey, "assistant.responses.settings");
+  assert.deepEqual(outcome.state.body.replyParams, { theme: "dark", language: "hi" });
 });
 
 test("certificate list calculates completed and in-progress course statistics", async () => {
@@ -271,10 +285,10 @@ test("completed course generation returns a downloadable PDF", async () => {
   assert.equal(state.sent.subarray(0, 5).toString("ascii"), "%PDF-");
 });
 
-test("invalid AI service route is dropped while visible reply remains", async () => {
+test("invalid AI service route is dropped and empty replies use a localization key", async () => {
   const source = await import("node:fs/promises").then(({ readFile }) =>
     readFile(new URL("../controllers/chatController.js", import.meta.url), "utf8"),
   );
   assert.match(source, /Object\.values\(APP_ROUTES\)\.includes\(result\.route\)/);
-  assert.match(source, /I couldn't generate a response/);
+  assert.match(source, /assistant\.responses\.empty_response/);
 });

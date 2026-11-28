@@ -494,5 +494,33 @@
     "continue_learning": "Continuar Aprendendo",
     "download": "Baixar Certificado",
     "generating": "Gerando..."
+  },
+  "assistant": {
+    "errors": {
+      "config": "O assistente de IA está indisponível. Tente novamente mais tarde.",
+      "rate_limited": "Há muitas solicitações agora. Aguarde um momento e tente novamente.",
+      "unavailable": "O serviço de IA está temporariamente indisponível. Tente novamente em breve.",
+      "timeout": "O serviço de IA demorou muito para responder. Tente novamente.",
+      "generic": "O assistente de IA está indisponível. Tente novamente mais tarde.",
+      "malformed_response": "O assistente de IA não conseguiu gerar uma resposta. Tente novamente.",
+      "moderated": "Posso ajudar você a explorar este tema de forma segura e educativa. Reformule sua pergunta.",
+      "network": "O serviço de IA está temporariamente indisponível. Tente novamente em breve."
+    },
+    "responses": {
+      "unknown": "Desconhecido",
+      "student": "Estudante",
+      "open_route": "Você pode abrir {{route}}.",
+      "no_courses": "Você não está matriculado em nenhum curso.",
+      "course_list": "Olá {{name}}, você está matriculado nestes cursos:\n\n{{courses}}",
+      "no_preferences": "Nenhuma preferência de aprendizagem encontrada.",
+      "preferences": "Objetivo de aprendizagem: {{goal}}\nNível de experiência: {{experience}}\nTipo de explicação: {{explanation}}\nEstilo de aprendizagem: {{style}}\nRitmo de ensino: {{pace}}\nTipo de exemplo: {{examples}}\nÁrea de foco: {{focus}}",
+      "no_active_lesson": "Não encontrei uma aula ativa.",
+      "current_lesson": "Você estava estudando {{lesson}} em {{course}}.",
+      "settings": "Tema: {{theme}}\nIdioma: {{language}}",
+      "progress": "Olá {{name}},\nVocê está matriculado em {{courseCount}} curso(s).\nTotal de aulas concluídas: {{completedCount}}\n{{courseProgress}}",
+      "take_you_there": "Posso levar você até lá.",
+      "empty_response": "Não consegui gerar uma resposta. Tente fazer outra pergunta.",
+      "course_progress_line": "{{course}}: {{completedCount}} aulas concluídas"
+    }
   }
 }

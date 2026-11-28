@@ -494,5 +494,33 @@
     "continue_learning": "Continuar Aprendiendo",
     "download": "Descargar Certificado",
     "generating": "Generando..."
+  },
+  "assistant": {
+    "errors": {
+      "config": "El asistente de IA no está disponible. Inténtalo más tarde.",
+      "rate_limited": "Hay demasiadas solicitudes. Espera un momento e inténtalo de nuevo.",
+      "unavailable": "El servicio de IA no está disponible temporalmente. Inténtalo más tarde.",
+      "timeout": "El servicio de IA tardó demasiado en responder. Inténtalo de nuevo.",
+      "generic": "El asistente de IA no está disponible. Inténtalo más tarde.",
+      "malformed_response": "El asistente de IA no pudo generar una respuesta. Inténtalo de nuevo.",
+      "moderated": "Puedo ayudarte a explorar este tema de forma segura y educativa. Reformula tu pregunta.",
+      "network": "El servicio de IA no está disponible temporalmente. Inténtalo más tarde."
+    },
+    "responses": {
+      "unknown": "Desconocido",
+      "student": "Estudiante",
+      "open_route": "Puedes abrir {{route}}.",
+      "no_courses": "No estás inscrito en ningún curso.",
+      "course_list": "Hola {{name}}, estás inscrito en:\n\n{{courses}}",
+      "no_preferences": "No se encontraron preferencias de aprendizaje.",
+      "preferences": "Objetivo de aprendizaje: {{goal}}\nNivel de experiencia: {{experience}}\nTipo de explicación: {{explanation}}\nEstilo de aprendizaje: {{style}}\nRitmo de enseñanza: {{pace}}\nTipo de ejemplo: {{examples}}\nÁrea de enfoque: {{focus}}",
+      "no_active_lesson": "No pude encontrar una lección activa.",
+      "current_lesson": "Estabas estudiando {{lesson}} en {{course}}.",
+      "settings": "Tema: {{theme}}\nIdioma: {{language}}",
+      "progress": "Hola {{name}},\nEstás inscrito en {{courseCount}} curso(s).\nLecciones completadas en total: {{completedCount}}\n{{courseProgress}}",
+      "take_you_there": "Puedo llevarte allí.",
+      "empty_response": "No pude generar una respuesta. Intenta hacer otra pregunta.",
+      "course_progress_line": "{{course}}: {{completedCount}} lecciones completadas"
+    }
   }
 }

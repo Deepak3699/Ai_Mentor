@@ -10,6 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import axios from "axios";
 import { OPEN_ASSISTANT_EVENT } from "../dashboard/QuickActions";
 import { buildChatHistory } from "../../service/chatHistory.js";
@@ -36,7 +37,34 @@ const constrainAnchor = (anchor) => ({
   y: clamp(anchor.y, EDGE_GAP + LAUNCHER_SIZE, window.innerHeight - EDGE_GAP),
 });
 
+const localizeControllerReply = (data, t) => {
+  const params = Object.fromEntries(
+    Object.entries(data.replyParams || {}).map(([key, value]) => [
+      key,
+      value === "__unknown__"
+        ? t("assistant.responses.unknown")
+        : value === "__student__"
+          ? t("assistant.responses.student")
+          : value,
+    ]),
+  );
+
+  if (Array.isArray(params.courseProgress)) {
+    params.courseProgress = params.courseProgress
+      .map(({ course, completedCount }) =>
+        t("assistant.responses.course_progress_line", { course, completedCount }),
+      )
+      .join("\n");
+  }
+
+  return t(data.replyKey, {
+    ...params,
+    defaultValue: t("assistant.errors.generic"),
+  });
+};
+
 const FloatingAssistant = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -132,9 +160,16 @@ const FloatingAssistant = () => {
         ...previous,
         {
           sender: "assistant",
-          text: typeof data.reply === "string" ? data.reply : JSON.stringify(data.reply),
+          text: data.error
+            ? t(`assistant.errors.${data.error}`, { defaultValue: t("assistant.errors.generic") })
+            : data.replyKey
+              ? localizeControllerReply(data, t)
+              : typeof data.reply === "string"
+                ? data.reply
+                : JSON.stringify(data.reply),
           route: data.route || null,
           lessonId: data.lessonId || null,
+          isError: Boolean(data.error),
         },
       ]);
     } catch (error) {
@@ -142,7 +177,11 @@ const FloatingAssistant = () => {
         ...previous,
         {
           sender: "assistant",
-          text: error?.response?.data?.message || "Sorry, something went wrong.",
+          text: error?.response?.data?.error
+            ? t(`assistant.errors.${error.response.data.error}`, {
+                defaultValue: t("assistant.errors.generic"),
+              })
+            : t("assistant.errors.generic"),
           isError: true,
         },
       ]);

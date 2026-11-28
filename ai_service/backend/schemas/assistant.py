@@ -15,6 +15,7 @@ class AssistantRequest(APIRequest):
 
 
 class AssistantResponse(APIRequest):
-    reply: str = Field(..., min_length=1)
+    # Error replies carry a stable category that the frontend translates.
+    reply: str | None = Field(None, min_length=1)
     route: str | None = None
     error: str | None = None

@@ -494,5 +494,33 @@
     "continue_learning": "Weiterlernen",
     "download": "Zertifikat herunterladen",
     "generating": "Wird generiert..."
+  },
+  "assistant": {
+    "errors": {
+      "config": "Der KI-Assistent ist derzeit nicht verfügbar. Bitte versuchen Sie es später erneut.",
+      "rate_limited": "Zu viele Anfragen. Bitte warten Sie kurz und versuchen Sie es erneut.",
+      "unavailable": "Der KI-Dienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
+      "timeout": "Der KI-Dienst hat zu lange für eine Antwort gebraucht. Bitte versuchen Sie es erneut.",
+      "generic": "Der KI-Assistent ist nicht verfügbar. Bitte versuchen Sie es später erneut.",
+      "malformed_response": "Der KI-Assistent konnte keine Antwort erstellen. Bitte versuchen Sie es erneut.",
+      "moderated": "Ich kann Ihnen helfen, dieses Thema sicher und lehrreich zu erkunden. Bitte formulieren Sie Ihre Frage anders.",
+      "network": "Der KI-Dienst ist vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut."
+    },
+    "responses": {
+      "unknown": "Unbekannt",
+      "student": "Lernende Person",
+      "open_route": "Sie können {{route}} öffnen.",
+      "no_courses": "Sie sind in keinem Kurs eingeschrieben.",
+      "course_list": "Hallo {{name}}, Sie sind in folgenden Kursen eingeschrieben:\n\n{{courses}}",
+      "no_preferences": "Keine Lernpräferenzen gefunden.",
+      "preferences": "Lernziel: {{goal}}\nErfahrungsstufe: {{experience}}\nErklärungsart: {{explanation}}\nLernstil: {{style}}\nLerntempo: {{pace}}\nBeispielart: {{examples}}\nSchwerpunkt: {{focus}}",
+      "no_active_lesson": "Ich konnte keine aktive Lektion finden.",
+      "current_lesson": "Sie haben zuletzt {{lesson}} in {{course}} gelernt.",
+      "settings": "Design: {{theme}}\nSprache: {{language}}",
+      "progress": "Hallo {{name}},\nSie sind in {{courseCount}} Kurs(en) eingeschrieben.\nAbgeschlossene Lektionen insgesamt: {{completedCount}}\n{{courseProgress}}",
+      "take_you_there": "Ich kann Sie dorthin bringen.",
+      "empty_response": "Ich konnte keine Antwort erstellen. Bitte stellen Sie eine andere Frage.",
+      "course_progress_line": "{{course}}: {{completedCount}} Lektionen abgeschlossen"
+    }
   }
 }
