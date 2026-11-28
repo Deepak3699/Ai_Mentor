@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, useRef } from "react";
 import { MoreVertical, Trash2, ShieldAlert, UserX, UserCheck } from "lucide-react";
 import { callApi } from "../utils/api";
 import { useToast } from "../context/ToastContext";
+import AddAdminModal from "../components/AddAdminModal";
 
 function ActionMenu({ account, onAction, isSuperAdmin }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -190,12 +191,6 @@ function UsersPage() {
   const [activeFilter, setActiveFilter] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    password: "",
-  });
 
   const [deleteModal, setDeleteModal] = useState({
     open: false,
@@ -421,139 +416,38 @@ function UsersPage() {
       showToast("Failed to delete account: " + err.message, "error");
     }
   };
+  const handleClearSubmitError = useCallback(() => {
+    setSubmitError(null);
+  }, []);
 
-  const onFieldChange = (event) => {
-    const { name, value } = event.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const validateAdminForm = () => {
-    const { name, email, password } = formData;
-
-    if (!name || name.trim().length < 2) {
-      return "Name must be at least 2 characters.";
-    }
-
-    if (/\d/.test(name)) {
-      return "Name must not contain numbers.";
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!email || !emailRegex.test(email)) {
-      return "Please enter a valid email address.";
-    }
-
-    if (!password || password.length < 8) {
-      return "Password must be at least 8 characters.";
-    }
-
-    if (!/[A-Z]/.test(password)) {
-      return "Password must contain at least one uppercase letter.";
-    }
-
-    if (!/[0-9]/.test(password)) {
-      return "Password must contain at least one number.";
-    }
-
-    if (!/[^A-Za-z0-9]/.test(password)) {
-      return "Password must contain at least one special character.";
-    }
-
-    return null;
-  };
-
-  const getPasswordStrength = (password) => {
-    if (!password) {
-      return {
-        score: 0,
-        label: "",
-        color: "",
-      };
-    }
-
-    let score = 0;
-
-    if (password.length >= 8) score++;
-    if (/[A-Z]/.test(password)) score++;
-    if (/[0-9]/.test(password)) score++;
-    if (/[^A-Za-z0-9]/.test(password)) score++;
-    if (password.length >= 12) score++;
-
-    if (score <= 1) {
-      return {
-        score,
-        label: "Weak",
-        color: "bg-red-500",
-      };
-    }
-
-    if (score === 2) {
-      return {
-        score,
-        label: "Fair",
-        color: "bg-orange-500",
-      };
-    }
-
-    if (score === 3) {
-      return {
-        score,
-        label: "Good",
-        color: "bg-yellow-500",
-      };
-    }
-
-    return {
-      score,
-      label: "Strong",
-      color: "bg-teal-500",
-    };
-  };
-
-  const onCreateAdmin = async (event) => {
-    event.preventDefault();
+  const handleCreateAdmin = async (payload) => {
     setSubmitError(null);
 
     if (!isSuperAdmin) {
       setSubmitError("Only superadmin can add other admins.");
-      return;
-    }
-
-    const validationError = validateAdminForm();
-
-    if (validationError) {
-      setSubmitError(validationError);
-      return;
+      return false;
     }
 
     try {
       setIsSubmitting(true);
-
       await callApi("/admin/register", {
         method: "POST",
         body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
+          name: payload.name,
+          email: payload.email,
+          role: payload.role,
+          sendInvitation: payload.sendInvitation,
         }),
       });
 
-      setFormData({
-        name: "",
-        email: "",
-        password: "",
-      });
-
-      setIsAddAdminOpen(false);
-
+      showToast("Admin created successfully", "success");
       await fetchAccounts();
+      return true;
     } catch (err) {
-      setSubmitError(err.message || "Unable to create admin");
+      const message = err.message || "Unable to create admin";
+      setSubmitError(message);
+      showToast(message, "error");
+      return false;
     } finally {
       setIsSubmitting(false);
     }
@@ -846,145 +740,17 @@ function UsersPage() {
       </div>
 
       {/* Add Admin Modal */}
-      {isAddAdminOpen && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-card border border-border w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-6 border-b border-border flex items-center justify-between bg-linear-to-r from-teal-500/5 to-transparent">
-              <h3 className="text-xl font-bold text-main tracking-tight uppercase">Create Admin</h3>
-
-              <button
-                type="button"
-                onClick={() => setIsAddAdminOpen(false)}
-                className="w-10 h-10 rounded-xl border border-border flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
-              >
-                <XIcon />
-              </button>
-            </div>
-
-            <form className="p-8 space-y-6" onSubmit={onCreateAdmin}>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-1">
-                  Name
-                </label>
-
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={onFieldChange}
-                  required
-                  className="w-full h-12 px-5 rounded-2xl bg-canvas border border-border focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-hidden transition-all font-medium text-main"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-1">
-                  Email
-                </label>
-
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={onFieldChange}
-                  required
-                  className="w-full h-12 px-5 rounded-2xl bg-canvas border border-border focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-hidden transition-all font-medium text-main"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-muted ml-1">
-                  Password
-                </label>
-
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={onFieldChange}
-                  required
-                  minLength={8}
-                  className="w-full h-12 px-5 rounded-2xl bg-canvas border border-border focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-hidden transition-all font-bold text-main"
-                />
-
-                {formData.password &&
-                  (() => {
-                    const strength = getPasswordStrength(formData.password);
-
-                    return (
-                      <div className="space-y-1.5 pt-1">
-                        <div className="flex gap-1">
-                          {[1, 2, 3, 4].map((i) => (
-                            <div
-                              key={i}
-                              className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-                                strength.score >= i ? strength.color : "bg-border"
-                              }`}
-                            />
-                          ))}
-                        </div>
-
-                        <p
-                          className={`text-[10px] font-black uppercase tracking-widest ${
-                            strength.score <= 1
-                              ? "text-red-500"
-                              : strength.score === 2
-                                ? "text-orange-500"
-                                : strength.score === 3
-                                  ? "text-yellow-500"
-                                  : "text-teal-500"
-                          }`}
-                        >
-                          {strength.label} password
-                        </p>
-                      </div>
-                    );
-                  })()}
-
-                <p className="text-[10px] text-muted font-medium ml-1">
-                  Min 8 chars · Uppercase · Number · Special character
-                </p>
-              </div>
-
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-teal-500/5 border border-teal-500/10">
-                <ShieldAlert className="w-5 h-5 text-teal-500 shrink-0" />
-
-                <p className="text-[10px] text-muted font-bold leading-relaxed uppercase tracking-tight">
-                  This will create a regular admin account. Only Super Admins can manage other
-                  accounts.
-                </p>
-              </div>
-
-              {submitError && (
-                <p className="text-red-500 text-xs font-bold uppercase tracking-tight">
-                  {submitError}
-                </p>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAddAdminOpen(false);
-                    setSubmitError(null);
-                  }}
-                  className="flex-1 h-14 rounded-2xl border border-border font-bold uppercase tracking-widest text-[11px] hover:bg-canvas-alt transition-all"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-2 h-14 rounded-2xl bg-teal-500 text-white font-bold uppercase tracking-widest text-[11px] hover:bg-teal-600 shadow-xl shadow-teal-500/20 transition-all disabled:opacity-50"
-                >
-                  {isSubmitting ? "Creating..." : "Create Admin"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <AddAdminModal
+        isOpen={isAddAdminOpen}
+        onClose={() => {
+          setIsAddAdminOpen(false);
+          setSubmitError(null);
+        }}
+        onSubmit={handleCreateAdmin}
+        isSubmitting={isSubmitting}
+        submitError={submitError}
+        onClearError={handleClearSubmitError}
+      />
 
       {/* Delete Modal */}
       {deleteModal.open && (
